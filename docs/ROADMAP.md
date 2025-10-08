@@ -24,6 +24,7 @@ Add support for full model finetuning (modifying base model weights) in addition
 - **Implementation:** Leverage existing Kohya scripts (`sdxl_train.py`, `flux_train.py`, etc.)
 - **New Features:** Different parameter widgets, memory profile adjustments, larger output handling
 - **User Benefits:** Create custom base models instead of just adaptations
+- **UI/UX:** Create a new, dedicated `Finetuning_Trainer.ipynb` to provide a focused workflow for this advanced task, keeping the main LoRA notebook simple.
 - **Challenges:** Higher VRAM requirements, longer training times, larger output files
 
 ### 2. LoRA Training Profiles  
@@ -63,9 +64,22 @@ Custom CSS themes for notebook widgets instead of relying on inconsistent Jupyte
 - **Features:** Consistent styling across environments, theme selector widget, automatic detection
 - **Benefits:** Professional appearance, user choice, easier maintenance
 
+### 5. Modularize Utility Notebooks
+**Status:** Planned
+**Impact:** Medium - Improves usability and organization
+
+Break down the monolithic `Utilities_Notebook.ipynb` into smaller, single-purpose notebooks, each with a more focused and spacious UI.
+
+- **Proposed Split:**
+  - `Checkpoint_Merger.ipynb`: A dedicated tool for merging full model checkpoints.
+  - `Lora_Utilities.ipynb`: For LoRA-specific tasks like merging weights, extracting LoRAs, and resizing.
+  - `Model_Converter.ipynb`: For converting model formats (e.g., `.safetensors` to `.ckpt`).
+  - `File_Uploader.ipynb`: A standalone, large-interface notebook for general-purpose file uploads and management, moving it out of other notebooks.
+- **User Benefits:** Easier to find the specific tool needed; less overwhelming than a single large notebook with many functions.
+
 ## 🔍 Research & Improvement
 
-### 5. Kohya/LyCORIS Settings Audit
+### 6. Kohya/LyCORIS Settings Audit
 **Status:** Ongoing  
 **Impact:** Medium - Feature completeness and training quality
 
@@ -75,7 +89,7 @@ Comprehensive review of available settings to ensure feature parity with latest 
 - **LyCORIS:** Algorithm-specific parameters, new methods, better defaults
 - **Validation:** Improved parameter checking, better error messages, user guidance
 
-### 6. Optimizer & Memory Efficiency
+### 7. Optimizer & Memory Efficiency
 **Status:** Verification Needed  
 **Impact:** Medium - Training accessibility and reliability
 
@@ -87,7 +101,7 @@ Ensure 8-bit optimizers and memory optimizations work correctly across environme
 
 ## 🌐 Platform Compatibility
 
-### 7. ROCm Support (AMD GPU)
+### 8. ROCm Support (AMD GPU)
 **Status:** Planned  
 **Impact:** High - Expands user base significantly
 
@@ -97,7 +111,20 @@ Add support for AMD GPUs using ROCm instead of CUDA.
 - **Challenges:** Different APIs, optimizer compatibility, performance differences
 - **Benefits:** Open training to AMD GPU users currently unable to use the system
 
-### 8. Intel Arc Research
+### 9. Custom Docker Container
+**Status:** Seeking Community Contributor
+**Impact:** High - Massively improves stability and ease of use.
+
+Create and maintain a custom Docker container specifically for the Ktiseos-Nyx Trainer ecosystem.
+
+- **Goal:** To provide a single, pre-configured environment with all necessary dependencies, CUDA versions, and Python packages locked and tested.
+- **User Benefits:**
+  - Eliminates environment and dependency-related errors ("dependency hell").
+  - Guarantees a stable, reproducible training environment.
+  - Simplifies setup to a single `docker run` command.
+- **Community Call:** We are actively seeking a contributor with Docker expertise to help lead this effort.
+
+### 10. Intel Arc Research
 **Status:** Research Phase  
 **Impact:** Low - Experimental platform support
 
