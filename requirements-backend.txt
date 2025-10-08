@@ -36,7 +36,7 @@ sentencepiece==0.2.0
 uv  # Ultra-fast Python package installer (antisocial efficiency upgrade)
 
 # -- Image/UI/Data Handling --
-Pillow<10.0.0
+Pillow==10.2.0
 opencv-python==4.8.1.78
 imageio==2.34.1
 imageio-ffmpeg==0.5.1
@@ -69,7 +69,7 @@ onnx==1.16.1
 # Use Microsoft's CUDA 12 build instead of broken PyPI version
 # Based on working Colab configurations (Android XXL, Jelosus2, Holo)
 onnxruntime-gpu==1.17.1 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
-protobuf<4
+protobuf==4.25.8
 
 # -- Windows Specific (safe to include for all OS) --
 pyreadline
