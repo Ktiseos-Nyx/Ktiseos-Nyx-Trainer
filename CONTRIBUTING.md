@@ -1,130 +1,154 @@
-# Contributing to LoRA Easy Training 🚀
+# Contributing Guide
 
-**Welcome, brave soul!** Thanks for wanting to make LoRA training less painful for everyone. Whether you're here to fix bugs, add features, or just make things prettier, we're excited to have you aboard! 
+Thank you for your interest in contributing to LoRA Easy Training. This guide outlines our development process and contribution standards.
 
-## 🎯 Ways to Contribute
+## Ways to Contribute
 
-### 🐛 **Bug Reports** 
-Found something broken? Don't suffer in silence!
+### Bug Reports
+Help us identify and resolve issues in the project.
 
-- **Search existing issues first** (maybe someone beat you to it)
-- **Use our templates** or just tell us what went wrong
-- **Include your setup**: GPU, OS, Python version, what you were trying to train
-- **Steps to reproduce**: Help us break things the same way you did
-- **Screenshots/logs**: A picture (or error traceback) is worth a thousand "it doesn't work"
+**Submission Requirements:**
+- Search existing issues before creating new reports
+- Use provided issue templates when available
+- Include environment details: GPU model, OS, Python version, training target
+- Provide clear reproduction steps and expected vs actual behavior
+- Attach relevant logs, screenshots, or error traces
 
-### ✨ **Feature Requests**
-Got ideas? We love ideas!
+### Feature Requests
+Propose improvements and new functionality.
 
-- **Check if it exists** in issues/discussions first
-- **Explain the "why"**: What problem does this solve?
-- **Be specific**: "Better UI" vs "Add dark mode toggle in settings"
-- **Consider scope**: Small improvements > major rewrites
+**Submission Guidelines:**
+- Review existing issues and discussions for similar requests
+- Clearly articulate the problem your feature solves
+- Provide specific implementation details rather than vague descriptions
+- Consider feature scope and project compatibility
 
-### 🔧 **Code Contributions**
-Ready to get your hands dirty? Awesome!
+### Code Contributions
+Contribute directly to the codebase through pull requests.
 
-#### **What We Need Help With:**
-- 🎨 **Widget improvements**: Make the UI more intuitive
-- 🧮 **Calculator enhancements**: Better step estimation, learning rate suggestions
-- 📊 **Dataset tools**: Upload improvements, better tagging workflows
-- 🚀 **Training optimizations**: Memory usage, speed improvements
-- 📝 **Documentation**: Code comments, user guides, examples
-- 🐧 **Platform support**: Linux testing, AMD GPU compatibility
-- 🧪 **Advanced features**: New optimizers, schedulers, LoRA types
+**Priority Areas:**
+- **User Interface**: Widget improvements and user experience enhancements
+- **Calculation Tools**: Training parameter optimization and estimation
+- **Dataset Management**: Upload workflows and tagging improvements
+- **Performance**: Memory optimization and training speed improvements
+- **Documentation**: Code documentation, user guides, and examples
+- **Platform Support**: Cross-platform compatibility and GPU support
+- **Advanced Features**: Optimizer implementations, scheduler support, and LoRA variants
 
-#### **Getting Started:**
-1. **Fork the repo** and clone it locally
-2. **Create a branch**: `git checkout -b feature/amazing-improvement`
-3. **Set up your environment**: `python installer.py` 
-4. **Make your changes**: Follow our code style (it's pretty relaxed)
-5. **Test your stuff**: Make sure it doesn't break existing features
-6. **Commit with style**: Clear messages like "Add bulk dataset validation"
-7. **Push and PR**: We'll review faster than you can say "LoRA"
+## Development Process
 
-## 🎨 Code Style & Standards
+### Getting Started
+1. **Fork and Clone**: Create a personal fork and clone locally
+2. **Branch Creation**: Use descriptive branch names (e.g., `feature/dataset-validation`)
+3. **Environment Setup**: Run `python installer.py` for development environment
+4. **Development**: Implement changes following project conventions
+5. **Testing**: Verify functionality and compatibility
+6. **Documentation**: Update relevant documentation
+7. **Pull Request**: Submit for review with clear description
 
-### **Python Guidelines:**
-- **Follow PEP 8-ish**: We're not nazis about it, but readable code is happy code
-- **Type hints welcome**: `def train_lora(epochs: int) -> bool:`
-- **Docstrings for public functions**: Help future contributors (including future you)
-- **Error handling**: Fail gracefully with helpful messages
-- **No hardcoded paths**: Use `os.path.join()` and respect different platforms
+### Code Standards
 
-### **Widget Development:**
-- **Keep it simple**: Complex UIs confuse users (and maintainers)
-- **Consistent styling**: Match existing widgets' look and feel
-- **Clear labels**: "Network Dim" not "nd", "Learning Rate" not "lr"
-- **Status feedback**: Show users what's happening with progress indicators
-- **Error messages**: Helpful, not scary technical jargon
+**Python Development Guidelines:**
+- Follow PEP 8 coding standards with reasonable flexibility
+- Include type hints for function parameters and return values
+- Provide docstrings for public functions and classes
+- Implement proper error handling with informative messages
+- Use cross-platform file path operations (`os.path.join()`)
 
-### **Training Code:**
-- **Safety first**: Validate inputs before passing to training scripts
-- **Memory awareness**: Not everyone has a 4090
-- **Cross-platform**: Windows, Linux, macOS should all work
-- **Backwards compatibility**: Don't break existing configs without good reason
+**Widget Development Standards:**
+- Maintain consistency with existing user interface patterns
+- Use clear, descriptive labels and help text
+- Implement progress indicators for long-running operations
+- Provide user-friendly error messages
+- Follow accessibility best practices
 
-## 🧪 Testing
+**Training Integration Requirements:**
+- Validate all user inputs before processing
+- Consider memory constraints across different hardware configurations
+- Ensure cross-platform compatibility (Windows, Linux, macOS)
+- Maintain backwards compatibility with existing configurations
 
-### **Before You Submit:**
-- **Test the happy path**: Does your feature work as intended?
-- **Test edge cases**: What happens with 0 images? Invalid learning rates?
-- **Test on different setups**: Different GPUs, Python versions if possible
-- **Check existing functionality**: Did you break anything?
+## Testing Requirements
 
-### **Manual Testing Basics:**
-- Install fresh using `installer.py`
-- Try the widget workflows: setup → dataset → training
-- Test with small datasets (faster iteration)
-- Check error handling with invalid inputs
+### Pre-Submission Testing
+- **Functionality Verification**: Confirm intended behavior works correctly
+- **Edge Case Testing**: Validate handling of boundary conditions and invalid inputs
+- **Platform Testing**: Test across different operating systems when possible
+- **Regression Testing**: Ensure existing functionality remains unaffected
 
-## 🗣️ Communication
+### Testing Procedures
+- Fresh installation testing using `installer.py`
+- Complete workflow testing: setup → dataset preparation → training
+- Small dataset testing for rapid iteration
+- Error condition testing with invalid or missing inputs
 
-### **Issue Discussions:**
-- **Be respectful**: We're all here to learn and improve
-- **Stay on topic**: Keep discussions focused on the issue at hand
-- **Share context**: What's your use case? Training anime characters? Realistic portraits?
-- **Be patient**: We're volunteers with day jobs and lives
+## Communication Standards
 
-### **Pull Request Reviews:**
-- **Explain your changes**: What does this PR do and why?
-- **Link related issues**: `Fixes #123` or `Related to #456`
-- **Be open to feedback**: Code review makes everyone better
-- **Update documentation**: If you change behavior, update the docs
+### Issue Discussions
+- Maintain respectful and constructive communication
+- Stay focused on technical topics relevant to the issue
+- Provide context about use cases and requirements
+- Be patient with response times from volunteer maintainers
 
-## 🚫 What We DON'T Want
+### Pull Request Process
+- Provide clear explanations of changes and their purpose
+- Reference related issues using `Fixes #number` or `Related to #number`
+- Respond constructively to code review feedback
+- Update documentation to reflect behavioral changes
 
-- **Malicious code**: Obviously
-- **Copyright violations**: Don't copy-paste licensed code without permission
-- **Breaking changes without discussion**: Talk to us first for major changes
-- **Spam or self-promotion**: Keep it relevant to LoRA training
-- **Duplicate efforts**: Check existing PRs before starting work
+## Contribution Guidelines
 
-## 🎉 Recognition
+### Acceptable Contributions
+- Bug fixes and performance improvements
+- Feature implementations discussed in issues
+- Documentation improvements and examples
+- Test coverage enhancements
+- Platform compatibility improvements
 
-**Contributors get:**
-- Your name in the contributors list (if you want it)
-- Eternal gratitude from the community
-- The satisfaction of making LoRA training better for everyone
-- Bragging rights when your feature helps someone train their first successful LoRA
+### Unacceptable Contributions
+- Malicious or harmful code
+- Copyright violations or unauthorized code usage
+- Breaking changes without prior discussion and approval
+- Spam, self-promotion, or off-topic content
+- Duplicate work without coordination
 
-## 🤔 Questions?
+## Recognition
 
-**Not sure about something?**
-- **Open a discussion** for general questions
-- **Check existing issues** for similar problems
-- **Ask in PRs/issues** for specific technical questions
-- **Be specific** about what you need help with
+Contributors receive:
+- Attribution in project documentation and release notes
+- Community recognition for significant contributions
+- Maintainer consideration for sustained, high-quality contributions
 
-## 📜 Legal Stuff
+## Support and Questions
 
-By contributing, you agree that:
-- Your contributions will be licensed under the same MIT license
-- You have the right to submit your contributions
-- You're not submitting copyrighted code without permission
+### Getting Help
+- **General Questions**: Use GitHub Discussions for project-related inquiries
+- **Technical Issues**: Search existing issues before creating new ones
+- **Specific Problems**: Comment on relevant pull requests or issues
+- **Clarifications**: Request specific information about implementation details
+
+### Response Expectations
+- Acknowledge receipt of contributions within reasonable timeframes
+- Provide constructive feedback on code quality and project fit
+- Maintain transparent communication about acceptance criteria
+- Offer guidance for contribution improvements when needed
+
+## Legal and Licensing
+
+### Contribution Agreement
+By submitting contributions, you agree that:
+- Your contributions are licensed under the project's MIT license
+- You have legal rights to submit the contributed code
+- Your contributions do not violate third-party copyrights or licenses
+- You understand the open-source nature of the project
+
+### Intellectual Property
+- Ensure all contributed code is original or properly licensed
+- Document any third-party dependencies or libraries
+- Respect existing license terms and attribution requirements
 
 ---
 
-**"Either gonna work or blow up!"** - Thanks for helping make it work! 🎯
+**Project Philosophy**: We strive to balance accessibility for new users with powerful functionality for advanced practitioners. Contributions should support this goal while maintaining code quality and project stability.
 
-*P.S. If you're reading this far, you're definitely the kind of contributor we want. Welcome to the team! 🤝*
+**Contact**: For questions about contributing, please use GitHub Discussions or open an issue for project-specific topics.

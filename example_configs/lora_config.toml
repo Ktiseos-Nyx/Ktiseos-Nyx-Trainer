@@ -1,0 +1,29 @@
+[network_arguments]
+network_dim = 8
+network_alpha = 4
+network_module = "networks.lora"
+
+[optimizer_arguments]
+learning_rate = 6e-5
+text_encoder_lr = 6e-6
+lr_scheduler = "cosine"
+optimizer_type = "LoraEasyCustomOptimizer.came.CAME"
+
+[training_arguments]
+pretrained_model_name_or_path = "/workspace/Lora_Easy_Training_Jupyter/pretrained_model/Illustrious-XL-v0.1.safetensors"
+max_train_epochs = 10
+train_batch_size = 3
+save_every_n_epochs = 1
+mixed_precision = "bf16"
+output_dir = "/workspace/Lora_Easy_Training_Jupyter/output"
+output_name = "JeanGrey"
+clip_skip = 1
+save_model_as = "safetensors"
+seed = 42
+gradient_checkpointing = true
+cache_latents = true
+cache_latents_to_disk = true
+vae_batch_size = 1
+no_half_vae = false
+gradient_accumulation_steps = 1
+max_grad_norm = "1.0"

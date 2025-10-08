@@ -1,8 +1,13 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Ktiseos Nyx
+# Contributors: See README.md Credits section for full acknowledgements
+
+import logging
 import os
 import subprocess
 from pathlib import Path
-import logging
-from .managers import get_venv_python_path, get_subprocess_environment
+
+from .managers import get_subprocess_environment, get_venv_python_path
 
 logger = logging.getLogger(__name__)
 
@@ -17,54 +22,54 @@ def detect_model_type(model_path: str) -> str:
         str: 'sdxl' or 'sd15'
     """
     model_path = Path(model_path)
-    
+
     # First check filename patterns (most reliable)
     model_name = model_path.name.lower()
-    
+
     # SDXL indicators in filename
     sdxl_indicators = ['sdxl', 'xl', 'illustrious', 'pony', 'noobai']
     if any(indicator in model_name for indicator in sdxl_indicators):
         return 'sdxl'
-    
-    # SD 1.5 indicators in filename  
+
+    # SD 1.5 indicators in filename
     sd15_indicators = ['sd15', 'v1-5', 'anything', 'counterfeit', 'realistic']
     if any(indicator in model_name for indicator in sd15_indicators):
         return 'sd15'
-    
+
     # Fall back to file size estimation (rough heuristic)
     try:
         file_size_gb = model_path.stat().st_size / (1024**3)
-        
+
         # SDXL models are typically 6-7GB, SD 1.5 models are typically 2-4GB
-        if file_size_gb > 5.0:
+        if file_size_gb > 5.5:
             logger.info(f"  📏 Model size {file_size_gb:.1f}GB suggests SDXL")
             return 'sdxl'
         else:
             logger.info(f"  📏 Model size {file_size_gb:.1f}GB suggests SD 1.5")
             return 'sd15'
-    except:
+    except Exception as e:
         # If we can't determine file size, default to SD 1.5 (more common)
-        logger.warning("  ⚠️  Could not determine model type, defaulting to SD 1.5")
+        logger.warning(f"  ⚠️  Could not determine model type ({e}), defaulting to SD 1.5")
         return 'sd15'
 
-def generate_sd15_samples(lora_path: str, base_model_path: str, prompt: str, num_samples: int, 
+def generate_sd15_samples(lora_path: str, base_model_path: str, prompt: str, num_samples: int,
                          output_dir: str, epoch: int, **kwargs):
     """Generate samples for SD 1.5 models using gen_img_diffusers.py or gen_img.py"""
     project_root = Path(__file__).parents[1]
     sd_scripts_dir = project_root / "trainer" / "derrian_backend" / "sd_scripts"
-    
+
     # Try diffusers version first, fallback to original
     inference_script = sd_scripts_dir / "gen_img_diffusers.py"
     if not inference_script.exists():
         inference_script = sd_scripts_dir / "gen_img.py"
-    
+
     if not inference_script.exists():
-        logger.error(f"❌ SD 1.5 inference script not found!")
+        logger.error("❌ SD 1.5 inference script not found!")
         return False
-    
+
     logger.info(f"🎨 Using SD 1.5 inference: {inference_script.name}")
     # SD 1.5 specific inference logic here
-    return _run_inference_script(inference_script, lora_path, base_model_path, prompt, 
+    return _run_inference_script(inference_script, lora_path, base_model_path, prompt,
                                 num_samples, output_dir, epoch, resolution=512, **kwargs)
 
 def generate_sdxl_samples(lora_path: str, base_model_path: str, prompt: str, num_samples: int,
@@ -72,18 +77,18 @@ def generate_sdxl_samples(lora_path: str, base_model_path: str, prompt: str, num
     """Generate samples for SDXL models using sdxl_gen_img.py or sdxl_minimal_inference.py"""
     project_root = Path(__file__).parents[1]
     sd_scripts_dir = project_root / "trainer" / "derrian_backend" / "sd_scripts"
-    
+
     # Try sdxl_gen_img.py first, fallback to sdxl_minimal_inference.py
     inference_script = sd_scripts_dir / "sdxl_gen_img.py"
     if not inference_script.exists():
         inference_script = sd_scripts_dir / "sdxl_minimal_inference.py"
-    
+
     if not inference_script.exists():
-        logger.error(f"❌ SDXL inference script not found! Looked for:")
-        logger.error(f"   - sdxl_gen_img.py")
-        logger.error(f"   - sdxl_minimal_inference.py")
+        logger.error("❌ SDXL inference script not found! Looked for:")
+        logger.error("   - sdxl_gen_img.py")
+        logger.error("   - sdxl_minimal_inference.py")
         return False
-    
+
     logger.info(f"🎨 Using SDXL inference: {inference_script.name}")
     # SDXL specific inference logic here
     return _run_inference_script(inference_script, lora_path, base_model_path, prompt,
@@ -94,13 +99,13 @@ def generate_flux_samples(lora_path: str, base_model_path: str, prompt: str, num
     """Generate samples for Flux models using flux_minimal_inference.py"""
     project_root = Path(__file__).parents[1]
     sd_scripts_dir = project_root / "trainer" / "derrian_backend" / "sd_scripts"
-    
+
     inference_script = sd_scripts_dir / "flux_minimal_inference.py"
-    
+
     if not inference_script.exists():
         logger.error(f"❌ Flux inference script not found at: {inference_script}")
         return False
-    
+
     logger.info(f"🎨 Using Flux inference: {inference_script.name}")
     # Flux specific inference logic here
     return _run_inference_script(inference_script, lora_path, base_model_path, prompt,
@@ -111,13 +116,13 @@ def generate_sd3_samples(lora_path: str, base_model_path: str, prompt: str, num_
     """Generate samples for SD3 models using sd3_minimal_inference.py"""
     project_root = Path(__file__).parents[1]
     sd_scripts_dir = project_root / "trainer" / "derrian_backend" / "sd_scripts"
-    
+
     inference_script = sd_scripts_dir / "sd3_minimal_inference.py"
-    
+
     if not inference_script.exists():
         logger.error(f"❌ SD3 inference script not found at: {inference_script}")
         return False
-    
+
     logger.info(f"🎨 Using SD3 inference: {inference_script.name}")
     # SD3 specific inference logic here
     return _run_inference_script(inference_script, lora_path, base_model_path, prompt,
@@ -140,11 +145,11 @@ def generate_sample_images(
     Auto-detects model type and routes to appropriate inference function.
     """
     logger.info(f"✨ Generating {num_samples} sample images for epoch {epoch}...")
-    
+
     # Detect model type and route to appropriate function
     model_type = detect_model_type(base_model_path)
     logger.info(f"🔍 Detected model type: {model_type.upper()}")
-    
+
     kwargs = {
         'resolution': resolution,
         'seed': seed,
@@ -152,7 +157,7 @@ def generate_sample_images(
         'guidance_scale': guidance_scale,
         'num_inference_steps': num_inference_steps
     }
-    
+
     if model_type == 'sd15':
         return generate_sd15_samples(lora_path, base_model_path, prompt, num_samples, output_dir, epoch, **kwargs)
     elif model_type == 'sdxl':
@@ -165,16 +170,27 @@ def generate_sample_images(
         logger.error(f"❌ Unsupported model type: {model_type}")
         return False
 
-def _run_inference_script(inference_script, lora_path, base_model_path, prompt, num_samples, 
+def _run_inference_script(inference_script, lora_path, base_model_path, prompt, num_samples,
                          output_dir, epoch, **kwargs):
     """Common inference script execution logic"""
+    
+    # Extract parameters from kwargs
+    resolution = kwargs.get('resolution', 512)
+    seed = kwargs.get('seed', 42) 
+    negative_prompt = kwargs.get('negative_prompt', 'bad anatomy, bad hands')
+    guidance_scale = kwargs.get('guidance_scale', 7.5)
+    num_inference_steps = kwargs.get('num_inference_steps', 25)
+    
+    # Get project root and SD scripts directory
+    project_root = Path(__file__).parents[1]
+    sd_scripts_dir = project_root / "trainer" / "derrian_backend" / "sd_scripts"
 
     # Get proper venv python and environment (fixes CAME import issues!)
     venv_python = get_venv_python_path(str(project_root))
     if not os.path.exists(venv_python):
         logger.warning(f"⚠️ Virtual environment python not found at {venv_python}, using system python")
         venv_python = "python"
-    
+
     # Get standardized subprocess environment
     env = get_subprocess_environment(str(project_root))
 
@@ -215,9 +231,9 @@ def _run_inference_script(inference_script, lora_path, base_model_path, prompt, 
         try:
             # Run the subprocess with proper environment and working directory
             process = subprocess.run(
-                sample_cmd, 
-                capture_output=True, 
-                text=True, 
+                sample_cmd,
+                capture_output=True,
+                text=True,
                 check=True,
                 env=env,
                 cwd=str(sd_scripts_dir)  # Run from scripts directory for proper imports

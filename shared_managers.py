@@ -1,6 +1,24 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Ktiseos Nyx
+# Contributors: See README.md Credits section for full acknowledgements
+
 # shared_managers.py
 # This file provides shared manager instances for use across widgets
 # Uses lazy loading - only creates managers when actually needed
+
+# Suppress annoying startup warnings
+import warnings
+import logging
+import os
+
+# Suppress FutureWarnings from diffusers
+warnings.filterwarnings('ignore', category=FutureWarning, module='diffusers')
+warnings.filterwarnings('ignore', category=FutureWarning, module='transformers')
+
+# Reduce logging verbosity for startup
+logging.getLogger('diffusers').setLevel(logging.WARNING)
+logging.getLogger('transformers').setLevel(logging.WARNING)
+logging.getLogger('huggingface_hub').setLevel(logging.WARNING)
 
 # Global storage for manager instances (lazy loaded)
 _setup_manager = None
@@ -9,6 +27,7 @@ _dataset_manager = None
 _training_manager = None
 _utilities_manager = None
 _config_manager = None
+_inference_manager = None
 
 def get_setup_manager():
     """Get or create the setup manager"""
@@ -38,8 +57,8 @@ def get_training_manager():
     """Get or create the training manager (heavy imports - only load when needed!)"""
     global _training_manager
     if _training_manager is None:
-        from core.training_manager import HybridTrainingManager
-        _training_manager = HybridTrainingManager()
+        from core.refactored_training_manager import RefactoredTrainingManager
+        _training_manager = RefactoredTrainingManager()
     return _training_manager
 
 def get_utilities_manager():
@@ -58,6 +77,14 @@ def get_config_manager():
         _config_manager = ConfigManager()
     return _config_manager
 
+def get_inference_manager():
+    """Get or create the inference manager"""
+    global _inference_manager
+    if _inference_manager is None:
+        from core.refactored_inference_manager import RefactoredInferenceManager
+        _inference_manager = RefactoredInferenceManager()
+    return _inference_manager
+
 # File manager instance (lazy loaded)
 _file_manager = None
 
@@ -71,6 +98,16 @@ def get_file_manager():
 
 # Lazy widget imports - only import when actually needed!
 
+def show_recent_logs(lines=50):
+    """Show recent log entries for debugging"""
+    from core.logging_config import tail_log_file
+    tail_log_file(lines)
+
+def get_log_file_path():
+    """Get the current log file path for manual viewing"""
+    from core.logging_config import get_latest_log_file
+    return get_latest_log_file()
+
 def create_widgets():
     """
     Create all widgets with shared manager instances (lazy loaded)
@@ -82,7 +119,8 @@ def create_widgets():
         'training': create_widget('training'),
         'utilities': create_widget('utilities'),
         'calculator': create_widget('calculator'),
-        'file_manager': create_widget('file_manager')
+        'file_manager': create_widget('file_manager'),
+        'image_curation': create_widget('image_curation')
     }
 
 def create_widget(widget_name):
@@ -90,6 +128,11 @@ def create_widget(widget_name):
     if widget_name == 'setup':
         from widgets.setup_widget import SetupWidget
         return SetupWidget(get_setup_manager(), get_model_manager())
+    elif widget_name == 'setup_simple':
+        from widgets.setup_widget import SetupWidget
+        widget = SetupWidget(get_setup_manager(), get_model_manager())
+        widget.simplified_mode = True
+        return widget
     elif widget_name == 'dataset':
         from widgets.dataset_widget import DatasetWidget
         return DatasetWidget(get_dataset_manager())
@@ -105,6 +148,9 @@ def create_widget(widget_name):
     elif widget_name == 'file_manager':
         from widgets.file_manager_widget import create_file_manager_widget
         return create_file_manager_widget()  # Returns widget directly
+    elif widget_name == 'image_curation':
+        from widgets.image_curation_widget import ImageCurationWidget
+        return ImageCurationWidget(shared_managers=None)  # Self-contained widget
     else:
-        available = ['setup', 'dataset', 'training', 'utilities', 'calculator', 'file_manager']
+        available = ['setup', 'dataset', 'training', 'utilities', 'calculator', 'file_manager', 'image_curation']
         raise ValueError(f"Unknown widget: {widget_name}. Available: {available}")

@@ -1,32 +1,8 @@
 # LoRA Easy Training - Jupyter Widget Edition
-# Core dependencies required for the widget-based training system
+# Core dependencies required for the notebook UI to function.
+# All backend training dependencies are in requirements-backend.txt
 
-# Essential Jupyter ecosystem (always required)
-ipywidgets>=8.0.0             # Interactive widgets (absolutely required)
-ipython>=8.0.0                # Interactive Python shell
-
-# Core Python packages (used by our code)
-toml>=0.10.2                  # Configuration file parsing (required by training_manager.py)
-requests>=2.28.0              # HTTP requests (used by managers.py for downloads)
-tqdm>=4.64.0                  # Progress bars (used by custom tagger)
-Pillow<10.0.0                 # Image processing (compatible with gradio/blendmodes)
-
-# Data handling (used by dataset processing)
-numpy>=1.21.0                 # Array operations (required by custom tagger)
-
-# Optional packages (commonly available, but not always)
-# pandas>=1.5.0               # Data manipulation (currently unused, commented out)
-
-# Optional: Enhanced features (uncomment if needed)
-huggingface-hub>=0.10.0       # HuggingFace model uploads (required by utilities)
-
-# Tagger dependencies (for auto-captioning functionality)
-onnx>=1.14.0                  # ONNX model format support
-# onnxruntime-gpu>=1.15.0       # GPU-accelerated ONNX runtime (falls back to CPU) - Disabled due to protobuf conflict with open-clip-torch
-# tensorflow>=2.12.0,<2.16.0 # TensorFlow for tagger (commented - prefer ONNX)
-
-# Advanced optimizers (for training)
-pytorch_optimizer>=3.1.0     # Additional optimizers (CAME, Prodigy, etc.)
-
-# Note: Training dependencies (PyTorch, transformers, etc.) are installed
-# by the LoRA training backend during environment setup, not here
+ipywidgets>=8.0.0
+ipython>=8.0.0
+toml>=0.10.2
+imjoy-elfinder[jupyter]>=0.1.63

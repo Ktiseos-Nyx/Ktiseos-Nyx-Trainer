@@ -1,53 +1,56 @@
 # LoRA Easy Training Documentation
 
-Welcome to the comprehensive documentation for LoRA Easy Training! This collection of guides will help you master every aspect of training custom LoRAs.
+Welcome to the comprehensive documentation for LoRA Easy Training! This streamlined collection of guides will help you master every aspect of training custom LoRAs.
 
 ## 📚 Documentation Structure
 
-### 🎓 Tutorials (Start Here!)
-Perfect for beginners and those wanting step-by-step guidance:
+### 🚀 Getting Started
+Perfect entry point for beginners:
 
-- **[Getting Started](tutorials/getting_started.md)** - Your first LoRA from start to finish
-- Complete walkthrough of the three-notebook system
-- Practical examples and best practices
+- **[Quickstart Guide](quickstart.md)** - Your first LoRA from start to finish
+- **[Installation Guide](guides/installation.md)** - Comprehensive technical installation details
+- Complete walkthrough: Dataset_Preparation.ipynb → Unified_LoRA_Trainer.ipynb → Utilities_Notebook.ipynb
+- Pre-training checklist and practical examples
 
-### 📖 Guides
-Comprehensive guides for specific aspects of LoRA training:
+### 📊 Dataset Guides
+Creating and preparing training data:
 
-- **[Dataset Preparation](guides/dataset_preparation.md)** - Complete dataset preparation and curation workflow
-- **[Troubleshooting](guides/troubleshooting.md)** - Solutions to common problems
-- In-depth coverage of tools and techniques
+- **[Dataset Preparation](dataset-guides/dataset_preparation.md)** - Complete dataset preparation and curation workflow
+- **[Creating Characters](dataset-guides/creating-characters.md)** - Methods for original character datasets
 
-### 🔬 Advanced Topics
-Deep dives into complex concepts and cutting-edge techniques:
+### 🎯 Training Guides
+Training process and settings:
 
-- **[Training Concepts](advanced/training_concepts.md)** - Theory and philosophy behind great LoRAs
-- Advanced optimization strategies
-- Community wisdom from HoloStrawberry and JustTNP
+- **[Installation Guide](guides/installation.md)** - Comprehensive technical installation and system requirements
+- **[Parameters Guide](guides/parameters.md)** - Training parameters available in our system
+- **[Training Settings](training-guides/training-settings.md)** - Starting point suggestions for different scenarios
+- **[Testing LoRAs](guides/testing-loras.md)** - Setting up Automatic1111/Forge for testing your creations
+- **[Troubleshooting](guides/troubleshooting.md)** - Solutions to common problems and diagnostic commands
 
 ### 📋 Reference Materials
-Quick lookup for parameters, settings, and technical details:
+Quick lookup for current system:
 
-- **[Widget Reference](reference/widget_reference.md)** - Complete parameter documentation
-- Technical specifications and compatibility guides
+- **[Widgets Reference](reference/widgets.md)** - Documentation for all current notebook widgets
 
 ## 🚀 Quick Navigation
 
 ### New to LoRA Training?
-1. Start with **[Getting Started](tutorials/getting_started.md)**
-2. Follow the tutorial step-by-step
-3. Reference **[Troubleshooting](guides/troubleshooting.md)** if you hit issues
+1. Start with **[Quickstart Guide](quickstart.md)**
+2. Follow the step-by-step tutorial
+3. Use the **[Pre-training Checklist](quickstart.md#pre-training-checklist)** before training
+4. Reference **[Troubleshooting](guides/troubleshooting.md)** if you hit issues
 
 ### Ready to Level Up?
-1. Read **[Training Concepts](advanced/training_concepts.md)** for deeper understanding
-2. Master **[Dataset Preparation](guides/dataset_preparation.md)** techniques
-3. Experiment with advanced settings using **[Widget Reference](reference/widget_reference.md)**
+1. Master **[Dataset Preparation](dataset-guides/dataset_preparation.md)** techniques
+2. Explore **[Character Creation](dataset-guides/creating-characters.md)** methods
+3. Reference **[Training Settings](training-guides/training-settings.md)** for starting points
+4. Use **[Widgets Reference](reference/widgets.md)** for parameter details
 
 ### Need Help Right Now?
-- **Installation Issues**: Check [Getting Started - Installation](tutorials/getting_started.md#1-installation)
+- **Installation Issues**: Check [Installation Guide](guides/installation.md) or [Quickstart - Installation](quickstart.md#1-installation)
 - **Training Errors**: Jump to [Troubleshooting - Training Errors](guides/troubleshooting.md#training-errors)
 - **Dataset Problems**: See [Troubleshooting - Dataset Issues](guides/troubleshooting.md#dataset-issues)
-- **Parameter Questions**: Look up in [Widget Reference](reference/widget_reference.md)
+- **Parameter Questions**: Look up in [Widgets Reference](reference/widgets.md)
 
 ## 🎯 Learning Paths
 

@@ -1,100 +1,67 @@
+# ⚠️ This Project Has Moved ⚠️
+> This repository is an old fork and is no longer maintained. Active development has moved to a new, independent repository with an expanded feature set and a focus on a broader AI training ecosystem.
+>
+> ## **[Please visit the new repository here](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer)**
+>
+> *(This repository will be archived and made read-only.)*
+>
+> ---
+>
+> (Original README content below)
+
 # LoRA Easy Training - Jupyter Widget Edition 🚀
 
-**Train LoRAs with guided notebooks instead of confusing command lines**
-
-This is a user-friendly LoRA training system based on proven methods from popular Google Colab notebooks. Instead of typing scary commands, you get helpful widgets that walk you through each step. Works on your own computer or rented GPU servers.
+A LoRA training system built on Derrian Distro & Kohya SS with interactive Jupyter widget interfaces. Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 
 | Python Version | License | Discord | Twitch | Support |
 |---|---|---|---|---|
 | ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Server-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow%20on%20Twitch-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) |  <a href="https://ko-fi.com/duskfallcrew" target="_blank"><img src="https://img.shields.io/badge/Support%20us%20on-Ko--Fi-FF5E5B?style=for-the-badge&logo=kofi" alt="Support us on Ko-fi"></a> |
 
-## Table of Contents
+## 🌟 Overview & Key Features
 
-- [✨ What You Get](#-what-you-get)
-- [🚀 Quick Start](#-quick-start)
-- [📖 How to Use](#-how-to-use)
-- [🔧 Architecture](#-architecture)
-- [🐛 Troubleshooting](#-troubleshooting)
-- [🏆 Credits](#-credits)
-- [🔒 Security](#-security)
-- [📄 License](#-license)
-- [🤝 Contributing](#-contributing)
+**Key Features:**
+- Widget-based configuration interface
+- Async based Uploading so your images don't become dreams.
+- Integrated dataset preparation and tagging tools
+- Training parameter calculator and optimization
+- Multiple LoRA variants and optimizers
+- Cross-platform compatibility
+- Huggingface Uploads for datasets AND loras.
+- Coming eventually when my brain lets me: FULL MODEL TRAINING! It's supported with KohyaSS, but our widget interface is a bit primitive and I need to understand more before bringing that in.
 
-## ✨ What You Get
+### ⚠️ Note
 
-- **🎓 Beginner-friendly**: Helpful explanations and step-by-step guidance
-- **🧮 Training calculator**: Shows exactly how long training will take
-- **🛠️ Easy setup**: Works with VastAI, RunPod, and local computers
-- **📊 Dataset tools**: Auto-tag images, upload files, manage captions
-- **🚀 Multiple options**: SDXL, SD 1.5, various optimizers and LoRA types
+> **We are STILL in heavy development. New features in theory SHOULD WORK, but are hard to catch.**
+>
+> This branch includes experimental features that are available in the Kohya backend but may not be fully tested in our setup:
+> - 🔬 **FLUX training** - Available in Kohya, integration status unknown
+> - 🧬 **SD3/SD3.5 training** - Available in Kohya, integration status unknown
+> - 🌟 **Lumina2 training** - Available in Kohya, integration status unknown
+> - 🔧 **Latest bug fixes** and performance improvements
+> - ⚡ **Enhanced upload widgets** (fixed cache issues)
+> - ⚡ **Language Cleanup** Cleaned up a lot of marketing speak and started the roadmap to check inconsistencies on missing content.
+> **Note**: These experimental features exist in the underlying Kohya scripts but haven't been thoroughly tested with our widget system. Use at your own risk and expect possible issues. If they look like they're exposed in our widget setup, there is no saying if they current work due to our unified setup. We're working on fast trying to get functionality quickly. If you have any issues please report them to the issues area.
 
-All in simple notebooks - no command line required!
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Installation & Setup)
 
-### What You Need
+**What You Need**
 
-- **GPU**: NVIDIA (8GB+ VRAM) OR AMD GPU (16GB+ VRAM recommended for RDNA2/3)
-- **Python**: Version 3.10.6 (compatible with Kohya-ss training)
-- **Platform**: Windows or Linux based Operationg Systems.
-- **Device** Local GPU or Rented Cloud GPU spaces. (Not Google Colab)
+- **GPU**: Nvidia (For built-in CUDA support) or AMD Cards for ROCm. (Future Support for ARC and otherwise coming)
+- **Python**: Version 3.10+ required
+- **Platform**: Windows or Linux based Operating Systems.
+-
+More details on installation can be found here [Quick Start Guide](docs/quickstart.md) or in our [Installation Setup](docs/guides/installation.md).
 
-### 🖥️ Supported Platforms
-
-**✅ Recommended (Easy Setup):**
-
-- **VastAI**: PyTorch containers with Python 3.10 (NVIDIA + select AMD GPUs)
-- **RunPod**: CUDA development templates (NVIDIA GPUs)
-- **Local NVIDIA**: Anaconda/Miniconda with Python 3.10.6 + CUDA
-- **Local AMD (Linux)**: Anaconda/Miniconda with Python 3.10.6 + ROCm 6.2+
-
-**🧪 Experimental AMD Support:**
-
-- **Local AMD (Windows)**: ZLUDA or DirectML acceleration
-- **Cloud AMD**: Limited availability on popular GPU rental platforms.
-- ⚠️ **NO SUPPORT FOR LOCAL MACINTOSH ARM/M1-M4 MACHINES** Currently RESEARCHING how to do this on mac machines intel or otherwise.
-
-### 🐍 Python Setup
-
-**Check your Python version first:**
-
-```bash
-python --version
-# Need: Python 3.10.6 (other versions may break dependencies)
-```
-
-**If you don't have Python 3.10.6:**
-
-```bash
-# Create conda environment (recommended)
-conda create -n lora-training python=3.10.6 -y
-conda activate lora-training
-
-# Or install Python 3.10.6 directly from python.org
-```
-
-**Always activate your environment before installation:**
-
-```bash
-conda activate lora-training  # If using conda
-```
-
-### 📥 Installation
-
-**Prerequisites:** Git (for downloading) and Python 3.10.6
-
-**Quick Git Check:**
-
-```bash
-git --version  # If this fails, install Git first
-```
+You will need Git and Python 3.10+.
+If you don't have python, you can install Python 3.10+ from Python's [main website here](https://www.python.org/downloads/). Our set up prefers 3.10.6 at a minimum.
 
 **Install Git if needed:**
 - **Windows**: Download from [git-scm.com](https://git-scm.com/download/win)
 - **Mac**: `xcode-select --install` in Terminal
 - **Linux**: `sudo apt install git` (Ubuntu/Debian)
 
-**Download and Setup:**
+**Main Installation Steps:**
 
 ```bash
 # 1. Clone the repository
@@ -104,207 +71,62 @@ cd Lora_Easy_Training_Jupyter
 # 2. Run the installer (downloads ~10-15GB)
 python ./installer.py
 
+# For detailed installation output (recommended for troubleshooting):
+python ./installer.py --verbose
+# or: python ./installer.py -v
+
 # Alternative for Mac/Linux:
 chmod +x ./jupyter.sh && ./jupyter.sh
 ```
 
----
+## 📖 Usage Guide
 
-### 🚀 Start Training
+### How to Launch Jupyter
 
-1. **Open Jupyter** (if not already running):
+(If Jupyter is NOT running)
 
-   ```bash
-   jupyter notebook
-   # Or: jupyter lab
-   ```
-
-2. **Use the notebooks in order:**
-   - `Dataset_Maker_Widget.ipynb` - Prepare images and captions
-   - `Lora_Trainer_Widget.ipynb` - Configure and run training
-   - `LoRA_Calculator_Widget.ipynb` - Calculate optimal steps (optional)
-
-## 📖 How to Use
-
-### Step 1: Prepare Your Images
-
-Open `Dataset_Maker_Widget.ipynb` and run the cells in order:
-
-```python
-# Cell 1: Environment setup (if needed)
-from shared_managers import create_widget
-setup_widget = create_widget('setup')
-setup_widget.display()
-
-# Cell 2: Dataset preparation
-dataset_widget = create_widget('dataset')
-dataset_widget.display()
+```bash
+jupyter notebook
+# Or: jupyter lab
 ```
 
-Upload your images (ZIP files work great!) and the system will auto-tag them for you.
+### Notebook Workflow
 
----
+The system uses three specialized notebooks:
 
-### How to Get Model/VAE Links
+- **`Dataset_Maker_Widget.ipynb`** - Prepare images and captions for training
+- **`Unified_LoRA_Trainer.ipynb`** - Configure and execute LoRA training
+- **`Utilities_Notebooks.ipynb`** - Calculate parameters and resize trained models
 
-To use custom models or VAEs, you need to provide a direct download link. Here’s how to find them on popular platforms:
+For detailed workflow instructions, see our [Quick Start Guide](docs/quickstart.md) and [Notebook Workflow Guide](docs/guides/notebook-workflow.md).
 
-#### From Civitai
+## 🛠️ Troubleshooting & Support
 
-**Method 1: Using the Model Version ID**
+For more help and support please check [Troubleshooting](docs/guides/troubleshooting.md) this has more comprehensive information. If you're a developer, we're working on our testing notebook, there is one in the wings of the /tests folder, but it has older code and may not match what is current running.
 
-This is the easiest method if a model has multiple versions.
+### 📋 **Support Requirements**
+Before asking for help, please review our [Support Guidelines](docs/guides/troubleshooting.md#support-guidelines--boundaries). We're happy to assist, but effective troubleshooting requires your participation - this means running the basic diagnostic commands and providing complete error information. Cherry-picking troubleshooting steps won't lead to solutions!
 
-1.  Navigate to the model or VAE page.
-2.  Look at the URL in your browser's address bar. If it includes `?modelVersionId=XXXXXX`, you can copy the entire URL and paste it directly into the widget.
-3.  If you don't see this ID, try switching to a different version of the model and then back to your desired version. The ID should then appear in the URL.
+**Windows Users:** If you encounter Rust compilation errors during safetensors installation, this is not related to our notebook setup. It's a common Python packaging issue on Windows. Feel free to reach out on our [Discord](https://discord.gg/HhBSM9gBY) for assistance - we're happy to help guide you through the solution!
 
-![How to get a link from Civitai using the version ID](./assets/model_url_civitai_1.png)
+**Getting Help**:
+    - ✅ **Official Support**: [GitHub Issues](https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter/issues) or [Our Discord](https://discord.gg/HhBSM9gBY)
+    - ❌ **No Support**: Random discords, Reddit DMs, social media comments, etc.
+    - 📚 **Self-Help**: Check our comprehensive [docs/](https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter/tree/main/docs) folder first
+    - 🎯 **Submodule Issues**: Feel free to blame us on the original repos (kohya-ss, LyCORIS, etc.)!
 
-**Method 2: Copying the Download Link**
+## 🙏 Credits & Acknowledgements
 
-Use this method if the model has only one version or if a version has multiple files.
-
-1.  On the model or VAE page, scroll down to the "Files" section.
-2.  Right-click the **Download** button for the file you want.
-3.  Select "Copy Link Address" (or similar text) from the context menu.
-
-![How to get a link from Civitai by copying the download address](./assets/model_url_civitai_2.png)
-
-#### From Hugging Face
-
-**Method 1: Using the Repository URL**
-
-1.  Go to the main page of the model or VAE repository you want to use.
-2.  Copy the URL directly from your browser's address bar.
-
-![How to get a link from Hugging Face using the repository URL](./assets/model_url_hf_1.png)
-
-**Method 2: Copying the Direct File Link**
-
-1.  Navigate to the "Files and versions" tab of the repository.
-2.  Find the specific file you want to download.
-3.  Click the **"..."** menu to the right of the file size, then right-click the "Download" link and copy the link address.
-
-![How to get a link from Hugging Face by copying the direct file address](./assets/model_url_hf_2.png)
-
----
-
-### Step 2: Train Your LoRA
-
-Open `Lora_Trainer_Widget.ipynb` and run the cells to start training:
-
-```python
-# First, set up your environment
-from widgets.setup_widget import SetupWidget
-setup_widget = SetupWidget()
-setup_widget.display()
-
-# Then configure training
-from widgets.training_widget import TrainingWidget
-training_widget = TrainingWidget()
-training_widget.display()
-```
-
----
-
-## 🔧 Architecture
-
-### Core Components
-- **`core/managers.py`**: SetupManager, ModelManager for environment setup
-- **`core/dataset_manager.py`**: Dataset processing and image tagging
-- **`core/training_manager.py`**: Hybrid training manager with advanced features
-- **`core/utilities_manager.py`**: Post-training utilities and optimization
-
-### Widget Interface
-- **`widgets/setup_widget.py`**: Environment setup and model downloads
-- **`widgets/dataset_widget.py`**: Dataset preparation interface
-- **`widgets/training_widget.py`**: Training configuration with advanced mode
-- **`widgets/utilities_widget.py`**: Post-training tools
-
-## 🐛 Troubleshooting
-
-### AMD GPU Support
-
-**🔥 AMD GPU Training is now supported through multiple acceleration methods:**
-
-#### **ROCm (Linux Only) - Recommended**
-- **Requirements**: Linux, AMD RDNA2/3 GPU, ROCm 6.1+ drivers
-- **Installation**: Automatic via setup widget "Diagnose & Fix" button
-- **Performance**: Native AMD acceleration, best compatibility
-- **Setup Command**: `pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.0`
-
-#### **ZLUDA (Experimental) - Windows & Linux**
-- **Requirements**: AMD RDNA2+ GPU, ZLUDA runtime libraries
-- **Installation**: Manual - download from [ZLUDA GitHub](https://github.com/vosen/ZLUDA)
-- **Performance**: CUDA-to-AMD translation layer, experimental but promising
-- **Status**: Some limitations with matrix operations, actively developed
-
-#### **DirectML (Windows Fallback)**
-- **Requirements**: Windows, any DirectX 12 compatible AMD GPU
-- **Installation**: `pip install torch-directml`
-- **Performance**: Lower performance but broader compatibility
-- **Limitations**: Limited LoRA training support
-
-#### **AMD GPU Memory Requirements**
-- **RDNA2/3**: 16GB+ VRAM recommended (RX 6800 XT, RX 7900 XTX)
-- **Older Cards**: May work with reduced settings
-- **Memory Optimization**: Enable gradient checkpointing for large models
-
-#### **AMD Training Tips**
-- **Batch Size**: Start with 1, increase gradually
-- **Resolution**: 768x768 recommended vs 1024x1024 for NVIDIA
-- **Optimizer**: CAME optimizer saves significant VRAM
-- **Mixed Precision**: fp16 may have compatibility issues, try bf16
-
----
-
-### Known Issues & Compatibility
-
-⚠️ **Flux/SD3.5 Training (EXPERIMENTAL)**
-- The `Flux_SD3_Training/` folder contains **work-in-progress** Flux and SD3.5 LoRA training
-- May not function correctly - still under active development
-- Use at your own risk for testing purposes only
-
-⚠️ **Triton/ONNX Compatibility Warnings**
-- **Docker/VastAI users**: Triton compiler may fail with AdamW8bit optimizer
-- **Symptoms**: "TRITON NOT FOUND" or "triton not compatible" errors
-- **Solution**: System will auto-fallback to AdamW (uses more VRAM but stable)
-- **ONNX Runtime**: Dependency conflicts possible between `onnxruntime-gpu` and `open-clip-torch`
-
-⚠️ **AMD ZLUDA/ROCM**
-- **Support for non NVIDIA CARDS** Currently untested and in development.
-- **Symptoms** Untested on cards under 24gb of Video Ram.
-- **Solution** Will gather users who could test this.
-- **Support** WILL NOT WORK ON IMAC INTEL OR MAC METAL MACHINES.
-
-⚠️ **Advanced LoRA Methods (EXPERIMENTAL)**
-- **DoRA, GLoRA, BOFT (Butterfly)**: May not function correctly as of yet
-- **Status**: Currently under testing and validation
-- **Recommendation**: Use standard LoRA or LoCon for stable results
-- **More testing**: Additional compatibility testing is ongoing
-
----
-
-### Support
-- **GitHub Issues**: Report bugs and feature requests
-- **Documentation**: Check tooltips and explanations in widgets
-- **Community**: Share your LoRAs and experiences!
-
-## 🏆 Credits
-
-🙏 **Built on the Shoulders of Giants**
-
+- **Built on the Shoulders of Giants**
 This project builds upon and integrates the excellent work of:
-
 - **[Jelosus2's LoRA Easy Training Colab](https://github.com/Jelosus2/Lora_Easy_Training_Colab)** - Original Colab notebook that inspired this adaptation
-- **[Derrian-Distro's LoRA Easy Training Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** - Core training backend and scripts
-- **[HoloStrawberry's Training Methods](https://github.com/holostrawberry)** - Community wisdom and proven training techniques
+- **[Derrian-Distro's LoRA Easy Training Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** - Core training backend and scripts as well as the forked Lycoris Repository and CAME/REX optimization strategies.
+- **[HoloStrawberry's Training Methods](https://github.com/holostrawberry)** - Community wisdom and proven training techniques as well as foundational Google Colab notebooks.
 - **[Kohya-ss SD Scripts](https://github.com/kohya-ss/sd-scripts)** - Foundational training scripts and infrastructure
 - **[Linaqruf](https://github.com/Linaqruf)** - Pioneer in accessible LoRA training, creator of influential Colab notebooks and training methods that inspired much of this work
 - **AndroidXXL, Jelosus2** - Additional Colab notebook contributions that made LoRA training accessible
-- **[ArcEnCiel](https://arcenciel.io/)** - Ongoing support and testing
-- **[Civitai](https://civitai.com/)** - Platform for sharing LoRAs
+- **[ArcEnCiel](https://arcenciel.io/)** - Ongoing support and testing as well as Open Source AI Generative Models.
+- **[Civitai](https://civitai.com/)** - Platform for Open Source AI Content
 - **[LyCORIS Team](https://github.com/67372a/LyCORIS)** - Advanced LoRA methods (DoRA, LoKr, etc.)
 
 Special thanks to these creators for making LoRA training accessible to everyone!

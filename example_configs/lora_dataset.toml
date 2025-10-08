@@ -1,0 +1,19 @@
+[[datasets]]
+keep_tokens = 1
+[[datasets.subsets]]
+num_repeats = 3
+image_dir = "../../../datasets/3_JeanGrey"
+
+
+[general]
+resolution = 1024
+shuffle_caption = true
+flip_aug = false
+caption_extension = ".txt"
+enable_bucket = true
+bucket_no_upscale = false
+bucket_reso_steps = 64
+min_bucket_reso = 256
+max_bucket_reso = 2048
+caption_dropout_rate = 0.0
+caption_tag_dropout_rate = 0.0

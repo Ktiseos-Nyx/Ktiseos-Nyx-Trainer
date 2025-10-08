@@ -1,161 +1,155 @@
-# Security Policy 🛡️
+# Security Policy
 
-**TL;DR: Don't be evil, and if you find evil things, tell us privately.**
+This document outlines our security practices and procedures for the LoRA Easy Training Jupyter project.
 
-Look, we get it. Security policies are usually boring corporate-speak that nobody reads. But since you're here training AI models and potentially running code that downloads things from the internet, let's have a real talk about keeping your setup secure.
+## Security Scope
 
-## 🎯 What We Actually Care About
+### Critical Security Concerns
+- **Code execution vulnerabilities**: Arbitrary command execution prevention
+- **Malicious model downloads**: File validation and verification
+- **Data exfiltration**: Protection of training datasets and API credentials  
+- **Dependency integrity**: Package supply chain security
+- **File system access**: Proper permission boundaries and path validation
 
-### **Real Security Issues:**
-- **Code execution vulnerabilities**: Can someone run arbitrary commands on your machine?
-- **Malicious model downloads**: Are we properly validating downloaded files?
-- **Data exfiltration**: Could someone steal your training datasets or API keys?
-- **Dependency hijacking**: Are we pulling in sketchy packages?
-- **File system access**: Can the tool write/read files it shouldn't?
+### Out of Scope
+- Theoretical attacks requiring physical machine access
+- Vulnerabilities requiring manual code modification to exploit
+- Issues affecting users who intentionally bypass safety mechanisms
+- Local denial of service attacks against Jupyter server instances
 
-### **Things We Don't Lose Sleep Over:**
-- Theoretical academic attacks that require physical access to your GPU
-- "Vulnerabilities" that require you to manually edit code to be malicious
-- Issues that only affect people who intentionally bypass safety checks
-- DoS attacks against your local Jupyter server (just restart it)
+## Reporting Security Vulnerabilities
 
-## 🚨 Reporting Security Issues
+### Responsible Disclosure Process
+1. **Private Reporting**: Use [GitHub Security Advisories](https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter/security/advisories/new) for confidential reporting
+2. **Report Details**: Include vulnerability description, reproduction steps, and potential impact assessment
+3. **Response Timeline**: Initial response within 48 hours, resolution target within 7 days
+4. **Public Disclosure**: Coordinated disclosure after fix implementation and testing
 
-**Found something sketchy? Here's what to do:**
+### Submission Guidelines
+- Provide clear reproduction steps and environment details
+- Include potential impact assessment and exploitation scenarios
+- Submit uncertain findings - we prefer false positives over missed vulnerabilities
 
-### **For Real Security Issues:**
-1. **Don't open a public issue** (that's like announcing "hey everyone, here's how to hack this!")
-2. **Email us privately**: [Create a security advisory](https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter/security/advisories/new) on GitHub
-3. **Include details**: What's the issue? How did you find it? Can you reproduce it?
-4. **Give us time**: We'll try to respond within 48 hours, fix within a week
+## Security Implementation
 
-### **For "Maybe Security Issues":**
-- Not sure if it's a security problem? Just email us anyway
-- Better safe than sorry
-- We won't judge you for false alarms
+### Code Security Practices
+- **Input Validation**: Sanitization of file paths, URL validation, and file extension verification
+- **Safe Defaults**: No automatic script execution, minimal privilege requirements
+- **Dependency Management**: Version pinning and regular security updates
+- **Error Handling**: Information disclosure prevention in error messages
 
-## 🔒 What We Do to Stay Secure
+### Download Security Controls
+- **URL Validation**: Verification of download sources against approved domains
+- **File Integrity**: Extension and magic byte verification for downloaded content
+- **Size Limiting**: Prevention of excessive resource consumption
+- **External Scanning**: Integration recommendations for antivirus validation
 
-### **Code Practices:**
-- **Input validation**: We sanitize file paths, validate URLs, check file extensions
-- **Safe defaults**: No auto-execution of downloaded scripts, no privileged operations
-- **Dependency management**: We pin versions and regularly update dependencies
-- **Error handling**: No stack traces that leak sensitive paths or data
+### Credential Management
+- **No Logging**: API keys and tokens excluded from log files and console output
+- **Environment Variables**: Secure storage practices for authentication tokens
+- **Minimal Permissions**: Least-privilege principle for API access scopes
 
-### **Download Safety:**
-- **URL validation**: We check that download URLs point to expected domains
-- **File type checking**: We verify file extensions and magic bytes
-- **Size limits**: No accidentally downloading 50GB "models" 
-- **Virus scanning**: We recommend running downloads through your AV (we can't do this for you)
+## System Architecture Security
 
-### **API Key Handling:**
-- **No logging**: API keys don't get written to log files or console output
-- **Environment variables**: Store tokens in env vars, not hardcoded
-- **Scope limiting**: Use the most restricted permissions possible
+### External Dependencies
+The system downloads and executes content from external sources:
+- **Hugging Face Models**: Community-contributed model files
+- **Civitai Models**: Community model repository
+- **GitHub Repositories**: Training script dependencies
+- **PyPI Packages**: Python package dependencies via pip
 
-## ⚠️ Stuff You Should Know
+### Code Execution Context
+- **Training Scripts**: GPU-intensive Python script execution
+- **Jupyter Environment**: Interactive code execution by design
+- **System Commands**: Git operations, file extraction, and system validation
 
-### **We Download Things From the Internet:**
-- **Models from HuggingFace**: Generally safe, but verify the source
-- **Models from Civitai**: Also generally safe, but again, verify
-- **Training scripts from GitHub**: We clone from known-good repositories
-- **Python packages**: Via pip from PyPI (supply chain attacks are a thing)
+## User Security Responsibilities
 
-### **We Execute Code:**
-- **Training scripts**: We run Python scripts that do intensive GPU work
-- **Jupyter notebooks**: By design, these can execute arbitrary code
-- **Shell commands**: For git operations, file extraction, system checks
+### Environment Security
+- Deploy on development/training systems, not production infrastructure
+- Implement appropriate network isolation and firewall rules
+- Maintain current system patches and Python versions
+- Verify download sources and model authenticity
+- Use multi-factor authentication for external service accounts
 
-### **Your Responsibilities:**
-- **Don't run this on production servers**: It's a development/training tool
-- **Use appropriate network isolation**: Consider firewalls if you're paranoid
-- **Keep your system updated**: OS patches, Python updates, etc.
-- **Verify your downloads**: Check model sources, don't blindly trust URLs
-- **Use strong API keys**: Enable 2FA on your HuggingFace/GitHub accounts
+### Best Practices
 
-## 🛠️ Security Best Practices for Users
-
-### **Environment Setup:**
+**Environment Setup:**
 ```bash
-# Use virtual environments (the installer does this for you)
+# Use virtual environments
 python -m venv lora_training
 source lora_training/bin/activate
 
-# Don't run as root (seriously, why would you?)
-whoami  # Should NOT return 'root'
+# Verify user permissions
+whoami  # Should not return privileged user
 
-# Keep your system updated
+# Maintain system updates
 sudo apt update && sudo apt upgrade  # Linux
 brew update && brew upgrade          # macOS
 ```
 
-### **API Token Management:**
+**Credential Management:**
 ```bash
-# Store tokens in environment variables
+# Environment variable storage
 export HF_TOKEN="your_token_here"
-export CIVITAI_TOKEN="your_other_token"
+export CIVITAI_TOKEN="your_token_here"
 
-# Or use .env files (not committed to git)
+# Local environment files (excluded from version control)
 echo "HF_TOKEN=your_token_here" >> .env
 ```
 
-### **Network Security:**
-- **Use HTTPS**: All our default URLs use HTTPS
-- **VPN if paranoid**: Especially on public networks
-- **Firewall rules**: Block unnecessary inbound connections to Jupyter
+**Network Security:**
+- Use HTTPS for all external communications
+- Consider VPN usage on untrusted networks  
+- Configure firewall rules for Jupyter server access
 
-### **File System Hygiene:**
-- **Separate training directory**: Don't mix with important personal files
-- **Regular backups**: Your trained LoRAs are valuable!
-- **Clean up temp files**: The tool tries to, but check occasionally
+**File System Management:**
+- Use dedicated directories for training activities
+- Implement regular backup procedures for valuable training outputs
+- Monitor and clean temporary file accumulation
 
-## 🔍 Supported Versions
+## Supported Versions
 
-We provide security updates for:
-- **Latest release**: Always gets security fixes
-- **Previous release**: Gets critical security fixes for 3 months
-- **Older versions**: You're on your own, please upgrade
+Security updates are provided for:
+- **Current Release**: Full security support and immediate updates
+- **Previous Release**: Critical security fixes for 90 days
+- **Legacy Versions**: No security support - upgrade recommended
 
-## 🎭 Threat Model
+## Threat Model
 
-**What we protect against:**
-- Malicious models that could exploit training scripts
-- Network-based attacks during downloads
+### Protected Against
+- Malicious model files exploiting training processes
+- Network-based attacks during file downloads
 - Local privilege escalation through file operations
-- Data leakage through logs or error messages
+- Information disclosure through application logs
 
-**What we DON'T protect against:**
-- Nation-state actors (if the NSA wants your waifu LoRAs, we can't help)
-- Physical access attacks (lock your computer)
-- Social engineering (don't give strangers your API keys)
-- Quantum computers (not a thing yet, probably)
+### Not Protected Against
+- Advanced persistent threats with significant resources
+- Physical access attacks on local systems
+- Social engineering targeting user credentials
+- Theoretical future cryptographic vulnerabilities
 
-## 🚀 Security Roadmap
+## Security Roadmap
 
-**Stuff we're working on:**
-- Better input sanitization for all user inputs
-- Cryptographic verification of downloaded models
-- Sandboxing for training processes
+### Current Development
+- Enhanced input sanitization across all user interfaces
+- Cryptographic verification for downloaded model files
+- Process sandboxing for training execution
 - Automated dependency vulnerability scanning
 
-**Stuff we might do eventually:**
-- Integration with hardware security modules
-- Zero-knowledge training (probably overkill)
-- Blockchain-based model verification (probably a bad idea)
+### Future Considerations
+- Hardware security module integration
+- Advanced model integrity verification systems
+- Enhanced isolation for training processes
 
-## 📞 Contact
+## Contact Information
 
-**Security issues**: Use GitHub Security Advisories (preferred)
-**General questions**: Open a regular GitHub issue
-**Urgent stuff**: Find us on Discord (link in README)
-
----
-
-**Remember**: Perfect security is impossible, but good security is achievable. We're trying to hit that sweet spot between "reasonably secure" and "actually usable for training LoRAs."
-
-*Stay safe out there, and may your models converge quickly! 🎯*
+- **Security Issues**: GitHub Security Advisories (preferred)
+- **General Questions**: Standard GitHub issue tracking
+- **Community Support**: Discord server (see README for current invite)
 
 ---
 
-**Last updated**: Check the git commit history
-**Next review**: When we add major new features or someone finds something scary
+**Security Philosophy**: We aim to balance practical security with usability for machine learning workflows. Perfect security is unattainable, but we strive for robust protection against realistic threat scenarios.
+
+**Last Updated**: See repository commit history for current revision information.
