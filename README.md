@@ -1,14 +1,3 @@
-# ⚠️ This Project Has Moved ⚠️
-> This repository is an old fork and is no longer maintained. Active development has moved to a new, independent repository with an expanded feature set and a focus on a broader AI training ecosystem.
->
-> ## **[Please visit the new repository here](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer)**
->
-> *(This repository will be archived and made read-only.)*
->
-> ---
->
-> (Original README content below)
-
 # LoRA Easy Training - Jupyter Widget Edition 🚀
 
 A LoRA training system built on Derrian Distro & Kohya SS with interactive Jupyter widget interfaces. Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
@@ -65,7 +54,7 @@ If you don't have python, you can install Python 3.10+ from Python's [main websi
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter.git
+git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Lora_Easy_Training_Jupyter
 
 # 2. Run the installer (downloads ~10-15GB)
