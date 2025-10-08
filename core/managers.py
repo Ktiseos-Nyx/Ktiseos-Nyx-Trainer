@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import urlparse
 
 
 def detect_python_environment():
@@ -2011,10 +2012,22 @@ class ModelManager:
             try:
                 header = ""
                 download_url = validated_url
-                
-                if "civitai.com" in validated_url and api_token and "hf" not in api_token:
+
+                parsed_url = urlparse(validated_url)
+                hostname = parsed_url.hostname or ""
+
+                # Check for civitai.com (domain or subdomains)
+                if (
+                    (hostname == "civitai.com" or hostname.endswith(".civitai.com"))
+                    and api_token
+                    and "hf" not in api_token
+                ):
                     download_url = f"{validated_url}?token={api_token}"
-                elif "huggingface.co" in validated_url and api_token:
+                # Check for huggingface.co (domain or subdomains)
+                elif (
+                    (hostname == "huggingface.co" or hostname.endswith(".huggingface.co"))
+                    and api_token
+                ):
                     header = f"Authorization: Bearer {api_token}"
 
                 command = [
