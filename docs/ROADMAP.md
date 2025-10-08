@@ -1,3 +1,14 @@
+# Project Vision: A Pluggable AI Training Ecosystem
+
+The primary long-term goal is to evolve this project from a single-backend tool into a flexible, multi-backend ecosystem. The architecture will be refactored to support different training "engines" (like `kohya-ss`, `Simple Tuner`, etc.) under a unified, user-friendly interface.
+
+### Core Principles:
+- **Abstracted UI:** The user experience in the notebooks will be consistent, regardless of the backend selected.
+- **Pluggable Backends:** Each training engine will be a self-contained component with its own installer and manager logic.
+- **Simplicity and Accessibility:** Maintain the project's focus on providing a less overwhelming, more guided experience than traditional GUIs.
+
+---
+
 # 🗺️ LoRA Easy Training - Development Roadmap
 
 This roadmap outlines planned improvements and features for the LoRA Easy Training system. Items are organized by priority and development complexity.
