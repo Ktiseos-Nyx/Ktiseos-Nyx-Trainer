@@ -304,7 +304,10 @@ research_dev/
 docs/reference/_hold/
 docs/*/_hold/
 
-# Node.js root level (shadcn artifacts)
+# Node.js artifacts
+# Root level (shadcn artifacts)
 /node_modules/
 /package-lock.json
 /package.json
+# Frontend
+frontend/node_modules/
