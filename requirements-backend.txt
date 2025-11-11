@@ -36,7 +36,10 @@ sentencepiece==0.2.0
 uv  # Ultra-fast Python package installer (antisocial efficiency upgrade)
 
 # -- Image/UI/Data Handling --
-Pillow<10.0.0
+# Pillow>=10.3.0 required for security fixes:
+# - CVE-2023-44271: Heap buffer overflow in libwebp
+# - CVE-2024-28219: Buffer overflow in _imagingcms.c
+Pillow>=10.3.0
 opencv-python==4.8.1.78
 imageio==2.34.1
 imageio-ffmpeg==0.5.1
