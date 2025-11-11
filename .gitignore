@@ -303,3 +303,7 @@ research_dev/
 # Documentation hold folders (temporary storage for review)
 docs/reference/_hold/
 docs/*/_hold/
+
+# Node.js / JavaScript (root level - MCP server dependencies)
+node_modules/
+package-lock.json
