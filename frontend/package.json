@@ -14,10 +14,15 @@
     "react-dom": "^18.3.0",
     "react-dropzone": "^14.2.3",
     "axios": "^1.6.8",
-    "lucide-react": "^0.index379.0",
+    "lucide-react": "^0.379.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.3.0"
+    "tailwind-merge": "^2.3.0",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-progress": "^1.0.3",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-tabs": "^1.0.4"
   },
   "devDependencies": {
     "typescript": "^5.4.5",
