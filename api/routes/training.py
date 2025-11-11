@@ -75,23 +75,21 @@ async def start_training(config: TrainingConfig):
     try:
         training_manager = get_training_manager()
 
-        # Check if already training
-        status = training_manager.get_training_status()
-        if status.get("is_training", False):
-            raise HTTPException(
-                status_code=400,
-                detail="Training already in progress"
-            )
-
         # Convert config to dict for training manager
         config_dict = config.dict()
 
-        # Start training (non-blocking)
+        # Start training (launches subprocess, returns immediately)
         logger.info(f"Starting training: {config.model_name}")
 
-        # TODO: Implement async training launch
-        # For now, this is a placeholder
-        training_id = f"train_{config.model_name}_{asyncio.get_event_loop().time()}"
+        success = training_manager.start_training(config_dict, monitor_widget=None)
+
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Training failed to start"
+            )
+
+        training_id = f"train_{config.model_name}"
 
         return TrainingStartResponse(
             success=True,
@@ -110,8 +108,8 @@ async def stop_training():
     try:
         training_manager = get_training_manager()
 
-        # TODO: Implement training stop functionality
         logger.info("Stopping training...")
+        training_manager.stop_training()
 
         return {"success": True, "message": "Training stopped"}
 
@@ -124,16 +122,20 @@ async def stop_training():
 async def get_training_status():
     """Get current training status and progress"""
     try:
-        training_manager = get_training_manager()
-        status = training_manager.get_training_status()
+        from shared_managers import get_config_manager
+        config_manager = get_config_manager()
+        status = config_manager.get_training_status()
+
+        # Check if training process is running by checking config files
+        is_training = status.get("ready", False)
 
         return TrainingStatusResponse(
-            is_training=status.get("is_training", False),
-            progress=status.get("progress"),
-            current_step=status.get("current_step"),
-            total_steps=status.get("total_steps"),
-            current_epoch=status.get("current_epoch"),
-            total_epochs=status.get("total_epochs")
+            is_training=is_training,
+            progress=None,  # TODO: Parse from logs if needed
+            current_step=None,
+            total_steps=None,
+            current_epoch=None,
+            total_epochs=None
         )
 
     except Exception as e:
