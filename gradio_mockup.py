@@ -10,38 +10,13 @@ import time
 # ============================================================================
 # CUSTOM THEME
 # ============================================================================
+# Simplified theme to work across Gradio versions
 custom_theme = gr.themes.Soft(
     primary_hue="violet",
     secondary_hue="purple",
     neutral_hue="slate",
     font=["Inter", "system-ui", "sans-serif"],
     font_mono=["JetBrains Mono", "monospace"],
-).set(
-    # Button styling
-    button_primary_background_fill="*primary_600",
-    button_primary_background_fill_hover="*primary_700",
-    button_primary_text_color="white",
-    button_shadow="*shadow_drop_lg",
-    button_large_padding="12px 24px",
-    button_large_text_size="16px",
-
-    # Input styling
-    input_background_fill="*neutral_50",
-    input_border_color="*neutral_300",
-    input_shadow="*shadow_inset",
-
-    # Panel styling
-    panel_background_fill="white",
-    panel_border_color="*neutral_200",
-    panel_border_width="1px",
-
-    # Spacing
-    spacing_lg="16px",
-    spacing_xl="24px",
-
-    # Border radius
-    radius_lg="12px",
-    radius_xl="16px",
 )
 
 # ============================================================================
@@ -52,6 +27,30 @@ custom_css = """
 .gradio-container {
     max-width: 1400px !important;
     margin: auto;
+}
+
+/* Button enhancements */
+button {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+/* Input enhancements */
+input, textarea, select {
+    border-radius: 8px !important;
+    border: 1px solid #d1d5db !important;
+    transition: border-color 0.2s ease !important;
+}
+
+input:focus, textarea:focus, select:focus {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
 }
 
 /* Header styling */
