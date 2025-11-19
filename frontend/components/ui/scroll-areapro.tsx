@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion"
+import { motion, AnimatePresence, useMotionValue, useTransform } from "motion/react"
 import { cn } from "@/lib/utils"
 
 interface ScrollAreaProProps extends React.ComponentProps<typeof ScrollAreaPrimitive.Root> {

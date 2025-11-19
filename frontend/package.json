@@ -23,6 +23,7 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-navigation-menu": "^1.2.14",
     "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
@@ -31,6 +32,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@tabler/icons-react": "^3.35.0",
+    "@tailwindcss/postcss": "^4.1.17",
     "@tanstack/react-query": "^5.90.9",
     "@wandry/inertia-form": "^1.11.0",
     "axios": "^1.6.8",
@@ -56,7 +58,7 @@
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.1.6",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.3",
+    "tailwindcss": "^4.1.17",
     "typescript": "^5.4.5"
   }
 }

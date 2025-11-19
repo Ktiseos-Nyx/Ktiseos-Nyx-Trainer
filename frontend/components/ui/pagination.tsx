@@ -1,9 +1,10 @@
 "use client";
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { ButtonProps } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+type ButtonProps = React.ComponentProps<typeof Button>;
 import { Badge, type BadgeProps } from "@/components/ui/badge";
-import { motion, HTMLMotionProps } from "framer-motion";
+import { motion, HTMLMotionProps } from "motion/react";
 import { ChevronLeftIcon, ChevronRightIcon, DotsHorizontalIcon } from "@radix-ui/react-icons";
 
 const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (

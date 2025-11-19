@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -56,11 +56,9 @@ const AlertDialogContent = React.forwardRef<
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content asChild>
         <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 sm:rounded-lg">
-          <motion.div
+          <div
             key={shakeKey}
             ref={contentRef}
-            animate={{ x: [0, -10, 10, -8, 8, -4, 4, 0] }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
             className={cn(
               "grid gap-4 border bg-background p-6 shadow-lg",
               className
@@ -68,7 +66,7 @@ const AlertDialogContent = React.forwardRef<
             {...props}
           >
             {children}
-          </motion.div>
+          </div>
         </div>
       </AlertDialogPrimitive.Content>
     </AlertDialogPortal>

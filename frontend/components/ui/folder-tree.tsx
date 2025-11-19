@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useCallback, createContext, useContext, useRef, useEffect } from "react";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "motion/react";
 import { Folder, FolderOpen, File, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChevronRightIcon } from "@radix-ui/react-icons";
@@ -19,7 +19,7 @@ const animationVariants: Variants = {
 const transitions = {
   root: { duration: 0.4 },
   item: { duration: 0.2 },
-  content: { duration: 0.3, ease: "easeInOut" },
+  content: { duration: 0.3 },
   chevron: { duration: 0.2 },
 };
 
@@ -490,7 +490,7 @@ const Item: React.FC<ItemProps> = ({
                 transition={transitions.chevron}
                 aria-hidden="true"
               >
-                <ChevronRightIcon size={14} className="text-gray-500 dark:text-gray-400" />
+                <ChevronRightIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
               </motion.span>
             )}
             {!hasChildren && <span className="w-3 mr-2" aria-hidden="true" />}
@@ -552,7 +552,7 @@ const Trigger: React.FC<TriggerProps> = ({ className = "" }) => {
       aria-label={itemContext.isExpanded ? "Collapse" : "Expand"}
       tabIndex={-1}
     >
-      <ChevronRightIcon size={14} className="text-gray-500 dark:text-gray-400" />
+      <ChevronRightIcon className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
     </motion.span>
   );
 };

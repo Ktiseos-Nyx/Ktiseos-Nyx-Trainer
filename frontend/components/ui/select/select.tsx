@@ -45,7 +45,7 @@ function SelectIcon({
 }: React.ComponentProps<typeof Select.Icon>) {
   return (
     <Select.Icon className={cn(styles.icon, className)} {...props}>
-      {children || <ChevronDownIcon size={16} />}
+      {children || <ChevronDownIcon className="w-4 h-4" />}
     </Select.Icon>
   );
 }
@@ -94,7 +94,7 @@ function SelectScrollUpArrow({
       {...props}
     >
       {children || (
-        <ChevronDownIcon size={16} style={{ transform: "rotate(180deg)" }} />
+        <ChevronDownIcon className="w-4 h-4" style={{ transform: "rotate(180deg)" }} />
       )}
     </Select.ScrollUpArrow>
   );
@@ -125,7 +125,7 @@ function SelectScrollDownArrow({
       data-slot="select-scrolldownarrow"
       {...props}
     >
-      {children || <ChevronDownIcon size={16} />}
+      {children || <ChevronDownIcon className="w-4 h-4" />}
     </Select.ScrollDownArrow>
   );
 }
@@ -207,7 +207,7 @@ function SelectItemIndicator({
       data-slot="select-itemindicator"
       {...props}
     >
-      {children || <CheckIcon size={16} />}
+      {children || <CheckIcon className="w-4 h-4" />}
     </Select.ItemIndicator>
   );
 }

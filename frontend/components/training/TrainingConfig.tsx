@@ -344,7 +344,7 @@ export default function TrainingConfig() {
         setValidationErrors(result.validation_errors);
 
         // If there are critical errors, don't show success
-        const hasErrors = result.validation_errors.some(e => e.severity === 'error');
+        const hasErrors = result.validation_errors.some((e: ValidationError) => e.severity === 'error');
         if (hasErrors) {
           setError(result.message || 'Configuration has errors. Please fix them before starting training.');
           return;

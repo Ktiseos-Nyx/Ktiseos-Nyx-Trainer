@@ -68,7 +68,7 @@ function ComboboxInput({
             : "has-[+[data-slot=combobox-trigger],+[data-slot=combobox-clear]]:*:data-[slot=combobox-input]:pe-7",
           className
         )}
-        render={<Input size={sizeValue} className="has-disabled:opacity-100" />}
+        render={<Input className="has-disabled:opacity-100" />}
         {...props}
       />
       {showTrigger && (
@@ -295,7 +295,7 @@ function ComboboxChips({ className, ...props }: ComboboxPrimitive.Chips.Props) {
 
   return (
     <ComboboxPrimitive.Chips
-      ref={chipsRef}
+      ref={chipsRef as React.LegacyRef<HTMLDivElement>}
       data-slot="combobox-chips"
       className={cn(
         "relative inline-flex min-h-8 w-full flex-wrap gap-1 rounded-lg border border-input bg-background bg-clip-padding p-[calc(--spacing(1)-1px)] text-base/5 shadow-xs ring-ring/24 transition-shadow outline-none *:min-h-6 before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] not-has-disabled:not-focus-within:not-aria-invalid:before:shadow-[0_1px_--theme(--color-black/4%)] focus-within:border-ring focus-within:ring-[3px] has-disabled:pointer-events-none has-disabled:opacity-64 has-aria-invalid:border-destructive/36 focus-within:has-aria-invalid:border-destructive/64 focus-within:has-aria-invalid:ring-destructive/16 has-data-[size=lg]:min-h-9 has-data-[size=lg]:*:min-h-7 has-data-[size=sm]:min-h-7 has-data-[size=sm]:*:min-h-5 has-[:disabled,:focus-within,[aria-invalid]]:shadow-none sm:text-sm dark:not-in-data-[slot=group]:bg-clip-border dark:not-has-disabled:bg-input/32 dark:not-has-disabled:not-focus-within:not-aria-invalid:before:shadow-[0_-1px_--theme(--color-white/8%)] dark:has-aria-invalid:ring-destructive/24",
