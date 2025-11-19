@@ -266,6 +266,9 @@ CLAUDE.md
 CLAUDE_*.md
 .mcp.json
 
+# Gemini task/handover docs (private)
+GEMINI_*.md
+
 # Internal planning documents
 TRAINING_EXPANSION_PLAN.md
 *_PLAN.md
