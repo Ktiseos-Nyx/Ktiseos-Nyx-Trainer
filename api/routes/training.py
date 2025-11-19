@@ -10,12 +10,13 @@ import logging
 from pathlib import Path
 
 from shared_managers import get_training_manager
+from core.log_streamer import get_training_log_streamer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Active WebSocket connections for log streaming
-active_connections: List[WebSocket] = []
+# Get global log streamer
+log_streamer = get_training_log_streamer()
 
 
 class TrainingConfig(BaseModel):
@@ -508,10 +509,10 @@ async def get_training_status():
 async def training_logs_websocket(websocket: WebSocket):
     """
     WebSocket endpoint for real-time training logs.
-    NO MORE RACE CONDITIONS! 🎉
+    Streams logs from training subprocess via log_streamer.
     """
     await websocket.accept()
-    active_connections.append(websocket)
+    log_streamer.add_connection(websocket)
 
     try:
         logger.info("Client connected to training logs WebSocket")
@@ -519,28 +520,20 @@ async def training_logs_websocket(websocket: WebSocket):
         # Send initial connection message
         await websocket.send_json({
             "type": "connected",
-            "message": "Connected to training logs"
+            "message": "✓ Connected to training logs"
         })
 
-        # Keep connection alive and send updates
+        # Broadcast pending logs every 0.1 seconds
         while True:
-            # TODO: Read logs from training manager and stream
-            # For now, just keep connection alive
-            await asyncio.sleep(1)
-
-            # Example: Send heartbeat
-            await websocket.send_json({
-                "type": "heartbeat",
-                "timestamp": asyncio.get_event_loop().time()
-            })
+            await log_streamer.broadcast_pending()
+            await asyncio.sleep(0.1)  # 10 updates per second
 
     except WebSocketDisconnect:
         logger.info("Client disconnected from training logs WebSocket")
-        active_connections.remove(websocket)
+        log_streamer.remove_connection(websocket)
     except Exception as e:
         logger.error(f"WebSocket error: {e}", exc_info=True)
-        if websocket in active_connections:
-            active_connections.remove(websocket)
+        log_streamer.remove_connection(websocket)
 
 
 async def broadcast_log(message: Dict[str, Any]):

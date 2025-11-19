@@ -656,8 +656,13 @@ class DatasetManager:
                 env=env # Pass the modified environment
             )
 
+            # Stream logs to WebSocket clients
+            from core.log_streamer import get_tagging_log_streamer
+            log_streamer = get_tagging_log_streamer()
+
             for line in iter(process.stdout.readline, ''):
-                print(line, end='')
+                print(line, end='')  # Still print to console
+                log_streamer.add_line(line)  # Stream to WebSocket clients
 
             process.stdout.close()
             return_code = process.wait()

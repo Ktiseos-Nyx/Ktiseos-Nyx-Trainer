@@ -2,16 +2,21 @@
 Dataset API Routes
 Handles dataset upload, tagging, preparation, and management.
 """
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 import logging
+import asyncio
 
 from shared_managers import get_dataset_manager
+from core.log_streamer import get_tagging_log_streamer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Get global tagging log streamer
+tagging_log_streamer = get_tagging_log_streamer()
 
 
 class DatasetInfo(BaseModel):
@@ -157,14 +162,43 @@ async def _run_tagging(dataset_manager, request: TaggingRequest):
     try:
         logger.info(f"Starting tagging for: {request.dataset_path}")
 
-        # TODO: Call dataset_manager tagging method
-        # dataset_manager.tag_images(
-        #     path=request.dataset_path,
-        #     model=request.model,
-        #     threshold=request.threshold
-        # )
+        # Clear any old logs
+        tagging_log_streamer.clear()
 
-        logger.info(f"Tagging completed for: {request.dataset_path}")
+        # Map frontend model names to repo IDs
+        model_mapping = {
+            "wd14-vit-v2": "SmilingWolf/wd-v1-4-vit-tagger-v2",
+            "wd14-vit-v3": "SmilingWolf/wd-vit-large-tagger-v3",
+            "wd14-swinv2-v2": "SmilingWolf/wd-v1-4-swinv2-tagger-v2",
+            "wd14-convnext-v2": "SmilingWolf/wd-v1-4-convnext-tagger-v2",
+            "wd14-moat-v2": "SmilingWolf/wd-v1-4-moat-tagger-v2",
+        }
+
+        tagger_model = model_mapping.get(request.model, request.model)
+
+        # Call dataset_manager tagging method
+        # Note: This is synchronous, so we need to run in executor
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        executor = ThreadPoolExecutor(max_workers=1)
+        loop = asyncio.get_event_loop()
+
+        success = await loop.run_in_executor(
+            executor,
+            dataset_manager.tag_images,
+            request.dataset_path,
+            "anime",  # method
+            tagger_model,
+            request.threshold,
+            "",  # blacklist_tags
+            ".txt"  # caption_extension
+        )
+
+        if success:
+            logger.info(f"Tagging completed successfully for: {request.dataset_path}")
+        else:
+            logger.error(f"Tagging failed for: {request.dataset_path}")
 
     except Exception as e:
         logger.error(f"Tagging failed: {e}", exc_info=True)
@@ -475,3 +509,34 @@ async def inject_trigger_word(request: TriggerWordRequest):
     except Exception as e:
         logger.error(f"Failed to inject trigger word: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.websocket("/logs")
+async def tagging_logs_websocket(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time tagging logs.
+    Streams logs from WD14/BLIP tagging subprocess via log_streamer.
+    """
+    await websocket.accept()
+    tagging_log_streamer.add_connection(websocket)
+
+    try:
+        logger.info("Client connected to tagging logs WebSocket")
+
+        # Send initial connection message
+        await websocket.send_json({
+            "type": "connected",
+            "message": "✓ Connected to tagging logs"
+        })
+
+        # Broadcast pending logs every 0.1 seconds
+        while True:
+            await tagging_log_streamer.broadcast_pending()
+            await asyncio.sleep(0.1)  # 10 updates per second
+
+    except WebSocketDisconnect:
+        logger.info("Client disconnected from tagging logs WebSocket")
+        tagging_log_streamer.remove_connection(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}", exc_info=True)
+        tagging_log_streamer.remove_connection(websocket)

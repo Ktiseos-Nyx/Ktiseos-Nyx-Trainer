@@ -1093,9 +1093,17 @@ class KohyaTrainingManager:
                     env=env
                 )
 
-                # Monitor output
+                # Monitor output and stream to WebSocket clients
+                from core.log_streamer import get_training_log_streamer
+                log_streamer = get_training_log_streamer()
+
                 for line in iter(self.process.stdout.readline, ''):
-                    print(line, end='')
+                    print(line, end='')  # Still print to console
+
+                    # Stream to WebSocket clients
+                    log_streamer.add_line(line)
+
+                    # Also support widget if provided
                     if monitor_widget:
                         monitor_widget.parse_training_output(line)
 

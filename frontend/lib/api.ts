@@ -185,169 +185,306 @@ export const datasetAPI = {
     });
     return handleResponse(response);
   },
+
+  // WebSocket for tagging logs
+  connectTaggingLogs: (onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+    const wsUrl = `ws://localhost:8000/api/dataset/logs`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      onMessage(data);
+    };
+
+    if (onError) {
+      ws.onerror = onError;
+    }
+
+    return ws;
+  },
 };
 
 // ========== Training Operations ==========
 
 export interface TrainingConfig {
   // ========== PROJECT & MODEL SETUP ==========
+  /** Name of the training project */
   project_name: string;
-  model_type: string; // SD1.5, SDXL, Flux, SD3
+  /** Model architecture type: SD1.5, SDXL, Flux, SD3, Lumina */
+  model_type: string;
+  /** Path to pretrained model checkpoint (.safetensors or .ckpt) */
   pretrained_model_name_or_path: string;
+  /** Optional: Path to VAE model for encoding/decoding */
   vae_path?: string;
 
-  // Conditional paths for Flux/SD3
+  /** Conditional: Path to CLIP-L model (required for Flux/SD3) */
   clip_l_path?: string;
+  /** Conditional: Path to CLIP-G model (required for Flux/SD3) */
   clip_g_path?: string;
+  /** Conditional: Path to T5-XXL model (required for Flux/SD3) */
   t5xxl_path?: string;
 
+  /** Optional: Path to a LoRA model to continue training from */
   continue_from_lora?: string;
+  /** Optional: Weights & Biases API key for logging */
   wandb_key?: string;
 
   // ========== DATASET & BASIC TRAINING ==========
+  /** Directory containing training data */
   train_data_dir: string;
+  /** Directory to save training outputs */
   output_dir: string;
+  /** Resolution of training images (e.g., 1024 for SDXL) */
   resolution: number;
-  num_repeats: number; // CRITICAL for Kohya!
+  /** Number of times to repeat the dataset. Higher = more training on same images. Typical: 10-20. */
+  num_repeats: number;
+  /** Maximum number of training epochs. */
   max_train_epochs: number;
-  max_train_steps: number; // 0 = use epochs instead
+  /** If > 0, overrides epochs. Leave at 0 to use epochs instead. */
+  max_train_steps: number;
+  /** Training batch size. */
   train_batch_size: number;
+  /** Random seed for reproducibility. */
   seed: number;
 
   // Data augmentation
+  /** Enable horizontal flipping for data augmentation */
   flip_aug: boolean;
+  /** Enable random cropping for data augmentation */
   random_crop: boolean;
+  /** Enable color augmentation */
   color_aug: boolean;
+  /** Shuffle caption tokens during training */
   shuffle_caption: boolean;
 
   // ========== LEARNING RATES ==========
+  /** Learning rate for the UNet model */
   unet_lr: number;
+  /** Learning rate for the Text Encoder */
   text_encoder_lr: number;
+  /** Learning rate scheduler type (e.g., "cosine", "linear") */
   lr_scheduler: string;
+  /** Number of restarts for cosine_with_restarts, or degree for polynomial. */
   lr_scheduler_number: number;
+  /** Ratio of total steps for learning rate warmup (0-1) */
   lr_warmup_ratio: number;
+  /** If > 0, overrides warmup ratio. Leave at 0 to use ratio. */
   lr_warmup_steps: number;
+  /** Power for polynomial scheduler. 1.0 = linear decay. */
   lr_power: number;
 
   // ========== LORA STRUCTURE ==========
+  /** LoRA type (e.g., "LoRA", "LoCon", "LoHa") */
   lora_type: string;
+  /** Network module to use (e.g., "networks.lora") */
   network_module: string;
+  /** Dimension of the LoRA network (rank) */
   network_dim: number;
+  /** Alpha parameter for LoRA (scaling) */
   network_alpha: number;
+  /** Dimension for convolutional layers. Higher = better textures but slower. LoCon/LoHa only. */
   conv_dim: number;
+  /** Alpha parameter for convolutional layers */
   conv_alpha: number;
+  /** Dropout rate for the LoRA network (0-1) */
   network_dropout: number;
+  /** Derive network_dim from weights */
   dim_from_weights: boolean;
+  /** Decomposition factor for LoKR. -1 = auto-detect. Higher = more compact. */
   factor: number;
+  /** Train normalization layers (LyCORIS) */
   train_norm: boolean;
 
   // Advanced LyCORIS parameters
+  /** LyCORIS rank dropout (0-1) */
   rank_dropout: number;
+  /** LyCORIS module dropout (0-1) */
   module_dropout: number;
 
   // Block-wise learning rates (advanced)
+  /** e.g., "1,1,1,1,1,1,1,1,1,1,1,1" */
   down_lr_weight?: string;
+  /** e.g., "1" */
   mid_lr_weight?: string;
+  /** e.g., "1,1,1,1,1,1,1,1,1,1,1,1" */
   up_lr_weight?: string;
+  /** e.g., "0.1" */
   block_lr_zero_threshold?: string;
+  /** Per-block dimensions */
   block_dims?: string;
+  /** Per-block alphas */
   block_alphas?: string;
+  /** Per-block conv dimensions */
   conv_block_dims?: string;
+  /** Per-block conv alphas */
   conv_block_alphas?: string;
 
   // ========== OPTIMIZER ==========
+  /** Optimizer type (e.g., "AdamW8bit", "Lion8bit") */
   optimizer_type: string;
+  /** Weight decay for optimizer */
   weight_decay: number;
+  /** Gradient accumulation steps */
   gradient_accumulation_steps: number;
+  /** Maximum gradient norm */
   max_grad_norm: number;
+  /** JSON string of custom optimizer arguments. Advanced users only. */
   optimizer_args?: string;
 
   // ========== CAPTION & TOKEN CONTROL ==========
+  /** Number of caption tokens to always keep (not subject to dropout). */
   keep_tokens: number;
+  /** Skip last N CLIP layers. SD1.5: 1, SDXL: 2. */
   clip_skip: number;
+  /** Maximum token length */
   max_token_length: number;
+  /** Caption dropout rate (0-1) */
   caption_dropout_rate: number;
+  /** Caption tag dropout rate (0-1) */
   caption_tag_dropout_rate: number;
+  /** Caption dropout every N epochs */
   caption_dropout_every_n_epochs: number;
+  /** Separator for keep_tokens */
   keep_tokens_separator: string;
+  /** Secondary separator for captions */
   secondary_separator: string;
+  /** Enable wildcard expansion in captions */
   enable_wildcard: boolean;
+  /** Enable weighted captions */
   weighted_captions: boolean;
 
   // ========== BUCKETING ==========
+  /** Enable bucketing for different resolutions */
   enable_bucket: boolean;
+  /** Enable SDXL bucket optimization */
   sdxl_bucket_optimization: boolean;
+  /** Minimum bucket resolution */
   min_bucket_reso: number;
+  /** Maximum bucket resolution */
   max_bucket_reso: number;
+  /** Do not upscale images in buckets */
   bucket_no_upscale: boolean;
 
   // ========== ADVANCED TRAINING ==========
+  // SNR & Noise
+  /** Enable min_snr_gamma */
   min_snr_gamma_enabled: boolean;
+  /** Minimum SNR gamma value. Helps with convergence. Recommended: 5.0. */
   min_snr_gamma: number;
+  /** Enable input perturbation noise */
   ip_noise_gamma_enabled: boolean;
+  /** Input perturbation noise. Adds robustness. Typical: 0.05. */
   ip_noise_gamma: number;
+  /** Enable multi-resolution noise */
   multinoise: boolean;
+  /** Multi-resolution noise discount factor. Typical: 0.25. */
   multires_noise_discount: number;
+  /** Noise offset */
   noise_offset: number;
+  /** Adaptive noise scale */
   adaptive_noise_scale: number;
+  /** Zero terminal SNR */
   zero_terminal_snr: boolean;
 
   // ========== MEMORY & PERFORMANCE ==========
+  /** Enable gradient checkpointing */
   gradient_checkpointing: boolean;
+  /** Mixed precision training (e.g., "fp16", "bf16") */
   mixed_precision: string;
+  /** Use full FP16 training */
   full_fp16: boolean;
+  /** Use FP8 for base model (experimental). Saves VRAM but may reduce quality. */
   fp8_base: boolean;
+  /** VAE batch size */
   vae_batch_size: number;
+  /** Do not use half VAE */
   no_half_vae: boolean;
+  /** Cache latents */
   cache_latents: boolean;
+  /** Cache latents to disk */
   cache_latents_to_disk: boolean;
+  /** Cache text encoder outputs */
   cache_text_encoder_outputs: boolean;
+  /** Cross attention mechanism (e.g., "sdpa", "xformers") */
   cross_attention: string;
+  /** Number of persistent data loader workers (0=auto) */
   persistent_data_loader_workers: number;
+  /** Disable token padding (memory optimization) */
   no_token_padding: boolean;
 
   // ========== SAVING & CHECKPOINTS ==========
+  /** Save a checkpoint every N epochs */
   save_every_n_epochs: number;
+  /** Save a checkpoint every N steps */
   save_every_n_steps: number;
+  /** Save the last N epochs */
   save_last_n_epochs: number;
+  /** Save the state of the last N epochs */
   save_last_n_epochs_state: number;
+  /** Save training state for resuming */
   save_state: boolean;
+  /** Save the state of the last N steps */
   save_last_n_steps_state: number;
+  /** Format to save the model as (e.g., "safetensors", "ckpt") */
   save_model_as: string;
+  /** Precision to save the model in (e.g., "fp16", "bf16") */
   save_precision: string;
+  /** Output file name */
   output_name: string;
+  /** Do not save metadata with the model */
   no_metadata: boolean;
 
   // ========== SAMPLE GENERATION ==========
+  /** Generate samples every N epochs */
   sample_every_n_epochs: number;
+  /** Generate samples every N steps */
   sample_every_n_steps: number;
+  /** Optional: Path to a file containing sample prompts */
   sample_prompts?: string;
+  /** Sampler to use for sample generation (e.g., "euler_a") */
   sample_sampler: string;
 
   // ========== LOGGING ==========
+  /** Optional: Directory for logging */
   logging_dir?: string;
+  /** Optional: Logging destination (e.g., "tensorboard", "wandb") */
   log_with?: string;
+  /** Optional: Prefix for log files */
   log_prefix?: string;
 
   // ========== SD 2.x & ADVANCED ==========
+  /** SD 2.x base model flag */
   v2: boolean;
+  /** For SDXL v-pred or SD 2.x 768px */
   v_parameterization: boolean;
+  /** Train U-Net only (recommended for SDXL) */
   network_train_unet_only: boolean;
+  /** Prior loss weight */
   prior_loss_weight: number;
 
   // ========== FLUX-SPECIFIC PARAMETERS ==========
-  ae_path?: string; // Flux/Lumina AutoEncoder path
-  t5xxl_max_token_length?: number; // Max tokens for T5-XXL
-  apply_t5_attn_mask: boolean; // Apply attention mask to T5-XXL
-  guidance_scale: number; // Guidance scale for Flux.1 dev
-  timestep_sampling: string; // sigma, uniform, sigmoid, shift, flux_shift, nextdit_shift
-  sigmoid_scale: number; // Scale for sigmoid timestep sampling
-  model_prediction_type: string; // raw or additive
-  blocks_to_swap?: number; // Number of blocks to swap (memory optimization)
+  /** Flux AutoEncoder path (*.safetensors) */
+  ae_path?: string;
+  /** Max tokens for T5-XXL (256 for schnell, 512 for dev) */
+  t5xxl_max_token_length?: number;
+  /** Apply attention mask to T5-XXL */
+  apply_t5_attn_mask: boolean;
+  /** Guidance scale for Flux.1 dev */
+  guidance_scale: number;
+  /** Timestep sampling (sigma, uniform, sigmoid, shift, flux_shift) */
+  timestep_sampling: string;
+  /** Scale for sigmoid timestep sampling */
+  sigmoid_scale: number;
+  /** Model prediction type (raw or additive for dev model) */
+  model_prediction_type: string;
+  /** Number of blocks to swap (memory optimization) */
+  blocks_to_swap?: number;
 
   // ========== LUMINA-SPECIFIC PARAMETERS ==========
-  gemma2?: string; // Path to Gemma2 model (*.sft or *.safetensors)
-  gemma2_max_token_length?: number; // Maximum token length for Gemma2
+  /** Path to Gemma2 model (*.sft or *.safetensors), should be float16 */
+  gemma2?: string;
+  /** Maximum token length for Gemma2. Default: 256 */
+  gemma2_max_token_length?: number;
   // ae_path, timestep_sampling, sigmoid_scale, blocks_to_swap are shared with Flux
 }
 
