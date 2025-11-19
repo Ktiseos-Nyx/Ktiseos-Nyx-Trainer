@@ -316,6 +316,9 @@ docs/*/_hold/
 /package.json
 # Frontend
 frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/out/
 
 # Demo/test pages (keep in repo but don't track changes)
 frontend/app/editor-00/
