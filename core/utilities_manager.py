@@ -22,7 +22,7 @@ class UtilitiesManager:
         self.project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         self.trainer_dir = os.path.join(self.project_root, "trainer")
         self.sd_scripts_dir = os.path.join(self.trainer_dir, "derrian_backend", "sd_scripts")
-        
+
         # File types for enhanced uploader
         self.file_types = [
             # AI Model Files 🤖
@@ -39,7 +39,7 @@ class UtilitiesManager:
             # Archive Files 📦
             ('ZIP Archives', 'zip'), ('TAR Files', 'tar'), ('GZ Archives', 'gz')
         ]
-        
+
         # Enable hf_transfer for faster uploads if available
         os.environ['HF_HUB_ENABLE_HF_TRANSFER'] = '1'
 
@@ -47,16 +47,16 @@ class UtilitiesManager:
         """Get list of files in directory with specified extension"""
         if not os.path.isdir(directory_path):
             return []
-        
+
         try:
             glob_pattern = f"*.{file_extension}"
             found_paths = list(Path(directory_path).glob(glob_pattern))
-            
+
             valid_files_info = []
             for p in found_paths:
                 if p.is_symlink() or not p.is_file():
                     continue
-                
+
                 if sort_by == 'date':
                     sort_key = p.stat().st_mtime
                 else:  # 'name'
@@ -68,9 +68,9 @@ class UtilitiesManager:
                 valid_files_info.sort(key=lambda item: item[1], reverse=True)  # newest first
             else:  # 'name'
                 valid_files_info.sort(key=lambda item: item[1])
-            
+
             return [item[0] for item in valid_files_info]
-        
+
         except Exception as e:
             print(f"❌ Error listing files: {type(e).__name__} - {str(e)}")
             return []
@@ -81,12 +81,12 @@ class UtilitiesManager:
             return "Invalid size"
         if size_bytes == 0:
             return "0 B"
-        
+
         units = ("B", "KB", "MB", "GB", "TB")
         i = math.floor(math.log(size_bytes, 1024)) if size_bytes > 0 else 0
         if i >= len(units):
             i = len(units) - 1
-        
+
         s = round(size_bytes / (1024 ** i), 2)
         return f"{s} {units[i]}"
 
@@ -100,30 +100,30 @@ class UtilitiesManager:
                 return False
         return False
 
-    def upload_multiple_files_to_huggingface(self, hf_token, owner, repo_name, repo_type, 
-                                           selected_files, remote_folder="", commit_message="", 
+    def upload_multiple_files_to_huggingface(self, hf_token, owner, repo_name, repo_type,
+                                           selected_files, remote_folder="", commit_message="",
                                            create_pr=False, progress_callback=None):
         """Enhanced multi-file upload to HuggingFace with progress tracking"""
-        
+
         if not hf_token or not hf_token.strip():
             return {"success": False, "error": "HuggingFace token is required"}
-        
+
         if not owner or not repo_name:
             return {"success": False, "error": "Owner and repository name are required"}
-        
+
         if not selected_files:
             return {"success": False, "error": "No files selected for upload"}
 
         try:
             login(token=hf_token)
             api = HfApi()
-            
+
             repo_id = f"{owner}/{repo_name}"
             total_files = len(selected_files)
             success_count = 0
-            
+
             hf_transfer_active = self.check_hf_transfer_availability()
-            
+
             results = {
                 "success": True,
                 "repo_id": repo_id,
@@ -132,13 +132,13 @@ class UtilitiesManager:
                 "failed_files": [],
                 "hf_transfer_active": hf_transfer_active
             }
-            
+
             for idx, file_path_str in enumerate(selected_files, 1):
                 current_file_path = Path(file_path_str)
-                
+
                 if progress_callback:
                     progress_callback(idx, total_files, current_file_path.name)
-                
+
                 if not current_file_path.exists():
                     error_msg = f"File not found: {current_file_path.name}"
                     results["failed_files"].append({"file": current_file_path.name, "error": error_msg})
@@ -150,13 +150,13 @@ class UtilitiesManager:
                     if remote_folder:
                         clean_folder = remote_folder.strip('/')
                         path_in_repo = f"{clean_folder}/{current_file_path.name}"
-                    
+
                     file_commit_msg = commit_message or f"Upload {current_file_path.name}"
                     if total_files > 1:
                         file_commit_msg += f" (file {idx}/{total_files})"
-                    
+
                     start_time = time.time()
-                    
+
                     response_url = api.upload_file(
                         path_or_fileobj=str(current_file_path),
                         path_in_repo=path_in_repo,
@@ -165,10 +165,10 @@ class UtilitiesManager:
                         create_pr=create_pr,
                         commit_message=file_commit_msg,
                     )
-                    
+
                     duration = time.time() - start_time
                     file_size = current_file_path.stat().st_size
-                    
+
                     results["uploaded_files"].append({
                         "file": current_file_path.name,
                         "path_in_repo": path_in_repo,
@@ -177,11 +177,11 @@ class UtilitiesManager:
                         "url": response_url
                     })
                     success_count += 1
-                    
+
                 except Exception as e:
                     error_msg = f"{type(e).__name__}: {str(e)}"
                     results["failed_files"].append({"file": current_file_path.name, "error": error_msg})
-            
+
             results["success_count"] = success_count
             return results
 

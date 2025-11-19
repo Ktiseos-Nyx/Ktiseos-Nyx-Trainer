@@ -289,7 +289,7 @@ class ImageCurationManager:
         """Print instructions for the curation workflow"""
 
         import fiftyone as fo
-        
+
         total_images = len(dataset)
         duplicate_candidates = len(dataset.match(fo.F("duplicate_candidate") == True))
         quality_issues = len(dataset.match(fo.F("quality_issues").length() > 0))
@@ -418,8 +418,7 @@ class ImageCurationManager:
         """Get server configuration for FiftyOne app"""
 
         try:
-            from .fiftyone_server_config import (detect_server_environment,
-                                                 get_server_config)
+            from .fiftyone_server_config import detect_server_environment, get_server_config
             return get_server_config()
         except ImportError:
             print("⚠️ Server config not available, using local configuration")

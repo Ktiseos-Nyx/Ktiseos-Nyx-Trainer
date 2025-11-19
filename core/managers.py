@@ -171,8 +171,8 @@ class SetupManager:
         # Check for VastAI first
         self._is_vastai = bool(os.environ.get('VAST_CONTAINERLABEL') or '/workspace' in self.project_root)
         if self._is_vastai:
-            print(f"🐳 VastAI detected - using current environment instead of hardcoded paths")
-        
+            print("🐳 VastAI detected - using current environment instead of hardcoded paths")
+
         # Always detect current Python/pip environment (conda, venv, etc.) - never hardcode paths
         # This follows CLAUDE.md requirement: NEVER hardcode paths or environment assumptions
         self._correct_venv_path = self._detect_current_pip()
@@ -478,7 +478,7 @@ class SetupManager:
 
     def _detect_directml_gpu_vendor(self) -> str:
         """Detect actual GPU vendor when using DirectML using proper GPU utilities"""
-        
+
         # 1. Check for NVIDIA first using nvidia-smi
         try:
             result = subprocess.run(['nvidia-smi', '-L'], capture_output=True, text=True, timeout=5)
@@ -487,7 +487,7 @@ class SetupManager:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
-        # 2. Check for AMD using rocm-smi 
+        # 2. Check for AMD using rocm-smi
         try:
             result = subprocess.run(['rocm-smi', '--showid'], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
@@ -499,7 +499,7 @@ class SetupManager:
         try:
             result = subprocess.run(['radeontop', '-d', '-l1'], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
-                return 'amd' 
+                return 'amd'
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
@@ -507,9 +507,9 @@ class SetupManager:
         if platform.machine().lower() in ['arm64', 'aarch64']:
             try:
                 # Check for Intel Arc on ARM systems (rare but possible)
-                result = subprocess.run(['wmic', 'path', 'win32_VideoController', 'get', 'name'], 
+                result = subprocess.run(['wmic', 'path', 'win32_VideoController', 'get', 'name'],
                                       capture_output=True, text=True, timeout=5)
-                if result.returncode == 0 and any(intel_indicator in result.stdout.lower() 
+                if result.returncode == 0 and any(intel_indicator in result.stdout.lower()
                                                 for intel_indicator in ['intel arc', 'intel iris']):
                     return 'intel'
             except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -992,14 +992,14 @@ class SetupManager:
 
         # Check for CAME optimizer - try multiple import paths
         came_available = False
-        
+
         # Method 1: Direct import (if installed globally)
         try:
             import LoraEasyCustomOptimizer.came
             came_available = True
         except ImportError:
             pass
-        
+
         # Method 2: Try from custom_scheduler directory
         if not came_available:
             sys_path_backup = sys.path.copy()
@@ -1013,7 +1013,7 @@ class SetupManager:
                 pass
             finally:
                 sys.path = sys_path_backup
-        
+
         # Method 3: Check if it's available as 'came' directly
         if not came_available:
             try:
@@ -1022,7 +1022,7 @@ class SetupManager:
                 came_available = True
             except ImportError:
                 pass
-        
+
         # Method 4: Try subprocess test (most reliable)
         if not came_available:
             try:
@@ -1449,13 +1449,13 @@ class SetupManager:
                     subprocess.run(["git", "submodule", "init"], cwd=path, check=True)
                     subprocess.run(["git", "submodule", "update"], cwd=path, check=True)
                     print("✅ Nested submodules initialized")
-                    
+
                     # 🐍 PYTHON MODULE FIX: Add missing __init__.py files for CAME optimizer
                     # Python requires __init__.py files to recognize directories as modules
                     print("🔧 Fixing Python module detection for custom_scheduler...")
                     custom_scheduler_dir = os.path.join(path, "custom_scheduler")
                     lora_optimizer_dir = os.path.join(custom_scheduler_dir, "LoraEasyCustomOptimizer")
-                    
+
                     # Create __init__.py files if directories exist but files are missing
                     init_files_created = []
                     if os.path.exists(custom_scheduler_dir):
@@ -1464,14 +1464,14 @@ class SetupManager:
                             with open(init_file, 'w') as f:
                                 f.write("# Auto-generated __init__.py for Python module detection\n")
                             init_files_created.append("custom_scheduler/__init__.py")
-                    
+
                     if os.path.exists(lora_optimizer_dir):
                         init_file = os.path.join(lora_optimizer_dir, "__init__.py")
                         if not os.path.exists(init_file):
                             with open(init_file, 'w') as f:
                                 f.write("# Auto-generated __init__.py for Python module detection\n")
                             init_files_created.append("custom_scheduler/LoraEasyCustomOptimizer/__init__.py")
-                    
+
                     if init_files_created:
                         print(f"✅ Created missing __init__.py files: {', '.join(init_files_created)}")
                         print("🎯 CAME optimizer should now be detectable by Python!")
@@ -1995,7 +1995,7 @@ class ModelManager:
 
         filename = os.path.basename(validated_url.split('?')[0])
         destination_path = os.path.join(dest_dir, filename)
-        
+
         # Check if file already exists
         if os.path.exists(destination_path) and os.path.getsize(destination_path) > 0:
             file_size = os.path.getsize(destination_path)
@@ -2107,14 +2107,14 @@ class ModelManager:
             try:
                 download_url = validated_url
                 wget_args = ["wget", "-O", destination_path]
-                
+
                 if "civitai.com" in validated_url and api_token and "hf" not in api_token:
                     download_url = f"{validated_url}?token={api_token}"
                 elif "huggingface.co" in validated_url and api_token:
                     wget_args.extend(["--header", f"Authorization: Bearer {api_token}"])
-                
+
                 wget_args.append(download_url)
-                
+
                 process = subprocess.Popen(
                     wget_args,
                     stdout=subprocess.PIPE,
@@ -2144,10 +2144,10 @@ class ModelManager:
         print("🚀 Attempting download with Python requests (final fallback)...")
         try:
             import requests
-            
+
             headers = {}
             download_url = validated_url
-            
+
             if "civitai.com" in validated_url and api_token and "hf" not in api_token:
                 download_url = f"{validated_url}?token={api_token}"
             elif "huggingface.co" in validated_url and api_token:
@@ -2155,10 +2155,10 @@ class ModelManager:
 
             response = requests.get(download_url, headers=headers, stream=True)
             response.raise_for_status()
-            
+
             total_size = int(response.headers.get('content-length', 0))
             downloaded = 0
-            
+
             with open(destination_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
@@ -2167,10 +2167,10 @@ class ModelManager:
                         if total_size > 0:
                             percent = (downloaded / total_size) * 100
                             print(f"\rProgress: {percent:.1f}% ({downloaded}/{total_size} bytes)", end='', flush=True)
-            
+
             print(f"\n✅ Download complete with Python requests: {destination_path}")
             return destination_path
-            
+
         except Exception as e:
             print(f"❌ Error with Python requests: {e}")
 

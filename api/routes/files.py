@@ -3,15 +3,16 @@ File Management API Routes
 Handles file browsing, upload, download, delete operations.
 Replaces Jupyter Lab file manager!
 """
-from fastapi import APIRouter, UploadFile, File, HTTPException, Query
-from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
-from typing import List, Optional
-from pathlib import Path
-import shutil
 import logging
 import mimetypes
+import shutil
+from pathlib import Path
+from typing import List, Optional
+
 import aiofiles
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

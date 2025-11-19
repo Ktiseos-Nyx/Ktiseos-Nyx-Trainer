@@ -29,24 +29,24 @@ try:
     import library.config_util as config_util
     import library.train_util as train_util
     from library import model_util
+
     # Strategy imports for different model types
-    from library.strategy_base import (TextEncoderOutputsCachingStrategy,
-                                       TextEncodingStrategy, TokenizeStrategy)
-    from library.strategy_flux import (FluxTextEncodingStrategy,
-                                       FluxTokenizeStrategy)
+    from library.strategy_base import TextEncoderOutputsCachingStrategy, TextEncodingStrategy, TokenizeStrategy
+    from library.strategy_flux import FluxTextEncodingStrategy, FluxTokenizeStrategy
     from library.strategy_sd import SdTextEncodingStrategy, SdTokenizeStrategy
-    from library.strategy_sd3 import (Sd3TextEncodingStrategy,
-                                      Sd3TokenizeStrategy)
-    from library.strategy_sdxl import (SdxlTextEncoderOutputsCachingStrategy,
-                                       SdxlTextEncodingStrategy,
-                                       SdxlTokenizeStrategy)
+    from library.strategy_sd3 import Sd3TextEncodingStrategy, Sd3TokenizeStrategy
+    from library.strategy_sdxl import (
+        SdxlTextEncoderOutputsCachingStrategy,
+        SdxlTextEncodingStrategy,
+        SdxlTokenizeStrategy,
+    )
     from library.utils import setup_logging
     setup_logging()
-    
+
     # Also set up our file-based logging for easier debugging
     from .logging_config import setup_file_logging
     setup_file_logging()
-    
+
     # If we got here, Kohya is available
     KOHYA_AVAILABLE = True
 except ImportError as e:
@@ -411,7 +411,7 @@ class KohyaTrainingManager:
             if not model_path:
                 logger.error(f"❌ Model path is empty/None: {repr(model_path)} - Check widget model selection!")
                 return 'sd15'
-                
+
             # Use Kohya's model detection utilities
             model_path_lower = model_path.lower()
 
@@ -426,11 +426,11 @@ class KohyaTrainingManager:
                 try:
                     file_size_gb = os.path.getsize(model_path) / (1024**3)  # Size in GB
                     logger.debug(f"Model file size: {file_size_gb:.1f}GB")
-                    
+
                     # File size based detection (common sizes, largest first)
                     if file_size_gb > 10:  # Flux models are much larger (12-24GB)
                         logger.info(f"Detected Flux model based on file size: {file_size_gb:.1f}GB")
-                        return 'flux'  
+                        return 'flux'
                     elif file_size_gb > 8:  # SD3 models are also large (8-12GB)
                         logger.info(f"Detected SD3 model based on file size: {file_size_gb:.1f}GB")
                         return 'sd3'
@@ -440,7 +440,7 @@ class KohyaTrainingManager:
                     else:  # SD 1.5/2.0 models are typically 2-4GB
                         logger.info(f"Detected SD1.5/2.0 model based on file size: {file_size_gb:.1f}GB")
                         return 'sd15'
-                        
+
                 except Exception as e:
                     logger.warning(f"File size detection failed: {e}")
                     # Continue to fallback detection
@@ -490,7 +490,7 @@ class KohyaTrainingManager:
         logger.warning(f"📊 Call stack: {[line.strip() for line in traceback.format_stack()[-3:-1]]}")
         logger.warning(f"📊 Config project name: {config.get('output_name', 'lora')}")
         logger.warning("🚨 === END TOML RECREATION ALERT ===")
-        
+
         model_type = config.get('model_type', 'sd15')
 
         if model_type in self.model_configs:
@@ -581,7 +581,7 @@ class KohyaTrainingManager:
         logger.info("🎭 === WIDGET CONFIG DEBUG DUMP ===")
         logger.info(f"📊 Full config keys: {list(config.keys())}")
         logger.info(f"📊 Config type: {type(config)}")
-        
+
         # Check if this is structured config from widget
         if 'model_arguments' in config:
             logger.info("🎵 WAIT FOR IT... Structured widget config detected!")
@@ -599,7 +599,7 @@ class KohyaTrainingManager:
         # Widget debug showed: 'model_path', 'train_batch_size', 'unet_lr', etc.
         # Get network configuration based on LoRA type selection
         network_config = self._get_network_configuration(config.get('lora_type', ''), config)
-        
+
         toml_config = {
             "network_arguments": {
                 "network_dim": config.get('network_dim'),           # Widget provides this
@@ -611,7 +611,7 @@ class KohyaTrainingManager:
             "optimizer_arguments": {
                 "learning_rate": config.get('unet_lr'),             # Widget provides 'unet_lr'
                 "text_encoder_lr": config.get('text_encoder_lr'),   # Widget provides this
-                "lr_scheduler": config.get('lr_scheduler'),         # Widget provides this  
+                "lr_scheduler": config.get('lr_scheduler'),         # Widget provides this
                 "lr_scheduler_num_cycles": config.get('lr_scheduler_number'),  # Widget provides this
                 "lr_warmup_ratio": config.get('lr_warmup_ratio'),   # Widget provides this
                 "optimizer_type": config.get('optimizer'),          # Widget provides 'optimizer'
@@ -676,7 +676,7 @@ class KohyaTrainingManager:
 
         # Ensure numeric values are properly typed for TOML
         self._fix_numeric_types(toml_config)
-        
+
         with open(config_path, 'w') as f:
             toml.dump(toml_config, f)
 
@@ -696,7 +696,7 @@ class KohyaTrainingManager:
             'save_every_n_epochs', 'keep_only_last_n_epochs', 'clip_skip',
             'vae_batch_size', 'network_dim', 'network_alpha', 'conv_dim', 'conv_alpha'
         }
-        
+
         def convert_recursive(obj):
             if isinstance(obj, dict):
                 for key, value in obj.items():
@@ -712,7 +712,7 @@ class KohyaTrainingManager:
             elif isinstance(obj, list):
                 for item in obj:
                     convert_recursive(item)
-        
+
         convert_recursive(config_dict)
 
     def create_dataset_toml(self, config: Dict) -> str:
@@ -726,27 +726,27 @@ class KohyaTrainingManager:
         logger.warning(f"📊 Call stack: {[line.strip() for line in traceback.format_stack()[-3:-1]]}")
         logger.warning(f"📊 Dataset path from config: {config.get('dataset_path')}")
         logger.warning("🚨 === END DATASET TOML RECREATION ALERT ===")
-        
+
         dataset_toml_path = os.path.join(self.config_dir, f"{config.get('output_name', 'lora')}_dataset.toml")
-        
+
         # 🎭 DATASET DEBUG: Check critical fields before TOML generation
         logger.info("🎭 === DATASET TOML DEBUG ===")
         logger.info(f"📊 dataset_path from widget: {repr(config.get('dataset_path'))}")
         logger.info(f"📊 resolution from widget: {repr(config.get('resolution'))}")
         logger.info(f"📊 num_repeats from widget: {repr(config.get('num_repeats'))}")
-        
+
         # 🎵 EXACT WORKING TOML STRUCTURE: Match your working dataset.toml format!
         # Filter out None values so TOML only gets fields that are actually set
-        
+
         # Build datasets section
         datasets_section = {}
         subsets_section = {}
         general_section = {}
-        
+
         # Only add fields that aren't None
         if config.get('keep_tokens') is not None:
             datasets_section['keep_tokens'] = config.get('keep_tokens')
-            
+
         # 🚨 CRITICAL FIX: Widget provides 'dataset_path' NOT 'dataset_dir'!
         if config.get('num_repeats') is not None:
             subsets_section['num_repeats'] = config.get('num_repeats')
@@ -762,7 +762,7 @@ class KohyaTrainingManager:
             subsets_section['image_dir'] = os.path.relpath(dataset_path, self.sd_scripts_dir)
         if config.get('class_tokens') is not None:
             subsets_section['class_tokens'] = config.get('class_tokens')
-            
+
         # 🚨 CRITICAL: Resolution is REQUIRED for training!
         # Kohya expects resolution as a single INTEGER, not a comma-separated string
         resolution = config.get('resolution')
@@ -786,13 +786,13 @@ class KohyaTrainingManager:
             general_section['flip_aug'] = config.get('flip_aug')
         # Always specify caption extension - default to .txt if not provided
         general_section['caption_extension'] = config.get('caption_extension', '.txt')
-        
+
         # Bucketing settings - now properly from widget
         if config.get('enable_bucket') is not None:
             general_section['enable_bucket'] = config.get('enable_bucket')
         if config.get('bucket_no_upscale') is not None:
             general_section['bucket_no_upscale'] = config.get('bucket_no_upscale')
-        
+
         # Handle bucket_reso_steps with SDXL optimization
         bucket_steps = config.get('bucket_reso_steps')
         if bucket_steps is not None:
@@ -801,12 +801,12 @@ class KohyaTrainingManager:
             general_section['bucket_reso_steps'] = 32  # SDXL optimized
         else:
             general_section['bucket_reso_steps'] = 64  # Standard
-            
+
         if config.get('min_bucket_reso') is not None:
             general_section['min_bucket_reso'] = config.get('min_bucket_reso')
         if config.get('max_bucket_reso') is not None:
             general_section['max_bucket_reso'] = config.get('max_bucket_reso')
-            
+
         # Caption handling settings from widget
         if config.get('caption_dropout_rate') is not None:
             general_section['caption_dropout_rate'] = config.get('caption_dropout_rate')
@@ -832,14 +832,14 @@ class KohyaTrainingManager:
             "datasets": [datasets_section] if datasets_section else [{}],
             "general": general_section
         }
-        
+
         # Add subsets to the first dataset
         if subsets_section:
             dataset_config["datasets"][0]["subsets"] = [subsets_section]
-        
+
         with open(dataset_toml_path, 'w') as f:
             toml.dump(dataset_config, f)
-            
+
         logger.info(f"Created dataset TOML: {dataset_toml_path}")
         return dataset_toml_path
 
@@ -853,7 +853,7 @@ class KohyaTrainingManager:
         try:
             # 🕵️ DETECT CONFIG FORMAT: Widget (flat) vs TOML (structured)
             is_structured_toml = self._is_structured_toml_config(config)
-            
+
             if is_structured_toml:
                 logger.info("📋 Received structured TOML config from launch_from_files()")
                 # Already in TOML format - write to files and proceed
@@ -862,7 +862,7 @@ class KohyaTrainingManager:
                 logger.info("📋 Received flat widget config from prepare_config_only()")
                 # Need to generate TOML files first
                 return self._launch_training_from_widget_config(config, monitor_widget)
-                
+
         except Exception as e:
             logger.error(f"💥 Training failed: {e}")
             return False
@@ -876,11 +876,11 @@ class KohyaTrainingManager:
     def _launch_training_from_widget_config(self, config: Dict, monitor_widget=None) -> bool:
         """Handle flat widget config - generate TOML then train"""
         logger.info("🍬 Simple wrapper approach - generating TOML and letting sd-scripts do the work")
-        
+
         # 🧠 LIN-MANUEL MIRANDA DEBUGGING MODE: "WHY DO YOU DEBUG LIKE YOU'RE RUNNING OUT OF TIME?"
         logger.info("🎭 === WIDGET CONFIG DEBUG DUMP ===")
         logger.info(f"📊 dataset_dir: {repr(config.get('dataset_dir'))}")
-        logger.info(f"📊 dataset_path: {repr(config.get('dataset_path'))}")  
+        logger.info(f"📊 dataset_path: {repr(config.get('dataset_path'))}")
         logger.info(f"📊 output_dir: {repr(config.get('output_dir'))}")
         logger.info(f"📊 model_path: {repr(config.get('model_path'))}")
         logger.info(f"📊 project_name: {repr(config.get('project_name'))}")
@@ -890,40 +890,40 @@ class KohyaTrainingManager:
         # 🍬 PURE CANDY WRAPPER: Use our working TOML generation directly!
         # No more Derrian functions, no more undefined variables, just WORKING CODE!
         logger.info("🍬 Using candy wrapper TOML generation (no Derrian validation)")
-        
+
         # Generate TOML files using our proven working methods
         config_path = self.create_config_toml(config)
         dataset_path = self.create_dataset_toml(config)
-        
+
         logger.info(f"✅ Generated config: {config_path}")
         logger.info(f"✅ Generated dataset config: {dataset_path}")
-        
+
         return self._execute_training_command(config_path, dataset_path, monitor_widget)
 
     def _launch_training_from_structured_config(self, config: Dict, monitor_widget=None) -> bool:
         """Handle structured TOML config - USE EXISTING FILES, DON'T WRITE NEW ONES!"""
         logger.info("🎯 Using existing TOML files (NOT writing new ones!)")
-        
+
         # 🚨 FIXED: DON'T WRITE TOML FILES! Just use existing ones!
         # The second button should NEVER overwrite the good files from the first button
         # Look for existing files that the first button created (project_name_config.toml format)
         import glob
         config_files = glob.glob(os.path.join(self.config_dir, "*_config.toml"))
         dataset_files = glob.glob(os.path.join(self.config_dir, "*_dataset.toml"))
-        
+
         if config_files:
             config_path = config_files[0]  # Use first match
         else:
             config_path = os.path.join(self.config_dir, "config.toml")  # Fallback
-            
+
         if dataset_files:
-            dataset_path = dataset_files[0]  # Use first match  
+            dataset_path = dataset_files[0]  # Use first match
         else:
             dataset_path = os.path.join(self.config_dir, "dataset.toml")  # Fallback
-        
+
         logger.info(f"📁 Using existing config: {config_path}")
         logger.info(f"📁 Using existing dataset: {dataset_path}")
-        
+
         # Verify files exist
         if not os.path.exists(config_path):
             logger.error(f"❌ Config file not found: {config_path}")
@@ -931,7 +931,7 @@ class KohyaTrainingManager:
         if not os.path.exists(dataset_path):
             logger.error(f"❌ Dataset file not found: {dataset_path}")
             return False
-        
+
         logger.info("✅ Found existing TOML files - launching training!")
         return self._execute_training_command(config_path, dataset_path, monitor_widget)
 
@@ -943,21 +943,21 @@ class KohyaTrainingManager:
         logger.warning("📊 _write_structured_config_toml() called!")
         logger.warning(f"📊 Call stack: {[line.strip() for line in traceback.format_stack()[-3:-1]]}")
         logger.warning("🚨 === END STRUCTURED CONFIG ALERT ===")
-        
+
         # Use standard naming that launch_from_files() expects
         config_filename = "config.toml"
         config_path = os.path.join(self.config_dir, config_filename)
-        
+
         # Extract just the training sections for config.toml
         config_sections = {
             'network_arguments': config.get('network_arguments', {}),
             'optimizer_arguments': config.get('optimizer_arguments', {}),
             'training_arguments': config.get('training_arguments', {})
         }
-        
+
         with open(config_path, 'w') as f:
             toml.dump(config_sections, f)
-        
+
         return config_path
 
     def _write_structured_dataset_toml(self, config: Dict) -> str:
@@ -965,26 +965,26 @@ class KohyaTrainingManager:
         # Use standard naming that launch_from_files() expects
         dataset_filename = "dataset.toml"
         dataset_path = os.path.join(self.config_dir, dataset_filename)
-        
+
         # 🎯 CRITICAL FIX: Build proper Kohya dataset structure, not just a dump!
         # We need the exact structure that the working create_dataset_toml method uses
-        
+
         datasets_section = {}
         subsets_section = {}
         general_section = config.get('general', {})
-        
+
         # Extract from our structured config's datasets array
         if config.get('datasets') and len(config['datasets']) > 0:
             first_dataset = config['datasets'][0]
             if 'subsets' in first_dataset and len(first_dataset['subsets']) > 0:
                 subset = first_dataset['subsets'][0]
-                
+
                 # Build subsets section
                 if subset.get('num_repeats') is not None:
                     subsets_section['num_repeats'] = subset['num_repeats']
                 if subset.get('image_dir') is not None:
                     subsets_section['image_dir'] = subset['image_dir']
-                    
+
         # Fix resolution format - Kohya needs INTEGER not "1024,1024" string
         if 'resolution' in general_section:
             resolution = general_section['resolution']
@@ -993,27 +993,27 @@ class KohyaTrainingManager:
                 general_section['resolution'] = int(resolution.split(',')[0])
             elif isinstance(resolution, (int, str)):
                 general_section['resolution'] = int(resolution)
-                
+
         # Build final structure matching working create_dataset_toml
         dataset_config = {
             "datasets": [datasets_section] if datasets_section else [{}],
             "general": general_section
         }
-        
+
         # Add subsets to the first dataset if we have any
         if subsets_section:
             dataset_config["datasets"][0]["subsets"] = [subsets_section]
-        
+
         # 🧠 DEBUGGING: Log what we're actually writing
         logger.info("🎯 === STRUCTURED DATASET TOML DEBUG ===")
         logger.info(f"📊 Writing dataset config: {dataset_config}")
         logger.info(f"📊 Subsets section: {subsets_section}")
         logger.info(f"📊 General section: {general_section}")
         logger.info("🎯 === END DATASET TOML DEBUG ===")
-        
+
         with open(dataset_path, 'w') as f:
             toml.dump(dataset_config, f)
-        
+
         return dataset_path
 
     def _execute_training_command(self, config_path: str, dataset_path: str, monitor_widget=None) -> bool:
@@ -1023,7 +1023,7 @@ class KohyaTrainingManager:
             import toml
             with open(config_path, 'r') as f:
                 config = toml.load(f)
-            
+
             # Use the user's selected model type from dropdown (not auto-detection!)
             raw_model_type = config.get('model_type', 'sd15')
 
@@ -1093,9 +1093,17 @@ class KohyaTrainingManager:
                     env=env
                 )
 
-                # Monitor output
+                # Monitor output and stream to WebSocket clients
+                from core.log_streamer import get_training_log_streamer
+                log_streamer = get_training_log_streamer()
+
                 for line in iter(self.process.stdout.readline, ''):
-                    print(line, end='')
+                    print(line, end='')  # Still print to console
+
+                    # Stream to WebSocket clients
+                    log_streamer.add_line(line)
+
+                    # Also support widget if provided
                     if monitor_widget:
                         monitor_widget.parse_training_output(line)
 
@@ -1131,7 +1139,7 @@ class KohyaTrainingManager:
 
         # Proper Kohya command format with both config files
         cmd = [
-            script_path, 
+            script_path,
             "--config_file", config_path,
             "--dataset_config", dataset_path
         ]
@@ -1406,7 +1414,7 @@ class KohyaTrainingManager:
     def _convert_config_to_derrian_format(self, config: Dict) -> Dict:
         """Convert our config format to what Derrian's validation expects - REAL conversion from archived version"""
         logger.debug("⚙️ Converting widget config to Derrian backend format...")
-        
+
         # Proper Derrian args structure (from archived training_manager.py)
         derrian_args = {
             "basic": {
@@ -1490,26 +1498,26 @@ class KohyaTrainingManager:
 
         # Ensure we're not adding extra path separators
         dataset_path = dataset_path.replace('\\', '/')  # Normalize path separators
-        
+
         return dataset_path
 
     def _get_optimizer_arguments(self, optimizer_name: str) -> Dict[str, Any]:
         """Get optimizer-specific arguments from standard optimizer configurations"""
         if not optimizer_name:
             return {}
-        
+
         # Handle different optimizer name formats
         optimizer_key = optimizer_name
         if optimizer_name == 'LoraEasyCustomOptimizer.came.CAME':
             optimizer_key = 'Came'
         elif optimizer_name == 'AdamW8bit':
             optimizer_key = 'AdamW8bit'
-        
+
         optimizer_config = self.standard_optimizers.get(optimizer_key, {})
-        
+
         if not optimizer_config:
             return {}
-        
+
         # Parse args list into dictionary
         args_dict = {}
         for arg in optimizer_config.get('args', []):
@@ -1535,24 +1543,24 @@ class KohyaTrainingManager:
                             value = int(value)
                     except ValueError:
                         pass  # Keep as string
-                
+
                 args_dict[key] = value
-        
+
         return args_dict
 
     def _get_absolute_model_path(self, model_path: str) -> str:
         """Convert model path to absolute path for Kohya training"""
         if not model_path:
             return ""
-        
+
         # If already absolute, return as-is
         if os.path.isabs(model_path):
             return model_path
-        
+
         # If just a filename, assume it's in pretrained_model directory
         if os.path.sep not in model_path:
             return os.path.join(self.project_root, "pretrained_model", model_path)
-        
+
         # If relative path, convert to absolute using project root
         return os.path.join(self.project_root, model_path)
 
@@ -1560,12 +1568,12 @@ class KohyaTrainingManager:
         """Get network configuration based on LoRA type selection"""
         if not lora_type:
             return {"network_module": "networks.lora"}  # Default to standard LoRA
-        
+
         # Map widget display names to LyCORIS method keys
         lora_type_mapping = {
             'LoRA': None,  # Standard LoRA
             'LoCon': 'locon',
-            'LoKR': 'lokr', 
+            'LoKR': 'lokr',
             'DyLoRA': 'dylora',
             'DoRA (Weight Decomposition)': 'dora',  # Special case - DoRA with standard LoRA
             'LoHa (Hadamard Product)': 'loha',
@@ -1575,9 +1583,9 @@ class KohyaTrainingManager:
             'Diag-OFT': 'diag_oft',
             'Full': 'full'
         }
-        
+
         mapped_type = lora_type_mapping.get(lora_type)
-        
+
         # Special handling for DoRA - it's an argument, not a separate algorithm
         if mapped_type == 'dora':
             network_args = ["dora_wd=True"]
@@ -1590,10 +1598,10 @@ class KohyaTrainingManager:
                 "network_module": "networks.lora",
                 "network_args": network_args
             }
-        
+
         if mapped_type is None:  # Standard LoRA
             return {"network_module": "networks.lora"}
-        
+
         # Special handling for native sd_scripts modules
         if mapped_type == 'dylora':
             network_args = []
@@ -1606,15 +1614,15 @@ class KohyaTrainingManager:
                 "network_module": "networks.dylora",
                 "network_args": network_args
             }
-        
+
         # Get LyCORIS configuration
         lycoris_config = self.lycoris_methods.get(mapped_type, {})
-        
+
         if lycoris_config:
             result = {
                 "network_module": lycoris_config.get('network_module', 'lycoris.kohya')
             }
-            
+
             # Add network_args if specified
             network_args = lycoris_config.get('network_args', []).copy()  # Start with base args (e.g., ['algo=loha'])
 
@@ -1645,8 +1653,8 @@ class KohyaTrainingManager:
 
             if network_args:
                 result["network_args"] = network_args
-            
+
             return result
-        
+
         # Fallback to standard LoRA if mapping fails
         return {"network_module": "networks.lora"}

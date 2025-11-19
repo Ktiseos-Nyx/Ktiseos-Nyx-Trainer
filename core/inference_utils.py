@@ -173,14 +173,14 @@ def generate_sample_images(
 def _run_inference_script(inference_script, lora_path, base_model_path, prompt, num_samples,
                          output_dir, epoch, **kwargs):
     """Common inference script execution logic"""
-    
+
     # Extract parameters from kwargs
     resolution = kwargs.get('resolution', 512)
-    seed = kwargs.get('seed', 42) 
+    seed = kwargs.get('seed', 42)
     negative_prompt = kwargs.get('negative_prompt', 'bad anatomy, bad hands')
     guidance_scale = kwargs.get('guidance_scale', 7.5)
     num_inference_steps = kwargs.get('num_inference_steps', 25)
-    
+
     # Get project root and SD scripts directory
     project_root = Path(__file__).parents[1]
     sd_scripts_dir = project_root / "trainer" / "derrian_backend" / "sd_scripts"

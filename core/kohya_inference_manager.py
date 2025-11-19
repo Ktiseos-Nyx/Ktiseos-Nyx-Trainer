@@ -4,8 +4,8 @@
 Unified Inference Manager leveraging Kohya's library for image generation.
 """
 import os
-import sys
 import subprocess
+import sys
 from typing import Any, Dict
 
 # Add Kohya's backend to system path
@@ -15,8 +15,7 @@ import logging
 
 from library import model_util
 from library.strategy_sd import SdTextEncodingStrategy, SdTokenizeStrategy
-from library.strategy_sdxl import (SdxlTextEncodingStrategy,
-                                   SdxlTokenizeStrategy)
+from library.strategy_sdxl import SdxlTextEncodingStrategy, SdxlTokenizeStrategy
 
 # Import other strategies as needed, e.g., flux, sd3
 
@@ -84,7 +83,7 @@ class KohyaInferenceManager:
         try:
             # Instead of implementing our own inference pipeline, use Kohya's proven scripts
             inference_script = self._get_inference_script(model_type)
-            
+
             # Build command for Kohya's inference script
             cmd = [
                 sys.executable,  # Use current Python executable
@@ -98,25 +97,25 @@ class KohyaInferenceManager:
                 "--steps", str(steps),
                 "--scale", str(cfg_scale)
             ]
-            
+
             # Add LoRA if specified
             if lora_path:
                 cmd.extend(["--network_weights", lora_path])
                 if lora_strength != 1.0:
                     cmd.extend(["--network_mul", str(lora_strength)])
-            
+
             logger.info(f"Running Kohya inference: {' '.join(cmd)}")
-            
+
             # Execute the inference script
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.sd_scripts_dir)
-            
+
             if result.returncode == 0:
                 logger.info("✅ Inference completed successfully")
                 logger.info(result.stdout)
             else:
                 logger.error("❌ Inference failed")
                 logger.error(result.stderr)
-                
+
         except Exception as e:
             logger.error(f"An error occurred during image generation: {e}")
             if model_path in self.models_cache:
@@ -127,15 +126,15 @@ class KohyaInferenceManager:
         # Mapping of model types to Kohya inference scripts
         script_mapping = {
             'sd15': 'gen_img.py',
-            'sd20': 'gen_img.py', 
+            'sd20': 'gen_img.py',
             'sdxl': 'sdxl_gen_img.py',
             'flux': 'flux_minimal_inference.py',
             'sd3': 'sd3_minimal_inference.py'
         }
-        
+
         script_name = script_mapping.get(model_type, 'gen_img_diffusers.py')  # Default to diffusers script
         script_path = os.path.join(self.sd_scripts_dir, script_name)
-        
+
         if not os.path.exists(script_path):
             # Fallback to general diffusers script
             fallback_path = os.path.join(self.sd_scripts_dir, 'gen_img_diffusers.py')
@@ -144,7 +143,7 @@ class KohyaInferenceManager:
                 return fallback_path
             else:
                 raise FileNotFoundError(f"No inference script found for {model_type}")
-                
+
         return script_path
 
 # Example usage:
