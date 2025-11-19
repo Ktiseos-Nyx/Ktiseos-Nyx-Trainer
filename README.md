@@ -32,10 +32,14 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 > - 🔬 **FLUX training** - Available in Kohya, integration status unknown
 > - 🧬 **SD3/SD3.5 training** - Available in Kohya, integration status unknown
 > - 🌟 **Lumina2 training** - Available in Kohya, integration status unknown
+> - 🎨 **Chroma training** - Basic support available (may not match [Flow trainer](https://github.com/lodestone-rock/flow) performance)
 > - 🔧 **Latest bug fixes** and performance improvements
 > - ⚡ **Enhanced upload widgets** (fixed cache issues)
 > - ⚡ **Language Cleanup** Cleaned up a lot of marketing speak and started the roadmap to check inconsistencies on missing content.
+>
 > **Note**: These experimental features exist in the underlying Kohya scripts but haven't been thoroughly tested with our widget system. Use at your own risk and expect possible issues. If they look like they're exposed in our widget setup, there is no saying if they current work due to our unified setup. We're working on fast trying to get functionality quickly. If you have any issues please report them to the issues area.
+>
+> **Cross-Trainer Compatibility Goal**: We're researching support for additional memory-efficient optimizers and training techniques (inspired by [Flow](https://github.com/lodestone-rock/flow)) to enable training on a wider range of GPU configurations. This is future work - contributions and testing welcome!
 
 
 ## 🚀 Quick Start
