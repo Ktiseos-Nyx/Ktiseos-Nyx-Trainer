@@ -73,8 +73,10 @@ Access at: `http://localhost:3000`
 
 **See**: [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions
 
-#### 📓 Jupyter Notebooks (For Classic Workflow)
+#### 📓 Jupyter Notebooks (Legacy - For Transition)
 Widget-based interface with step-by-step control:
+
+> **Note**: Jupyter notebooks are kept in a separate `jupyter-notebooks/` directory for users transitioning from the old workflow. These may be deprecated in future releases as we focus on the modern Web UI. If you prefer the notebook workflow, you can continue using them, or even move them to the project root if desired.
 
 ```bash
 # 1. Clone and setup
@@ -86,7 +88,9 @@ python installer.py
 jupyter lab
 
 # 3. Open notebooks
-# Navigate to jupyter-notebooks/ directory
+# Navigate to jupyter-notebooks/ directory in Jupyter's file browser
+# Or optionally move notebooks to project root:
+# cp jupyter-notebooks/*.ipynb .
 ```
 
 **See**: [Jupyter Notebooks Guide](jupyter-notebooks/README.md)
