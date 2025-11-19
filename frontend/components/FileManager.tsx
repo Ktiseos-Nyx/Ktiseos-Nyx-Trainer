@@ -40,7 +40,7 @@ export default function FileManager() {
         setError(errorMsg);
       }
       // Set empty listing to show UI
-      setListing({ path: path, files: [], directories: [] });
+      setListing({ path: path, files: [], parent: null });
     } finally {
       setLoading(false);
     }

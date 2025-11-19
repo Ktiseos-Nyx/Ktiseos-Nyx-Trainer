@@ -289,7 +289,7 @@ export default function SettingsPage() {
         </GradientCard>
 
         {/* Training Parameter Visibility */}
-        <GradientCard variant="sunset" intensity="subtle" className="mb-6">
+        <GradientCard variant="dusk" intensity="subtle" className="mb-6">
           <div className="p-6">
             <h2 className="text-2xl font-bold text-white mb-2">Training Parameter Visibility</h2>
             <p className="text-sm text-gray-400 mb-4">

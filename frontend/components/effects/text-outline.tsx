@@ -15,11 +15,10 @@ export function TextOutline({
   fillColor = 'transparent',
   className
 }: TextOutlineProps) {
-  const style: React.CSSProperties = {
+  const style = {
     WebkitTextStroke: `${strokeWidth}px ${strokeColor}`,
-    textStroke: `${strokeWidth}px ${strokeColor}`,
     color: fillColor === 'transparent' ? 'transparent' : fillColor,
-  }
+  } as React.CSSProperties
 
   return (
     <span

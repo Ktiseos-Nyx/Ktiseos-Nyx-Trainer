@@ -265,6 +265,10 @@ GEMINI.md
 CLAUDE.md
 CLAUDE_*.md
 
+# Internal planning documents
+TRAINING_EXPANSION_PLAN.md
+*_PLAN.md
+
 # OS generated files
 .directory
 .fuse_hidden*
