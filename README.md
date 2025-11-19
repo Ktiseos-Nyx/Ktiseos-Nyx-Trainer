@@ -14,15 +14,26 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 
 ## 🌟 Overview & Key Features
 
-**Key Features:**
-- Widget-based configuration interface
-- Async based Uploading so your images don't become dreams.
-- Integrated dataset preparation and tagging tools
-- Training parameter calculator and optimization
-- Multiple LoRA variants and optimizers
-- Cross-platform compatibility
-- Huggingface Uploads for datasets AND loras.
-- Coming eventually when my brain lets me: FULL MODEL TRAINING! It's supported with KohyaSS, but our widget interface is a bit primitive and I need to understand more before bringing that in.
+**Modern Web UI + Python Backend Architecture:**
+- 🌐 **Next.js Frontend** - Modern React-based interface with real-time updates
+- ⚡ **FastAPI Backend** - Fast, async Python API with lazy-loaded dependencies
+- 🎨 **Tailwind CSS + shadcn/ui** - Beautiful, responsive design system
+- 🔄 **Real-time Training Monitor** - Live progress tracking via WebSocket
+- 📁 **File Browser** - Manage datasets and models without leaving the UI
+
+**Training Features:**
+- 🖼️ **Integrated Dataset Prep** - Upload, tag with WD14, edit captions in-browser
+- 🧮 **Training Calculator** - Automatic step/epoch calculations
+- 🎯 **132 Training Parameters** - Full control over LoRA training (SDXL, SD1.5, Flux, SD3, Lumina, Chroma)
+- 🔧 **Multiple LoRA Variants** - Standard, LoCon, LoHa, LoKr, DoRA support
+- 🚀 **Advanced Optimizers** - AdamW8bit, Prodigy, Lion, CAME, and more
+- ☁️ **HuggingFace Integration** - Upload datasets and trained LoRAs directly
+- 📊 **Async Uploads** - Non-blocking file uploads so your images don't become dreams
+
+**Platform Support:**
+- 💻 **Cross-platform** - Windows, Linux, macOS
+- 🌩️ **Cloud Ready** - VastAI, RunPod templates available
+- 📓 **Legacy Jupyter Support** - Original widget-based notebooks still available
 
 ### ⚠️ Note
 
@@ -141,13 +152,44 @@ chmod +x ./jupyter.sh && ./jupyter.sh
 
 ### Web UI Workflow
 
-1. **Files** - Upload and manage datasets
-2. **Dataset** - Organize images, tag with WD14, edit captions
-3. **Training** - Configure parameters and start training
-4. **Monitor** - Real-time progress tracking
-5. **Models** - Browse trained LoRAs
-6. **Utilities** - Resize, upload to HuggingFace
-7. **Settings** - Toggle advanced parameters
+The web interface provides a streamlined, tab-based workflow:
+
+1. **📁 Files Page** - Browse and upload datasets
+   - File browser for managing training data
+   - Drag-and-drop upload support
+   - Directory creation and organization
+
+2. **🖼️ Dataset Page** - Prepare images for training
+   - WD14 auto-tagging with multiple tagger options
+   - Caption editor with batch operations
+   - Image gallery with filtering and search
+
+3. **🎓 Training Page** - Configure and start training
+   - 7 organized tabs: Setup, Dataset, LoRA, Learning Rate, Advanced, Saving, Logging
+   - 132 training parameters with tooltips and validation
+   - Model-specific settings (Flux, SD3, Lumina fields auto-show)
+   - Real-time config validation
+
+4. **📊 Monitor** - Track training progress (coming soon)
+   - Live loss graphs and metrics
+   - Sample image generation preview
+   - Training logs streaming
+
+5. **🎨 Models Page** - Manage trained LoRAs (coming soon)
+   - Browse output directory
+   - Preview LoRA metadata
+   - Quick download and share
+
+6. **🔧 Utilities Page** - Post-training tools (coming soon)
+   - LoRA resizing (extract/merge)
+   - HuggingFace upload
+   - Metadata editing
+
+**Architecture**:
+- **Frontend** runs on port 3000 (Next.js)
+- **Backend** runs on port 8000 (FastAPI)
+- Backend uses **lazy-loaded managers** - AI dependencies only load when needed
+- **File browser and config** work without any AI packages installed
 
 **Full Guide**: [Web UI Documentation](docs/WEB_UI_GUIDE.md) (coming soon)
 
