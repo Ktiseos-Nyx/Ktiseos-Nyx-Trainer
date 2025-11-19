@@ -28,6 +28,7 @@
     "@wandry-ui": "https://ui.wandry.com.ua/r/{name}.json",
     "@reui": "https://reui.io/r/{name}.json",
     "@coss": "https://coss.com/ui/r/{name}.json",
-    "@shadcndesign": "https://shadcndesign-free.vercel.app/r/{name}.json"
+    "@shadcndesign": "https://shadcndesign-free.vercel.app/r/{name}.json",
+    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json"
   }
 }

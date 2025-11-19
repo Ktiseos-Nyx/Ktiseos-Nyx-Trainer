@@ -6,7 +6,7 @@ import {
   useSpring,
   useMotionTemplate,
   useTransform,
-} from "framer-motion"
+} from "motion/react"
 import {
   Card,
   CardContent,
@@ -413,5 +413,4 @@ export {
   BorderGlideFooter,
   BorderGlideTitle,
   BorderGlideDescription
-}"
 }

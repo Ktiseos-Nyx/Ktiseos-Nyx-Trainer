@@ -154,6 +154,21 @@ export default function TrainingConfig() {
     v_parameterization: false,
     network_train_unet_only: false,
     prior_loss_weight: 1.0,
+
+    // ========== FLUX-SPECIFIC PARAMETERS ==========
+    ae_path: '',
+    t5xxl_max_token_length: undefined,
+    apply_t5_attn_mask: false,
+    guidance_scale: 3.5,
+    timestep_sampling: 'sigma',
+    sigmoid_scale: 1.0,
+    model_prediction_type: 'raw',
+    blocks_to_swap: undefined,
+
+    // ========== LUMINA-SPECIFIC PARAMETERS ==========
+    gemma2: '',
+    gemma2_max_token_length: undefined,
+    // ae_path, timestep_sampling, sigmoid_scale, blocks_to_swap are shared with Flux
   });
 
   const [templates, setTemplates] = useState<any[]>([]);
@@ -329,7 +344,7 @@ export default function TrainingConfig() {
         setValidationErrors(result.validation_errors);
 
         // If there are critical errors, don't show success
-        const hasErrors = result.validation_errors.some(e => e.severity === 'error');
+        const hasErrors = result.validation_errors.some((e: ValidationError) => e.severity === 'error');
         if (hasErrors) {
           setError(result.message || 'Configuration has errors. Please fix them before starting training.');
           return;
@@ -495,8 +510,9 @@ export default function TrainingConfig() {
                   <SelectContent>
                     <SelectItem value="SD1.5">SD 1.5</SelectItem>
                     <SelectItem value="SDXL">SDXL</SelectItem>
-                    <SelectItem value="Flux">Flux</SelectItem>
-                    <SelectItem value="SD3">SD3</SelectItem>
+                    <SelectItem value="Flux">Flux (24GB VRAM)</SelectItem>
+                    <SelectItem value="SD3">SD3 (24GB VRAM)</SelectItem>
+                    <SelectItem value="Lumina">Lumina (Experimental)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -670,6 +686,209 @@ export default function TrainingConfig() {
                         <FolderOpen className="w-4 h-4" />
                       </Button>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Conditional: Flux-Specific Parameters */}
+            {config.model_type === 'Flux' && (
+              <div className="border-t pt-4 space-y-4">
+                <h4 className="text-md font-medium text-purple-400">Flux-Specific Parameters</h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ae_path">AutoEncoder Path</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="ae_path"
+                        value={config.ae_path}
+                        onChange={(e) => handleChange('ae_path', e.target.value)}
+                        placeholder="/path/to/ae.safetensors"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() =>
+                          openBrowser(
+                            'ae_path',
+                            'file',
+                            'Select Flux AutoEncoder',
+                            'Choose the Flux AE file (.safetensors)'
+                          )
+                        }
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-400">Optional: Flux AutoEncoder model</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="guidance_scale">Guidance Scale</Label>
+                    <Input
+                      id="guidance_scale"
+                      type="number"
+                      value={config.guidance_scale}
+                      onChange={(e) => handleChange('guidance_scale', parseFloat(e.target.value))}
+                      step="0.1"
+                      min="0"
+                      max="20"
+                    />
+                    <p className="text-xs text-gray-400">Recommended: 3.5 for Flux.1 dev</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="timestep_sampling">Timestep Sampling</Label>
+                    <Select value={config.timestep_sampling} onValueChange={(val) => handleChange('timestep_sampling', val)}>
+                      <SelectTrigger id="timestep_sampling">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sigma">Sigma (Default)</SelectItem>
+                        <SelectItem value="uniform">Uniform Random</SelectItem>
+                        <SelectItem value="sigmoid">Sigmoid</SelectItem>
+                        <SelectItem value="shift">Shift</SelectItem>
+                        <SelectItem value="flux_shift">Flux Shift</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="model_prediction_type">Model Prediction Type</Label>
+                    <Select value={config.model_prediction_type} onValueChange={(val) => handleChange('model_prediction_type', val)}>
+                      <SelectTrigger id="model_prediction_type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="raw">Raw</SelectItem>
+                        <SelectItem value="additive">Additive (for dev model)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="blocks_to_swap">Blocks to Swap (Memory Optimization)</Label>
+                    <Input
+                      id="blocks_to_swap"
+                      type="number"
+                      value={config.blocks_to_swap || ''}
+                      onChange={(e) => handleChange('blocks_to_swap', e.target.value ? parseInt(e.target.value) : undefined)}
+                      placeholder="18 (recommended for 24GB VRAM)"
+                      min="0"
+                      max="38"
+                    />
+                    <p className="text-xs text-gray-400">Leave empty for auto, or set to 18 for GPUs with &lt;48GB VRAM</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="t5xxl_max_token_length">T5XXL Max Token Length</Label>
+                    <Input
+                      id="t5xxl_max_token_length"
+                      type="number"
+                      value={config.t5xxl_max_token_length || ''}
+                      onChange={(e) => handleChange('t5xxl_max_token_length', e.target.value ? parseInt(e.target.value) : undefined)}
+                      placeholder="256 (schnell) or 512 (dev)"
+                      min="128"
+                      max="1024"
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="apply_t5_attn_mask"
+                        checked={config.apply_t5_attn_mask}
+                        onCheckedChange={(checked) => handleChange('apply_t5_attn_mask', checked)}
+                      />
+                      <Label htmlFor="apply_t5_attn_mask" className="font-normal">Apply T5-XXL Attention Mask</Label>
+                    </div>
+                    <p className="text-xs text-gray-400">Apply attention mask to T5-XXL encoder and FLUX double blocks</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {config.model_type === 'Lumina' && (
+              <div className="border-t pt-4 space-y-4">
+                <h4 className="text-md font-medium text-purple-400">Lumina-Specific Parameters</h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gemma2">Gemma2 Model Path *</Label>
+                    <Input
+                      id="gemma2"
+                      value={config.gemma2}
+                      onChange={(e) => handleChange('gemma2', e.target.value)}
+                      placeholder="/path/to/gemma2.safetensors or .sft"
+                      required
+                    />
+                    <p className="text-xs text-gray-400">Path to Gemma2 model (*.sft or *.safetensors), should be float16</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ae_path">AutoEncoder Path *</Label>
+                    <Input
+                      id="ae_path"
+                      value={config.ae_path}
+                      onChange={(e) => handleChange('ae_path', e.target.value)}
+                      placeholder="/path/to/ae.safetensors or .sft"
+                      required
+                    />
+                    <p className="text-xs text-gray-400">Path to AutoEncoder (shared with Flux)</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="gemma2_max_token_length">Gemma2 Max Token Length</Label>
+                    <Input
+                      id="gemma2_max_token_length"
+                      type="number"
+                      value={config.gemma2_max_token_length || ''}
+                      onChange={(e) => handleChange('gemma2_max_token_length', e.target.value ? parseInt(e.target.value) : undefined)}
+                      placeholder="256 (default)"
+                    />
+                    <p className="text-xs text-gray-400">Maximum token length for Gemma2. Default: 256</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="timestep_sampling">Timestep Sampling</Label>
+                    <Select value={config.timestep_sampling} onValueChange={(value) => handleChange('timestep_sampling', value)}>
+                      <SelectTrigger id="timestep_sampling">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="shift">shift (default)</SelectItem>
+                        <SelectItem value="nextdit_shift">nextdit_shift</SelectItem>
+                        <SelectItem value="sigma">sigma</SelectItem>
+                        <SelectItem value="uniform">uniform</SelectItem>
+                        <SelectItem value="sigmoid">sigmoid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-400">Method to sample timesteps during training</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sigmoid_scale">Sigmoid Scale</Label>
+                    <Input
+                      id="sigmoid_scale"
+                      type="number"
+                      step="0.1"
+                      value={config.sigmoid_scale}
+                      onChange={(e) => handleChange('sigmoid_scale', parseFloat(e.target.value) || 1.0)}
+                    />
+                    <p className="text-xs text-gray-400">Scale for sigmoid timestep sampling (only used when timestep_sampling is "sigmoid")</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="blocks_to_swap">Blocks to Swap (Memory Optimization)</Label>
+                    <Input
+                      id="blocks_to_swap"
+                      type="number"
+                      value={config.blocks_to_swap || ''}
+                      onChange={(e) => handleChange('blocks_to_swap', e.target.value ? parseInt(e.target.value) : undefined)}
+                      placeholder="Leave empty for no swapping"
+                    />
+                    <p className="text-xs text-gray-400">Number of blocks to swap to reduce VRAM usage. Recommended for GPUs with &lt;48GB VRAM</p>
                   </div>
                 </div>
               </div>

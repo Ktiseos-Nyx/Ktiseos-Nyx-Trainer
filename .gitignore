@@ -264,6 +264,11 @@ GEMINI.md
 # Claude Code project instructions (private)
 CLAUDE.md
 CLAUDE_*.md
+.mcp.json
+
+# Internal planning documents
+TRAINING_EXPANSION_PLAN.md
+*_PLAN.md
 
 # OS generated files
 .directory

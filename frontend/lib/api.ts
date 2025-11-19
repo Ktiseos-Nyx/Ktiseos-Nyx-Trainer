@@ -334,6 +334,21 @@ export interface TrainingConfig {
   v_parameterization: boolean;
   network_train_unet_only: boolean;
   prior_loss_weight: number;
+
+  // ========== FLUX-SPECIFIC PARAMETERS ==========
+  ae_path?: string; // Flux/Lumina AutoEncoder path
+  t5xxl_max_token_length?: number; // Max tokens for T5-XXL
+  apply_t5_attn_mask: boolean; // Apply attention mask to T5-XXL
+  guidance_scale: number; // Guidance scale for Flux.1 dev
+  timestep_sampling: string; // sigma, uniform, sigmoid, shift, flux_shift, nextdit_shift
+  sigmoid_scale: number; // Scale for sigmoid timestep sampling
+  model_prediction_type: string; // raw or additive
+  blocks_to_swap?: number; // Number of blocks to swap (memory optimization)
+
+  // ========== LUMINA-SPECIFIC PARAMETERS ==========
+  gemma2?: string; // Path to Gemma2 model (*.sft or *.safetensors)
+  gemma2_max_token_length?: number; // Maximum token length for Gemma2
+  // ae_path, timestep_sampling, sigmoid_scale, blocks_to_swap are shared with Flux
 }
 
 export interface ValidationError {

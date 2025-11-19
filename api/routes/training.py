@@ -170,6 +170,26 @@ class TrainingConfig(BaseModel):
     network_train_unet_only: bool = False  # Train U-Net only (recommended for SDXL)
     prior_loss_weight: float = 1.0  # Prior loss weight
 
+    # ========== FLUX-SPECIFIC PARAMETERS ==========
+    # Flux model paths (required when model_type="Flux")
+    ae_path: Optional[str] = None  # Flux AutoEncoder path (*.safetensors)
+    t5xxl_max_token_length: Optional[int] = None  # Max tokens for T5-XXL (256 for schnell, 512 for dev)
+    apply_t5_attn_mask: bool = False  # Apply attention mask to T5-XXL
+    guidance_scale: float = 3.5  # Guidance scale for Flux.1 dev
+    timestep_sampling: str = "sigma"  # sigma, uniform, sigmoid, shift, flux_shift
+    sigmoid_scale: float = 1.0  # Scale for sigmoid timestep sampling
+    model_prediction_type: str = "raw"  # raw or additive for dev model
+    blocks_to_swap: Optional[int] = None  # Number of blocks to swap (memory optimization)
+
+    # ========== LUMINA-SPECIFIC PARAMETERS ==========
+    # Lumina model paths (required when model_type="Lumina")
+    gemma2: Optional[str] = None  # Path to Gemma2 model (*.sft or *.safetensors), should be float16
+    gemma2_max_token_length: Optional[int] = None  # Maximum token length for Gemma2. Default: 256
+    # ae_path is shared with Flux (AutoEncoder path)
+    # timestep_sampling is shared with Flux (sigma, uniform, sigmoid, shift, nextdit_shift)
+    # sigmoid_scale is shared with Flux
+    # blocks_to_swap is shared with Flux
+
 
 class ValidationError(BaseModel):
     """Structured validation error with field reference"""
@@ -286,6 +306,72 @@ def validate_training_config(config: TrainingConfig) -> List[ValidationError]:
             message=f"UNet learning rate {config.unet_lr} is very high. Typical SDXL values are 1e-4 to 5e-4.",
             severity="warning"
         ))
+
+    # Flux-specific validation
+    if config.model_type == "Flux":
+        # Check required Flux paths
+        if not config.clip_l_path or config.clip_l_path.strip() == "":
+            errors.append(ValidationError(
+                field="clip_l_path",
+                message="CLIP-L path is required for Flux training",
+                severity="error"
+            ))
+
+        if not config.t5xxl_path or config.t5xxl_path.strip() == "":
+            errors.append(ValidationError(
+                field="t5xxl_path",
+                message="T5-XXL path is required for Flux training",
+                severity="error"
+            ))
+
+        # VRAM warning for Flux
+        if config.train_batch_size > 2:
+            errors.append(ValidationError(
+                field="train_batch_size",
+                message="Flux requires significant VRAM. Batch size > 2 may cause OOM errors. Recommended: 1-2 with 24GB VRAM.",
+                severity="warning"
+            ))
+
+        # Guidance for blocks_to_swap
+        if config.blocks_to_swap is None and config.train_batch_size > 1:
+            errors.append(ValidationError(
+                field="blocks_to_swap",
+                message="Consider setting blocks_to_swap (e.g., 18) to reduce VRAM usage. Recommended for GPUs with <48GB VRAM.",
+                severity="info"
+            ))
+
+    # Lumina-specific validation
+    if config.model_type == "Lumina":
+        # Check required Lumina paths
+        if not config.gemma2 or config.gemma2.strip() == "":
+            errors.append(ValidationError(
+                field="gemma2",
+                message="Gemma2 model path is required for Lumina training (*.sft or *.safetensors)",
+                severity="error"
+            ))
+
+        if not config.ae_path or config.ae_path.strip() == "":
+            errors.append(ValidationError(
+                field="ae_path",
+                message="AutoEncoder path is required for Lumina training",
+                severity="error"
+            ))
+
+        # VRAM warning for Lumina (similar to Flux)
+        if config.train_batch_size > 2:
+            errors.append(ValidationError(
+                field="train_batch_size",
+                message="Lumina requires significant VRAM. Batch size > 2 may cause OOM errors. Recommended: 1-2 with 24GB VRAM.",
+                severity="warning"
+            ))
+
+        # Guidance for blocks_to_swap
+        if config.blocks_to_swap is None and config.train_batch_size > 1:
+            errors.append(ValidationError(
+                field="blocks_to_swap",
+                message="Consider setting blocks_to_swap to reduce VRAM usage. Recommended for GPUs with <48GB VRAM.",
+                severity="info"
+            ))
 
     return errors
 

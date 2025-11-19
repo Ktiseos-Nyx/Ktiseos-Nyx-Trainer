@@ -101,7 +101,8 @@ class KohyaTrainingManager:
         'sd20': ['v2-0', 'sd-v2', 'sd_v2', '768-v-ema'],
         'sdxl': ['xl-base', 'sdxl', 'xl_base', 'xl', '-xl-', '_xl_', 'illustrious', 'pony', 'noobai', 'animagine'],
         'flux': ['flux', 'FLUX'],
-        'sd3': ['sd3', 'SD3']
+        'sd3': ['sd3', 'SD3'],
+        'lumina': ['lumina', 'LUMINA', 'Lumina']
     }
 
     # Script mapping for different model types
@@ -110,7 +111,8 @@ class KohyaTrainingManager:
         'sd20': 'train_network.py',
         'sdxl': 'sdxl_train_network.py',
         'flux': 'flux_train_network.py',
-        'sd3': 'sd3_train_network.py'
+        'sd3': 'sd3_train_network.py',
+        'lumina': 'lumina_train_network.py'
     }
 
     def __init__(self):
@@ -174,6 +176,12 @@ class KohyaTrainingManager:
             'sd3': {
                 'tokenize': Sd3TokenizeStrategy,
                 'text_encoding': Sd3TextEncodingStrategy,
+            },
+            'lumina': {
+                # Lumina uses Gemma2 tokenizer and text encoding
+                # These would be imported from strategy_lumina when needed
+                'tokenize': None,  # LuminaTokenizeStrategy
+                'text_encoding': None,  # LuminaTextEncodingStrategy
             }
         }
 
@@ -252,6 +260,14 @@ class KohyaTrainingManager:
                 'text_encoders': ['t5xxl'],
                 'memory_base': 10,
                 'description': 'AuraFlow - Community Flux variant'
+            },
+            'lumina': {
+                'model_name': 'Alpha-VLLM/Lumina-Next-SFT',
+                'script': 'lumina_train_network.py',
+                'resolution': 1024,
+                'text_encoders': ['gemma2'],
+                'memory_base': 12,  # Similar to Flux
+                'description': 'Lumina Next - DiT-based model with Gemma2'
             }
         }
 
@@ -531,7 +547,18 @@ class KohyaTrainingManager:
                 "seed": config.get('seed', 42),
             },
             "flux_sd3_specific": {
-                "blocks_to_swap": memory_profile.get('blocks_to_swap', 0),
+                "blocks_to_swap": config.get('blocks_to_swap') or memory_profile.get('blocks_to_swap', 0),
+                # Flux-specific parameters
+                "ae_path": config.get('ae_path'),  # Flux/Lumina AutoEncoder
+                "t5xxl_max_token_length": config.get('t5xxl_max_token_length'),
+                "apply_t5_attn_mask": config.get('apply_t5_attn_mask', False),
+                "guidance_scale": config.get('guidance_scale', 3.5),
+                "timestep_sampling": config.get('timestep_sampling', 'sigma'),
+                "sigmoid_scale": config.get('sigmoid_scale', 1.0),
+                "model_prediction_type": config.get('model_prediction_type', 'raw'),
+                # Lumina-specific parameters
+                "gemma2": config.get('gemma2'),  # Gemma2 model path
+                "gemma2_max_token_length": config.get('gemma2_max_token_length'),
             }
         }
 

@@ -32,10 +32,14 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 > - 🔬 **FLUX training** - Available in Kohya, integration status unknown
 > - 🧬 **SD3/SD3.5 training** - Available in Kohya, integration status unknown
 > - 🌟 **Lumina2 training** - Available in Kohya, integration status unknown
+> - 🎨 **Chroma training** - Basic support available (may not match [Flow trainer](https://github.com/lodestone-rock/flow) performance)
 > - 🔧 **Latest bug fixes** and performance improvements
 > - ⚡ **Enhanced upload widgets** (fixed cache issues)
 > - ⚡ **Language Cleanup** Cleaned up a lot of marketing speak and started the roadmap to check inconsistencies on missing content.
+>
 > **Note**: These experimental features exist in the underlying Kohya scripts but haven't been thoroughly tested with our widget system. Use at your own risk and expect possible issues. If they look like they're exposed in our widget setup, there is no saying if they current work due to our unified setup. We're working on fast trying to get functionality quickly. If you have any issues please report them to the issues area.
+>
+> **Cross-Trainer Compatibility Goal**: We're researching support for additional memory-efficient optimizers and training techniques (inspired by [Flow](https://github.com/lodestone-rock/flow)) to enable training on a wider range of GPU configurations. This is future work - contributions and testing welcome!
 
 
 ## 🚀 Quick Start
@@ -73,8 +77,10 @@ Access at: `http://localhost:3000`
 
 **See**: [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions
 
-#### 📓 Jupyter Notebooks (For Classic Workflow)
+#### 📓 Jupyter Notebooks (Legacy - For Transition)
 Widget-based interface with step-by-step control:
+
+> **Note**: Jupyter notebooks are kept in a separate `jupyter-notebooks/` directory for users transitioning from the old workflow. These may be deprecated in future releases as we focus on the modern Web UI. If you prefer the notebook workflow, you can continue using them, or even move them to the project root if desired.
 
 ```bash
 # 1. Clone and setup
@@ -86,7 +92,9 @@ python installer.py
 jupyter lab
 
 # 3. Open notebooks
-# Navigate to jupyter-notebooks/ directory
+# Navigate to jupyter-notebooks/ directory in Jupyter's file browser
+# Or optionally move notebooks to project root:
+# cp jupyter-notebooks/*.ipynb .
 ```
 
 **See**: [Jupyter Notebooks Guide](jupyter-notebooks/README.md)
