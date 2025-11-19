@@ -2,15 +2,17 @@
 Training API Routes
 Handles training start/stop, status monitoring, and log streaming.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
-from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+
 import asyncio
 import logging
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from shared_managers import get_training_manager
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
+
 from core.log_streamer import get_training_log_streamer
+from shared_managers import get_training_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -174,18 +176,26 @@ class TrainingConfig(BaseModel):
     # ========== FLUX-SPECIFIC PARAMETERS ==========
     # Flux model paths (required when model_type="Flux")
     ae_path: Optional[str] = None  # Flux AutoEncoder path (*.safetensors)
-    t5xxl_max_token_length: Optional[int] = None  # Max tokens for T5-XXL (256 for schnell, 512 for dev)
+    t5xxl_max_token_length: Optional[int] = (
+        None  # Max tokens for T5-XXL (256 for schnell, 512 for dev)
+    )
     apply_t5_attn_mask: bool = False  # Apply attention mask to T5-XXL
     guidance_scale: float = 3.5  # Guidance scale for Flux.1 dev
     timestep_sampling: str = "sigma"  # sigma, uniform, sigmoid, shift, flux_shift
     sigmoid_scale: float = 1.0  # Scale for sigmoid timestep sampling
     model_prediction_type: str = "raw"  # raw or additive for dev model
-    blocks_to_swap: Optional[int] = None  # Number of blocks to swap (memory optimization)
+    blocks_to_swap: Optional[int] = (
+        None  # Number of blocks to swap (memory optimization)
+    )
 
     # ========== LUMINA-SPECIFIC PARAMETERS ==========
     # Lumina model paths (required when model_type="Lumina")
-    gemma2: Optional[str] = None  # Path to Gemma2 model (*.sft or *.safetensors), should be float16
-    gemma2_max_token_length: Optional[int] = None  # Maximum token length for Gemma2. Default: 256
+    gemma2: Optional[str] = (
+        None  # Path to Gemma2 model (*.sft or *.safetensors), should be float16
+    )
+    gemma2_max_token_length: Optional[int] = (
+        None  # Maximum token length for Gemma2. Default: 256
+    )
     # ae_path is shared with Flux (AutoEncoder path)
     # timestep_sampling is shared with Flux (sigma, uniform, sigmoid, shift, nextdit_shift)
     # sigmoid_scale is shared with Flux
@@ -194,6 +204,7 @@ class TrainingConfig(BaseModel):
 
 class ValidationError(BaseModel):
     """Structured validation error with field reference"""
+
     field: str  # Field name that has the issue
     message: str  # Human-readable error message
     severity: str = "warning"  # warning, error, info
@@ -209,176 +220,219 @@ def validate_training_config(config: TrainingConfig) -> List[ValidationError]:
 
     # Text encoder caching vs shuffle caption conflict
     if config.cache_text_encoder_outputs and config.shuffle_caption:
-        errors.append(ValidationError(
-            field="shuffle_caption",
-            message="Cannot use Caption Shuffling with Text Encoder Caching enabled. Disable one of these options.",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="shuffle_caption",
+                message="Cannot use Caption Shuffling with Text Encoder Caching enabled. Disable one of these options.",
+                severity="error",
+            )
+        )
 
     # Text encoder caching vs text encoder training conflict
     if config.cache_text_encoder_outputs and config.text_encoder_lr > 0:
-        errors.append(ValidationError(
-            field="text_encoder_lr",
-            message="Cannot cache Text Encoder outputs while training it. Set Text Encoder LR to 0 or disable caching.",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="text_encoder_lr",
+                message="Cannot cache Text Encoder outputs while training it. Set Text Encoder LR to 0 or disable caching.",
+                severity="error",
+            )
+        )
 
     # Random crop vs latent caching conflict
     if config.random_crop and config.cache_latents:
-        errors.append(ValidationError(
-            field="random_crop",
-            message="Cannot use Random Crop with Latent Caching. Choose one or the other.",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="random_crop",
+                message="Cannot use Random Crop with Latent Caching. Choose one or the other.",
+                severity="error",
+            )
+        )
 
     # Check for zero learning rates
     if config.unet_lr <= 0 and config.text_encoder_lr <= 0:
-        errors.append(ValidationError(
-            field="unet_lr",
-            message="Both UNet LR and Text Encoder LR are 0 - nothing will be trained! Set at least one to a positive value.",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="unet_lr",
+                message="Both UNet LR and Text Encoder LR are 0 - nothing will be trained! Set at least one to a positive value.",
+                severity="error",
+            )
+        )
 
     # Check batch size
     if config.train_batch_size <= 0:
-        errors.append(ValidationError(
-            field="train_batch_size",
-            message="Batch size must be greater than 0",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="train_batch_size",
+                message="Batch size must be greater than 0",
+                severity="error",
+            )
+        )
 
     # Check resolution
     if config.resolution < 256:
-        errors.append(ValidationError(
-            field="resolution",
-            message=f"Resolution {config.resolution} is too low. Minimum recommended is 256.",
-            severity="warning"
-        ))
+        errors.append(
+            ValidationError(
+                field="resolution",
+                message=f"Resolution {config.resolution} is too low. Minimum recommended is 256.",
+                severity="warning",
+            )
+        )
     elif config.resolution > 4096:
-        errors.append(ValidationError(
-            field="resolution",
-            message=f"Resolution {config.resolution} is very high. Maximum recommended is 4096.",
-            severity="warning"
-        ))
+        errors.append(
+            ValidationError(
+                field="resolution",
+                message=f"Resolution {config.resolution} is very high. Maximum recommended is 4096.",
+                severity="warning",
+            )
+        )
 
     # Check epochs/steps
     if config.max_train_epochs <= 0 and config.max_train_steps <= 0:
-        errors.append(ValidationError(
-            field="max_train_epochs",
-            message="Must specify either max_train_epochs or max_train_steps (or both)",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="max_train_epochs",
+                message="Must specify either max_train_epochs or max_train_steps (or both)",
+                severity="error",
+            )
+        )
 
     # Check dataset directory
     if not config.train_data_dir or config.train_data_dir.strip() == "":
-        errors.append(ValidationError(
-            field="train_data_dir",
-            message="Dataset directory is required",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="train_data_dir",
+                message="Dataset directory is required",
+                severity="error",
+            )
+        )
 
     # Check output directory
     if not config.output_dir or config.output_dir.strip() == "":
-        errors.append(ValidationError(
-            field="output_dir",
-            message="Output directory is required",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="output_dir",
+                message="Output directory is required",
+                severity="error",
+            )
+        )
 
     # Check project name
     if not config.project_name or config.project_name.strip() == "":
-        errors.append(ValidationError(
-            field="project_name",
-            message="Project name is required",
-            severity="error"
-        ))
+        errors.append(
+            ValidationError(
+                field="project_name",
+                message="Project name is required",
+                severity="error",
+            )
+        )
 
     # Helpful warnings for common mistakes
     if config.network_dim > 128:
-        errors.append(ValidationError(
-            field="network_dim",
-            message=f"Network dim {config.network_dim} is very high. Typical values are 4-64. High values increase training time and file size.",
-            severity="info"
-        ))
+        errors.append(
+            ValidationError(
+                field="network_dim",
+                message=f"Network dim {config.network_dim} is very high. Typical values are 4-64. High values increase training time and file size.",
+                severity="info",
+            )
+        )
 
     if config.unet_lr > 1e-3:
-        errors.append(ValidationError(
-            field="unet_lr",
-            message=f"UNet learning rate {config.unet_lr} is very high. Typical SDXL values are 1e-4 to 5e-4.",
-            severity="warning"
-        ))
+        errors.append(
+            ValidationError(
+                field="unet_lr",
+                message=f"UNet learning rate {config.unet_lr} is very high. Typical SDXL values are 1e-4 to 5e-4.",
+                severity="warning",
+            )
+        )
 
     # Flux-specific validation
     if config.model_type == "Flux":
         # Check required Flux paths
         if not config.clip_l_path or config.clip_l_path.strip() == "":
-            errors.append(ValidationError(
-                field="clip_l_path",
-                message="CLIP-L path is required for Flux training",
-                severity="error"
-            ))
+            errors.append(
+                ValidationError(
+                    field="clip_l_path",
+                    message="CLIP-L path is required for Flux training",
+                    severity="error",
+                )
+            )
 
         if not config.t5xxl_path or config.t5xxl_path.strip() == "":
-            errors.append(ValidationError(
-                field="t5xxl_path",
-                message="T5-XXL path is required for Flux training",
-                severity="error"
-            ))
+            errors.append(
+                ValidationError(
+                    field="t5xxl_path",
+                    message="T5-XXL path is required for Flux training",
+                    severity="error",
+                )
+            )
 
         # VRAM warning for Flux
         if config.train_batch_size > 2:
-            errors.append(ValidationError(
-                field="train_batch_size",
-                message="Flux requires significant VRAM. Batch size > 2 may cause OOM errors. Recommended: 1-2 with 24GB VRAM.",
-                severity="warning"
-            ))
+            errors.append(
+                ValidationError(
+                    field="train_batch_size",
+                    message="Flux requires significant VRAM. Batch size > 2 may cause OOM errors. Recommended: 1-2 with 24GB VRAM.",
+                    severity="warning",
+                )
+            )
 
         # Guidance for blocks_to_swap
         if config.blocks_to_swap is None and config.train_batch_size > 1:
-            errors.append(ValidationError(
-                field="blocks_to_swap",
-                message="Consider setting blocks_to_swap (e.g., 18) to reduce VRAM usage. Recommended for GPUs with <48GB VRAM.",
-                severity="info"
-            ))
+            errors.append(
+                ValidationError(
+                    field="blocks_to_swap",
+                    message="Consider setting blocks_to_swap (e.g., 18) to reduce VRAM usage. Recommended for GPUs with <48GB VRAM.",
+                    severity="info",
+                )
+            )
 
     # Lumina-specific validation
     if config.model_type == "Lumina":
         # Check required Lumina paths
         if not config.gemma2 or config.gemma2.strip() == "":
-            errors.append(ValidationError(
-                field="gemma2",
-                message="Gemma2 model path is required for Lumina training (*.sft or *.safetensors)",
-                severity="error"
-            ))
+            errors.append(
+                ValidationError(
+                    field="gemma2",
+                    message="Gemma2 model path is required for Lumina training (*.sft or *.safetensors)",
+                    severity="error",
+                )
+            )
 
         if not config.ae_path or config.ae_path.strip() == "":
-            errors.append(ValidationError(
-                field="ae_path",
-                message="AutoEncoder path is required for Lumina training",
-                severity="error"
-            ))
+            errors.append(
+                ValidationError(
+                    field="ae_path",
+                    message="AutoEncoder path is required for Lumina training",
+                    severity="error",
+                )
+            )
 
         # VRAM warning for Lumina (similar to Flux)
         if config.train_batch_size > 2:
-            errors.append(ValidationError(
-                field="train_batch_size",
-                message="Lumina requires significant VRAM. Batch size > 2 may cause OOM errors. Recommended: 1-2 with 24GB VRAM.",
-                severity="warning"
-            ))
+            errors.append(
+                ValidationError(
+                    field="train_batch_size",
+                    message="Lumina requires significant VRAM. Batch size > 2 may cause OOM errors. Recommended: 1-2 with 24GB VRAM.",
+                    severity="warning",
+                )
+            )
 
         # Guidance for blocks_to_swap
         if config.blocks_to_swap is None and config.train_batch_size > 1:
-            errors.append(ValidationError(
-                field="blocks_to_swap",
-                message="Consider setting blocks_to_swap to reduce VRAM usage. Recommended for GPUs with <48GB VRAM.",
-                severity="info"
-            ))
+            errors.append(
+                ValidationError(
+                    field="blocks_to_swap",
+                    message="Consider setting blocks_to_swap to reduce VRAM usage. Recommended for GPUs with <48GB VRAM.",
+                    severity="info",
+                )
+            )
 
     return errors
 
 
 class TrainingStartResponse(BaseModel):
     """Response when training starts"""
+
     success: bool
     message: str
     training_id: Optional[str] = None
@@ -388,6 +442,7 @@ class TrainingStartResponse(BaseModel):
 
 class TrainingStatusResponse(BaseModel):
     """Training status response"""
+
     is_training: bool
     progress: Optional[Dict[str, Any]] = None
     current_step: Optional[int] = None
@@ -411,12 +466,11 @@ async def start_training(config: TrainingConfig):
         critical_errors = [e for e in validation_errors if e.severity == "error"]
         if critical_errors:
             # Return validation errors without starting training
-            error_messages = [f"{e.field}: {e.message}" for e in critical_errors]
             return TrainingStartResponse(
                 success=False,
                 message=f"Configuration has {len(critical_errors)} error(s). Please fix them before starting training.",
                 validation_errors=validation_errors,
-                warnings=[e.message for e in validation_errors]  # Backwards compat
+                warnings=[e.message for e in validation_errors],  # Backwards compat
             )
 
         training_manager = get_training_manager()
@@ -430,10 +484,7 @@ async def start_training(config: TrainingConfig):
         success = training_manager.start_training(config_dict, monitor_widget=None)
 
         if not success:
-            raise HTTPException(
-                status_code=500,
-                detail="Training failed to start"
-            )
+            raise HTTPException(status_code=500, detail="Training failed to start")
 
         training_id = f"train_{config.project_name}"
 
@@ -443,7 +494,7 @@ async def start_training(config: TrainingConfig):
             message="Training started successfully",
             training_id=training_id,
             validation_errors=validation_errors,
-            warnings=[e.message for e in validation_errors]  # Backwards compat
+            warnings=[e.message for e in validation_errors],  # Backwards compat
         )
 
     except Exception as e:
@@ -458,10 +509,7 @@ async def validate_config(config: TrainingConfig):
     Returns list of warnings/conflicts.
     """
     warnings = validate_training_config(config)
-    return {
-        "valid": len(warnings) == 0,
-        "warnings": warnings
-    }
+    return {"valid": len(warnings) == 0, "warnings": warnings}
 
 
 @router.post("/stop")
@@ -485,6 +533,7 @@ async def get_training_status():
     """Get current training status and progress"""
     try:
         from shared_managers import get_config_manager
+
         config_manager = get_config_manager()
         status = config_manager.get_training_status()
 
@@ -497,7 +546,7 @@ async def get_training_status():
             current_step=None,
             total_steps=None,
             current_epoch=None,
-            total_epochs=None
+            total_epochs=None,
         )
 
     except Exception as e:
@@ -518,10 +567,9 @@ async def training_logs_websocket(websocket: WebSocket):
         logger.info("Client connected to training logs WebSocket")
 
         # Send initial connection message
-        await websocket.send_json({
-            "type": "connected",
-            "message": "✓ Connected to training logs"
-        })
+        await websocket.send_json(
+            {"type": "connected", "message": "✓ Connected to training logs"}
+        )
 
         # Broadcast pending logs every 0.1 seconds
         while True:
@@ -534,23 +582,6 @@ async def training_logs_websocket(websocket: WebSocket):
     except Exception as e:
         logger.error(f"WebSocket error: {e}", exc_info=True)
         log_streamer.remove_connection(websocket)
-
-
-async def broadcast_log(message: Dict[str, Any]):
-    """
-    Broadcast log message to all connected WebSocket clients.
-    Call this from training manager when new logs are available.
-    """
-    disconnected = []
-    for connection in active_connections:
-        try:
-            await connection.send_json(message)
-        except Exception:
-            disconnected.append(connection)
-
-    # Clean up disconnected clients
-    for conn in disconnected:
-        active_connections.remove(conn)
 
 
 @router.get("/history")
@@ -566,11 +597,13 @@ async def get_training_history():
         trainings = []
         for item in output_dir.iterdir():
             if item.is_dir():
-                trainings.append({
-                    "name": item.name,
-                    "path": str(item),
-                    "created": item.stat().st_ctime
-                })
+                trainings.append(
+                    {
+                        "name": item.name,
+                        "path": str(item),
+                        "created": item.stat().st_ctime,
+                    }
+                )
 
         trainings.sort(key=lambda x: x["created"], reverse=True)
         return {"trainings": trainings}

@@ -17,7 +17,7 @@ This replaces Derrian's validation which expects GUI JSON format incompatible wi
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -29,28 +29,28 @@ class CustomLoRAValidator:
     """
     Custom validator that understands our widget config → TOML → sd_scripts workflow
     """
-    
+
     def __init__(self, project_root: str = None):
         self.project_root = project_root or os.getcwd()
-        
+
         # Valid optimizers (from sd_scripts and custom optimizers)
         self.valid_optimizers = {
             'AdamW8bit', 'AdamW', 'Lion8bit', 'Lion', 'SGDNesterov8bit', 'SGDNesterov',
             'DAdaptation', 'DAdaptAdam', 'DAdaptAdan', 'DAdaptSGD', 'DAdaptLion',
             'Prodigy', 'CAME'  # Derrian's custom optimizers
         }
-        
+
         # Valid schedulers
         self.valid_schedulers = {
             'linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant',
             'constant_with_warmup', 'adafactor'
         }
-        
+
         # Valid network modules
         self.valid_network_modules = {
             'networks.lora', 'lycoris.kohya', 'networks.lora_flux'
         }
-        
+
         # Model type to expected file extensions
         self.model_extensions = {'.safetensors', '.ckpt', '.pth'}
 
@@ -65,32 +65,32 @@ class CustomLoRAValidator:
             Tuple of (is_valid, list_of_errors)
         """
         errors = []
-        
+
         # === REQUIRED FIELDS ===
         required_fields = {
             'model_path': 'Base model path',
-            'dataset_path': 'Dataset directory path', 
+            'dataset_path': 'Dataset directory path',
             'output_name': 'Output LoRA name',
             'output_dir': 'Output directory',
             'unet_lr': 'U-Net learning rate',
             'epochs': 'Number of epochs'
         }
-        
+
         for field, description in required_fields.items():
             if not config.get(field):
                 errors.append(f"❌ Missing required field: {description} ({field})")
-        
+
         # === PATH VALIDATION ===
         if config.get('model_path'):
             model_path = config['model_path']
             if not self._validate_model_path(model_path):
                 errors.append(f"❌ Model path not found or invalid: {model_path}")
-        
+
         if config.get('dataset_path'):
             dataset_path = config['dataset_path']
             if not self._validate_dataset_path(dataset_path):
                 errors.append(f"❌ Dataset path not found or invalid: {dataset_path}")
-        
+
         # === TRAINING PARAMETER VALIDATION ===
         self._validate_learning_rates(config, errors)
         self._validate_optimizer(config, errors)
@@ -98,7 +98,7 @@ class CustomLoRAValidator:
         self._validate_network_config(config, errors)
         self._validate_training_config(config, errors)
         self._validate_advanced_parameters(config, errors)  # New validation for advanced parameters
-        
+
         return len(errors) == 0, errors
 
     def validate_generated_tomls(self, config_path: str, dataset_path: str) -> Tuple[bool, List[str]]:
@@ -113,19 +113,19 @@ class CustomLoRAValidator:
             Tuple of (is_valid, list_of_errors)
         """
         errors = []
-        
+
         # Validate config.toml structure
         try:
             import toml
             with open(config_path, 'r') as f:
                 config_data = toml.load(f)
-            
+
             # Check required sections (sd_scripts format)
             required_sections = ['model_arguments', 'training_arguments']
             for section in required_sections:
                 if section not in config_data:
                     errors.append(f"❌ Missing section in config.toml: {section}")
-            
+
             # Validate model arguments section
             if 'model_arguments' in config_data:
                 model_args = config_data['model_arguments']
@@ -138,21 +138,21 @@ class CustomLoRAValidator:
                         model_path = os.path.join(self.project_root, model_path)
                     if not os.path.exists(model_path):
                         errors.append(f"❌ Model file does not exist: {model_args['pretrained_model_name_or_path']}")
-            
+
             # Validate training arguments section
             if 'training_arguments' in config_data:
                 training_args = config_data['training_arguments']
                 if not training_args.get('output_dir'):
                     errors.append("❌ Missing output_dir in training_arguments")
-                
+
         except Exception as e:
             errors.append(f"❌ Error reading config.toml: {e}")
-        
+
         # Validate dataset.toml structure
         try:
             with open(dataset_path, 'r') as f:
                 dataset_data = toml.load(f)
-            
+
             # Check Kohya dataset format
             if 'datasets' not in dataset_data:
                 errors.append("❌ Missing 'datasets' section in dataset.toml")
@@ -177,24 +177,24 @@ class CustomLoRAValidator:
                                         errors.append(f"❌ Image directory does not exist: {subset['image_dir']}")
                                     elif not self._has_training_images(image_dir):
                                         errors.append(f"❌ No training images found in: {subset['image_dir']}")
-        
+
         except Exception as e:
             errors.append(f"❌ Error reading dataset.toml: {e}")
-        
+
         return len(errors) == 0, errors
 
     def _validate_model_path(self, model_path: str) -> bool:
         """Validate model file exists and has correct extension"""
         if not model_path:
             return False
-            
+
         # Convert relative paths to absolute for existence check
         if not os.path.isabs(model_path):
             model_path = os.path.join(self.project_root, model_path)
-            
+
         if not os.path.exists(model_path):
             return False
-            
+
         # Check file extension
         _, ext = os.path.splitext(model_path.lower())
         return ext in self.model_extensions
@@ -203,20 +203,20 @@ class CustomLoRAValidator:
         """Validate dataset directory exists and contains training data"""
         if not dataset_path:
             return False
-            
+
         # Convert relative paths to absolute for existence check
         if not os.path.isabs(dataset_path):
             dataset_path = os.path.join(self.project_root, dataset_path)
-            
+
         if not os.path.exists(dataset_path):
             return False
-            
+
         return self._has_training_images(dataset_path)
 
     def _has_training_images(self, directory: str) -> bool:
         """Check if directory contains training images"""
         image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
-        
+
         for file in os.listdir(directory):
             _, ext = os.path.splitext(file.lower())
             if ext in image_extensions:
@@ -233,7 +233,7 @@ class CustomLoRAValidator:
                     errors.append("❌ U-Net learning rate must be between 0 and 1")
             except (ValueError, TypeError):
                 errors.append("❌ U-Net learning rate must be a valid number")
-        
+
         te_lr = config.get('text_encoder_lr')
         if te_lr is not None:
             try:
@@ -265,7 +265,7 @@ class CustomLoRAValidator:
                     errors.append("❌ Network dimension must be between 1 and 1024")
             except (ValueError, TypeError):
                 errors.append("❌ Network dimension must be a valid integer")
-        
+
         network_alpha = config.get('network_alpha')
         if network_alpha is not None:
             try:
@@ -285,7 +285,7 @@ class CustomLoRAValidator:
                     errors.append("❌ Number of epochs must be positive")
             except (ValueError, TypeError):
                 errors.append("❌ Number of epochs must be a valid integer")
-        
+
         batch_size = config.get('batch_size')
         if batch_size is not None:
             try:
@@ -294,7 +294,7 @@ class CustomLoRAValidator:
                     errors.append("❌ Batch size must be positive")
             except (ValueError, TypeError):
                 errors.append("❌ Batch size must be a valid integer")
-        
+
         resolution = config.get('resolution')
         if resolution is not None:
             try:

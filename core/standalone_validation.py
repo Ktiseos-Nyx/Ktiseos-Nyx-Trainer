@@ -5,13 +5,13 @@
 """Core validation system for LoRA training configurations"""
 
 import json
+import logging
 import math
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
-import logging
 logger = logging.getLogger(__name__)
 
 def validate(args: dict) -> tuple[bool, bool, list[str], dict, dict, dict]:
@@ -25,7 +25,7 @@ def validate(args: dict) -> tuple[bool, bool, list[str], dict, dict, dict]:
         tuple: (passed, sdxl, errors, validated_args, validated_dataset_args, tag_data)
     """
     over_errors = []
-    
+
     # Basic structure validation
     if "args" not in args:
         over_errors.append("args is not present")
@@ -33,28 +33,28 @@ def validate(args: dict) -> tuple[bool, bool, list[str], dict, dict, dict]:
         over_errors.append("dataset is not present")
     if over_errors:
         return False, False, over_errors, {}, {}, {}
-    
+
     # Validate individual sections
     args_pass, args_errors, args_data = validate_args(args["args"])
     dataset_pass, dataset_errors, dataset_data = validate_dataset_args(args["dataset"])
-    
+
     over_pass = args_pass and dataset_pass
     over_errors = args_errors + dataset_errors
     tag_data = {}
-    
+
     if not over_errors:
         validate_warmup_ratio(args_data, dataset_data)
         validate_restarts(args_data, dataset_data)
         tag_data = validate_save_tags(dataset_data)
         validate_existing_files(args_data)
         validate_optimizer(args_data)
-    
+
     # Detect if this is SDXL based on model or settings
     sdxl = validate_sdxl(args_data)
-    
+
     if not over_pass:
         return False, sdxl, over_errors, args_data, dataset_data, tag_data
-    
+
     return True, sdxl, over_errors, args_data, dataset_data, tag_data
 
 
@@ -80,7 +80,7 @@ def validate_args(args: dict) -> tuple[bool, list[str], dict]:
                 passed_validation = False
                 errors.append(f"No data filled in for {key}")
                 continue
-        
+
         # Handle nested configurations
         if isinstance(value, dict):
             # Handle network args or other nested configs
@@ -115,14 +115,14 @@ def validate_args(args: dict) -> tuple[bool, list[str], dict]:
             passed_validation = False
             errors.append(f"{file['name']} is not found")
             continue
-        
+
         if file["name"] in output_args:
             file_path = output_args[file["name"]]
             if file_path:  # Only validate if path is provided
                 # Convert relative paths to absolute for validation
                 if not os.path.isabs(file_path):
                     file_path = os.path.abspath(file_path)
-                
+
                 if not Path(file_path).exists():
                     passed_validation = False
                     errors.append(f"{file['name']} input '{output_args[file['name']]}' does not exist")
@@ -147,24 +147,24 @@ def validate_dataset_args(args: dict) -> tuple[bool, list[str], dict]:
     passed_validation = True
     errors = []
     output_args = {key: value for key, value in args.items() if value}
-    
+
     # Get subset name
     name = "subset"
     if "name" in output_args:
         name = output_args["name"]
         del output_args["name"]
-    
+
     # Validate image directory
     if "image_dir" not in output_args or not output_args["image_dir"]:
         passed_validation = False
         errors.append(f"Image directory path for '{name}' does not exist")
     else:
         image_dir = output_args["image_dir"]
-        
+
         # Convert relative paths to absolute for validation
         if not os.path.isabs(image_dir):
             image_dir = os.path.abspath(image_dir)
-        
+
         if not Path(image_dir).exists():
             passed_validation = False
             errors.append(f"Image directory path for '{name}' does not exist")
@@ -176,7 +176,7 @@ def validate_dataset_args(args: dict) -> tuple[bool, list[str], dict]:
             else:
                 # Store as POSIX path for consistency
                 output_args["image_dir"] = Path(image_dir).as_posix()
-    
+
     return passed_validation, errors, output_args
 
 
@@ -190,7 +190,7 @@ def validate_restarts(args: dict, dataset: dict) -> None:
     """Validate learning rate scheduler restarts"""
     if "lr_scheduler_num_cycles" not in args:
         return
-    
+
     if args.get("lr_scheduler") != "cosine_with_restarts":
         logger.warning("lr_scheduler_num_cycles specified but scheduler is not cosine_with_restarts")
 
@@ -198,11 +198,11 @@ def validate_restarts(args: dict, dataset: dict) -> None:
 def validate_save_tags(dataset: dict) -> dict:
     """Validate and process tag saving configuration"""
     tag_data = {}
-    
+
     # Process tag-related settings
     if "save_tag_frequency" in dataset:
         tag_data["save_frequency"] = dataset["save_tag_frequency"]
-    
+
     return tag_data
 
 
@@ -216,17 +216,17 @@ def validate_existing_files(args: dict) -> None:
 def validate_optimizer(args: dict) -> None:
     """Validate optimizer configuration"""
     optimizer = args.get("optimizer_type", "AdamW8bit")
-    
+
     # Valid optimizers from our system + Derrian's custom ones
     valid_optimizers = {
         'AdamW8bit', 'AdamW', 'Lion8bit', 'Lion', 'SGDNesterov8bit', 'SGDNesterov',
         'DAdaptation', 'DAdaptAdam', 'DAdaptAdan', 'DAdaptSGD', 'DAdaptLion',
         'Prodigy', 'CAME'
     }
-    
+
     if optimizer not in valid_optimizers:
         logger.warning(f"Optimizer {optimizer} may not be supported")
-    
+
     # Validate optimizer-specific settings
     if optimizer.startswith("DAdapt") and "learning_rate" in args:
         if float(args["learning_rate"]) != 1.0:
@@ -247,23 +247,23 @@ def validate_sdxl(args: dict) -> bool:
     model_path = args.get("pretrained_model_name_or_path", "").lower()
     if "sdxl" in model_path or "xl" in model_path:
         return True
-    
+
     # Check resolution settings
     resolution = args.get("resolution", 512)
     if isinstance(resolution, (int, float)) and resolution >= 1024:
         return True
-    
+
     # Check for SDXL-specific parameters
     sdxl_indicators = [
         "cache_text_encoder_outputs",
-        "cache_text_encoder_outputs_to_disk", 
+        "cache_text_encoder_outputs_to_disk",
         "no_half_vae"
     ]
-    
+
     for indicator in sdxl_indicators:
         if indicator in args:
             return True
-    
+
     return False
 
 
@@ -278,7 +278,7 @@ def _has_training_images(directory: str) -> bool:
         bool: True if training images found
     """
     image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff', '.tif'}
-    
+
     try:
         for file in os.listdir(directory):
             _, ext = os.path.splitext(file.lower())
@@ -286,7 +286,7 @@ def _has_training_images(directory: str) -> bool:
                 return True
     except (OSError, PermissionError):
         return False
-    
+
     return False
 
 

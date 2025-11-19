@@ -2,14 +2,15 @@
 Utilities API Routes
 Handles calculator, LoRA utilities, and HuggingFace uploads.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
-from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
 import asyncio
 import logging
-from pathlib import Path
-import sys
 import os
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent.parent

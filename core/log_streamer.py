@@ -6,7 +6,6 @@ Log Streaming System for Real-time Training/Tagging Output
 Provides thread-safe log broadcasting to WebSocket clients
 """
 
-import asyncio
 import logging
 import queue
 import threading
@@ -42,10 +41,7 @@ class LogStreamer:
             line: Log line content
             log_type: Type of log (log, progress, error, warning)
         """
-        self.log_queue.put({
-            "type": log_type,
-            "message": line.rstrip()
-        })
+        self.log_queue.put({"type": log_type, "message": line.rstrip()})
 
     def add_progress(self, data: Dict[str, Any]):
         """
@@ -54,10 +50,7 @@ class LogStreamer:
         Args:
             data: Progress data (current_step, total_steps, loss, lr, etc.)
         """
-        self.log_queue.put({
-            "type": "progress",
-            "data": data
-        })
+        self.log_queue.put({"type": "progress", "data": data})
 
     async def broadcast_pending(self):
         """
@@ -100,14 +93,18 @@ class LogStreamer:
         with self._lock:
             if websocket not in self.websocket_connections:
                 self.websocket_connections.append(websocket)
-                logger.info(f"WebSocket connected. Total connections: {len(self.websocket_connections)}")
+                logger.info(
+                    f"WebSocket connected. Total connections: {len(self.websocket_connections)}"
+                )
 
     def remove_connection(self, websocket):
         """Remove a WebSocket connection from broadcast list (thread-safe)"""
         with self._lock:
             try:
                 self.websocket_connections.remove(websocket)
-                logger.info(f"WebSocket disconnected. Remaining connections: {len(self.websocket_connections)}")
+                logger.info(
+                    f"WebSocket disconnected. Remaining connections: {len(self.websocket_connections)}"
+                )
             except ValueError:
                 pass
 

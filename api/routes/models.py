@@ -2,11 +2,12 @@
 API routes for model and VAE downloads.
 """
 
+import glob
+import os
+from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
-import os
-import glob
 
 router = APIRouter()
 

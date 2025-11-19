@@ -139,8 +139,7 @@ class DatasetManager:
 
         # Use server-friendly configuration
         try:
-            from .fiftyone_server_config import \
-                create_server_friendly_dataset_launcher
+            from .fiftyone_server_config import create_server_friendly_dataset_launcher
             launcher = create_server_friendly_dataset_launcher()
             session, server_config = launcher(dataset_path)
         except ImportError:
@@ -934,7 +933,7 @@ class DatasetManager:
             else:
                 print("⚠️ aria2c not available. Trying wget...")
 
-            # Method 2: Try wget for batch downloads  
+            # Method 2: Try wget for batch downloads
             if shutil.which("wget"):
                 print("🚀 Attempting batch download with wget...")
                 try:
@@ -956,7 +955,7 @@ class DatasetManager:
                         # Download with wget
                         cmd = ["wget", "-O", filepath, url]
                         result = subprocess.run(cmd, capture_output=True)
-                        
+
                         if result.returncode == 0:
                             downloaded_count += 1
                             if downloaded_count % 10 == 0:
@@ -969,7 +968,7 @@ class DatasetManager:
                         return downloaded_count > 0
                     else:
                         print("❌ wget batch download failed. Falling back to Python requests...")
-                        
+
                 except Exception as e:
                     print(f"❌ Error with wget: {e}. Falling back to Python requests...")
             else:
@@ -2233,6 +2232,7 @@ Special thanks to [Linaqruf](https://github.com/Linaqruf) for their contribution
             quality (int): The quality for lossy formats (85-100).
         """
         import os
+
         from PIL import Image
 
         dataset_path = os.path.join(self.project_root, dataset_dir)
@@ -2255,7 +2255,7 @@ Special thanks to [Linaqruf](https://github.com/Linaqruf) for their contribution
                     image_path = os.path.join(root, file)
                     base_name = os.path.splitext(file)[0]
                     new_path = os.path.join(root, f"{base_name}{target_ext}")
-                    
+
                     try:
                         with Image.open(image_path) as img:
                             # Convert mode if needed
@@ -2269,20 +2269,20 @@ Special thanks to [Linaqruf](https://github.com/Linaqruf) for their contribution
                             elif target_format == 'png' and img.mode not in ('RGBA', 'LA', 'P'):
                                 # Keep original mode for PNG
                                 pass
-                            
+
                             # Save in new format
                             save_kwargs = {}
                             if target_format in ['jpg', 'webp']:
                                 save_kwargs['quality'] = quality
                             elif target_format == 'png':
                                 save_kwargs['optimize'] = True
-                            
+
                             img.save(new_path, target_format.upper(), **save_kwargs)
-                            
+
                             # Remove original file after successful conversion
                             os.remove(image_path)
                             converted_count += 1
-                            
+
                     except Exception as e:
                         print(f"⚠️ Could not convert {file}: {e}")
                         skipped_count += 1

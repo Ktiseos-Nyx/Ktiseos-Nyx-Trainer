@@ -87,8 +87,7 @@ class Flux_InferenceManager:
                 return model_path
 
             # Get Python executable
-            from core.managers import (get_subprocess_environment,
-                                       get_venv_python_path)
+            from core.managers import get_subprocess_environment, get_venv_python_path
             python_executable = get_venv_python_path(self.sd_scripts_dir)
             if not os.path.exists(python_executable):
                 python_executable = sys.executable

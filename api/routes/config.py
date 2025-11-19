@@ -2,12 +2,13 @@
 Configuration API Routes
 Handles training config templates, loading, and saving.
 """
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import toml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
-from pathlib import Path
-import toml
-import logging
 
 from shared_managers import get_config_manager
 
