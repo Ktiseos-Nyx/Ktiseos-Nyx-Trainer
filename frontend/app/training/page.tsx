@@ -1,31 +1,37 @@
 import TrainingConfig from '@/components/training/TrainingConfig';
 import TrainingMonitor from '@/components/training/TrainingMonitor';
+import Breadcrumbs from '@/components/Breadcrumbs';
+import { Home, Settings } from 'lucide-react';
 
 export default function TrainingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-16">
+      <div className="container mx-auto px-4 max-w-7xl">
+        {/* Breadcrumbs */}
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/', icon: <Home className="w-4 h-4" /> },
+            { label: 'LoRA Training', icon: <Settings className="w-4 h-4" /> },
+          ]}
+        />
+
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
             LoRA Training
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
+          <p className="text-xl text-gray-300">
             Configure and monitor your training runs
           </p>
         </div>
 
-        {/* Two Column Layout */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left: Configuration */}
-          <div>
-            <TrainingConfig />
-          </div>
+        {/* Main Content */}
+        <div className="space-y-8">
+          {/* Training Configuration */}
+          <TrainingConfig />
 
-          {/* Right: Monitor */}
-          <div>
-            <TrainingMonitor />
-          </div>
+          {/* Training Monitor */}
+          <TrainingMonitor />
         </div>
       </div>
     </div>

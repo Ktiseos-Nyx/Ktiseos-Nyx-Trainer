@@ -117,25 +117,25 @@ export default function TrainingMonitor() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+    <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Activity className={`w-6 h-6 ${status.is_training ? 'text-green-500 animate-pulse' : 'text-gray-400'}`} />
-          <h2 className="text-2xl font-bold">Training Monitor</h2>
+          <Activity className={`w-6 h-6 ${status.is_training ? 'text-green-400 animate-pulse' : 'text-gray-500'}`} />
+          <h2 className="text-2xl font-bold text-white">Training Monitor</h2>
         </div>
 
         <div className="flex items-center gap-2">
           {connected && (
-            <span className="flex items-center gap-2 text-sm text-green-600">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="flex items-center gap-2 text-sm text-green-400">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
               Live
             </span>
           )}
           <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
             status.is_training
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+              : 'bg-slate-700/50 text-gray-400 border border-slate-600'
           }`}>
             {status.is_training ? 'Training' : 'Idle'}
           </span>
@@ -169,12 +169,12 @@ export default function TrainingMonitor() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Epoch */}
             {status.progress.current_epoch !== undefined && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-blue-400 mb-1">
                   <TrendingUp className="w-4 h-4" />
                   <span className="text-xs font-medium">Epoch</span>
                 </div>
-                <div className="text-xl font-bold">
+                <div className="text-xl font-bold text-white">
                   {status.progress.current_epoch} / {status.progress.total_epochs || '?'}
                 </div>
               </div>
@@ -182,12 +182,12 @@ export default function TrainingMonitor() {
 
             {/* Learning Rate */}
             {status.progress.lr !== undefined && (
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-purple-400 mb-1">
                   <Zap className="w-4 h-4" />
                   <span className="text-xs font-medium">Learning Rate</span>
                 </div>
-                <div className="text-xl font-bold">
+                <div className="text-xl font-bold text-white">
                   {status.progress.lr.toExponential(2)}
                 </div>
               </div>
@@ -195,24 +195,24 @@ export default function TrainingMonitor() {
 
             {/* Loss */}
             {status.progress.loss !== undefined && (
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-1">
+              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                <div className="flex items-center gap-2 text-green-400 mb-1">
                   <Activity className="w-4 h-4" />
                   <span className="text-xs font-medium">Loss</span>
                 </div>
-                <div className="text-xl font-bold">
+                <div className="text-xl font-bold text-white">
                   {status.progress.loss.toFixed(4)}
                 </div>
               </div>
             )}
 
             {/* Time Remaining */}
-            <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-1">
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-orange-400 mb-1">
                 <Clock className="w-4 h-4" />
                 <span className="text-xs font-medium">ETA</span>
               </div>
-              <div className="text-xl font-bold">
+              <div className="text-xl font-bold text-white">
                 {getTimeRemaining()}
               </div>
             </div>
@@ -221,14 +221,14 @@ export default function TrainingMonitor() {
       )}
 
       {/* Logs Section */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Training Logs {connected && '(Live)'}
+      <div className="border border-slate-600 rounded-lg overflow-hidden">
+        <div className="bg-slate-800 px-4 py-2 border-b border-slate-600">
+          <span className="text-sm font-medium text-gray-300">
+            Training Logs {connected && <span className="text-green-400">(Live)</span>}
           </span>
         </div>
 
-        <div className="bg-gray-900 p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
+        <div className="bg-slate-950 p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
           {logs.length === 0 ? (
             <div className="text-gray-500 text-center py-8">
               {status.is_training
@@ -238,7 +238,7 @@ export default function TrainingMonitor() {
           ) : (
             <div className="space-y-1">
               {logs.map((log, index) => (
-                <div key={index} className="hover:bg-gray-800/50 px-2 py-1 rounded">
+                <div key={index} className="hover:bg-slate-900/50 px-2 py-1 rounded">
                   {log}
                 </div>
               ))}
@@ -248,11 +248,9 @@ export default function TrainingMonitor() {
         </div>
       </div>
 
-      {/* No More Race Conditions! */}
       {!status.is_training && logs.length === 0 && (
-        <div className="mt-4 text-center text-sm text-gray-500">
-          <p>✨ WebSocket-based real-time updates</p>
-          <p>🎉 No polling! No race conditions!</p>
+        <div className="mt-4 text-center text-sm text-gray-400">
+          <p>WebSocket-based real-time updates</p>
         </div>
       )}
     </div>

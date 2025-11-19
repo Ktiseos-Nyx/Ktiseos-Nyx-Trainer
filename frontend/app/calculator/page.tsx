@@ -1,0 +1,322 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { utilitiesAPI, CalculatorResponse, DatasetInfo } from '@/lib/api';
+import { Calculator, FolderOpen, Info, Zap, Clock, TrendingUp, Home } from 'lucide-react';
+import Breadcrumbs from '@/components/Breadcrumbs';
+
+export default function CalculatorPage() {
+  const [datasetPath, setDatasetPath] = useState('');
+  const [epochs, setEpochs] = useState(10);
+  const [batchSize, setBatchSize] = useState(1);
+  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
+  const [result, setResult] = useState<CalculatorResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load available datasets
+  useEffect(() => {
+    const loadDatasets = async () => {
+      try {
+        const data = await utilitiesAPI.browseDatasets();
+        setDatasets(data.datasets || []);
+
+        // Auto-select most recent if available
+        if (data.datasets && data.datasets.length > 0) {
+          setDatasetPath(data.datasets[0].path);
+        }
+      } catch (err) {
+        console.error('Failed to load datasets:', err);
+      }
+    };
+    loadDatasets();
+  }, []);
+
+  const handleCalculate = async () => {
+    if (!datasetPath) {
+      setError('Please select a dataset');
+      return;
+    }
+
+    if (batchSize <= 0) {
+      setError('Batch size must be greater than 0');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await utilitiesAPI.calculateSteps({
+        dataset_path: datasetPath,
+        epochs,
+        batch_size: batchSize,
+      });
+
+      setResult(response);
+    } catch (err: any) {
+      setError(err.message || 'Calculation failed');
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-16">
+      <div className="container mx-auto px-4 max-w-7xl">
+        {/* Breadcrumbs */}
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/', icon: <Home className="w-4 h-4" /> },
+            { label: 'Step Calculator', icon: <Calculator className="w-4 h-4" /> },
+          ]}
+        />
+
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+            LoRA Step Calculator
+          </h1>
+          <p className="text-xl text-gray-300">
+            Calculate optimal training steps with Kohya-compatible logic
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Left: Input Form */}
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4">Training Parameters</h2>
+
+            {/* Dataset Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Dataset Path
+              </label>
+
+              {datasets.length > 0 ? (
+                <select
+                  value={datasetPath}
+                  onChange={(e) => setDatasetPath(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 mb-2"
+                >
+                  {datasets.map((dataset) => (
+                    <option key={dataset.path} value={dataset.path}>
+                      {dataset.name} ({dataset.image_count} images, {dataset.repeats}x repeats)
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={datasetPath}
+                  onChange={(e) => setDatasetPath(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  placeholder="datasets/10_character_name"
+                />
+              )}
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
+                <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                  📁 Kohya Format
+                </p>
+                <p className="text-blue-700 dark:text-blue-300">
+                  Auto-detects repeat counts from folder names (e.g., "10_character_name" → 10 repeats)
+                </p>
+              </div>
+            </div>
+
+            {/* Epochs */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Epochs
+              </label>
+              <input
+                type="number"
+                value={epochs}
+                onChange={(e) => setEpochs(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="1"
+              />
+            </div>
+
+            {/* Batch Size */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Batch Size
+              </label>
+              <input
+                type="number"
+                value={batchSize}
+                onChange={(e) => setBatchSize(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="1"
+              />
+            </div>
+
+            {/* Calculate Button */}
+            <button
+              onClick={handleCalculate}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <Calculator className="w-5 h-5" />
+              {loading ? 'Calculating...' : 'Calculate Steps'}
+            </button>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            {/* Info Box */}
+            <div className="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4">
+              <p className="text-sm font-medium mb-2">📊 Formula</p>
+              <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded">
+                (Images × Repeats × Epochs) ÷ Batch Size = Steps
+              </code>
+            </div>
+          </div>
+
+          {/* Right: Results */}
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4">Results</h2>
+
+            {result ? (
+              <div className="space-y-4">
+                {/* Total Steps - Big Display */}
+                <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg p-6 text-white text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Zap className="w-6 h-6" />
+                    <span className="text-sm font-medium">Total Steps</span>
+                  </div>
+                  <div className="text-5xl font-bold">{result.total_steps.toLocaleString()}</div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <div className="text-sm text-blue-600 dark:text-blue-400 mb-1">Images</div>
+                    <div className="text-2xl font-bold">{result.images}</div>
+                  </div>
+
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                    <div className="text-sm text-purple-600 dark:text-purple-400 mb-1">Repeats</div>
+                    <div className="text-2xl font-bold">{result.repeats}x</div>
+                  </div>
+
+                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+                    <div className="text-sm text-orange-600 dark:text-orange-400 mb-1">Epochs</div>
+                    <div className="text-2xl font-bold">{result.epochs}</div>
+                  </div>
+
+                  <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-4">
+                    <div className="text-sm text-pink-600 dark:text-pink-400 mb-1">Batch Size</div>
+                    <div className="text-2xl font-bold">{result.batch_size}</div>
+                  </div>
+                </div>
+
+                {/* Caption */}
+                {result.caption && (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      Detected Caption
+                    </div>
+                    <div className="font-mono text-sm">{result.caption}</div>
+                  </div>
+                )}
+
+                {/* Time Estimates */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-5 h-5 text-gray-600" />
+                    <span className="font-semibold">Time Estimates (approximate)</span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">GPU Rental (faster):</span>
+                      <span className="font-medium">{result.time_estimate_min.toFixed(1)} min</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Home GPU (slower):</span>
+                      <span className="font-medium">{result.time_estimate_max.toFixed(1)} min</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recommendation */}
+                <div className={`rounded-lg p-4 ${
+                  result.recommendation.includes('✅')
+                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                    : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
+                }`}>
+                  <div className="flex items-start gap-2">
+                    <TrendingUp className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <div className="font-semibold mb-1">Training Analysis</div>
+                      <div className="text-sm">{result.recommendation}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dataset Path */}
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-50 dark:bg-gray-800 rounded p-2">
+                  {result.dataset_path}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Calculator className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-500">
+                  Enter your parameters and click Calculate
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Info Cards */}
+        <div className="mt-8 grid md:grid-cols-3 gap-6">
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+                <Info className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="font-semibold">Kohya Compatible</h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Uses the same calculation logic as Kohya sd-scripts for accurate step counts
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-lg">
+                <FolderOpen className="w-6 h-6 text-purple-600" />
+              </div>
+              <h3 className="font-semibold">Auto-Detection</h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Automatically detects repeat counts and image counts from your dataset folder
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
+                <Zap className="w-6 h-6 text-green-600" />
+              </div>
+              <h3 className="font-semibold">No More Guessing</h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Get instant recommendations on whether your step count is optimal for training
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
-from api.routes import training, dataset, files, config
+from api.routes import training, dataset, files, config, utilities, models
 
 # Configure logging
 logging.basicConfig(
@@ -50,6 +50,8 @@ app.include_router(training.router, prefix="/api/training", tags=["Training"])
 app.include_router(dataset.router, prefix="/api/dataset", tags=["Dataset"])
 app.include_router(files.router, prefix="/api/files", tags=["Files"])
 app.include_router(config.router, prefix="/api/config", tags=["Config"])
+app.include_router(utilities.router, prefix="/api/utilities", tags=["Utilities"])
+app.include_router(models.router, prefix="/api/models", tags=["Models"])
 
 
 @app.get("/")

@@ -17,10 +17,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Allowed base directories (security)
-ALLOWED_DIRS = [
-    Path("/workspace"),
-    Path.home()
-]
+# Check if /workspace exists (VastAI/cloud), otherwise use home directory
+if Path("/workspace").exists():
+    ALLOWED_DIRS = [
+        Path("/workspace"),
+        Path.home()
+    ]
+else:
+    # Local development - use home directory
+    ALLOWED_DIRS = [
+        Path.home(),
+        Path.home() / "Documents",
+        Path.home() / "Desktop"
+    ]
 
 
 class FileInfo(BaseModel):

@@ -1,0 +1,127 @@
+{
+  "name": "Ktiseos Nyx LoRA Trainer",
+  "version": "0.9.0-beta",
+  "description": "⚠️ BETA: In active development - may not work as expected. Professional LoRA training environment for SDXL, SD 1.5, Flux, and SD3. Features a modern Next.js web UI with comprehensive training configuration, real-time monitoring, dataset management, and automatic captioning. Powered by Kohya's sd-scripts with LyCORIS support.",
+  "author": "Duskfall",
+  "tags": [
+    "stable-diffusion",
+    "lora",
+    "sdxl",
+    "flux",
+    "sd3",
+    "machine-learning",
+    "image-generation",
+    "training",
+    "kohya",
+    "lycoris"
+  ],
+  "image": {
+    "dockerfile": "Dockerfile",
+    "build_context": ".",
+    "base_image": "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04"
+  },
+  "launch_mode": {
+    "default": "jupyter_ssh",
+    "supported": ["jupyter_ssh", "ssh", "docker_entrypoint"],
+    "description": "Jupyter+SSH mode recommended for debugging and manual intervention if services fail"
+  },
+  "gpu": {
+    "required": true,
+    "min_vram_gb": 12,
+    "recommended_vram_gb": 24,
+    "cuda_version": "12.1"
+  },
+  "resources": {
+    "min_ram_gb": 16,
+    "recommended_ram_gb": 32,
+    "min_disk_gb": 50,
+    "recommended_disk_gb": 200
+  },
+  "ports": [
+    {
+      "container_port": 3000,
+      "protocol": "http",
+      "description": "Next.js Frontend - Main Web UI"
+    },
+    {
+      "container_port": 8000,
+      "protocol": "http",
+      "description": "FastAPI Backend - Training API"
+    },
+    {
+      "container_port": 8888,
+      "protocol": "http",
+      "description": "Jupyter Lab (Optional)"
+    },
+    {
+      "container_port": 6006,
+      "protocol": "http",
+      "description": "TensorBoard (Optional)"
+    }
+  ],
+  "environment": [
+    {
+      "name": "START_JUPYTER",
+      "description": "Start Jupyter Lab on port 8888",
+      "default": "false",
+      "required": false
+    },
+    {
+      "name": "START_TENSORBOARD",
+      "description": "Start TensorBoard on port 6006",
+      "default": "false",
+      "required": false
+    }
+  ],
+  "volumes": [
+    {
+      "container_path": "/workspace/datasets",
+      "description": "Training datasets storage"
+    },
+    {
+      "container_path": "/workspace/output",
+      "description": "Trained LoRA model outputs"
+    },
+    {
+      "container_path": "/workspace/pretrained_model",
+      "description": "Base model storage (SDXL, Flux, SD3)"
+    },
+    {
+      "container_path": "/workspace/vae",
+      "description": "VAE model storage"
+    },
+    {
+      "container_path": "/workspace/training_logs",
+      "description": "Training logs and TensorBoard data"
+    }
+  ],
+  "features": [
+    "Modern Next.js web interface with 7-tab training configuration",
+    "Support for SDXL, SD 1.5, Flux, and SD3 model architectures",
+    "18 optimizer options including AdamW8bit, Prodigy, CAME, and more",
+    "Advanced LoRA variants: LoRA, LoCon, LoKR, DoRA, LoHa, GLoRA, BOFT",
+    "Automatic dataset captioning with WD14 taggers and BLIP",
+    "Real-time training monitoring and log streaming",
+    "File browser for easy dataset and model selection",
+    "Comprehensive validation with field-specific error messages",
+    "Block-wise learning rates and advanced LyCORIS parameters",
+    "FP8 training support for memory efficiency",
+    "Built-in utilities for LoRA resizing and HuggingFace uploads",
+    "Optional Jupyter Lab and TensorBoard integration"
+  ],
+  "quick_start": [
+    "1. Access the web UI at http://localhost:3000",
+    "2. Navigate to Files page to upload your dataset",
+    "3. Go to Dataset page to organize and caption images",
+    "4. Configure training parameters in the Training page",
+    "5. Click 'Start Training' and monitor progress in real-time",
+    "6. Download your trained LoRA from the output directory"
+  ],
+  "documentation": {
+    "readme": "README.md",
+    "deployment": "docs/DEPLOYMENT.md",
+    "training_guide": "docs/TRAINING_GUIDE.md"
+  },
+  "repository": "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer",
+  "license": "MIT"
+}

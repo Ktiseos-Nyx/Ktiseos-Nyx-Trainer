@@ -16,7 +16,8 @@ import {
 import { fileAPI, FileInfo, DirectoryListing } from '@/lib/api';
 
 export default function FileManager() {
-  const [currentPath, setCurrentPath] = useState('/workspace');
+  // Start at home directory for local dev, /workspace for cloud/VastAI
+  const [currentPath, setCurrentPath] = useState('~');
   const [listing, setListing] = useState<DirectoryListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,15 @@ export default function FileManager() {
       setListing(data);
       setCurrentPath(data.path);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load directory');
+      // Backend not available - show helpful message instead of error
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load directory';
+      if (errorMsg.includes('fetch') || errorMsg.includes('Failed to fetch')) {
+        setError('Backend API not running. Start the backend server to browse files.');
+      } else {
+        setError(errorMsg);
+      }
+      // Set empty listing to show UI
+      setListing({ path: path, files: [], directories: [] });
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,12 @@
-# LoRA Easy Training - Jupyter Widget Edition 🚀
+# Ktiseos Nyx LoRA Trainer 🚀
 
-A LoRA training system built on Derrian Distro & Kohya SS with interactive Jupyter widget interfaces. Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
+> ⚠️ **BETA - IN ACTIVE DEVELOPMENT**: Features may not work as expected. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues)
+
+A professional LoRA training system built on Kohya SS, offering **two workflows**:
+- 🌐 **Modern Web UI** - Next.js frontend with FastAPI backend
+- 📓 **Jupyter Notebooks** - Classic widget-based interface
+
+Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 
 | Python Version | License | Discord | Twitch | Support |
 |---|---|---|---|---|
@@ -32,15 +38,70 @@ A LoRA training system built on Derrian Distro & Kohya SS with interactive Jupyt
 > **Note**: These experimental features exist in the underlying Kohya scripts but haven't been thoroughly tested with our widget system. Use at your own risk and expect possible issues. If they look like they're exposed in our widget setup, there is no saying if they current work due to our unified setup. We're working on fast trying to get functionality quickly. If you have any issues please report them to the issues area.
 
 
-## 🚀 Quick Start (Installation & Setup)
+## 🚀 Quick Start
 
-**What You Need**
+### Choose Your Workflow
 
-- **GPU**: Nvidia (For built-in CUDA support) or AMD Cards for ROCm. (Future Support for ARC and otherwise coming)
-- **Python**: Version 3.10+ required
-- **Platform**: Windows or Linux based Operating Systems.
--
-More details on installation can be found here [Quick Start Guide](docs/quickstart.md) or in our [Installation Setup](docs/guides/installation.md).
+#### 🌐 Web UI (Recommended for Most Users)
+Modern, responsive web interface with real-time monitoring:
+
+**VastAI Deployment** (Easiest):
+- Launch the Ktiseos Nyx template on VastAI
+- Access web UI at `http://<instance-ip>:3000`
+- See [VastAI Setup Guide](VASTAI_SETUP.md)
+
+**Local Installation**:
+```bash
+# 1. Clone repository
+git clone --recurse-submodules https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+cd Ktiseos-Nyx-Trainer
+
+# 2. Install backend
+python installer.py
+
+# 3. Start backend
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# 4. Start frontend (in another terminal)
+cd frontend
+npm install
+npm run build
+npm run start
+```
+
+Access at: `http://localhost:3000`
+
+**See**: [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions
+
+#### 📓 Jupyter Notebooks (For Classic Workflow)
+Widget-based interface with step-by-step control:
+
+```bash
+# 1. Clone and setup
+git clone --recurse-submodules https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+cd Ktiseos-Nyx-Trainer
+python installer.py
+
+# 2. Start Jupyter
+jupyter lab
+
+# 3. Open notebooks
+# Navigate to jupyter-notebooks/ directory
+```
+
+**See**: [Jupyter Notebooks Guide](jupyter-notebooks/README.md)
+
+---
+
+### Requirements
+
+- **GPU**: Nvidia (CUDA 12.1+) or AMD (ROCm)
+- **Python**: 3.10 or 3.11
+- **Platform**: Windows, Linux, or macOS
+- **VRAM**: 12GB minimum, 24GB recommended for SDXL
+- **Disk**: 50GB+ free space
+
+More details: [Quick Start Guide](docs/quickstart.md) | [Installation Guide](docs/guides/installation.md)
 
 You will need Git and Python 3.10+.
 If you don't have python, you can install Python 3.10+ from Python's [main website here](https://www.python.org/downloads/). Our set up prefers 3.10.6 at a minimum.
@@ -70,24 +131,35 @@ chmod +x ./jupyter.sh && ./jupyter.sh
 
 ## 📖 Usage Guide
 
-### How to Launch Jupyter
+### Web UI Workflow
 
-(If Jupyter is NOT running)
+1. **Files** - Upload and manage datasets
+2. **Dataset** - Organize images, tag with WD14, edit captions
+3. **Training** - Configure parameters and start training
+4. **Monitor** - Real-time progress tracking
+5. **Models** - Browse trained LoRAs
+6. **Utilities** - Resize, upload to HuggingFace
+7. **Settings** - Toggle advanced parameters
 
-```bash
-jupyter notebook
-# Or: jupyter lab
-```
+**Full Guide**: [Web UI Documentation](docs/WEB_UI_GUIDE.md) (coming soon)
 
-### Notebook Workflow
+### Jupyter Notebook Workflow
 
-The system uses three specialized notebooks:
+Three specialized notebooks available in `jupyter-notebooks/`:
 
-- **`Dataset_Maker_Widget.ipynb`** - Prepare images and captions for training
-- **`Unified_LoRA_Trainer.ipynb`** - Configure and execute LoRA training
-- **`Utilities_Notebooks.ipynb`** - Calculate parameters and resize trained models
+- **`Unified_LoRA_Trainer.ipynb`** - Complete training pipeline (all-in-one)
+- **`Dataset_Preparation.ipynb`** - Dataset management only
+- **`Utilities_Notebook.ipynb`** - Post-training tools
 
-For detailed workflow instructions, see our [Quick Start Guide](docs/quickstart.md) and [Notebook Workflow Guide](docs/guides/notebook-workflow.md).
+**Full Guide**: [Jupyter Notebooks Guide](jupyter-notebooks/README.md)
+
+### VastAI Users
+
+Both workflows work on VastAI:
+- **Jupyter**: Access at `http://<instance-ip>:8888` (auto-started)
+- **Web UI**: Run `/start_services.sh` via SSH, access at `http://<instance-ip>:3000`
+
+**Full Guide**: [VastAI Jupyter Guide](jupyter-notebooks/VASTAI_JUPYTER.md)
 
 ## 🛠️ Troubleshooting & Support
 
