@@ -303,3 +303,16 @@ research_dev/
 # Documentation hold folders (temporary storage for review)
 docs/reference/_hold/
 docs/*/_hold/
+
+# Node.js artifacts
+# Root level (shadcn artifacts)
+/node_modules/
+/package-lock.json
+/package.json
+# Frontend
+frontend/node_modules/
+
+# Demo/test pages (keep in repo but don't track changes)
+frontend/app/editor-00/
+frontend/app/footers-01/
+frontend/app/effects-demo/

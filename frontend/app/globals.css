@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.282 0.087 267.935);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.282 0.087 267.935);
+    --popover: 0 0% 100%;
+    --popover-foreground: oklch(0.282 0.087 267.935);
+    --primary: oklch(0.468 0.272 279.601);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.955 0.025 298.615);
+    --secondary-foreground: oklch(0.266 0.151 281.039);
+    --muted: oklch(0.984 0.003 247.858);
+    --muted-foreground: oklch(0.516 0.054 272.586);
+    --accent: oklch(0.968 0.007 247.896);
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: oklch(0.929 0.013 255.508);
+    --input: oklch(0.929 0.013 255.508);
+    --ring: oklch(0.468 0.272 279.601 / 0.1);
+    --radius: 0.5rem;
+    --color-1: oklch(66.2% 0.225 25.9);
+    --color-2: oklch(60.4% 0.26 302);
+    --color-3: oklch(69.6% 0.165 251);
+    --color-4: oklch(80.2% 0.134 225);
+    --color-5: oklch(90.7% 0.231 133);
+    --chart-1: oklch(0.468 0.272 279.601);
+    --sidebar-foreground: oklch(1 0 0);
+    --sidebar: oklch(0.984 0.003 247.858);
+    --sidebar-primary: oklch(0.468 0.272 279.601);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.968 0.007 247.896);
+    --sidebar-accent-foreground: oklch(0.282 0.087 267.935);
+    --sidebar-border: oklch(0.929 0.013 255.508);
+    --sidebar-ring: oklch(0.929 0.013 255.508);
+    --font-sans: Rubik, sans-serif;
+    --shadow-2xs: 0 1px 0 0 oklch(0.554 0.041 257.417 / 0.05);
+    --shadow-xs: 0 1px 2px 0 oklch(0.554 0.041 257.417 / 0.05);
+    --shadow-2xl: 0 25px 50px -12px oklch(0.554 0.041 257.417 / 0.15);
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+    --color-1: oklch(66.2% 0.225 25.9);
+    --color-2: oklch(60.4% 0.26 302);
+    --color-3: oklch(69.6% 0.165 251);
+    --color-4: oklch(80.2% 0.134 225);
+    --color-5: oklch(90.7% 0.231 133);
+  }
+  .theme {
+    --animate-shine: shine var(--duration) infinite linear;
+    --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
+    --radius-sm: var(--radius-sm);
+    --radius-md: var(--radius-md);
+    --radius-lg: var(--radius-lg);
+    --radius-xl: var(--radius-xl);
+    --font-sans: var(--font-sans);
+    --font-mono: var(--font-mono);
+    --shadow-2xs: var(--shadow-2xs);
+    --shadow-xs: var(--shadow-xs);
+    --shadow-sm: var(--shadow-sm);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+    --shadow-xl: var(--shadow-xl);
+    --shadow-2xl: var(--shadow-2xl);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@theme inline {
+  @keyframes shine {
+  0% {
+    background-position: 0% 0%;
+    }
+  50% {
+    background-position: 100% 100%;
+    }
+  to {
+    background-position: 0% 0%;
+    }
+  }
+  @keyframes rainbow {
+  0% {
+    background-position: 0%;
+    }
+  100% {
+    background-position: 200%;
+    }
+  }
+  @keyframes gradient {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+}
+
+@layer utilities {
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+  }
+
+  .animate-wing-flap {
+    animation: wing-flap 1s infinite ease-in-out;
+  }
+
+  .animate-wing-flap-reverse {
+    animation: wing-flap 1s infinite ease-in-out reverse;
+  }
+}
+
+@keyframes wing-flap {
+  0%, 100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.8);
+  }
+}
+
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(10px, -5px) scale(0.5);
+  }
+}

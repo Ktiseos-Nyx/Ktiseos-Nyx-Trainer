@@ -1,0 +1,33 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.ts",
+    "css": "app/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "radix",
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "registries": {
+    "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
+    "@kokonutui": "https://kokonutui.com/r/{name}.json",
+    "@magicui": "https://magicui.design/r/{name}.json",
+    "@shadcn-editor": "https://shadcn-editor.vercel.app/r/{name}.json",
+    "@scrollxui": "https://www.scrollxui.dev/registry/{name}.json",
+    "@wigggle-ui": "https://wigggle-ui.vercel.app/r/{name}.json",
+    "@wandry-ui": "https://ui.wandry.com.ua/r/{name}.json",
+    "@reui": "https://reui.io/r/{name}.json",
+    "@coss": "https://coss.com/ui/r/{name}.json",
+    "@shadcndesign": "https://shadcndesign-free.vercel.app/r/{name}.json"
+  }
+}
