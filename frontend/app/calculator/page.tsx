@@ -63,7 +63,7 @@ export default function CalculatorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-16">
+    <div className="min-h-screen bg-gradient-to-br from-background via-purple-900/50 to-background py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Breadcrumbs */}
         <Breadcrumbs
@@ -78,7 +78,7 @@ export default function CalculatorPage() {
           <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
             LoRA Step Calculator
           </h1>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-muted-foreground">
             Calculate optimal training steps with Kohya-compatible logic
           </p>
         </div>
