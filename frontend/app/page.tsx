@@ -8,26 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 export default function Home() {
   return (
     <div className="min-h-screen">
-      {/* Beta Warning Banner */}
-      <div className="container mx-auto px-4 pt-6">
-        <Alert variant="default" className="border-yellow-500/50 bg-yellow-500/10 text-yellow-200">
-          <AlertTriangle className="h-4 w-4 text-yellow-500" />
-          <AlertTitle className="text-yellow-100">Beta - In Active Development</AlertTitle>
-          <AlertDescription className="text-yellow-200/80">
-            This project is currently in beta. Features may not work as expected, and breaking changes may occur.
-            Please report issues on{' '}
-            <a
-              href="https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-yellow-100"
-            >
-              GitHub
-            </a>.
-          </AlertDescription>
-        </Alert>
-      </div>
-
       <HeroAnimated
         title="Ktiseos-Nyx"
         subtitle="LoRA Trainer"
@@ -54,6 +34,26 @@ export default function Home() {
         helperText="Or just start via the navigation bar!"
         theme="purple-blue"
       />
+
+      {/* Beta Warning Banner - Moved below hero */}
+      <div className="container mx-auto px-4 py-6">
+        <Alert variant="default" className="border-2 border-yellow-500 bg-card">
+          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+          <AlertTitle className="text-foreground font-semibold">Beta - In Active Development</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            This project is currently in beta. Features may not work as expected, and breaking changes may occur.
+            Please report issues on{' '}
+            <a
+              href="https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium text-foreground hover:text-primary transition-colors"
+            >
+              GitHub
+            </a>.
+          </AlertDescription>
+        </Alert>
+      </div>
 
       <FeatureGrid
         title="Everything You Need"
