@@ -1,20 +1,20 @@
 "use client"
 
+import * as React from "react"
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui-components/react/scroll-area"
 
 import { cn } from "@/lib/utils"
 
-function ScrollArea({
-  className,
-  children,
-  orientation,
-  ...props
-}: ScrollAreaPrimitive.Root.Props & {
-  orientation?: "horizontal" | "vertical" | "both"
-}) {
+const ScrollArea = React.forwardRef<
+  HTMLDivElement,
+  ScrollAreaPrimitive.Root.Props & {
+    orientation?: "horizontal" | "vertical" | "both"
+  }
+>(({ className, children, orientation, ...props }, ref) => {
   return (
     <ScrollAreaPrimitive.Root className="min-h-0" {...props}>
       <ScrollAreaPrimitive.Viewport
+        ref={ref}
         data-slot="scroll-area-viewport"
         className={cn(
           "size-full overscroll-contain rounded-[inherit] transition-[box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
@@ -34,7 +34,8 @@ function ScrollArea({
       <ScrollAreaPrimitive.Corner data-slot="scroll-area-corner" />
     </ScrollAreaPrimitive.Root>
   )
-}
+})
+ScrollArea.displayName = "ScrollArea"
 
 function ScrollBar({
   className,
