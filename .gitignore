@@ -236,7 +236,7 @@ pretrained_model/
 vae/
 tagger_models/
 output/
-dataset/
+/dataset/
 logs/
 *.log
 trainer/sd_scripts/venv/
