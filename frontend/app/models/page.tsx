@@ -95,7 +95,7 @@ export default function ModelsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-purple-900/50 to-background py-16">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Breadcrumbs */}
         <Breadcrumbs
@@ -110,7 +110,7 @@ export default function ModelsPage() {
           <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
             Models & VAEs
           </h1>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-xl text-gray-300">
             Download base models and VAEs from HuggingFace or Civitai
           </p>
         </div>
