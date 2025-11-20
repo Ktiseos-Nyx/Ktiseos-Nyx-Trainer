@@ -215,7 +215,7 @@ export default function DocsPage() {
   const currentSection = docSections.find((s) => s.id === activeSection) || docSections[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-16">
+    <div className="min-h-screen bg-background py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Breadcrumbs */}
         <Breadcrumbs
@@ -230,7 +230,7 @@ export default function DocsPage() {
           <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-green-400 via-emerald-400 to-green-400 bg-clip-text text-transparent">
             Documentation
           </h1>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-muted-foreground">
             Guides and references for LoRA training
           </p>
         </div>
@@ -239,8 +239,8 @@ export default function DocsPage() {
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-4 sticky top-4">
-              <h2 className="text-lg font-bold text-white mb-4">Sections</h2>
+            <div className="bg-card backdrop-blur-sm border border-border rounded-lg p-4 sticky top-4">
+              <h2 className="text-lg font-bold text-foreground mb-4">Sections</h2>
               <nav className="space-y-1">
                 {docSections.map((section) => (
                   <button
@@ -249,7 +249,7 @@ export default function DocsPage() {
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                       activeSection === section.id
                         ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                        : 'text-gray-400 hover:text-gray-300 hover:bg-slate-700/50'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                     }`}
                   >
                     <span className="text-xl">{section.icon}</span>
@@ -266,7 +266,7 @@ export default function DocsPage() {
               <div className="p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <span className="text-4xl">{currentSection.icon}</span>
-                  <h2 className="text-3xl font-bold text-white">{currentSection.title}</h2>
+                  <h2 className="text-3xl font-bold text-foreground">{currentSection.title}</h2>
                 </div>
 
                 <div className="prose prose-invert max-w-none">
@@ -283,10 +283,10 @@ export default function DocsPage() {
                       const [header, ...rest] = paragraph.split('\n');
                       return (
                         <div key={idx} className="mb-4">
-                          <h4 className="text-lg font-semibold text-white mb-2">
+                          <h4 className="text-lg font-semibold text-foreground mb-2">
                             {header.replace(/\*\*/g, '')}
                           </h4>
-                          <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+                          <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
                             {rest.join('\n')}
                           </p>
                         </div>
@@ -295,10 +295,10 @@ export default function DocsPage() {
                       // List items
                       const items = paragraph.split('\n').filter((line) => line.trim());
                       return (
-                        <ul key={idx} className="list-disc list-inside space-y-2 text-gray-300 mb-4">
+                        <ul key={idx} className="list-disc list-inside space-y-2 text-muted-foreground mb-4">
                           {items.map((item, i) => (
                             <li key={i} className="ml-4">
-                              {item.replace(/^- /, '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')}
+                              {item.replace(/^- /, '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')}
                             </li>
                           ))}
                         </ul>
@@ -308,10 +308,10 @@ export default function DocsPage() {
                       return (
                         <p
                           key={idx}
-                          className="text-gray-300 leading-relaxed mb-4"
+                          className="text-muted-foreground leading-relaxed mb-4"
                           dangerouslySetInnerHTML={{
                             __html: paragraph
-                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>')
+                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
                               .replace(/`(.*?)`/g, '<code class="bg-slate-800 px-2 py-1 rounded text-cyan-400">$1</code>'),
                           }}
                         />
@@ -323,7 +323,7 @@ export default function DocsPage() {
                 {/* External Links */}
                 {currentSection.links && currentSection.links.length > 0 && (
                   <div className="mt-8 pt-6 border-t border-slate-700">
-                    <h4 className="text-lg font-semibold text-white mb-3">External Resources</h4>
+                    <h4 className="text-lg font-semibold text-foreground mb-3">External Resources</h4>
                     <div className="space-y-2">
                       {currentSection.links.map((link, idx) => (
                         <a

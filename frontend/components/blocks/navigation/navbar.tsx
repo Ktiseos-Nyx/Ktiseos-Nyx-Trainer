@@ -12,7 +12,7 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import { ThemeSwitcher } from "@/components/kibo-ui/theme-switcher"
+import { ThemeSwitcher } from "@/components/ui/shadcn-io/theme-switcher"
 import { cn } from "@/lib/utils"
 
 export function Navbar() {
@@ -22,7 +22,7 @@ export function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo - Left */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg flex-shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 shadow-lg">
             <Zap className="h-5 w-5 text-white" />
           </div>
@@ -31,7 +31,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* Navigation Links - Center */}
+        {/* Navigation Links - Center (absolute positioning) */}
         <NavigationMenu className="hidden md:flex absolute left-1/2 -translate-x-1/2">
           <NavigationMenuList>
             {/* Dashboard - First! */}
@@ -91,7 +91,7 @@ export function Navbar() {
         </NavigationMenu>
 
         {/* Theme Switcher - Right */}
-        <div className="flex items-center">
+        <div className="flex items-center flex-shrink-0">
           <ThemeSwitcher
             value={theme as "light" | "dark" | "system"}
             onChange={(newTheme) => setTheme(newTheme)}

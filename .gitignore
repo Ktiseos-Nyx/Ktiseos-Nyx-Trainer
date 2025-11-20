@@ -327,3 +327,7 @@ frontend/out/
 frontend/app/editor-00/
 frontend/app/footers-01/
 frontend/app/effects-demo/
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

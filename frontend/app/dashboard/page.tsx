@@ -1,116 +1,160 @@
+// frontend/app/dashboard/page.tsx
+
 'use client';
 
 import Link from 'next/link';
 import { FileText, FolderOpen, Settings, Upload, Calculator, Wrench, Download, Zap, BookOpen, Info } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
+import { ThemeSwitcher as InstalledThemeSwitcher } from '@/components/ui/shadcn-io/theme-switcher';
 
+// This is the controller component we defined. It connects the UI to the global theme.
+const ThemeController = () => {
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't render anything on the server or until the client has mounted
+  if (!mounted) {
+    return null;
+  }
+
+  // Type assertion to fix TypeScript error
+  return <InstalledThemeSwitcher value={theme as 'light' | 'dark' | 'system'} onChange={setTheme} />;
+};
+
+// --- YOUR MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
+  const cardClasses = "bg-card text-card-foreground backdrop-blur-sm border rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-accent transition-all cursor-pointer group";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-white mb-4">
-            Training Dashboard
-          </h1>
-          <p className="text-xl text-gray-300">
-            Quick access to all your training tools
-          </p>
+
+        <div className="flex justify-between items-start mb-16">
+            <div className="text-center flex-grow">
+                <h1 className="text-5xl font-bold text-foreground mb-4">
+                    Training Dashboard
+                </h1>
+                <p className="text-xl text-muted-foreground">
+                    Quick access to all your training tools
+                </p>
+            </div>
+
+            {/* =============================================================== */}
+            {/* FIX FOR ERROR #2 (Part 2): Render the 'ThemeController' component */}
+            {/* =============================================================== */}
+            <ThemeController />
+
         </div>
 
+
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+
+          {/* Example of a refactored card */}
           <Link href="/models">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            {/* CHANGED: All the hardcoded classes are replaced with our clean helper variable. */}
+            <div className={cardClasses}>
               <Download className="w-12 h-12 text-cyan-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">Models & VAEs</h2>
-              <p className="text-gray-400 text-sm">
+              {/* CHANGED: Titles now use the theme's main text color. */}
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Models & VAEs</h2>
+              {/* CHANGED: Paragraphs use the theme's muted text color. */}
+              <p className="text-muted-foreground text-sm">
                 Download base models and VAEs
               </p>
             </div>
           </Link>
 
+          {/* --- Repeat for all other cards --- */}
+
           <Link href="/files">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <FolderOpen className="w-12 h-12 text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">File Manager</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">File Manager</h2>
+              <p className="text-muted-foreground text-sm">
                 Browse, upload, and manage your files
               </p>
             </div>
           </Link>
 
           <Link href="/dataset">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <Upload className="w-12 h-12 text-green-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">Dataset</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Dataset</h2>
+              <p className="text-muted-foreground text-sm">
                 Upload and prepare training datasets
               </p>
             </div>
           </Link>
 
           <Link href="/training">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <Zap className="w-12 h-12 text-purple-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">Training</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Training</h2>
+              <p className="text-muted-foreground text-sm">
                 Configure and monitor LoRA training
               </p>
             </div>
           </Link>
 
           <Link href="/calculator">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <Calculator className="w-12 h-12 text-indigo-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">Calculator</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Calculator</h2>
+              <p className="text-muted-foreground text-sm">
                 Calculate optimal training steps
               </p>
             </div>
           </Link>
 
           <Link href="/utilities">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <Wrench className="w-12 h-12 text-orange-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">Utilities</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Utilities</h2>
+              <p className="text-muted-foreground text-sm">
                 Manage and upload trained LoRAs
               </p>
             </div>
           </Link>
 
           <Link href="/settings">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <Settings className="w-12 h-12 text-pink-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">Settings</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Settings</h2>
+              <p className="text-muted-foreground text-sm">
                 Configure app preferences and defaults
               </p>
             </div>
           </Link>
 
           <Link href="/docs">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <BookOpen className="w-12 h-12 text-emerald-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">Documentation</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Documentation</h2>
+              <p className="text-muted-foreground text-sm">
                 Guides, tutorials, and best practices
               </p>
             </div>
           </Link>
 
           <Link href="/about">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-slate-800/70 transition-all cursor-pointer group">
+            <div className={cardClasses}>
               <Info className="w-12 h-12 text-rose-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-white">About</h2>
-              <p className="text-gray-400 text-sm">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">About</h2>
+              <p className="text-muted-foreground text-sm">
                 Learn about the project and credits
               </p>
             </div>
           </Link>
         </div>
 
-        <div className="mt-16 max-w-4xl mx-auto bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-8">
-          <h3 className="text-2xl font-bold mb-4 text-white">Quick Start</h3>
-          <ol className="list-decimal list-inside space-y-2 text-gray-300">
+        {/* CHANGED: Quick Start section now also uses card styling for consistency. */}
+        <div className={`mt-16 max-w-4xl mx-auto p-8 ${cardClasses}`}>
+          <h3 className="text-2xl font-bold mb-4 text-foreground">Quick Start</h3>
+          <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
             <li>Download a base model from <strong className="text-cyan-400">Models & VAEs</strong></li>
             <li>Upload your training images via <strong className="text-green-400">Dataset</strong></li>
             <li>Auto-tag images with WD14 tagger</li>
@@ -120,7 +164,7 @@ export default function Dashboard() {
           </ol>
         </div>
 
-        <div className="mt-8 text-center text-sm text-gray-500">
+        <div className="mt-8 text-center text-sm text-muted-foreground">
           <p>Powered by Kohya SD-Scripts • Built with Next.js & FastAPI</p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@config "../tailwind.config.ts";
+/* Removed invalid @config at-rule; Tailwind config belongs in tailwind.config.ts */
 
 @layer base {
   :root {
@@ -44,31 +44,32 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: oklch(0.17 0.038 265.51);
+    --foreground: oklch(0.98 0.006 255.51);
+    --card: oklch(0.17 0.038 265.51);
+    --card-foreground: oklch(0.98 0.006 255.51);
+    --popover: oklch(0.17 0.038 265.51);
+    --popover-foreground: oklch(0.98 0.006 255.51);
+    --primary: oklch(0.65 0.18 259.94);
+    --primary-foreground: oklch(0.28 0.087 267.93);
+    --secondary: oklch(0.28 0.049 263.38);
+    --secondary-foreground: oklch(0.98 0.006 255.51);
+    --muted: oklch(0.28 0.049 263.38);
+    --muted-foreground: oklch(0.66 0.021 262.24);
+    --accent: oklch(0.28 0.049 263.38);
+    --accent-foreground: oklch(0.98 0.006 255.51);
+    --destructive: oklch(0.51 0.22 14.22);
+    --destructive-foreground: oklch(0.98 0.006 255.51);
+    --border: oklch(0.28 0.049 263.38);
+    --input: oklch(0.28 0.049 263.38);
+    --ring: oklch(0.61 0.17 263.54);
     --color-1: oklch(66.2% 0.225 25.9);
     --color-2: oklch(60.4% 0.26 302);
     --color-3: oklch(69.6% 0.165 251);
     --color-4: oklch(80.2% 0.134 225);
     --color-5: oklch(90.7% 0.231 133);
   }
+
   .theme {
     --animate-shine: shine var(--duration) infinite linear;
     --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
@@ -88,42 +89,54 @@
   }
 }
 
+/* CORRECTED VERSION FOR YOUR globals.css */
+
 @layer base {
-  * {
-    @apply border-border;
-  }
+  /*
+    The universal selector rule has been removed.
+    Now, only elements where you add a class like "border" will get a border.
+  */
+
   body {
-    @apply bg-background text-foreground;
+    /* These are perfect base styles */
+    background: var(--background);
+    color: var(--foreground);
   }
 }
 
-@theme inline {
-  @keyframes shine {
+@keyframes shine {
   0% {
     background-position: 0% 0%;
-    }
+  }
   50% {
     background-position: 100% 100%;
-    }
+  }
   to {
     background-position: 0% 0%;
-    }
   }
-  @keyframes rainbow {
+}
+@keyframes rainbow {
   0% {
     background-position: 0%;
-    }
+  }
   100% {
     background-position: 200%;
-    }
   }
-  @keyframes gradient {
-    0%, 100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
+}
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
   }
 }
 

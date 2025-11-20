@@ -30,10 +30,10 @@ export function FeatureGrid({
   };
 
   return (
-    <section className="bg-gradient-to-b from-slate-950 to-slate-900 py-16">
+    <section className="bg-background py-16">
       <div className="container mx-auto px-4 max-w-6xl">
         {title && (
-          <h2 className="text-3xl font-bold text-white text-center mb-10">
+          <h2 className="text-3xl font-bold text-foreground text-center mb-10">
             {title}
           </h2>
         )}
@@ -42,13 +42,13 @@ export function FeatureGrid({
           {features.map((feature, idx) => (
             <div
               key={idx}
-              className="bg-slate-800/30 backdrop-blur-sm border border-slate-700 rounded-lg p-6"
+              className="bg-card backdrop-blur-sm border border-border rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow"
             >
               <div className="text-4xl mb-3">{feature.emoji}</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <h3 className="text-xl font-semibold text-foreground mb-2">
                 {feature.title}
               </h3>
-              <p className="text-gray-400 text-sm">
+              <p className="text-muted-foreground text-sm">
                 {feature.description}
               </p>
             </div>

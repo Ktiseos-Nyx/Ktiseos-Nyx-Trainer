@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,38 +10,38 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        border: "var(--border)", // <-- Changed!
+        input: "var(--input)", // <-- Changed!
+        ring: "var(--ring)", // <-- Changed!
+        background: "var(--background)", // <-- Changed!
+        foreground: "var(--foreground)", // <-- Changed!
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "var(--primary)", // <-- Changed!
+          foreground: "var(--primary-foreground)", // <-- Changed!
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "var(--secondary)", // <-- Changed!
+          foreground: "var(--secondary-foreground)", // <-- Changed!
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "var(--destructive)", // <-- Changed!
+          foreground: "var(--destructive-foreground)", // <-- Changed!
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "var(--muted)", // <-- Changed!
+          foreground: "var(--muted-foreground)", // <-- Changed!
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "var(--accent)", // <-- Changed!
+          foreground: "var(--accent-foreground)", // <-- Changed!
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: "var(--popover)", // <-- Changed!
+          foreground: "var(--popover-foreground)", // <-- Changed!
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "var(--card)", // <-- Changed!
+          foreground: "var(--card-foreground)", // <-- Changed!
         },
       },
       borderRadius: {

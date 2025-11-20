@@ -63,7 +63,7 @@ export default function CalculatorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-16">
+    <div className="min-h-screen bg-background py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Breadcrumbs */}
         <Breadcrumbs
@@ -75,22 +75,22 @@ export default function CalculatorPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 text-foreground">
             LoRA Step Calculator
           </h1>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-muted-foreground">
             Calculate optimal training steps with Kohya-compatible logic
           </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Left: Input Form */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-4">Training Parameters</h2>
+          <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4 text-foreground">Training Parameters</h2>
 
             {/* Dataset Selection */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Dataset Path
               </label>
 
@@ -98,7 +98,7 @@ export default function CalculatorPage() {
                 <select
                   value={datasetPath}
                   onChange={(e) => setDatasetPath(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 mb-2"
+                  className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 mb-2"
                 >
                   {datasets.map((dataset) => (
                     <option key={dataset.path} value={dataset.path}>
@@ -111,7 +111,7 @@ export default function CalculatorPage() {
                   type="text"
                   value={datasetPath}
                   onChange={(e) => setDatasetPath(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
                   placeholder="datasets/10_character_name"
                 />
               )}
@@ -128,28 +128,28 @@ export default function CalculatorPage() {
 
             {/* Epochs */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Epochs
               </label>
               <input
                 type="number"
                 value={epochs}
                 onChange={(e) => setEpochs(parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-input bg-input text-foreground rounded-lg focus:ring-2 focus:ring-blue-500"
                 min="1"
               />
             </div>
 
             {/* Batch Size */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Batch Size
               </label>
               <input
                 type="number"
                 value={batchSize}
                 onChange={(e) => setBatchSize(parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-input bg-input text-foreground rounded-lg focus:ring-2 focus:ring-blue-500"
                 min="1"
               />
             </div>
@@ -174,14 +174,14 @@ export default function CalculatorPage() {
             {/* Info Box */}
             <div className="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4">
               <p className="text-sm font-medium mb-2">📊 Formula</p>
-              <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded">
+              <code className="text-xs bg-white bg-card px-2 py-1 rounded">
                 (Images × Repeats × Epochs) ÷ Batch Size = Steps
               </code>
             </div>
           </div>
 
           {/* Right: Results */}
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
             <h2 className="text-2xl font-bold mb-4">Results</h2>
 
             {result ? (
@@ -220,8 +220,8 @@ export default function CalculatorPage() {
 
                 {/* Caption */}
                 {result.caption && (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                    <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                  <div className="bg-gray-50 bg-card rounded-lg p-4">
+                    <div className="text-sm font-medium text-muted-foreground mb-1">
                       Detected Caption
                     </div>
                     <div className="font-mono text-sm">{result.caption}</div>
@@ -229,18 +229,18 @@ export default function CalculatorPage() {
                 )}
 
                 {/* Time Estimates */}
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="border border-gray-200 border-border rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Clock className="w-5 h-5 text-gray-600" />
                     <span className="font-semibold">Time Estimates (approximate)</span>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">GPU Rental (faster):</span>
+                      <span className="text-muted-foreground">GPU Rental (faster):</span>
                       <span className="font-medium">{result.time_estimate_min.toFixed(1)} min</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Home GPU (slower):</span>
+                      <span className="text-muted-foreground">Home GPU (slower):</span>
                       <span className="font-medium">{result.time_estimate_max.toFixed(1)} min</span>
                     </div>
                   </div>
@@ -262,7 +262,7 @@ export default function CalculatorPage() {
                 </div>
 
                 {/* Dataset Path */}
-                <div className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-50 dark:bg-gray-800 rounded p-2">
+                <div className="text-xs text-gray-500 text-muted-foreground font-mono bg-gray-50 bg-card rounded p-2">
                   {result.dataset_path}
                 </div>
               </div>
@@ -279,38 +279,38 @@ export default function CalculatorPage() {
 
         {/* Info Cards */}
         <div className="mt-8 grid md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
                 <Info className="w-6 h-6 text-blue-600" />
               </div>
               <h3 className="font-semibold">Kohya Compatible</h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Uses the same calculation logic as Kohya sd-scripts for accurate step counts
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-lg">
                 <FolderOpen className="w-6 h-6 text-purple-600" />
               </div>
               <h3 className="font-semibold">Auto-Detection</h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Automatically detects repeat counts and image counts from your dataset folder
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
+          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
                 <Zap className="w-6 h-6 text-green-600" />
               </div>
               <h3 className="font-semibold">No More Guessing</h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Get instant recommendations on whether your step count is optimal for training
             </p>
           </div>

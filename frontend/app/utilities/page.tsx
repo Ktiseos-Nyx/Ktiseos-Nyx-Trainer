@@ -9,7 +9,7 @@ export default function UtilitiesPage() {
   const [activeTab, setActiveTab] = useState<'merge' | 'resize' | 'huggingface'>('merge');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-16">
+    <div className="min-h-screen bg-background py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Breadcrumbs */}
         <Breadcrumbs
@@ -654,7 +654,7 @@ function HuggingFaceTab() {
             {availableFiles.map((file) => (
               <label
                 key={file.path}
-                className="flex items-start gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                className="flex items-start gap-3 p-3 border border-gray-200 border-border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
               >
                 <input
                   type="checkbox"
@@ -664,7 +664,7 @@ function HuggingFaceTab() {
                 />
                 <div className="flex-1">
                   <div className="font-semibold">{file.name}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="text-sm text-muted-foreground">
                     {file.size_formatted}
                   </div>
                 </div>

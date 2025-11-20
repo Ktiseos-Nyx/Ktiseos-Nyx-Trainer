@@ -47,13 +47,6 @@ export function ShimmerBorder({
       <div className="relative z-10 bg-slate-900 rounded-lg">
         {children}
       </div>
-
-      <style jsx>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-      `}</style>
     </div>
   )
 }
