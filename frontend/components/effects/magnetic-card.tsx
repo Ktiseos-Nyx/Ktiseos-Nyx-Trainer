@@ -19,9 +19,9 @@ export function MagneticCard({
   const [isHovering, setIsHovering] = useState(false)
 
   const strengths = {
-    subtle: 0.1,
-    medium: 0.2,
-    strong: 0.3,
+    subtle: 0.15,
+    medium: 0.25,
+    strong: 0.4,
   }
 
   const multiplier = strengths[strength]
@@ -47,7 +47,7 @@ export function MagneticCard({
   return (
     <div
       ref={cardRef}
-      className={cn('transition-transform duration-200 ease-out', className)}
+      className={cn('transition-transform duration-300 ease-out will-change-transform', className)}
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
       }}

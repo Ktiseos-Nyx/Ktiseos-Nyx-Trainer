@@ -47,6 +47,7 @@
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",
     "react-resizable-panels": "^3.0.6",
+    "styled-jsx": "^5.1.7",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
