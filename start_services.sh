@@ -8,8 +8,8 @@ echo "=========================================="
 echo "🚀 Starting Ktiseos-Nyx-Trainer Services..."
 echo "=========================================="
 
-# Activate Python environment
-source /venv/main/bin/activate
+# Note: VastAI PyTorch template already has venv activated
+# No need to activate it manually!
 
 # Navigate to project directory
 cd /workspace/Ktiseos-Nyx-Trainer
