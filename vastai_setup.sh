@@ -47,10 +47,12 @@ echo "🔧 Setting up Derrian Backend & SD-Scripts..."
 if [ -d "trainer/derrian_backend" ]; then
     cd trainer/derrian_backend
 
-    # Run backend installer if it exists
-    if [ -f "install_312.sh" ]; then
-        echo "   Running Derrian backend installer..."
-        bash install_312.sh
+    # Run backend installer with piped answers (non-interactive)
+    # Question 1: "are you using this remotely?" -> y (VastAI is remote)
+    # Question 2: "do you want to use ngrok?" -> n (we use VastAI port forwarding)
+    if [ -f "installer.py" ]; then
+        echo "   Running Derrian backend installer (non-interactive)..."
+        echo -e "y\nn" | python installer.py
     fi
 
     # Install sd-scripts dependencies
