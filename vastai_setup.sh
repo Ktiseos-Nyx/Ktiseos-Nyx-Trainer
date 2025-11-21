@@ -30,29 +30,56 @@ fi
 
 cd Ktiseos-Nyx-Trainer
 
-# Install Python dependencies
-echo "🐍 Installing Python dependencies..."
+# Install Python dependencies (backend)
+echo "🐍 Installing backend dependencies..."
 pip install --upgrade pip
-pip install -r requirements-backend.txt
-
-# Setup Kohya SD-Scripts (submodule)
-echo "🔧 Setting up Kohya SD-Scripts..."
-cd sd-scripts
-if [ -f "requirements.txt" ]; then
-    pip install -r requirements.txt
+if [ -f "requirements-backend.txt" ]; then
+    pip install -r requirements-backend.txt
 fi
-cd ..
 
-# Check if frontend exists (they're migrating, so might not be there yet)
+# Install Python dependencies (API)
+echo "🔌 Installing API dependencies..."
+if [ -f "requirements-api.txt" ]; then
+    pip install -r requirements-api.txt
+fi
+
+# Setup Derrian Backend with SD-Scripts (submodule)
+echo "🔧 Setting up Derrian Backend & SD-Scripts..."
+if [ -d "trainer/derrian_backend" ]; then
+    cd trainer/derrian_backend
+
+    # Run backend installer if it exists
+    if [ -f "install_312.sh" ]; then
+        echo "   Running Derrian backend installer..."
+        bash install_312.sh
+    fi
+
+    # Install sd-scripts dependencies
+    if [ -d "sd_scripts" ]; then
+        cd sd_scripts
+        if [ -f "requirements.txt" ]; then
+            echo "   Installing sd-scripts requirements..."
+            pip install -r requirements.txt
+        fi
+        cd ..
+    fi
+
+    cd ../..
+else
+    echo "⚠️  Derrian backend not found - skipping sd-scripts setup"
+fi
+
+# Setup Next.js Frontend
 if [ -d "frontend" ]; then
     echo "🎨 Setting up Next.js frontend..."
     cd frontend
 
-    # Use Node.js from NVM (VastAI base image has this)
+    # Use Node.js from NVM (VastAI PyTorch base image has this)
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     # Install dependencies
+    echo "   Installing npm packages..."
     npm install
 
     # Build for production
@@ -62,7 +89,6 @@ if [ -d "frontend" ]; then
     cd ..
 else
     echo "⚠️  Frontend directory not found - skipping Next.js setup"
-    echo "   (Expected during migration from Jupyter to Next.js)"
 fi
 
 # Make startup script executable
@@ -70,13 +96,20 @@ if [ -f "start_services.sh" ]; then
     chmod +x start_services.sh
 fi
 
+echo ""
 echo "=========================================="
 echo "✅ Setup Complete!"
 echo "=========================================="
 echo ""
-echo "🌐 Services will start automatically..."
-echo "   Backend API: Port 8000"
-echo "   Frontend UI: Port 3000"
+echo "🚀 Starting services..."
 echo ""
-echo "Access your instance via the VastAI port forwarding URLs!"
-echo ""
+
+# Start the services
+if [ -f "start_services.sh" ]; then
+    ./start_services.sh
+else
+    echo "⚠️  start_services.sh not found"
+    echo "   Manually start services with:"
+    echo "   - Backend: python -m uvicorn api.main:app --host 0.0.0.0 --port 8000"
+    echo "   - Frontend: cd frontend && npm start -- -p 3000"
+fi
