@@ -152,10 +152,10 @@ target/
 .env
 .venv
 env/
-venv/
+virtualenv/
 ENV/
 env.bak/
-venv.bak/
+virtualenv.bak/
 
 # Jupyter Notebook (comprehensive)
 .ipynb_checkpoints
@@ -194,7 +194,7 @@ celerybeat.pid
 # mypy
 .mypy_cache/
 .dmypy.json
-dmypy.json
+dmpy.json
 
 # Pyre type checker
 .pyre/
@@ -331,3 +331,7 @@ frontend/app/effects-demo/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+# Ignored directories
+.codacy/
+Gemini_Weirdness/
+Qwen_Suggestions/
