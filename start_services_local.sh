@@ -1,23 +1,29 @@
 #!/bin/bash
-# Service Startup Script for Ktiseos-Nyx-Trainer
-# This script starts both the FastAPI backend and Next.js frontend
+# Service Startup Script for Ktiseos-Nyx-Trainer (Local Development)
+# This script starts both the FastAPI backend and Next.js frontend, binding to 127.0.0.1
 
 set -e
 
 echo "=========================================="
-echo "🚀 Starting Ktiseos-Nyx-Trainer Services..."
+echo "🚀 Starting Ktiseos-Nyx-Trainer Services (Local)..."
 echo "=========================================="
 
-# Note: VastAI PyTorch template already has venv activated
-# No need to activate it manually!
+# --------------------------------------------------------------------
+# Step 1: Ensure environment is set up via installer.py
+# The installer.py will verify and install missing components.
+# --------------------------------------------------------------------
+echo "⚙️ Running unified installer.py to set up environment..."
+python installer.py
 
-# Navigate to project directory
-cd /workspace/Ktiseos-Nyx-Trainer
+# --------------------------------------------------------------------
+# Step 2: Start Services
+# Assuming script is run from project root, or paths are relative.
+# --------------------------------------------------------------------
 
 # Start FastAPI backend (if api directory exists)
 if [ -d "api" ]; then
-    echo "🐍 Starting FastAPI backend on port 8000..."
-    python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload &
+    echo "🐍 Starting FastAPI backend on port 8000 (bind 127.0.0.1)..."
+    python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload &
     BACKEND_PID=$!
     echo "   Backend PID: $BACKEND_PID"
 else
@@ -29,7 +35,7 @@ fi
 if [ -d "frontend" ]; then
     echo "🎨 Starting Next.js frontend on port 3000..."
 
-    # Load NVM
+    # Load NVM (if available)
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
@@ -45,10 +51,10 @@ fi
 
 echo ""
 echo "=========================================="
-echo "✅ Services Started!"
+echo "✅ Local Services Started!"
 echo "=========================================="
 echo ""
-echo "🌐 Access URLs (use VastAI port forwarding):"
+echo "🌐 Access URLs:"
 echo "   Frontend: http://localhost:3000"
 echo "   Backend API: http://localhost:8000"
 echo "   API Docs: http://localhost:8000/docs"
@@ -61,5 +67,5 @@ echo "   pkill -f uvicorn"
 echo "   pkill -f 'node.*next'"
 echo ""
 
-# Keep script running (important for Docker containers)
+# Keep script running (important for containers or background processes)
 wait
