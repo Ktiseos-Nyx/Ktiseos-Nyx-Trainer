@@ -1,0 +1,6 @@
+[submodule "sd_scripts"]
+	path = sd_scripts
+	url = https://github.com/Ktiseos-Nyx/sd-scripts
+[submodule "lycoris"]
+	path = lycoris
+	url = https://github.com/Ktiseos-Nyx/LyCORIS

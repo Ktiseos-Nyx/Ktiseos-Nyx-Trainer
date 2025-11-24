@@ -1,0 +1,6 @@
+coverage==7.8.0
+parameterized==0.9.0
+numpy==1.26.4
+tqdm==4.67.1
+safetensors==0.5.3
+diffusers==0.32.1
