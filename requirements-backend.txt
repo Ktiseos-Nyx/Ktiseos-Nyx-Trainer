@@ -1,25 +1,42 @@
 # ===================================================================
-# Unified Backend Requirements for LoRA Easy Training Jupyter
+# Unified Backend Requirements for Ktiseos-Nyx Trainer
 #
-# This file is auto-generated and managed by the SetupManager.
-# It consolidates dependencies from all submodules.
+# This file consolidates dependencies from the vendored backend and
+# establishes a single source of truth for the environment.
 # ===================================================================
 
-# -- Core Training Dependencies (from Kohya sd-scripts) --
-accelerate==0.33.0
-transformers==4.44.0
-diffusers[torch]==0.25.0
-safetensors==0.4.4
-bitsandbytes==0.44.0
-torch-fidelity==0.3.0
-# Note: torch, torchvision, and torchaudio are installed by the setup manager
+# -- Critical Safety Pins (based on Qwen analysis and known breakages) --
+# Pinned to avoid breaking changes in Kohya sd-scripts
+numpy==1.26.4
+# Pinned to avoid version hell between ONNX, WandB, and safetensors
+protobuf==3.20.3
+
+
+# -- Core Training Dependencies --
+# Note: torch, torchvision, and torchaudio must be installed separately
 # based on the detected GPU environment (CUDA, ROCm, etc.)
+accelerate==0.33.0
+transformers==4.54.1
+diffusers[torch]==0.32.1
+safetensors==0.5.3
+bitsandbytes==0.45.5
+torch-fidelity==0.3.0
+einops==0.8.1
+lycoris-lora
+
+# -- Optimizers & Schedulers --
+prodigyopt==1.1.2
+lion-pytorch==0.2.3
+dadaptation==3.2
+pytorch_optimizer==3.1.2
+schedulefree==1.4
+prodigy-plus-schedule-free
+came-pytorch
 
 # -- General Utilities --
 toml==0.10.2
-einops==0.8.1
 tqdm==4.66.4
-rich==13.7.1
+rich==14.1.0
 ftfy==6.2.0
 requests>=2.28.0
 psutil
@@ -27,20 +44,24 @@ pyyaml
 pandas
 scipy
 omegaconf
-huggingface-hub>=0.10.0
+huggingface-hub==0.34.3
 fiftyone
 gallery-dl
 hf-transfer
 voluptuous==0.15.2
-sentencepiece==0.2.0
-uv  # Ultra-fast Python package installer (antisocial efficiency upgrade)
+sentencepiece==0.2.1
+uv  # Ultra-fast Python package installer
+
+# -- API & Web Server --
+starlette
+uvicorn[standard]
+pyngrok
+pycloudflared
 
 # -- Image/UI/Data Handling --
-# Pillow>=10.3.0 required for security fixes:
-# - CVE-2023-44271: Heap buffer overflow in libwebp
-# - CVE-2024-28219: Buffer overflow in _imagingcms.c
+# Pillow>=10.3.0 required for security fixes
 Pillow>=10.3.0
-opencv-python==4.8.1.78
+opencv-python==4.10.0.84
 imageio==2.34.1
 imageio-ffmpeg==0.5.1
 pyarrow==16.1.0
@@ -52,15 +73,7 @@ sidecar>=0.5.0
 ipywidgets>=8.0.0
 ipython>=8.0.0
 imagesize==1.4.1
-
-# -- Optimizers & Schedulers --
-prodigyopt==1.0
-lion-pytorch==0.1.2
-dadaptation==3.2
-pytorch_optimizer==3.1.2
-schedulefree
-prodigy-plus-schedule-free
-came-pytorch
+setuptools==78.1.0
 
 # -- Monitoring & Logging --
 tensorboard==2.16.2
@@ -70,14 +83,8 @@ watchdog==4.0.0
 # -- ONNX / Tagger Dependencies --
 onnx==1.16.1
 # Use Microsoft's CUDA 12 build instead of broken PyPI version
-# Based on working Colab configurations (Android XXL, Jelosus2, Holo)
 onnxruntime-gpu==1.17.1 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
-protobuf<4
 
 # -- Windows Specific (safe to include for all OS) --
 pyreadline
 colorama
-
-# -- Deprecated/Unused from old files (for reference) --
-# distro (Linux distro detection - unused)
-# pytorch-lightning (only used in LyCORIS experiments)
