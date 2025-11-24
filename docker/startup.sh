@@ -12,29 +12,11 @@ echo "=================================================="
 cd /workspace/Ktiseos-Nyx-Trainer
 
 # Repository code is already in the Docker image!
-# Check if backend submodules need initialization
-if [ ! -d "trainer/derrian_backend/sd_scripts/.git" ]; then
-    echo "First-time setup: Initializing git submodules..."
+# Submodule logic is now handled by vendoring.
 
-    # Initialize git (if not already)
-    if [ ! -d ".git" ]; then
-        git init
-        git remote add origin https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-    fi
-
-    # Initialize submodules (sd-scripts, lycoris)
-    git submodule update --init --recursive
-
-    echo "Submodules initialized successfully!"
-else
-    echo "Backend already set up. Checking for updates..."
-fi
-
-# Check if backend is set up
-if [ ! -d "trainer/derrian_backend" ]; then
-    echo "Setting up training backend..."
-    python installer.py --skip-jupyter
-fi
+# Always run installer.py to ensure environment is validated and set up
+echo "⚙️ Running unified installer.py to set up environment..."
+python installer.py
 
 # Python dependencies already installed in Docker image!
 echo "Python dependencies already installed ✓"

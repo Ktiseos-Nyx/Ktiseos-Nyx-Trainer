@@ -98,8 +98,6 @@ RUN mkdir -p /workspace/datasets \
 EXPOSE 8000 3000 8888 6006
 
 # Copy startup scripts
-COPY docker/startup.sh /startup.sh
-COPY docker/start_services.sh /start_services.sh
 RUN chmod +x /startup.sh /start_services.sh
 
 # Health check
