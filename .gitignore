@@ -344,3 +344,5 @@ frontend/app/effects-demo/
 .codacy/
 Gemini_Weirdness/
 Qwen_Suggestions/
+# Planning docs (internal)
+docs/planning/
