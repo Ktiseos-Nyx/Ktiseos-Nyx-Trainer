@@ -148,15 +148,71 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  tag: async (datasetPath: string, model: string = 'wd14-vit-v2', threshold: number = 0.35) => {
+  tag: async (params: {
+    datasetDir: string;
+    model?: string;
+    forceDownload?: boolean;
+    threshold?: number;
+    generalThreshold?: number | null;
+    characterThreshold?: number | null;
+    captionExtension?: string;
+    captionSeparator?: string;
+    undesiredTags?: string;
+    tagReplacement?: string | null;
+    alwaysFirstTags?: string | null;
+    characterTagsFirst?: boolean;
+    useRatingTags?: boolean;
+    useRatingTagsAsLastTag?: boolean;
+    removeUnderscore?: boolean;
+    characterTagExpand?: boolean;
+    appendTags?: boolean;
+    recursive?: boolean;
+    batchSize?: number;
+    maxWorkers?: number;
+    useOnnx?: boolean;
+    frequencyTags?: boolean;
+    debug?: boolean;
+  }) => {
     const response = await fetch(`${API_BASE}/dataset/tag`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: datasetPath,
-        model,
-        threshold,
+        dataset_dir: params.datasetDir,
+        model: params.model ?? 'SmilingWolf/wd-vit-large-tagger-v3',
+        force_download: params.forceDownload ?? false,
+        threshold: params.threshold ?? 0.35,
+        general_threshold: params.generalThreshold ?? null,
+        character_threshold: params.characterThreshold ?? null,
+        caption_extension: params.captionExtension ?? '.txt',
+        caption_separator: params.captionSeparator ?? ', ',
+        undesired_tags: params.undesiredTags ?? '',
+        tag_replacement: params.tagReplacement ?? null,
+        always_first_tags: params.alwaysFirstTags ?? null,
+        character_tags_first: params.characterTagsFirst ?? false,
+        use_rating_tags: params.useRatingTags ?? false,
+        use_rating_tags_as_last_tag: params.useRatingTagsAsLastTag ?? false,
+        remove_underscore: params.removeUnderscore ?? true,
+        character_tag_expand: params.characterTagExpand ?? false,
+        append_tags: params.appendTags ?? false,
+        recursive: params.recursive ?? false,
+        batch_size: params.batchSize ?? 8,
+        max_workers: params.maxWorkers ?? 2,
+        use_onnx: params.useOnnx ?? true,
+        frequency_tags: params.frequencyTags ?? false,
+        debug: params.debug ?? false,
       }),
+    });
+    return handleResponse(response);
+  },
+
+  getTaggingStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/tag/status/${jobId}`);
+    return handleResponse(response);
+  },
+
+  stopTagging: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/tag/stop/${jobId}`, {
+      method: 'POST',
     });
     return handleResponse(response);
   },
@@ -212,9 +268,9 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // WebSocket for tagging logs
-  connectTaggingLogs: (onMessage: (data: any) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/dataset/logs`;
+  // WebSocket for tagging logs (job-based)
+  connectTaggingLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
@@ -656,6 +712,12 @@ export interface HuggingFaceUploadRequest {
 }
 
 export const utilitiesAPI = {
+  // Directories
+  getDirectories: async () => {
+    const response = await fetch(`${API_BASE}/utilities/directories`);
+    return handleResponse(response);
+  },
+
   // Calculator
   calculateSteps: async (request: CalculatorRequest): Promise<CalculatorResponse> => {
     const response = await fetch(`${API_BASE}/utilities/calculator`, {
@@ -759,6 +821,13 @@ export const modelsAPI = {
       `${API_BASE}/models/${fileType}/${encodeURIComponent(fileName)}`,
       { method: 'DELETE' }
     );
+    return handleResponse(response);
+  },
+
+  cancel: async () => {
+    const response = await fetch(`${API_BASE}/models/cancel`, {
+      method: 'POST',
+    });
     return handleResponse(response);
   },
 

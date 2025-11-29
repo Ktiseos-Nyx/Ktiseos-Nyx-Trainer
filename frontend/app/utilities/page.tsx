@@ -154,13 +154,19 @@ function ResizeLoRATab() {
   const [resizing, setResizing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [outputDir, setOutputDir] = useState<string>('');
 
   // Load available files and dimensions
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Get directories from backend
+        const dirsResponse = await utilitiesAPI.getDirectories();
+        const loraDir = dirsResponse.output || 'output';
+        setOutputDir(loraDir);
+
         // Load LoRA files
-        const filesResponse = await utilitiesAPI.listLoraFiles('/workspace/output', 'safetensors', 'date');
+        const filesResponse = await utilitiesAPI.listLoraFiles(loraDir, 'safetensors', 'date');
         if (filesResponse.success) {
           setAvailableFiles(filesResponse.files);
           if (filesResponse.files.length > 0) {
@@ -373,14 +379,20 @@ function HuggingFaceTab() {
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [datasetDirectory, setDatasetDirectory] = useState('/workspace/datasets');
+  const [datasetDirectory, setDatasetDirectory] = useState('');
 
   // Load available files based on upload type
   useEffect(() => {
     const loadFiles = async () => {
       try {
+        // Get directories from backend
+        const dirsResponse = await utilitiesAPI.getDirectories();
+        const loraDir = dirsResponse.output || 'output';
+        const datasetsDir = dirsResponse.datasets || 'datasets';
+        setDatasetDirectory(datasetsDir);
+
         if (uploadType === 'lora') {
-          const response = await utilitiesAPI.listLoraFiles('/workspace/output', 'safetensors', 'date');
+          const response = await utilitiesAPI.listLoraFiles(loraDir, 'safetensors', 'date');
           if (response.success) {
             setAvailableFiles(response.files);
           }

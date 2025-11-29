@@ -36,11 +36,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoRefresh: true,
   refreshInterval: 5,
   showAdvancedOptions: false,
-  showAdvancedLycoris: false,
-  showBlockwiseLR: false,
-  showSD2Params: false,
-  showPerformanceTuning: false,
-  showExperimentalFeatures: false,
+  // Alpha: Show all advanced parameters by default
+  showAdvancedLycoris: true,
+  showBlockwiseLR: true,
+  showSD2Params: true,
+  showPerformanceTuning: true,
+  showExperimentalFeatures: true,
   autoCleanup: false,
   maxStorageGB: 50,
 };

@@ -159,6 +159,17 @@ class LoRAResizeRequest(BaseModel):
     save_precision: str = "fp16"
 
 
+@router.get("/directories")
+async def get_directories():
+    """Get project directory paths (relative to trainer root)"""
+    return {
+        "output": "output",
+        "datasets": "datasets",
+        "pretrained_model": "pretrained_model",
+        "vae": "vae",
+    }
+
+
 @router.get("/lora/resize-dimensions")
 async def get_resize_dimensions():
     """Get available LoRA resize dimensions"""
@@ -166,6 +177,70 @@ async def get_resize_dimensions():
         "dimensions": [4, 8, 16, 32, 64, 128, 256],
         "default": 32
     }
+
+
+class ListLoraFilesRequest(BaseModel):
+    """Request to list LoRA files"""
+    directory: str
+    extension: str = "safetensors"
+    sort_by: str = "name"
+
+
+@router.post("/lora/list")
+async def list_lora_files(request: ListLoraFilesRequest):
+    """List LoRA files in a directory"""
+    try:
+        import glob
+        from pathlib import Path
+
+        directory = Path(request.directory)
+
+        # Security: Ensure directory is within project bounds
+        project_root = Path.cwd()
+        try:
+            directory = directory.resolve()
+            if not str(directory).startswith(str(project_root)):
+                raise HTTPException(status_code=403, detail="Access denied")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid directory path")
+
+        # Create directory if it doesn't exist
+        directory.mkdir(parents=True, exist_ok=True)
+
+        # Find LoRA files
+        pattern = f"*.{request.extension}"
+        files = []
+
+        for file_path in directory.glob(pattern):
+            if file_path.is_file():
+                stat = file_path.stat()
+                files.append({
+                    "name": file_path.name,
+                    "path": str(file_path),
+                    "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                    "modified": stat.st_mtime
+                })
+
+        # Sort files
+        if request.sort_by == "date":
+            files.sort(key=lambda x: x["modified"], reverse=True)
+        elif request.sort_by == "size":
+            files.sort(key=lambda x: x["size_mb"], reverse=True)
+        else:  # name
+            files.sort(key=lambda x: x["name"])
+
+        return {
+            "success": True,
+            "files": files,
+            "directory": str(directory),
+            "count": len(files)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to list LoRA files: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/lora/resize")

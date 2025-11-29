@@ -181,7 +181,7 @@ class TaggingService:
             return False
 
     def _build_command(self, config: TaggingConfig, use_onnx: bool) -> list[str]:
-        """Build WD14 tagger command."""
+        """Build WD14 tagger command with all parameters."""
         tagger_script = self._get_tagger_script()
 
         # Resolve dataset path
@@ -197,21 +197,50 @@ class TaggingService:
             "--batch_size", str(config.batch_size),
             "--max_data_loader_n_workers", str(config.max_workers),
             "--caption_extension", config.caption_extension,
+            "--caption_separator", config.caption_separator,
         ]
 
-        # Optional flags
+        # Threshold settings
+        if config.general_threshold is not None:
+            command.extend(["--general_threshold", str(config.general_threshold)])
+        if config.character_threshold is not None:
+            command.extend(["--character_threshold", str(config.character_threshold)])
+
+        # Tag filtering and manipulation
+        if config.undesired_tags:
+            command.extend(["--undesired_tags", config.undesired_tags])
+        if config.tag_replacement:
+            command.extend(["--tag_replacement", config.tag_replacement])
+
+        # Tag ordering
+        if config.always_first_tags:
+            command.extend(["--always_first_tags", config.always_first_tags])
+
+        # Boolean flags
         if config.force_download:
             command.append("--force_download")
         if config.remove_underscore:
             command.append("--remove_underscore")
+        if config.character_tag_expand:
+            command.append("--character_tag_expand")
+        if config.character_tags_first:
+            command.append("--character_tags_first")
+        if config.use_rating_tags:
+            command.append("--use_rating_tags")
+        if config.use_rating_tags_as_last_tag:
+            command.append("--use_rating_tags_as_last_tag")
+        if config.append_tags:
+            command.append("--append_tags")
+        if config.recursive:
+            command.append("--recursive")
+        if config.frequency_tags:
+            command.append("--frequency_tags")
+        if config.debug:
+            command.append("--debug")
         if use_onnx:
             command.append("--onnx")
 
-        # Blacklisted tags
-        if config.blacklist_tags:
-            command.extend(["--undesired_tags", config.blacklist_tags.replace(" ", "")])
-
-        logger.debug(f"Built tagging command: {' '.join(command[:5])}...")
+        logger.debug(f"Built tagging command: {' '.join(command[:5])}... (+ {len(command)-5} more args)")
         return command
 
 

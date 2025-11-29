@@ -19,11 +19,10 @@ export default function DatasetTagsPage() {
       try {
         const data = await datasetAPI.list();
         setDatasets(data.datasets || []);
-        if (data.datasets && data.datasets.length > 0) {
-          setSelectedDataset(data.datasets[0].path);
-        }
+        // Don't auto-select - let user choose
       } catch (err) {
         console.error('Failed to load datasets:', err);
+        setDatasets([]);
       }
     };
     loadDatasets();
@@ -38,8 +37,13 @@ export default function DatasetTagsPage() {
         setLoading(true);
         const data = await datasetAPI.getImagesWithTags(selectedDataset);
         setImages(data.images || []);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load images:', err);
+        setImages([]);
+        // Show user-friendly error
+        if (err.message?.includes('not found')) {
+          console.warn(`Dataset "${selectedDataset}" not found or has no images`);
+        }
       } finally {
         setLoading(false);
       }
@@ -54,8 +58,13 @@ export default function DatasetTagsPage() {
       setLoading(true);
       const data = await datasetAPI.getImagesWithTags(selectedDataset);
       setImages(data.images || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to refresh:', err);
+      setImages([]);
+      // Show user-friendly error
+      if (err.message?.includes('not found')) {
+        console.warn(`Dataset "${selectedDataset}" not found or has no images`);
+      }
     } finally {
       setLoading(false);
     }
@@ -93,7 +102,7 @@ export default function DatasetTagsPage() {
               className="flex-1 px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               {datasets.map((dataset) => (
-                <option key={dataset.path} value={dataset.path}>
+                <option key={dataset.path} value={dataset.name}>
                   {dataset.name} ({dataset.image_count} images)
                 </option>
               ))}
@@ -308,8 +317,20 @@ function TagEditorTab({ images, loading, onUpdate }: { images: ImageWithTags[], 
             onClick={() => handleSelectImage(img)}
             className="group relative aspect-square rounded-lg overflow-hidden border-2 border-border hover:border-primary transition-all bg-card hover:shadow-lg"
           >
-            {/* Placeholder for image - would be replaced with actual image */}
-            <div className="w-full h-full bg-gradient-to-br from-muted to-muted-foreground/10 flex items-center justify-center">
+            {/* Image */}
+            <img
+              src={`/api/files/image${img.image_path.substring(1)}`}
+              alt={img.image_name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                // Fallback to placeholder on error
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+
+            {/* Fallback placeholder (hidden by default) */}
+            <div className="hidden w-full h-full bg-gradient-to-br from-muted to-muted-foreground/10 flex items-center justify-center absolute inset-0">
               <ImageIcon className="w-12 h-12 text-muted-foreground/50 group-hover:text-primary/50 transition-colors" />
             </div>
 

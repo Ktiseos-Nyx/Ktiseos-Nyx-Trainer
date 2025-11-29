@@ -19,25 +19,100 @@ class TaggerModel(str, Enum):
 class TaggingConfig(BaseModel):
     """Configuration for WD14 auto-tagging."""
 
+    # Required
     dataset_dir: str = Field(..., description="Directory containing images to tag")
+
+    # Model settings
     model: TaggerModel = Field(
         TaggerModel.WD_VIT_LARGE_V3,
         description="WD14 tagger model to use"
     )
+    force_download: bool = Field(
+        False,
+        description="Force download model to local dir"
+    )
+
+    # Threshold settings (3 separate thresholds!)
     threshold: float = Field(
         0.35,
         ge=0.0,
         le=1.0,
-        description="Tag confidence threshold (0-1)"
+        description="Overall tag confidence threshold (0-1)"
     )
-    blacklist_tags: str = Field(
-        "",
-        description="Comma-separated tags to exclude"
+    general_threshold: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for general tags (uses threshold if None)"
     )
+    character_threshold: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for character tags (uses threshold if None)"
+    )
+
+    # Output settings
     caption_extension: str = Field(
         ".txt",
-        description="Caption file extension"
+        description="Caption file extension (.txt, .cap, .caption)"
     )
+    caption_separator: str = Field(
+        ", ",
+        description="Separator between tags"
+    )
+
+    # Tag filtering and manipulation
+    undesired_tags: str = Field(
+        "",
+        description="Comma-separated tags to exclude (blacklist)"
+    )
+    tag_replacement: Optional[str] = Field(
+        None,
+        description="Tag replacement: 'old1,new1;old2,new2'"
+    )
+
+    # Tag ordering
+    always_first_tags: Optional[str] = Field(
+        None,
+        description="Comma-separated tags to always put first (e.g., '1girl,solo')"
+    )
+    character_tags_first: bool = Field(
+        False,
+        description="Put character tags before general tags"
+    )
+
+    # Rating tags
+    use_rating_tags: bool = Field(
+        False,
+        description="Include rating tags in output"
+    )
+    use_rating_tags_as_last_tag: bool = Field(
+        False,
+        description="Put rating tags at the end instead of beginning"
+    )
+
+    # Tag processing
+    remove_underscore: bool = Field(
+        True,
+        description="Convert underscores to spaces in tags"
+    )
+    character_tag_expand: bool = Field(
+        False,
+        description="Expand 'name_(series)' to 'name, series'"
+    )
+
+    # File handling
+    append_tags: bool = Field(
+        False,
+        description="Append to existing captions instead of overwriting"
+    )
+    recursive: bool = Field(
+        False,
+        description="Process images in subfolders recursively"
+    )
+
+    # Performance
     batch_size: int = Field(
         8,
         ge=1,
@@ -54,13 +129,15 @@ class TaggingConfig(BaseModel):
         True,
         description="Use ONNX runtime if available (faster)"
     )
-    remove_underscore: bool = Field(
-        True,
-        description="Convert underscores to spaces in tags"
+
+    # Debug
+    frequency_tags: bool = Field(
+        False,
+        description="Show tag frequency report after tagging"
     )
-    force_download: bool = Field(
-        True,
-        description="Force download model to local dir"
+    debug: bool = Field(
+        False,
+        description="Enable debug mode"
     )
 
 

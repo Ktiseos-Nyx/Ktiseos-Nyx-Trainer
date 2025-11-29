@@ -235,52 +235,54 @@ class DownloadModelRequest(BaseModel):
 @router.post("/download")
 async def download_civitai_model(request: DownloadModelRequest):
     """
-    Download a model from Civitai using the existing download infrastructure.
+    Download a model from Civitai using the new service layer.
 
-    This endpoint constructs the proper Civitai download URL with API key
-    and passes it to the existing model download system.
+    This endpoint properly handles Civitai downloads with filename preservation.
     """
     try:
         from api.routes.settings import get_api_keys
+        from services import model_service
+        from services.models.model_download import DownloadConfig, ModelType
 
         # Get API key for authenticated download
         api_keys = get_api_keys()
         civitai_key = api_keys.get("civitai_api_key", "")
 
-        # Construct download URL with API key if available
-        download_url = request.download_url
-        if civitai_key and "?" not in download_url:
-            download_url = f"{download_url}?token={civitai_key}"
-        elif civitai_key:
-            download_url = f"{download_url}&token={civitai_key}"
-
-        # Import models API to reuse download logic
-        from api.routes.models import get_model_manager
-
-        manager = get_model_manager()
-
-        # Determine target directory
+        # Determine target directory and model type
         if request.model_type == "vae":
-            target_dir = manager.vae_dir
+            target_dir = str(model_service.vae_dir)
+            model_type = ModelType.VAE
         else:
-            target_dir = manager.pretrained_model_dir
+            target_dir = str(model_service.pretrained_model_dir)
+            model_type = ModelType.MODEL
 
-        # Use existing download infrastructure
-        result = manager.download_model_or_vae(
-            url=download_url,
-            download_dir=target_dir
+        # Create download config with explicit filename
+        config = DownloadConfig(
+            url=request.download_url,
+            download_dir=target_dir,
+            filename=request.filename,  # CRITICAL: Preserve filename for Civitai
+            api_token=civitai_key,
+            model_type=model_type,
+            model_id=request.model_id,
+            version_id=request.version_id
         )
 
-        if result.get("success"):
+        # Download using service
+        result = await model_service.download_model_or_vae(config)
+
+        if result.success:
             return {
                 "success": True,
                 "message": f"Downloaded {request.filename}",
-                "file_path": result.get("file_path"),
+                "file_path": result.file_path,
+                "file_name": result.file_name,
+                "size_mb": result.size_mb,
                 "model_id": request.model_id,
                 "version_id": request.version_id,
+                "download_method": result.download_method
             }
         else:
-            raise HTTPException(status_code=500, detail=result.get("error", "Download failed"))
+            raise HTTPException(status_code=500, detail=result.error or result.message)
 
     except HTTPException:
         raise

@@ -420,6 +420,26 @@ export default function CivitaiBrowsePage() {
           </p>
         </div>
 
+        {/* Active Downloads Status */}
+        {downloading.size > 0 && (
+          <div className="mb-6 bg-gradient-to-r from-cyan-900/40 to-blue-900/40 backdrop-blur-sm border-2 border-cyan-500 rounded-lg p-6 shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
+                <div className="absolute inset-0 bg-cyan-400/20 blur-xl rounded-full"></div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white mb-1">
+                  {downloading.size} Download{downloading.size > 1 ? 's' : ''} In Progress
+                </h3>
+                <p className="text-cyan-200 text-sm">
+                  Downloading from Civitai... This may take several minutes depending on file size.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="mb-6 space-y-3">
           {/* Search Mode Selector */}

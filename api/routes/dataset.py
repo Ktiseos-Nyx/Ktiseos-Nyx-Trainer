@@ -53,6 +53,57 @@ async def create_dataset(request: CreateDatasetRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/images-with-tags")
+async def get_images_with_tags(dataset_path: str):
+    """Get all images in a dataset with their associated tags"""
+    try:
+        from services.core.validation import validate_dataset_path, ALLOWED_IMAGE_EXTENSIONS
+
+        # Validate dataset path
+        dataset_dir = validate_dataset_path(dataset_path)
+
+        if not dataset_dir.exists():
+            raise HTTPException(status_code=404, detail=f"Dataset not found: {dataset_path}")
+
+        # Find all images
+        images = []
+        for ext in ALLOWED_IMAGE_EXTENSIONS:
+            images.extend(dataset_dir.glob(f"*{ext}"))
+            images.extend(dataset_dir.glob(f"*{ext.upper()}"))
+
+        # Build response with tags
+        result = []
+        for img_path in sorted(images):
+            # Find corresponding caption file
+            caption_path = img_path.with_suffix('.txt')
+            tags = []
+
+            if caption_path.exists():
+                try:
+                    tags_text = caption_path.read_text(encoding='utf-8').strip()
+                    tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+                except Exception as e:
+                    logger.warning(f"Failed to read tags for {img_path}: {e}")
+
+            result.append({
+                "image_path": str(img_path),
+                "image_name": img_path.name,
+                "tags": tags,
+                "has_tags": len(tags) > 0
+            })
+
+        return {
+            "images": result,
+            "total": len(result)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get images with tags: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/{dataset_name}")
 async def get_dataset(dataset_name: str):
     """Get dataset information and metadata"""
@@ -90,12 +141,50 @@ async def delete_dataset(dataset_name: str):
 
 class TaggingRequest(BaseModel):
     """Request to start WD14 tagging"""
+    # Required
     dataset_dir: str
+
+    # Model settings
     model: str = "SmilingWolf/wd-vit-large-tagger-v3"
+    force_download: bool = False
+
+    # Thresholds (3 separate!)
     threshold: float = 0.35
-    blacklist_tags: str = ""
+    general_threshold: Optional[float] = None
+    character_threshold: Optional[float] = None
+
+    # Output settings
+    caption_extension: str = ".txt"
+    caption_separator: str = ", "
+
+    # Tag filtering
+    undesired_tags: str = ""  # Formerly blacklist_tags
+    tag_replacement: Optional[str] = None
+
+    # Tag ordering
+    always_first_tags: Optional[str] = None
+    character_tags_first: bool = False
+
+    # Rating tags
+    use_rating_tags: bool = False
+    use_rating_tags_as_last_tag: bool = False
+
+    # Tag processing
+    remove_underscore: bool = True
+    character_tag_expand: bool = False
+
+    # File handling
+    append_tags: bool = False
+    recursive: bool = False
+
+    # Performance
     batch_size: int = 8
+    max_workers: int = 2
     use_onnx: bool = True
+
+    # Debug
+    frequency_tags: bool = False
+    debug: bool = False
 
 
 @router.post("/tag")
@@ -105,14 +194,31 @@ async def start_tagging(request: TaggingRequest):
     Returns job_id for monitoring progress.
     """
     try:
-        # Convert to TaggingConfig
+        # Convert to TaggingConfig (map all fields!)
         config = TaggingConfig(
             dataset_dir=request.dataset_dir,
             model=request.model,
+            force_download=request.force_download,
             threshold=request.threshold,
-            blacklist_tags=request.blacklist_tags,
+            general_threshold=request.general_threshold,
+            character_threshold=request.character_threshold,
+            caption_extension=request.caption_extension,
+            caption_separator=request.caption_separator,
+            undesired_tags=request.undesired_tags,
+            tag_replacement=request.tag_replacement,
+            always_first_tags=request.always_first_tags,
+            character_tags_first=request.character_tags_first,
+            use_rating_tags=request.use_rating_tags,
+            use_rating_tags_as_last_tag=request.use_rating_tags_as_last_tag,
+            remove_underscore=request.remove_underscore,
+            character_tag_expand=request.character_tag_expand,
+            append_tags=request.append_tags,
+            recursive=request.recursive,
             batch_size=request.batch_size,
+            max_workers=request.max_workers,
             use_onnx=request.use_onnx,
+            frequency_tags=request.frequency_tags,
+            debug=request.debug,
         )
 
         response = await tagging_service.start_tagging(config)

@@ -10,8 +10,6 @@ import toml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from shared_managers import get_config_manager
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -122,9 +120,7 @@ async def save_config(request: SaveConfigRequest):
 async def validate_config(config: Dict[str, Any]):
     """Validate a training configuration"""
     try:
-        config_manager = get_config_manager()
-
-        # TODO: Implement validation using config_manager
+        # TODO: Implement proper Pydantic validation for training configs
         # For now, basic validation
         required_fields = [
             "pretrained_model_name_or_path",

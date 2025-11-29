@@ -64,6 +64,9 @@ export default function ModelsPage() {
       setDownloadError(null);
       setDownloadResult(null);
 
+      // Extract filename from URL for better UX
+      const filename = downloadUrl.split('/').pop() || 'file';
+
       const result = await modelsAPI.download(downloadUrl, downloadType, modelType);
 
       setDownloadResult(result);
@@ -159,6 +162,27 @@ export default function ModelsPage() {
         {/* Download Tab */}
         {activeTab === 'download' && (
           <div className="space-y-6">
+            {/* Active Download Status - Prominent */}
+            {downloading && (
+              <div className="bg-gradient-to-r from-cyan-900/40 to-blue-900/40 backdrop-blur-sm border-2 border-cyan-500 rounded-lg p-6 shadow-lg animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
+                    <div className="absolute inset-0 bg-cyan-400/20 blur-xl rounded-full"></div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-white mb-1">Download In Progress</h3>
+                    <p className="text-cyan-200 text-sm">
+                      Downloading {downloadType === 'model' ? 'model' : 'VAE'} from {downloadUrl.includes('huggingface') ? 'HuggingFace' : downloadUrl.includes('civitai') ? 'Civitai' : 'source'}...
+                    </p>
+                    <p className="text-cyan-300/70 text-xs mt-2">
+                      This may take several minutes depending on file size and network speed. Please do not close this page.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Info Box */}
             <div className="bg-cyan-900/20 backdrop-blur-sm border border-cyan-500/30 rounded-lg p-4">
               <div className="flex items-start gap-3">
@@ -251,16 +275,26 @@ export default function ModelsPage() {
 
               {/* Download Error */}
               {downloadError && (
-                <div className="mt-4 bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded">
-                  {downloadError}
+                <div className="mt-4 bg-red-900/50 border-2 border-red-500 text-red-200 px-6 py-4 rounded-lg shadow-lg">
+                  <p className="font-bold text-lg mb-1">Download Failed</p>
+                  <p className="text-sm">{downloadError}</p>
                 </div>
               )}
 
               {/* Download Success */}
               {downloadResult && downloadResult.success && (
-                <div className="mt-4 bg-green-900/50 border border-green-500/50 text-green-200 px-4 py-3 rounded">
-                  <p className="font-semibold">Download Complete!</p>
-                  <p className="text-sm mt-1">{downloadResult.file_name} ({downloadResult.size_mb} MB)</p>
+                <div className="mt-4 bg-gradient-to-r from-green-900/50 to-emerald-900/50 border-2 border-green-500 rounded-lg shadow-lg p-6 animate-in fade-in duration-500">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                      <Download className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-xl text-green-100">Download Complete!</p>
+                      <p className="text-green-200 text-sm mt-1">
+                        {downloadResult.file_name} ({downloadResult.size_mb} MB) saved successfully
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

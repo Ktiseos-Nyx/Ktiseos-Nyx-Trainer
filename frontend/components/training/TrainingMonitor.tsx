@@ -32,22 +32,66 @@ export default function TrainingMonitor() {
     scrollToBottom();
   }, [logs]);
 
-  // Poll training status
+  // Initial check on mount (for page refreshes during active training)
   useEffect(() => {
-    const pollStatus = async () => {
+    const checkInitialStatus = async () => {
       try {
         const statusData = await trainingAPI.status();
         setStatus(statusData);
       } catch (err) {
-        console.error('Failed to fetch status:', err);
+        // No training running - stay idle
       }
     };
 
-    pollStatus();
-    const interval = setInterval(pollStatus, 2000); // Poll every 2 seconds
+    checkInitialStatus();
 
-    return () => clearInterval(interval);
+    // Listen for training start event from TrainingConfig
+    const handleTrainingStart = () => {
+      checkInitialStatus();
+    };
+
+    window.addEventListener('training-started', handleTrainingStart);
+
+    return () => {
+      window.removeEventListener('training-started', handleTrainingStart);
+    };
   }, []);
+
+  // Poll training status (only when training is active)
+  useEffect(() => {
+    // Don't poll if not training
+    if (!status.is_training) return;
+
+    const pollStatus = async () => {
+      // Don't poll if page is hidden
+      if (document.hidden) return;
+
+      try {
+        const statusData = await trainingAPI.status();
+        setStatus(statusData);
+      } catch (err: any) {
+        // Training ended or error - stop polling
+        setStatus({ is_training: false });
+      }
+    };
+
+    // Poll every 2 seconds while training
+    const interval = setInterval(pollStatus, 2000);
+
+    // Pause polling when page is hidden, resume when visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        pollStatus(); // Poll immediately when page becomes visible
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [status.is_training]);
 
   // WebSocket for logs
   useEffect(() => {
