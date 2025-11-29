@@ -33,14 +33,31 @@ export default function FileBrowser({
   mode,
   title = 'Select Path',
   description = 'Browse and select a path',
-  startPath = '/workspace',
+  startPath,
   fileFilter,
 }: FileBrowserProps) {
-  const [currentPath, setCurrentPath] = useState(startPath);
+  const [defaultWorkspace, setDefaultWorkspace] = useState<string>('');
+  const [currentPath, setCurrentPath] = useState(startPath || '');
   const [listing, setListing] = useState<DirectoryListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+
+  // Fetch default workspace on mount
+  useEffect(() => {
+    const fetchDefaultWorkspace = async () => {
+      try {
+        const { path } = await fileAPI.getDefaultWorkspace();
+        setDefaultWorkspace(path);
+        if (!startPath) {
+          setCurrentPath(path);
+        }
+      } catch (err) {
+        console.error('Failed to fetch default workspace:', err);
+      }
+    };
+    fetchDefaultWorkspace();
+  }, [startPath]);
 
   // Load directory contents
   const loadDirectory = async (path: string) => {
@@ -61,7 +78,7 @@ export default function FileBrowser({
 
   // Load initial directory when opened
   useEffect(() => {
-    if (open) {
+    if (open && startPath) {
       loadDirectory(startPath);
     }
   }, [open, startPath]);
@@ -75,7 +92,7 @@ export default function FileBrowser({
 
   // Navigate to home
   const goHome = () => {
-    loadDirectory(startPath);
+    loadDirectory(defaultWorkspace || startPath || '/');
   };
 
   // Handle item click
@@ -159,7 +176,7 @@ export default function FileBrowser({
                 }
               }}
               className="flex-1"
-              placeholder="/workspace/path"
+              placeholder={defaultWorkspace ? `${defaultWorkspace}/path` : "/path/to/directory"}
             />
             <Button
               variant="outline"

@@ -5,6 +5,10 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
+// Derive WebSocket base URL from API_BASE
+// Converts http:// -> ws:// and https:// -> wss://
+const WS_BASE = API_BASE.replace(/^http/, 'ws');
+
 // Helper for handling API responses
 async function handleResponse(response: Response) {
   if (!response.ok) {
@@ -33,8 +37,16 @@ export interface DirectoryListing {
 }
 
 export const fileAPI = {
-  list: async (path: string = '/workspace'): Promise<DirectoryListing> => {
-    const response = await fetch(`${API_BASE}/files/list?path=${encodeURIComponent(path)}`);
+  getDefaultWorkspace: async (): Promise<{ path: string; allowed_dirs: string[] }> => {
+    const response = await fetch(`${API_BASE}/files/default-workspace`);
+    return handleResponse(response);
+  },
+
+  list: async (path?: string): Promise<DirectoryListing> => {
+    const url = path
+      ? `${API_BASE}/files/list?path=${encodeURIComponent(path)}`
+      : `${API_BASE}/files/list`;
+    const response = await fetch(url);
     return handleResponse(response);
   },
 
@@ -91,6 +103,13 @@ export const fileAPI = {
     });
     return handleResponse(response);
   },
+
+  // Get image URL for displaying thumbnails/previews
+  getImageUrl: (path: string) => {
+    // Remove leading slash if present
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    return `${API_BASE}/files/image/${cleanPath}`;
+  },
 };
 
 // ========== Dataset Operations ==========
@@ -102,9 +121,16 @@ export interface ImageWithTags {
   has_tags: boolean;
 }
 
+export interface PaginatedDatasetsResponse {
+  datasets: DatasetInfo[];
+  total: number;
+  pages: number;
+  page: number;
+}
+
 export const datasetAPI = {
-  list: async () => {
-    const response = await fetch(`${API_BASE}/dataset/list`);
+  list: async (page: number = 1, pageSize: number = 50): Promise<PaginatedDatasetsResponse> => {
+    const response = await fetch(`${API_BASE}/dataset/list?page=${page}&page_size=${pageSize}`);
     return handleResponse(response);
   },
 
@@ -122,15 +148,71 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  tag: async (datasetPath: string, model: string = 'wd14-vit-v2', threshold: number = 0.35) => {
+  tag: async (params: {
+    datasetDir: string;
+    model?: string;
+    forceDownload?: boolean;
+    threshold?: number;
+    generalThreshold?: number | null;
+    characterThreshold?: number | null;
+    captionExtension?: string;
+    captionSeparator?: string;
+    undesiredTags?: string;
+    tagReplacement?: string | null;
+    alwaysFirstTags?: string | null;
+    characterTagsFirst?: boolean;
+    useRatingTags?: boolean;
+    useRatingTagsAsLastTag?: boolean;
+    removeUnderscore?: boolean;
+    characterTagExpand?: boolean;
+    appendTags?: boolean;
+    recursive?: boolean;
+    batchSize?: number;
+    maxWorkers?: number;
+    useOnnx?: boolean;
+    frequencyTags?: boolean;
+    debug?: boolean;
+  }) => {
     const response = await fetch(`${API_BASE}/dataset/tag`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: datasetPath,
-        model,
-        threshold,
+        dataset_dir: params.datasetDir,
+        model: params.model ?? 'SmilingWolf/wd-vit-large-tagger-v3',
+        force_download: params.forceDownload ?? false,
+        threshold: params.threshold ?? 0.35,
+        general_threshold: params.generalThreshold ?? null,
+        character_threshold: params.characterThreshold ?? null,
+        caption_extension: params.captionExtension ?? '.txt',
+        caption_separator: params.captionSeparator ?? ', ',
+        undesired_tags: params.undesiredTags ?? '',
+        tag_replacement: params.tagReplacement ?? null,
+        always_first_tags: params.alwaysFirstTags ?? null,
+        character_tags_first: params.characterTagsFirst ?? false,
+        use_rating_tags: params.useRatingTags ?? false,
+        use_rating_tags_as_last_tag: params.useRatingTagsAsLastTag ?? false,
+        remove_underscore: params.removeUnderscore ?? true,
+        character_tag_expand: params.characterTagExpand ?? false,
+        append_tags: params.appendTags ?? false,
+        recursive: params.recursive ?? false,
+        batch_size: params.batchSize ?? 8,
+        max_workers: params.maxWorkers ?? 2,
+        use_onnx: params.useOnnx ?? true,
+        frequency_tags: params.frequencyTags ?? false,
+        debug: params.debug ?? false,
       }),
+    });
+    return handleResponse(response);
+  },
+
+  getTaggingStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/tag/status/${jobId}`);
+    return handleResponse(response);
+  },
+
+  stopTagging: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/tag/stop/${jobId}`, {
+      method: 'POST',
     });
     return handleResponse(response);
   },
@@ -186,9 +268,9 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // WebSocket for tagging logs
-  connectTaggingLogs: (onMessage: (data: any) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `ws://localhost:8000/api/dataset/logs`;
+  // WebSocket for tagging logs (job-based)
+  connectTaggingLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
@@ -535,7 +617,7 @@ export const trainingAPI = {
 
   // WebSocket for logs
   connectLogs: (onMessage: (data: any) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `ws://localhost:8000/api/training/logs`;
+    const wsUrl = `${WS_BASE}/training/logs`;
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
@@ -605,8 +687,9 @@ export interface DatasetInfo {
   path: string;
   name: string;
   image_count: number;
-  repeats: number;
+  repeats?: number;
   caption?: string;
+  tags_present?: boolean;
 }
 
 export interface LoRAFile {
@@ -629,6 +712,12 @@ export interface HuggingFaceUploadRequest {
 }
 
 export const utilitiesAPI = {
+  // Directories
+  getDirectories: async () => {
+    const response = await fetch(`${API_BASE}/utilities/directories`);
+    return handleResponse(response);
+  },
+
   // Calculator
   calculateSteps: async (request: CalculatorRequest): Promise<CalculatorResponse> => {
     const response = await fetch(`${API_BASE}/utilities/calculator`, {
@@ -735,8 +824,147 @@ export const modelsAPI = {
     return handleResponse(response);
   },
 
+  cancel: async () => {
+    const response = await fetch(`${API_BASE}/models/cancel`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+
   popular: async () => {
     const response = await fetch(`${API_BASE}/models/popular`);
+    return handleResponse(response);
+  },
+};
+
+// ========== Civitai Browse ==========
+// Attribution: Inspired by sd-webui-civbrowser
+// https://github.com/SignalFlagZ/sd-webui-civbrowser
+
+export interface CivitaiImage {
+  url: string;
+  nsfw: boolean;
+  width: number;
+  height: number;
+  hash: string;
+  meta?: any;
+}
+
+export interface CivitaiModelVersion {
+  id: number;
+  modelId: number;
+  name: string;
+  description: string;
+  downloadUrl: string;
+  trainedWords: string[];
+  images: CivitaiImage[];
+  files: Array<{
+    name: string;
+    id: number;
+    sizeKB: number;
+    type: string;
+    downloadUrl: string;
+  }>;
+}
+
+export interface CivitaiModel {
+  id: number;
+  name: string;
+  description: string;
+  type: string;
+  nsfw: boolean;
+  tags: string[];
+  creator: {
+    username: string;
+    image?: string;
+  };
+  stats: {
+    downloadCount: number;
+    favoriteCount: number;
+    commentCount: number;
+    ratingCount: number;
+    rating: number;
+  };
+  modelVersions: CivitaiModelVersion[];
+}
+
+export interface CivitaiBrowseParams {
+  limit?: number;
+  page?: number;
+  cursor?: string;
+  query?: string;
+  tag?: string;
+  username?: string;
+  types?: string;
+  baseModel?: string;
+  sort?: string;
+  period?: string;
+  nsfw?: boolean;
+}
+
+export interface CivitaiTag {
+  name: string;
+  modelCount: number;
+  color?: string;
+}
+
+export const civitaiAPI = {
+  browse: async (params: CivitaiBrowseParams = {}) => {
+    const queryParams = new URLSearchParams();
+
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.cursor) queryParams.append('cursor', params.cursor);
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.query) queryParams.append('query', params.query);
+    if (params.tag) queryParams.append('tag', params.tag);
+    if (params.username) queryParams.append('username', params.username);
+    if (params.types) queryParams.append('types', params.types);
+    if (params.baseModel) queryParams.append('baseModel', params.baseModel);
+    if (params.sort) queryParams.append('sort', params.sort);
+    if (params.period) queryParams.append('period', params.period);
+    if (params.nsfw !== undefined) queryParams.append('nsfw', params.nsfw.toString());
+
+    const response = await fetch(`${API_BASE}/civitai/models?${queryParams}`);
+    return handleResponse(response);
+  },
+
+  getModel: async (modelId: number) => {
+    const response = await fetch(`${API_BASE}/civitai/models/${modelId}`);
+    return handleResponse(response);
+  },
+
+  getModelVersion: async (versionId: number) => {
+    const response = await fetch(`${API_BASE}/civitai/model-versions/${versionId}`);
+    return handleResponse(response);
+  },
+
+  getTags: async (limit: number = 20, query?: string) => {
+    const queryParams = new URLSearchParams();
+    queryParams.append('limit', limit.toString());
+    if (query) queryParams.append('query', query);
+
+    const response = await fetch(`${API_BASE}/civitai/tags?${queryParams}`);
+    return handleResponse(response);
+  },
+
+  download: async (
+    modelId: number,
+    versionId: number,
+    downloadUrl: string,
+    filename: string,
+    modelType: 'model' | 'vae' = 'model'
+  ) => {
+    const response = await fetch(`${API_BASE}/civitai/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model_id: modelId,
+        version_id: versionId,
+        download_url: downloadUrl,
+        filename,
+        model_type: modelType,
+      }),
+    });
     return handleResponse(response);
   },
 };

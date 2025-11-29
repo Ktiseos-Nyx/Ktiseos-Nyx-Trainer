@@ -152,10 +152,10 @@ target/
 .env
 .venv
 env/
-venv/
+virtualenv/
 ENV/
 env.bak/
-venv.bak/
+virtualenv.bak/
 
 # Jupyter Notebook (comprehensive)
 .ipynb_checkpoints
@@ -194,7 +194,7 @@ celerybeat.pid
 # mypy
 .mypy_cache/
 .dmypy.json
-dmypy.json
+dmpy.json
 
 # Pyre type checker
 .pyre/
@@ -237,12 +237,16 @@ vae/
 tagger_models/
 output/
 /dataset/
+datasets/
 logs/
 *.log
 trainer/sd_scripts/venv/
 trainer/*/logs/
 training_configs/
 *.toml
+
+# User configuration files
+config/user_settings.json
 
 # Temporary files
 *.tmp
@@ -305,6 +309,11 @@ debug_*.py
 # User submitted logs and debugging materials
 user_logs_submissions/
 
+# Session planning and tracking files
+Error_Tracking_PlsGitIgnore.txt
+*_AUDIT.md
+*_CHECKLIST.md
+
 # Research and development configs (many TOML files)
 research_dev/
 
@@ -331,3 +340,7 @@ frontend/app/effects-demo/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+# Ignored directories
+.codacy/
+Gemini_Weirdness/
+Qwen_Suggestions/

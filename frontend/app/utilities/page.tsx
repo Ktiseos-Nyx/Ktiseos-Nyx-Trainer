@@ -24,21 +24,21 @@ export default function UtilitiesPage() {
           <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-orange-400 via-red-400 to-orange-400 bg-clip-text text-transparent">
             LoRA Utilities
           </h1>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-muted-foreground">
             Merge, optimize, and publish your trained LoRAs
           </p>
         </div>
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="border-b border-slate-700">
+          <div className="border-b border-border">
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('merge')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'merge'
                     ? 'border-cyan-400 text-cyan-400'
-                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-slate-600'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-input'
                 }`}
               >
                 <FolderOpen className="w-5 h-5 inline mr-2" />
@@ -49,7 +49,7 @@ export default function UtilitiesPage() {
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'resize'
                     ? 'border-cyan-400 text-cyan-400'
-                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-slate-600'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-input'
                 }`}
               >
                 <Minimize2 className="w-5 h-5 inline mr-2" />
@@ -60,7 +60,7 @@ export default function UtilitiesPage() {
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'huggingface'
                     ? 'border-cyan-400 text-cyan-400'
-                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-slate-600'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-input'
                 }`}
               >
                 <Upload className="w-5 h-5 inline mr-2" />
@@ -87,15 +87,15 @@ function MergeLoRATab() {
   return (
     <div className="space-y-6">
       {/* Merge Type Selector */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">Merge Type</h2>
+      <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-bold text-foreground mb-4">Merge Type</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <button
             onClick={() => setMergeType('lora-to-lora')}
             className={`p-4 rounded-lg border-2 transition-all ${
               mergeType === 'lora-to-lora'
                 ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : 'border-slate-600 bg-slate-800/30 text-gray-400 hover:border-slate-500'
+                : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
             }`}
           >
             <div className="text-center">
@@ -109,7 +109,7 @@ function MergeLoRATab() {
             className={`p-4 rounded-lg border-2 transition-all ${
               mergeType === 'lora-to-checkpoint'
                 ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : 'border-slate-600 bg-slate-800/30 text-gray-400 hover:border-slate-500'
+                : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
             }`}
           >
             <div className="text-center">
@@ -122,18 +122,18 @@ function MergeLoRATab() {
       </div>
 
       {/* Placeholder Content */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">
+      <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-bold text-foreground mb-4">
           {mergeType === 'lora-to-lora' ? 'LoRA Merging' : 'LoRA to Checkpoint'}
         </h2>
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-6 text-center">
           <p className="text-blue-300 mb-2">🚧 Coming Soon!</p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted-foreground">
             {mergeType === 'lora-to-lora'
               ? 'Merge multiple LoRAs together with custom weight ratios using Kohya\'s merge scripts.'
               : 'Bake a LoRA into a base model checkpoint for standalone use without needing the LoRA file.'}
           </p>
-          <p className="text-xs text-gray-500 mt-4">
+          <p className="text-xs text-muted-foreground mt-4">
             TODO: Add file selection, weight sliders, merge options, and backend API integration.
           </p>
         </div>
@@ -154,13 +154,19 @@ function ResizeLoRATab() {
   const [resizing, setResizing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [outputDir, setOutputDir] = useState<string>('');
 
   // Load available files and dimensions
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Get directories from backend
+        const dirsResponse = await utilitiesAPI.getDirectories();
+        const loraDir = dirsResponse.output || 'output';
+        setOutputDir(loraDir);
+
         // Load LoRA files
-        const filesResponse = await utilitiesAPI.listLoraFiles('/workspace/output', 'safetensors', 'date');
+        const filesResponse = await utilitiesAPI.listLoraFiles(loraDir, 'safetensors', 'date');
         if (filesResponse.success) {
           setAvailableFiles(filesResponse.files);
           if (filesResponse.files.length > 0) {
@@ -216,18 +222,18 @@ function ResizeLoRATab() {
   return (
     <div className="space-y-6">
       {/* Configuration */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
+      <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-bold mb-4">Resize Configuration</h2>
 
         <div className="space-y-4">
           {/* Input File */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Input LoRA File *</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Input LoRA File *</label>
             {availableFiles.length > 0 ? (
               <select
                 value={inputFile}
                 onChange={(e) => setInputFile(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               >
                 {availableFiles.map((file) => (
                   <option key={file.path} value={file.path}>
@@ -240,7 +246,7 @@ function ResizeLoRATab() {
                 type="text"
                 value={inputFile}
                 onChange={(e) => setInputFile(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
                 placeholder="/workspace/output/my_lora.safetensors"
               />
             )}
@@ -249,11 +255,11 @@ function ResizeLoRATab() {
           {/* Dimension and Alpha */}
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">New Dimension (Rank) *</label>
+              <label className="block text-sm font-medium text-foreground mb-2">New Dimension (Rank) *</label>
               <select
                 value={newDim}
                 onChange={(e) => setNewDim(parseInt(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               >
                 {availableDims.map((dim) => (
                   <option key={dim} value={dim}>
@@ -261,21 +267,21 @@ function ResizeLoRATab() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Lower = smaller file, less detail
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">New Alpha *</label>
+              <label className="block text-sm font-medium text-foreground mb-2">New Alpha *</label>
               <input
                 type="number"
                 value={newAlpha}
                 onChange={(e) => setNewAlpha(parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
                 min="1"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Usually same as dimension
               </p>
             </div>
@@ -283,26 +289,26 @@ function ResizeLoRATab() {
 
           {/* Output Path */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Output Path *</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Output Path *</label>
             <input
               type="text"
               value={outputPath}
               onChange={(e) => setOutputPath(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               placeholder="/workspace/output/my_lora_dim32.safetensors"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Auto-generated based on input file and dimension
             </p>
           </div>
         </div>
 
         {/* Info Box */}
-        <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-          <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+        <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
+          <p className="text-sm font-medium text-foreground mb-2">
             🔧 How Resizing Works
           </p>
-          <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+          <ul className="text-sm text-foreground space-y-1 list-disc list-inside">
             <li>Uses Derrian's enhanced resize script or Kohya's standard script</li>
             <li>Reduces file size while preserving quality</li>
             <li>Useful for sharing LoRAs or reducing VRAM usage</li>
@@ -315,7 +321,7 @@ function ResizeLoRATab() {
       <button
         onClick={handleResize}
         disabled={resizing || !inputFile || !outputPath}
-        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-4 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-foreground px-6 py-4 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
       >
         {resizing ? (
           <>
@@ -373,14 +379,20 @@ function HuggingFaceTab() {
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [datasetDirectory, setDatasetDirectory] = useState('/workspace/datasets');
+  const [datasetDirectory, setDatasetDirectory] = useState('');
 
   // Load available files based on upload type
   useEffect(() => {
     const loadFiles = async () => {
       try {
+        // Get directories from backend
+        const dirsResponse = await utilitiesAPI.getDirectories();
+        const loraDir = dirsResponse.output || 'output';
+        const datasetsDir = dirsResponse.datasets || 'datasets';
+        setDatasetDirectory(datasetsDir);
+
         if (uploadType === 'lora') {
-          const response = await utilitiesAPI.listLoraFiles('/workspace/output', 'safetensors', 'date');
+          const response = await utilitiesAPI.listLoraFiles(loraDir, 'safetensors', 'date');
           if (response.success) {
             setAvailableFiles(response.files);
           }
@@ -463,15 +475,15 @@ function HuggingFaceTab() {
   return (
     <div className="space-y-6">
       {/* Upload Type Selector */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">What would you like to upload?</h2>
+      <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-bold text-foreground mb-4">What would you like to upload?</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <button
             onClick={() => setUploadType('lora')}
             className={`p-4 rounded-lg border-2 transition-all ${
               uploadType === 'lora'
                 ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : 'border-slate-600 bg-slate-800/30 text-gray-400 hover:border-slate-500'
+                : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
             }`}
           >
             <div className="text-center">
@@ -485,7 +497,7 @@ function HuggingFaceTab() {
             className={`p-4 rounded-lg border-2 transition-all ${
               uploadType === 'dataset'
                 ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : 'border-slate-600 bg-slate-800/30 text-gray-400 hover:border-slate-500'
+                : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
             }`}
           >
             <div className="text-center">
@@ -498,8 +510,8 @@ function HuggingFaceTab() {
       </div>
 
       {/* Token & Repository Config */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">HuggingFace Configuration</h2>
+      <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-bold text-foreground mb-4">HuggingFace Configuration</h2>
 
         {/* Token */}
         <div className="mb-4">
@@ -519,7 +531,7 @@ function HuggingFaceTab() {
             />
             <button
               onClick={handleValidateToken}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              className="px-4 py-2 bg-blue-500 text-foreground rounded-lg hover:bg-blue-600"
             >
               Validate
             </button>
@@ -532,7 +544,7 @@ function HuggingFaceTab() {
             </div>
           )}
 
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-muted-foreground">
             Get your token at{' '}
             <a href="https://huggingface.co/settings/tokens" target="_blank" className="text-blue-500 hover:underline">
               huggingface.co/settings/tokens
@@ -543,33 +555,33 @@ function HuggingFaceTab() {
         {/* Repository Config */}
         <div className="grid md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Owner *</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Owner *</label>
             <input
               type="text"
               value={owner}
               onChange={(e) => setOwner(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               placeholder="your-username"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Repository *</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Repository *</label>
             <input
               type="text"
               value={repoName}
               onChange={(e) => setRepoName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               placeholder="my-loras"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Type</label>
             <select
               value={repoType}
               onChange={(e) => setRepoType(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
             >
               <option value="model">Model</option>
               <option value="dataset">Dataset</option>
@@ -581,22 +593,22 @@ function HuggingFaceTab() {
         {/* Optional Settings */}
         <div className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Remote Folder (Optional)</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Remote Folder (Optional)</label>
             <input
               type="text"
               value={remoteFolder}
               onChange={(e) => setRemoteFolder(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               placeholder="models/v1"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Commit Message</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Commit Message</label>
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               rows={2}
             />
           </div>
@@ -614,22 +626,22 @@ function HuggingFaceTab() {
       </div>
 
       {/* File Selection */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-white mb-4">
+      <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-bold text-foreground mb-4">
           Select {uploadType === 'lora' ? 'LoRA Files' : 'Dataset Files'} ({selectedFiles.length} selected)
         </h2>
 
         {uploadType === 'dataset' && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">Dataset Directory</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Dataset Directory</label>
             <input
               type="text"
               value={datasetDirectory}
               onChange={(e) => setDatasetDirectory(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
               placeholder="/workspace/datasets/my-dataset"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Specify the dataset folder to upload (will upload all contents)
             </p>
           </div>
@@ -637,15 +649,15 @@ function HuggingFaceTab() {
 
         {uploadType === 'lora' && availableFiles.length === 0 ? (
           <div className="text-center py-12">
-            <FolderOpen className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-400">No LoRA files found</p>
+            <FolderOpen className="w-16 h-16 mx-auto text-foreground mb-4" />
+            <p className="text-muted-foreground">No LoRA files found</p>
           </div>
         ) : uploadType === 'dataset' ? (
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
             <p className="text-sm text-blue-300">
               📁 Dataset upload will include all files from: <span className="font-mono text-cyan-400">{datasetDirectory}</span>
             </p>
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               This includes images, caption files (.txt), and any other files in the directory.
             </p>
           </div>

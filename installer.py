@@ -45,14 +45,6 @@ class UnifiedInstaller:
         self.derrian_dir = os.path.join(self.trainer_dir, "derrian_backend")
         self.sd_scripts_dir = os.path.join(self.derrian_dir, "sd_scripts")
         self.lycoris_dir = os.path.join(self.derrian_dir, "lycoris")
-        
-        self.submodules = {
-            'derrian_backend': {
-                'url': 'https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend.git',
-                'path': self.derrian_dir,
-                'description': "Derrian's backend with Kohya scripts, LyCORIS, and custom optimizers"
-            }
-        }
 
     def setup_logging(self):
         """Setup comprehensive logging system"""
@@ -204,25 +196,39 @@ class UnifiedInstaller:
             print(error_msg)
             return False
 
-    def setup_submodules(self):
-        print("🔗 Cloning and initializing all submodules...")
-        os.makedirs(self.trainer_dir, exist_ok=True)
-        
-        for name, config in self.submodules.items():
-            path = config['path']
-            url = config['url']
-            
-            if os.path.exists(path) and os.listdir(path):
-                print(f"   - Submodule '{name}' already exists. Skipping clone.")
-                continue
+    def verify_vendored_backend(self):
+        """Verify vendored backend directory exists and has required components"""
+        print("🔍 Verifying vendored backend...")
+        self.logger.info("Checking vendored derrian_backend directory")
 
-            if not self.run_command(['git', 'clone', url, path], f"Cloning {name}"):
-                return False
-
-        # Initialize nested submodules (sd_scripts, lycoris)
-        if not self.run_command(['git', 'submodule', 'update', '--init', '--recursive'], "Initializing nested submodules", cwd=self.derrian_dir):
+        # Check if derrian_backend directory exists
+        if not os.path.exists(self.derrian_dir):
+            error_msg = (
+                f"❌ CRITICAL: Vendored backend not found at {self.derrian_dir}\n"
+                "   This repository should include trainer/derrian_backend in the clone.\n"
+                "   If you cloned this repo, the vendored backend should already be present."
+            )
+            self.logger.error(error_msg)
+            print(error_msg)
             return False
-            
+
+        # Verify key subdirectories exist
+        required_dirs = {
+            'sd_scripts': self.sd_scripts_dir,
+            'lycoris': self.lycoris_dir,
+        }
+
+        for name, path in required_dirs.items():
+            if not os.path.exists(path):
+                error_msg = f"❌ Required directory '{name}' not found at {path}"
+                self.logger.error(error_msg)
+                print(error_msg)
+                return False
+            self.logger.info(f"   ✓ Found {name} at {path}")
+            print(f"   ✓ {name} directory verified")
+
+        print("✅ Vendored backend verified successfully")
+        self.logger.info("Vendored backend verification complete")
         return True
 
     def install_dependencies(self):
@@ -585,8 +591,8 @@ class UnifiedInstaller:
         self.logger.info("Installation started")
         
         try:
-            if not self.setup_submodules():
-                error_msg = "Halting installation due to submodule setup failure."
+            if not self.verify_vendored_backend():
+                error_msg = "Halting installation due to vendored backend verification failure."
                 self.logger.error(error_msg)
                 print(f"❌ {error_msg}")
                 return False
@@ -655,7 +661,7 @@ Examples:
   python installer.py -v                # Short form of verbose
 
 The installer will:
-  1. Clone/update the derrian_backend submodule
+  1. Verify vendored derrian_backend directory
   2. Install system dependencies (aria2c)
   3. Install Python packages using uv (if available) or pip
   4. Apply platform-specific fixes

@@ -10,8 +10,6 @@ import toml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from shared_managers import get_config_manager
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -96,7 +94,8 @@ async def load_config(path: str):
 async def save_config(request: SaveConfigRequest):
     """Save a configuration file"""
     try:
-        config_dir = Path("/workspace/configs")
+        # Use relative path from project root
+        config_dir = Path(__file__).parent.parent.parent / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
 
         config_path = config_dir / f"{request.name}.toml"
@@ -121,9 +120,7 @@ async def save_config(request: SaveConfigRequest):
 async def validate_config(config: Dict[str, Any]):
     """Validate a training configuration"""
     try:
-        config_manager = get_config_manager()
-
-        # TODO: Implement validation using config_manager
+        # TODO: Implement proper Pydantic validation for training configs
         # For now, basic validation
         required_fields = [
             "pretrained_model_name_or_path",

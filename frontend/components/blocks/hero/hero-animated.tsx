@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Sparkles, Settings, LucideIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -33,7 +34,14 @@ export function HeroAnimated({
   theme = 'purple-blue',
 }: HeroAnimatedProps) {
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Use dark as default during SSR to match defaultTheme in layout
+  const isDark = mounted ? resolvedTheme === 'dark' : true;
 
   // Theme-based gradient classes with light/dark support
   const gradients = {
@@ -48,6 +56,9 @@ export function HeroAnimated({
       buttonHover: 'from-purple-500 to-blue-500',
       description: isDark ? 'text-gray-300' : 'text-gray-800',
       helperText: isDark ? 'text-gray-400' : 'text-gray-600',
+      pillBg: isDark ? 'bg-purple-500/20' : 'bg-purple-500/30',
+      pillBorder: isDark ? 'border-purple-500/30' : 'border-purple-500/50',
+      pillText: isDark ? 'text-purple-200' : 'text-purple-900',
     },
     'green-earth': {
       bg: isDark
@@ -60,6 +71,9 @@ export function HeroAnimated({
       buttonHover: 'from-green-500 to-emerald-500',
       description: isDark ? 'text-gray-300' : 'text-gray-800',
       helperText: isDark ? 'text-gray-400' : 'text-gray-600',
+      pillBg: isDark ? 'bg-green-500/20' : 'bg-green-500/30',
+      pillBorder: isDark ? 'border-green-500/30' : 'border-green-500/50',
+      pillText: isDark ? 'text-green-200' : 'text-green-900',
     },
     custom: {
       bg: isDark
@@ -72,14 +86,17 @@ export function HeroAnimated({
       buttonHover: 'from-purple-500 to-blue-500',
       description: isDark ? 'text-gray-300' : 'text-gray-800',
       helperText: isDark ? 'text-gray-400' : 'text-gray-600',
+      pillBg: isDark ? 'bg-purple-500/20' : 'bg-purple-500/30',
+      pillBorder: isDark ? 'border-purple-500/30' : 'border-purple-500/50',
+      pillText: isDark ? 'text-purple-200' : 'text-purple-900',
     },
   };
 
   const colors = gradients[theme];
 
   return (
-    <BackgroundBeamsWithCollision className={`h-screen bg-gradient-to-b ${colors.bg}`}>
-      <div className="relative z-10 flex flex-col items-center justify-center text-center px-4">
+    <BackgroundBeamsWithCollision className={`min-h-[500px] flex items-center justify-center bg-gradient-to-b ${colors.bg}`}>
+      <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 py-16">
         {/* Glassmorphic Container */}
         <div className={`backdrop-blur-xl rounded-3xl border-2 p-8 md:p-12 max-w-5xl ${
           isDark
@@ -87,8 +104,11 @@ export function HeroAnimated({
             : 'bg-white/20 border-purple-300/50 shadow-2xl'
         }`}>
           {/* Main Heading */}
-          <h1 className="text-6xl md:text-8xl font-bold mb-4">
-            <span className={`bg-gradient-to-r ${colors.text} bg-clip-text text-transparent animate-gradient`}>
+          <h1 className="text-6xl md:text-8xl font-bold mb-4" suppressHydrationWarning>
+            <span
+              className={`bg-gradient-to-r ${colors.text} bg-clip-text text-transparent animate-gradient`}
+              suppressHydrationWarning
+            >
               {title}
             </span>
           </h1>
@@ -109,7 +129,7 @@ export function HeroAnimated({
               {features.map((feature, idx) => (
                 <div
                   key={idx}
-                  className={`px-3 py-1.5 rounded-full bg-${theme === 'purple-blue' ? 'purple' : 'green'}-500/20 border border-${theme === 'purple-blue' ? 'purple' : 'green'}-500/30 text-${theme === 'purple-blue' ? 'purple' : 'green'}-200 text-sm backdrop-blur-sm`}
+                  className={`px-3 py-1.5 rounded-full border text-sm backdrop-blur-sm ${colors.pillBg} ${colors.pillBorder} ${colors.pillText}`}
                 >
                   {feature.icon} {feature.label}
                 </div>

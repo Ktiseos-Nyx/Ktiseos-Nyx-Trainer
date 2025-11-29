@@ -67,6 +67,7 @@ RUN uv pip install --system -r /tmp/requirements-backend.txt \
 COPY api/ /workspace/Ktiseos-Nyx-Trainer/api/
 COPY core/ /workspace/Ktiseos-Nyx-Trainer/core/
 COPY widgets/ /workspace/Ktiseos-Nyx-Trainer/widgets/
+COPY trainer/ /workspace/Ktiseos-Nyx-Trainer/trainer/
 COPY shared_managers.py /workspace/Ktiseos-Nyx-Trainer/
 COPY installer.py /workspace/Ktiseos-Nyx-Trainer/
 

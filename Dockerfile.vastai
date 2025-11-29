@@ -1,0 +1,97 @@
+# Ktiseos Nyx LoRA Trainer - VastAI Optimized Template
+# Using VastAI's PyTorch base image for better integration and faster builds
+FROM vastai/pytorch:2.6.0-cuda-12.6.3-py312
+
+# Prevent interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# VastAI requires workspace files in /opt/workspace-internal/ for syncing
+WORKDIR /opt/workspace-internal/
+
+# Activate VastAI's pre-configured virtual environment
+# This gives us PyTorch 2.6.0 + CUDA 12.6.3 already installed
+RUN . /venv/main/bin/activate
+
+# Install system dependencies that might not be in base image
+RUN apt-get update && apt-get install -y \
+    git-lfs \
+    vim \
+    nano \
+    htop \
+    tmux \
+    screen \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20.x for frontend (Next.js)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm@latest \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install uv (ultra-fast package installer)
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && pip install uv
+
+# Copy requirements files for layer caching
+COPY requirements-api.txt /tmp/
+COPY requirements-backend.txt /tmp/
+
+# Install Python dependencies (backend + API)
+# Use uv for faster installation
+# Note: PyTorch is already installed from base image
+RUN uv pip install --system -r /tmp/requirements-backend.txt \
+    && uv pip install --system -r /tmp/requirements-api.txt
+
+# Copy application code
+COPY api/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/api/
+COPY core/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/core/
+COPY widgets/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/widgets/
+COPY shared_managers.py /opt/workspace-internal/Ktiseos-Nyx-Trainer/
+COPY installer.py /opt/workspace-internal/Ktiseos-Nyx-Trainer/
+
+# Copy frontend code for building
+COPY frontend/package*.json /opt/workspace-internal/Ktiseos-Nyx-Trainer/frontend/
+COPY frontend/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/frontend/
+
+# Install frontend dependencies and build Next.js app
+# This happens during Docker build, making startup much faster!
+RUN cd /opt/workspace-internal/Ktiseos-Nyx-Trainer/frontend \
+    && npm ci \
+    && npm run build \
+    && npm prune --production
+
+# Create necessary directories
+RUN mkdir -p /opt/workspace-internal/datasets \
+    /opt/workspace-internal/output \
+    /opt/workspace-internal/pretrained_model \
+    /opt/workspace-internal/vae \
+    /opt/workspace-internal/tagger_models \
+    /opt/workspace-internal/training_config \
+    /opt/workspace-internal/logs
+
+# Expose ports
+# 8000 - FastAPI Backend
+# 3000 - Next.js Frontend
+# 8888 - Jupyter (optional)
+# 6006 - TensorBoard (optional)
+EXPOSE 8000 3000 8888 6006
+
+# Copy startup scripts
+COPY docker/startup.sh /startup.sh
+COPY docker/start_services.sh /start_services.sh
+RUN chmod +x /startup.sh /start_services.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default command
+CMD ["/startup.sh"]

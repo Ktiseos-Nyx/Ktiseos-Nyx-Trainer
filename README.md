@@ -68,16 +68,22 @@ Modern, responsive web interface with real-time monitoring:
 **Local Installation**:
 ```bash
 # 1. Clone repository
-git clone --recurse-submodules https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
 
 # 2. Install backend
 python installer.py
 
-# 3. Start backend
-uvicorn api.main:app --host 0.0.0.0 --port 8000
+# 3. Start services (uses safe localhost binding)
+./start_services_local.sh
+```
 
-# 4. Start frontend (in another terminal)
+Or manually start services:
+```bash
+# Start backend
+uvicorn api.main:app --host 127.0.0.1 --port 8000
+
+# Start frontend (in another terminal)
 cd frontend
 npm install
 npm run build
@@ -95,7 +101,7 @@ Widget-based interface with step-by-step control:
 
 ```bash
 # 1. Clone and setup
-git clone --recurse-submodules https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
 python installer.py
 
@@ -238,6 +244,7 @@ This project builds upon and integrates the excellent work of:
 - **AndroidXXL, Jelosus2** - Additional Colab notebook contributions that made LoRA training accessible
 - **[ArcEnCiel](https://arcenciel.io/)** - Ongoing support and testing as well as Open Source AI Generative Models.
 - **[Civitai](https://civitai.com/)** - Platform for Open Source AI Content
+- **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** - Inspiration for Civitai browsing interface and API integration patterns
 - **[LyCORIS Team](https://github.com/67372a/LyCORIS)** - Advanced LoRA methods (DoRA, LoKr, etc.)
 
 Special thanks to these creators for making LoRA training accessible to everyone!

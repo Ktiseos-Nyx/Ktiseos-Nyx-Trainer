@@ -212,27 +212,27 @@ export default function DatasetUploader() {
   const imageCount = files.filter((f) => f.file.type.startsWith('image/')).length;
 
   return (
-    <div className="bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700 p-6">
+    <div className="bg-card/50 backdrop-blur-sm rounded-lg border border-border p-6 shadow-sm">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Dataset Upload</h2>
-        <p className="text-gray-400">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Dataset Upload</h2>
+        <p className="text-muted-foreground">
           Choose your preferred method to set up your training dataset
         </p>
       </div>
 
       {/* Upload Method Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-slate-800 border border-slate-700">
-          <TabsTrigger value="direct" className="data-[state=active]:bg-blue-600">
+        <TabsList className="grid w-full grid-cols-3 bg-muted border border-border">
+          <TabsTrigger value="direct" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
             <Upload className="w-4 h-4 mr-2" />
             Direct Upload
           </TabsTrigger>
-          <TabsTrigger value="url" className="data-[state=active]:bg-purple-600">
+          <TabsTrigger value="url" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
             <LinkIcon className="w-4 h-4 mr-2" />
             URL/ZIP
           </TabsTrigger>
-          <TabsTrigger value="folder" className="data-[state=active]:bg-green-600">
+          <TabsTrigger value="folder" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">
             <FolderPlus className="w-4 h-4 mr-2" />
             Create Folder
           </TabsTrigger>
@@ -242,18 +242,18 @@ export default function DatasetUploader() {
         <TabsContent value="direct" className="space-y-6">
           {/* Dataset Name Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Dataset Name
             </label>
             <input
               type="text"
               value={datasetName}
               onChange={(e) => setDatasetName(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="my_awesome_dataset"
               disabled={uploading}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               📁 Files will be uploaded to: /workspace/datasets/{datasetName}
             </p>
           </div>
@@ -266,7 +266,7 @@ export default function DatasetUploader() {
               ${
                 isDragActive
                   ? 'border-blue-500 bg-blue-500/10'
-                  : 'border-slate-600 hover:border-blue-400 hover:bg-slate-800/50'
+                  : 'border-border hover:border-blue-400 hover:bg-accent/50'
               }
             `}
           >
@@ -274,23 +274,23 @@ export default function DatasetUploader() {
 
             <Upload
               className={`w-16 h-16 mx-auto mb-4 ${
-                isDragActive ? 'text-blue-500 animate-bounce' : 'text-gray-500'
+                isDragActive ? 'text-blue-500 animate-bounce' : 'text-muted-foreground'
               }`}
             />
 
             {isDragActive ? (
-              <p className="text-lg font-semibold text-blue-400">
+              <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                 Drop files here!
               </p>
             ) : (
               <>
-                <p className="text-lg font-semibold text-gray-300 mb-2">
+                <p className="text-lg font-semibold text-foreground mb-2">
                   Drag & drop images or ZIP files
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   or click to browse files
                 </p>
-                <p className="text-xs text-gray-600 mt-2">
+                <p className="text-xs text-muted-foreground/70 mt-2">
                   Supports: PNG, JPG, JPEG, WebP, BMP, ZIP
                 </p>
               </>
@@ -301,7 +301,7 @@ export default function DatasetUploader() {
           {files.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-white">
+                <h3 className="font-semibold text-foreground">
                   Files ({files.length})
                   {imageCount > 0 && ` · ${imageCount} images`}
                   {zipCount > 0 && ` · ${zipCount} ZIP`}
@@ -309,7 +309,7 @@ export default function DatasetUploader() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleReset}
-                    className="text-sm text-yellow-400 hover:text-yellow-300 flex items-center gap-1"
+                    className="text-sm text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 flex items-center gap-1"
                     disabled={uploading}
                   >
                     <RefreshCw className="w-3 h-3" />
@@ -317,7 +317,7 @@ export default function DatasetUploader() {
                   </button>
                   <button
                     onClick={handleClear}
-                    className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+                    className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1"
                     disabled={uploading}
                   >
                     <X className="w-3 h-3" />
@@ -329,17 +329,17 @@ export default function DatasetUploader() {
               {/* Status Summary */}
               <div className="flex gap-4 mb-4 text-sm">
                 {pendingCount > 0 && (
-                  <span className="text-gray-400">
+                  <span className="text-muted-foreground">
                     ⏳ Pending: {pendingCount}
                   </span>
                 )}
                 {successCount > 0 && (
-                  <span className="text-green-400">
+                  <span className="text-green-600 dark:text-green-400">
                     ✓ Success: {successCount}
                   </span>
                 )}
                 {errorCount > 0 && (
-                  <span className="text-red-400">
+                  <span className="text-red-600 dark:text-red-400">
                     ✗ Error: {errorCount}
                   </span>
                 )}

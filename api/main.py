@@ -14,7 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
-from api.routes import training, dataset, files, config, utilities, models
+from api.routes import training, dataset, files, config, utilities, models, settings, civitai
+
+# Import WebSocket routes from new service layer
+from services import websocket
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +46,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],  # Needed for canvas image manipulation
 )
 
 # Include routers
@@ -52,6 +56,11 @@ app.include_router(files.router, prefix="/api/files", tags=["Files"])
 app.include_router(config.router, prefix="/api/config", tags=["Config"])
 app.include_router(utilities.router, prefix="/api/utilities", tags=["Utilities"])
 app.include_router(models.router, prefix="/api/models", tags=["Models"])
+app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(civitai.router, prefix="/api/civitai", tags=["Civitai"])
+
+# Include WebSocket routes (no prefix - they define their own paths)
+app.include_router(websocket.router, tags=["WebSocket"])
 
 
 @app.get("/")

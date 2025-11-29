@@ -31,8 +31,8 @@ export default function TrainingConfig() {
     wandb_key: '',
 
     // ========== DATASET & BASIC TRAINING ==========
-    train_data_dir: '/workspace/datasets/my_dataset',
-    output_dir: '/workspace/output/my_lora',
+    train_data_dir: 'datasets/my_dataset',
+    output_dir: 'output/my_lora',
     resolution: 1024,
     num_repeats: 10,
     max_train_epochs: 10,
@@ -217,7 +217,7 @@ export default function TrainingConfig() {
     loadTemplates();
   }, []);
 
-  // Load default config
+  // Load default config (optional - component works without it)
   useEffect(() => {
     const loadDefaults = async () => {
       try {
@@ -225,6 +225,7 @@ export default function TrainingConfig() {
         setConfig((prev) => ({ ...prev, ...defaults }));
       } catch (err) {
         console.error('Failed to load defaults:', err);
+        // Silently continue - component has built-in defaults already
       }
     };
     loadDefaults();
@@ -354,6 +355,9 @@ export default function TrainingConfig() {
       // Training started successfully
       if (result.success) {
         setSuccess(`Training started! ID: ${result.training_id}`);
+
+        // Notify TrainingMonitor to start polling
+        window.dispatchEvent(new CustomEvent('training-started'));
       } else {
         setError(result.message || 'Failed to start training');
       }
@@ -476,14 +480,13 @@ export default function TrainingConfig() {
 
         {/* Tabs */}
         <Tabs defaultValue="setup" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="setup">Setup</TabsTrigger>
             <TabsTrigger value="dataset">Dataset</TabsTrigger>
             <TabsTrigger value="lora">LoRA</TabsTrigger>
             <TabsTrigger value="learning">Learning Rate</TabsTrigger>
             <TabsTrigger value="advanced">Advanced</TabsTrigger>
             <TabsTrigger value="saving">Saving</TabsTrigger>
-            <TabsTrigger value="logging">Logging</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Setup */}
@@ -2195,58 +2198,6 @@ export default function TrainingConfig() {
                 </div>
               </div>
             </div>
-          </TabsContent>
-
-          {/* Tab 7: Logging */}
-          <TabsContent value="logging" className="space-y-4">
-            <h3 className="text-lg font-semibold">Logging & Monitoring</h3>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="logging_dir">Logging Directory (optional)</Label>
-                <Input
-                  id="logging_dir"
-                  value={config.logging_dir}
-                  onChange={(e) => handleChange('logging_dir', e.target.value)}
-                  placeholder="/workspace/logs"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="log_with">Log With</Label>
-                <Select value={config.log_with || ''} onValueChange={(val) => handleChange('log_with', val)}>
-                  <SelectTrigger id="log_with">
-                    <SelectValue placeholder="None" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">None</SelectItem>
-                    <SelectItem value="tensorboard">TensorBoard</SelectItem>
-                    <SelectItem value="wandb">Weights & Biases</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="log_prefix">Log Prefix (optional)</Label>
-                <Input
-                  id="log_prefix"
-                  value={config.log_prefix}
-                  onChange={(e) => handleChange('log_prefix', e.target.value)}
-                  placeholder="my_experiment"
-                />
-              </div>
-            </div>
-
-            <Alert>
-              <AlertTitle>Logging Tips</AlertTitle>
-              <AlertDescription>
-                <ul className="list-disc list-inside space-y-1 mt-2">
-                  <li>TensorBoard: View training metrics locally</li>
-                  <li>WandB: Cloud-based experiment tracking with visualization</li>
-                  <li>Log Prefix: Helps organize multiple experiments</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
           </TabsContent>
         </Tabs>
 

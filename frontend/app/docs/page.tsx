@@ -239,21 +239,21 @@ export default function DocsPage() {
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
-            <div className="bg-card backdrop-blur-sm border border-border rounded-lg p-4 sticky top-4">
+            <div className="bg-card backdrop-blur-sm border border-border rounded-lg p-4 sticky top-4 overflow-hidden">
               <h2 className="text-lg font-bold text-foreground mb-4">Sections</h2>
               <nav className="space-y-1">
                 {docSections.map((section) => (
                   <button
                     key={section.id}
                     onClick={() => setActiveSection(section.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors truncate ${
                       activeSection === section.id
                         ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                         : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                     }`}
                   >
-                    <span className="text-xl">{section.icon}</span>
-                    <span className="text-sm font-medium">{section.title}</span>
+                    <span className="text-xl flex-shrink-0">{section.icon}</span>
+                    <span className="text-sm font-medium truncate">{section.title}</span>
                   </button>
                 ))}
               </nav>
@@ -269,7 +269,7 @@ export default function DocsPage() {
                   <h2 className="text-3xl font-bold text-foreground">{currentSection.title}</h2>
                 </div>
 
-                <div className="prose prose-invert max-w-none">
+                <div className="prose prose-invert max-w-none break-words overflow-hidden">
                   {currentSection.content.split('\n\n').map((paragraph, idx) => {
                     if (paragraph.startsWith('**') && paragraph.endsWith(':**')) {
                       // Section header
@@ -297,9 +297,13 @@ export default function DocsPage() {
                       return (
                         <ul key={idx} className="list-disc list-inside space-y-2 text-muted-foreground mb-4">
                           {items.map((item, i) => (
-                            <li key={i} className="ml-4">
-                              {item.replace(/^- /, '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')}
-                            </li>
+                            <li
+                              key={i}
+                              className="ml-4"
+                              dangerouslySetInnerHTML={{
+                                __html: item.replace(/^- /, '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
+                              }}
+                            />
                           ))}
                         </ul>
                       );
@@ -312,7 +316,7 @@ export default function DocsPage() {
                           dangerouslySetInnerHTML={{
                             __html: paragraph
                               .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
-                              .replace(/`(.*?)`/g, '<code class="bg-slate-800 px-2 py-1 rounded text-cyan-400">$1</code>'),
+                              .replace(/`(.*?)`/g, '<code class="bg-slate-800 px-2 py-1 rounded text-cyan-400 break-all">$1</code>'),
                           }}
                         />
                       );

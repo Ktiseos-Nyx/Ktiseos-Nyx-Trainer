@@ -17,20 +17,18 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Allowed base directories (security)
-# Check if /workspace exists (VastAI/cloud), otherwise use home directory
-if Path("/workspace").exists():
-    ALLOWED_DIRS = [
-        Path("/workspace"),
-        Path.home()
-    ]
-else:
-    # Local development - use home directory
-    ALLOWED_DIRS = [
-        Path.home(),
-        Path.home() / "Documents",
-        Path.home() / "Desktop"
-    ]
+# Project root detection
+# Find where the API code is running (works anywhere the repo is cloned)
+PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()  # api/routes/files.py -> project root
+
+# Default workspace is the project root
+DEFAULT_WORKSPACE = PROJECT_ROOT
+
+# Allowed directories for security (project root + user home)
+ALLOWED_DIRS = [
+    PROJECT_ROOT,
+    Path.home()
+]
 
 
 class FileInfo(BaseModel):
@@ -79,13 +77,29 @@ def get_file_info(path: Path) -> FileInfo:
     )
 
 
+@router.get("/default-workspace")
+async def get_default_workspace():
+    """
+    Get the default workspace path for the current environment.
+    Returns /workspace on VastAI/cloud, or home directory for local.
+    """
+    return {
+        "path": str(DEFAULT_WORKSPACE),
+        "allowed_dirs": [str(d) for d in ALLOWED_DIRS]
+    }
+
+
 @router.get("/list", response_model=DirectoryListing)
-async def list_directory(path: str = Query("/workspace")):
+async def list_directory(path: str = Query(default=None)):
     """
     List files and directories at the specified path.
     Returns sorted list with directories first.
     """
     try:
+        # Use default workspace if no path provided
+        if path is None:
+            path = str(DEFAULT_WORKSPACE)
+
         target_path = Path(path).resolve()
 
         # Security check
@@ -128,13 +142,17 @@ async def list_directory(path: str = Query("/workspace")):
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    destination: str = Query("/workspace")
+    destination: str = Query(default=None)
 ):
     """
     Upload a file to the specified destination.
     Supports large files with streaming.
     """
     try:
+        # Use default workspace if no destination provided
+        if destination is None:
+            destination = str(DEFAULT_WORKSPACE)
+
         dest_path = Path(destination).resolve()
 
         # Security check
@@ -171,6 +189,39 @@ async def upload_file(
         raise
     except Exception as e:
         logger.error(f"Failed to upload file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/image/{path:path}")
+async def serve_image(path: str):
+    """Serve an image file (for thumbnails/previews)"""
+    try:
+        file_path = Path("/" + path).resolve()
+
+        # Security check
+        if not any(str(file_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if not file_path.is_file():
+            raise HTTPException(status_code=400, detail="Path is not a file")
+
+        # Get proper MIME type for images
+        mime_type, _ = mimetypes.guess_type(str(file_path))
+        if not mime_type or not mime_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Not an image file")
+
+        return FileResponse(
+            path=file_path,
+            media_type=mime_type
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to serve image: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

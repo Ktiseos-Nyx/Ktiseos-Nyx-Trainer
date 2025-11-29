@@ -1,34 +1,26 @@
 """
 Utilities API Routes
-Handles calculator, LoRA utilities, and HuggingFace uploads.
+Handles calculator, LoRA utilities, and HuggingFace uploads via new service layer.
 """
-import asyncio
+
 import logging
 import os
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-# Add project root to Python path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from core.utilities_manager import UtilitiesManager
+# Import new service
+from services import lora_service
+from services.models.lora import LoRAResizeRequest as ServiceResizeRequest
+from services.models.lora import HuggingFaceUploadRequest as ServiceHFRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Initialize utilities manager
-utilities_manager = UtilitiesManager()
 
-# Active WebSocket connections for upload progress
-upload_connections: List[WebSocket] = []
-
-
-# ========== Pydantic Models ==========
+# ========== Calculator Endpoints (Kept from original) ==========
 
 class CalculatorRequest(BaseModel):
     """Request model for step calculator"""
@@ -51,45 +43,6 @@ class CalculatorResponse(BaseModel):
     time_estimate_max: float
     recommendation: str
 
-
-class ListFilesRequest(BaseModel):
-    """Request model for listing files"""
-    directory: str
-    file_extension: str = "safetensors"
-    sort_by: str = "name"  # 'name' or 'date'
-
-
-class ListFilesResponse(BaseModel):
-    """Response model for file listing"""
-    success: bool
-    directory: str
-    files: List[Dict[str, Any]]
-
-
-class HuggingFaceUploadRequest(BaseModel):
-    """Request model for HuggingFace upload"""
-    hf_token: str
-    owner: str
-    repo_name: str
-    repo_type: str = "model"
-    selected_files: List[str]
-    remote_folder: str = ""
-    commit_message: str = "Upload via Ktiseos-Nyx-Trainer 🤗"
-    create_pr: bool = False
-
-
-class HuggingFaceUploadResponse(BaseModel):
-    """Response model for HuggingFace upload"""
-    success: bool
-    repo_id: Optional[str] = None
-    total_files: int
-    uploaded_files: List[str]
-    failed_files: List[Dict[str, str]]
-    hf_transfer_active: bool = False
-    error: Optional[str] = None
-
-
-# ========== Calculator Endpoints ==========
 
 @router.post("/calculator", response_model=CalculatorResponse)
 async def calculate_steps(request: CalculatorRequest):
@@ -194,178 +147,181 @@ async def browse_datasets():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ========== LoRA File Management ==========
-
-@router.post("/lora/list", response_model=ListFilesResponse)
-async def list_lora_files(request: ListFilesRequest):
-    """
-    List LoRA files in a directory.
-    Supports filtering by extension and sorting.
-    """
-    try:
-        directory = request.directory.strip()
-
-        if not os.path.isdir(directory):
-            raise HTTPException(status_code=404, detail=f"Directory not found: {directory}")
-
-        file_paths = utilities_manager.get_files_in_directory(
-            directory,
-            request.file_extension,
-            request.sort_by
-        )
-
-        files = []
-        for file_path in file_paths:
-            path = Path(file_path)
-            size = path.stat().st_size
-
-            files.append({
-                "name": path.name,
-                "path": str(path),
-                "size": size,
-                "size_formatted": utilities_manager.format_file_size(size),
-                "modified": path.stat().st_mtime
-            })
-
-        return ListFilesResponse(
-            success=True,
-            directory=directory,
-            files=files
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"List files error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/lora/resize-dimensions")
-async def get_resize_dimensions():
-    """Get available LoRA resize dimensions"""
-    return {
-        "dimensions": [16, 32, 64, 128],
-        "default": 32
-    }
-
+# ========== LoRA Utilities (Using New Service) ==========
 
 class LoRAResizeRequest(BaseModel):
     """Request model for LoRA resizing"""
     input_path: str
     output_path: str
     new_dim: int
-    new_alpha: int
+    new_alpha: Optional[int] = None
+    device: str = "cpu"
+    save_precision: str = "fp16"
 
 
-class LoRAResizeResponse(BaseModel):
-    """Response model for LoRA resizing"""
-    success: bool
-    input_path: str
-    output_path: str
-    new_dim: int
-    new_alpha: int
-    message: str
-    error: Optional[str] = None
+@router.get("/directories")
+async def get_directories():
+    """Get project directory paths (relative to trainer root)"""
+    return {
+        "output": "output",
+        "datasets": "datasets",
+        "pretrained_model": "pretrained_model",
+        "vae": "vae",
+    }
 
 
-@router.post("/lora/resize", response_model=LoRAResizeResponse)
-async def resize_lora(request: LoRAResizeRequest):
-    """
-    Resize a LoRA model to a different dimension.
-    Uses Derrian's enhanced resize script or Kohya's standard script.
-    """
+@router.get("/lora/resize-dimensions")
+async def get_resize_dimensions():
+    """Get available LoRA resize dimensions"""
+    return {
+        "dimensions": [4, 8, 16, 32, 64, 128, 256],
+        "default": 32
+    }
+
+
+class ListLoraFilesRequest(BaseModel):
+    """Request to list LoRA files"""
+    directory: str
+    extension: str = "safetensors"
+    sort_by: str = "name"
+
+
+@router.post("/lora/list")
+async def list_lora_files(request: ListLoraFilesRequest):
+    """List LoRA files in a directory"""
     try:
-        if not os.path.exists(request.input_path):
-            raise HTTPException(status_code=404, detail=f"Input file not found: {request.input_path}")
+        import glob
+        from pathlib import Path
 
-        if not request.output_path:
-            raise HTTPException(status_code=400, detail="Output path is required")
+        directory = Path(request.directory)
 
-        if request.new_dim <= 0 or request.new_alpha <= 0:
-            raise HTTPException(status_code=400, detail="Dimension and alpha must be greater than 0")
+        # Security: Ensure directory is within project bounds
+        project_root = Path.cwd()
+        try:
+            directory = directory.resolve()
+            if not str(directory).startswith(str(project_root)):
+                raise HTTPException(status_code=403, detail="Access denied")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid directory path")
 
-        logger.info(f"Resizing LoRA: {request.input_path} -> {request.output_path} (dim={request.new_dim}, alpha={request.new_alpha})")
+        # Create directory if it doesn't exist
+        directory.mkdir(parents=True, exist_ok=True)
 
-        # Call the utilities manager resize method
-        success = utilities_manager.resize_lora(
-            input_path=request.input_path,
-            output_path=request.output_path,
-            new_dim=request.new_dim,
-            new_alpha=request.new_alpha
-        )
+        # Find LoRA files
+        pattern = f"*.{request.extension}"
+        files = []
 
-        if not success:
-            return LoRAResizeResponse(
-                success=False,
-                input_path=request.input_path,
-                output_path=request.output_path,
-                new_dim=request.new_dim,
-                new_alpha=request.new_alpha,
-                message="Resize failed",
-                error="LoRA resize operation failed. Check server logs for details."
-            )
+        for file_path in directory.glob(pattern):
+            if file_path.is_file():
+                stat = file_path.stat()
+                files.append({
+                    "name": file_path.name,
+                    "path": str(file_path),
+                    "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                    "modified": stat.st_mtime
+                })
 
-        return LoRAResizeResponse(
-            success=True,
-            input_path=request.input_path,
-            output_path=request.output_path,
-            new_dim=request.new_dim,
-            new_alpha=request.new_alpha,
-            message=f"Successfully resized LoRA to dim={request.new_dim}, alpha={request.new_alpha}"
-        )
+        # Sort files
+        if request.sort_by == "date":
+            files.sort(key=lambda x: x["modified"], reverse=True)
+        elif request.sort_by == "size":
+            files.sort(key=lambda x: x["size_mb"], reverse=True)
+        else:  # name
+            files.sort(key=lambda x: x["name"])
+
+        return {
+            "success": True,
+            "files": files,
+            "directory": str(directory),
+            "count": len(files)
+        }
 
     except HTTPException:
         raise
+    except Exception as e:
+        logger.error(f"Failed to list LoRA files: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lora/resize")
+async def resize_lora(request: LoRAResizeRequest):
+    """
+    Resize a LoRA model to a different dimension.
+    Uses Kohya's resize_lora.py script from vendored backend.
+    """
+    try:
+        # Convert to service request
+        service_request = ServiceResizeRequest(
+            input_path=request.input_path,
+            output_path=request.output_path,
+            target_dim=request.new_dim,
+            target_alpha=request.new_alpha,
+            device=request.device,
+            save_precision=request.save_precision
+        )
+
+        response = await lora_service.resize_lora(service_request)
+
+        return {
+            "success": response.success,
+            "message": response.message,
+            "input_path": response.input_path,
+            "output_path": response.output_path,
+            "original_dim": response.original_dim,
+            "new_dim": response.new_dim,
+            "file_size_mb": response.file_size_mb
+        }
+
     except Exception as e:
         logger.error(f"LoRA resize error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ========== HuggingFace Upload ==========
+# ========== HuggingFace Upload (Using New Service) ==========
 
-@router.post("/hf/upload", response_model=HuggingFaceUploadResponse)
+class HuggingFaceUploadRequest(BaseModel):
+    """Request model for HuggingFace upload"""
+    lora_path: str
+    hf_token: str
+    repo_id: str
+    private: bool = False
+    # Metadata
+    model_type: Optional[str] = None
+    base_model: Optional[str] = None
+    trigger_word: Optional[str] = None
+    tags: Optional[str] = None
+    description: Optional[str] = None
+
+
+@router.post("/hf/upload")
 async def upload_to_huggingface(request: HuggingFaceUploadRequest):
     """
-    Upload files to HuggingFace Hub.
-    Supports multiple files, progress tracking, and pull requests.
+    Upload a LoRA model to HuggingFace Hub.
+    Automatically generates README with metadata.
     """
     try:
-        # Progress callback placeholder (can be extended with WebSocket for real-time updates)
-        uploaded_files = []
-
-        def progress_callback(current, total, filename):
-            logger.info(f"Uploading {current}/{total}: {filename}")
-            uploaded_files.append(filename)
-
-        result = utilities_manager.upload_multiple_files_to_huggingface(
-            hf_token=request.hf_token,
-            owner=request.owner,
-            repo_name=request.repo_name,
-            repo_type=request.repo_type,
-            selected_files=request.selected_files,
-            remote_folder=request.remote_folder,
-            commit_message=request.commit_message,
-            create_pr=request.create_pr,
-            progress_callback=progress_callback
+        # Convert to service request
+        service_request = ServiceHFRequest(
+            lora_path=request.lora_path,
+            repo_id=request.repo_id,
+            token=request.hf_token,
+            private=request.private,
+            model_type=request.model_type,
+            base_model=request.base_model,
+            trigger_word=request.trigger_word,
+            tags=request.tags,
+            description=request.description
         )
 
-        if not result.get("success"):
-            return HuggingFaceUploadResponse(
-                success=False,
-                total_files=0,
-                uploaded_files=[],
-                failed_files=[],
-                error=result.get("error", "Unknown error")
-            )
+        response = await lora_service.upload_to_huggingface(service_request)
 
-        return HuggingFaceUploadResponse(
-            success=True,
-            repo_id=result.get("repo_id"),
-            total_files=result.get("total_files", 0),
-            uploaded_files=result.get("uploaded_files", []),
-            failed_files=result.get("failed_files", []),
-            hf_transfer_active=result.get("hf_transfer_active", False)
-        )
+        return {
+            "success": response.success,
+            "message": response.message,
+            "repo_url": response.repo_url,
+            "commit_hash": response.commit_hash,
+            "errors": response.errors
+        }
 
     except Exception as e:
         logger.error(f"HuggingFace upload error: {e}", exc_info=True)
@@ -376,14 +332,13 @@ async def upload_to_huggingface(request: HuggingFaceUploadRequest):
 async def validate_hf_token(hf_token: str):
     """Validate HuggingFace API token"""
     try:
-        from huggingface_hub import HfApi, login
+        from huggingface_hub import HfApi
 
         if not hf_token or not hf_token.strip():
             return {"valid": False, "error": "Token is empty"}
 
         try:
-            login(token=hf_token)
-            api = HfApi()
+            api = HfApi(token=hf_token)
             user_info = api.whoami()
 
             return {
@@ -421,58 +376,3 @@ def count_images_in_directory(directory):
         if file_path.suffix.lower() in image_extensions:
             image_count += 1
     return image_count
-
-
-# ========== WebSocket for Upload Progress ==========
-
-async def broadcast_upload_progress(message: Dict[str, Any]):
-    """
-    Broadcast upload progress to all connected WebSocket clients.
-    """
-    disconnected = []
-    for connection in upload_connections:
-        try:
-            await connection.send_json(message)
-        except Exception:
-            disconnected.append(connection)
-
-    # Clean up disconnected clients
-    for conn in disconnected:
-        upload_connections.remove(conn)
-
-
-@router.websocket("/hf/upload-progress")
-async def upload_progress_websocket(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time HuggingFace upload progress.
-    Sends updates as files are uploaded.
-    """
-    await websocket.accept()
-    upload_connections.append(websocket)
-
-    try:
-        logger.info("Client connected to upload progress WebSocket")
-
-        # Send initial connection message
-        await websocket.send_json({
-            "type": "connected",
-            "message": "Connected to upload progress stream"
-        })
-
-        # Keep connection alive
-        while True:
-            await asyncio.sleep(1)
-
-            # Send heartbeat
-            await websocket.send_json({
-                "type": "heartbeat",
-                "timestamp": asyncio.get_event_loop().time()
-            })
-
-    except WebSocketDisconnect:
-        logger.info("Client disconnected from upload progress WebSocket")
-        upload_connections.remove(websocket)
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
-        if websocket in upload_connections:
-            upload_connections.remove(websocket)
