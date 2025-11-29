@@ -1,46 +1,56 @@
 @import "tailwindcss";
-/* Removed invalid @config at-rule; Tailwind config belongs in tailwind.config.ts */
 
 @layer base {
   :root {
     --background: oklch(1 0 0);
     --foreground: oklch(0.282 0.087 267.935);
+
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.282 0.087 267.935);
-    --popover: 0 0% 100%;
+
+    --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.282 0.087 267.935);
+
     --primary: oklch(0.468 0.272 279.601);
     --primary-foreground: oklch(1 0 0);
+
     --secondary: oklch(0.955 0.025 298.615);
     --secondary-foreground: oklch(0.266 0.151 281.039);
+
     --muted: oklch(0.984 0.003 247.858);
     --muted-foreground: oklch(0.516 0.054 272.586);
+
     --accent: oklch(0.968 0.007 247.896);
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent-foreground: oklch(0.282 0.087 267.935);
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+
     --border: oklch(0.929 0.013 255.508);
     --input: oklch(0.929 0.013 255.508);
     --ring: oklch(0.468 0.272 279.601 / 0.1);
+
     --radius: 0.5rem;
+
+    /* CHART COLORS */
+    --chart-1: oklch(0.468 0.272 279.601);
     --color-1: oklch(66.2% 0.225 25.9);
     --color-2: oklch(60.4% 0.26 302);
     --color-3: oklch(69.6% 0.165 251);
     --color-4: oklch(80.2% 0.134 225);
     --color-5: oklch(90.7% 0.231 133);
-    --chart-1: oklch(0.468 0.272 279.601);
-    --sidebar-foreground: oklch(1 0 0);
+
+    /* SIDEBAR COLORS (Fixed for Light Mode) */
     --sidebar: oklch(0.984 0.003 247.858);
+    --sidebar-foreground: oklch(0.282 0.087 267.935);
     --sidebar-primary: oklch(0.468 0.272 279.601);
     --sidebar-primary-foreground: oklch(1 0 0);
     --sidebar-accent: oklch(0.968 0.007 247.896);
     --sidebar-accent-foreground: oklch(0.282 0.087 267.935);
     --sidebar-border: oklch(0.929 0.013 255.508);
     --sidebar-ring: oklch(0.929 0.013 255.508);
+
     --font-sans: Rubik, sans-serif;
-    --shadow-2xs: 0 1px 0 0 oklch(0.554 0.041 257.417 / 0.05);
-    --shadow-xs: 0 1px 2px 0 oklch(0.554 0.041 257.417 / 0.05);
-    --shadow-2xl: 0 25px 50px -12px oklch(0.554 0.041 257.417 / 0.15);
   }
 
   .dark {
@@ -48,7 +58,7 @@
     --foreground: oklch(0.98 0.006 255.51);
     --card: oklch(0.17 0.038 265.51);
     --card-foreground: oklch(0.98 0.006 255.51);
-    --popover: oklch(0.17 0.038 265.51);
+    --popover: oklch(0.22 0.045 265.51);
     --popover-foreground: oklch(0.98 0.006 255.51);
     --primary: oklch(0.65 0.18 259.94);
     --primary-foreground: oklch(0.28 0.087 267.93);
@@ -63,81 +73,40 @@
     --border: oklch(0.28 0.049 263.38);
     --input: oklch(0.28 0.049 263.38);
     --ring: oklch(0.61 0.17 263.54);
-    --color-1: oklch(66.2% 0.225 25.9);
-    --color-2: oklch(60.4% 0.26 302);
-    --color-3: oklch(69.6% 0.165 251);
-    --color-4: oklch(80.2% 0.134 225);
-    --color-5: oklch(90.7% 0.231 133);
-  }
 
-  .theme {
-    --animate-shine: shine var(--duration) infinite linear;
-    --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
-    --radius-sm: var(--radius-sm);
-    --radius-md: var(--radius-md);
-    --radius-lg: var(--radius-lg);
-    --radius-xl: var(--radius-xl);
-    --font-sans: var(--font-sans);
-    --font-mono: var(--font-mono);
-    --shadow-2xs: var(--shadow-2xs);
-    --shadow-xs: var(--shadow-xs);
-    --shadow-sm: var(--shadow-sm);
-    --shadow-md: var(--shadow-md);
-    --shadow-lg: var(--shadow-lg);
-    --shadow-xl: var(--shadow-xl);
-    --shadow-2xl: var(--shadow-2xl);
+    /* Sidebar Dark Mode */
+    --sidebar-foreground: oklch(1 0 0);
   }
 }
 
-/* CORRECTED VERSION FOR YOUR globals.css */
-
 @layer base {
-  /*
-    The universal selector rule has been removed.
-    Now, only elements where you add a class like "border" will get a border.
-  */
-
+  * {
+    /* THIS WAS THE FIX: Use CSS vars directly, don't use @apply */
+    border-color: var(--border);
+  }
   body {
-    /* These are perfect base styles */
-    background: var(--background);
+    background-color: var(--background);
     color: var(--foreground);
   }
 }
 
+/* ANIMATIONS */
 @keyframes shine {
-  0% {
-    background-position: 0% 0%;
-  }
-  50% {
-    background-position: 100% 100%;
-  }
-  to {
-    background-position: 0% 0%;
-  }
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  to { background-position: 0% 0%; }
 }
 @keyframes rainbow {
-  0% {
-    background-position: 0%;
-  }
-  100% {
-    background-position: 200%;
-  }
+  0% { background-position: 0%; }
+  100% { background-position: 200%; }
 }
 @keyframes gradient {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @layer utilities {
@@ -145,36 +114,40 @@
     background-size: 200% 200%;
     animation: gradient 3s ease infinite;
   }
-
   .animate-wing-flap {
     animation: wing-flap 1s infinite ease-in-out;
   }
-
   .animate-wing-flap-reverse {
     animation: wing-flap 1s infinite ease-in-out reverse;
   }
 }
 
 @keyframes wing-flap {
-  0%, 100% {
-    transform: scaleX(1);
-  }
-  50% {
-    transform: scaleX(0.8);
-  }
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.8); }
 }
 
 @keyframes sparkle {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0) scale(0);
+  0% { opacity: 0; transform: translate(0, 0) scale(0); }
+  50% { opacity: 0.8; transform: translate(0, 0) scale(1); }
+  100% { opacity: 0; transform: translate(10px, -5px) scale(0.5); }
+}
+
+/* CRITICAL FIX: Force navbar to always work, override any injected CSS */
+@layer components {
+  nav {
+    display: flex !important;
   }
-  50% {
-    opacity: 0.8;
-    transform: translate(0, 0) scale(1);
+
+  /* Ensure flex utilities always work */
+  .flex {
+    display: flex !important;
   }
-  100% {
-    opacity: 0;
-    transform: translate(10px, -5px) scale(0.5);
+
+  /* Prevent any library from breaking responsive utilities */
+  @media (min-width: 768px) {
+    .md\:flex {
+      display: flex !important;
+    }
   }
 }

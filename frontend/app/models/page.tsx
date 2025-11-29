@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { modelsAPI, ModelFile, PopularModel } from '@/lib/api';
-import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles } from 'lucide-react';
+import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import Link from 'next/link';
 
 export default function ModelsPage() {
   const [activeTab, setActiveTab] = useState<'download' | 'manage'>('download');
@@ -107,12 +108,22 @@ export default function ModelsPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
-            Models & VAEs
-          </h1>
-          <p className="text-xl text-gray-300">
-            Download base models and VAEs from HuggingFace or Civitai
-          </p>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                Models & VAEs
+              </h1>
+              <p className="text-xl text-gray-300">
+                Download base models and VAEs from HuggingFace or Civitai
+              </p>
+            </div>
+            <Link href="/models/browse">
+              <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+                <Search className="w-5 h-5" />
+                Browse Civitai
+              </button>
+            </Link>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -148,6 +159,19 @@ export default function ModelsPage() {
         {/* Download Tab */}
         {activeTab === 'download' && (
           <div className="space-y-6">
+            {/* Info Box */}
+            <div className="bg-cyan-900/20 backdrop-blur-sm border border-cyan-500/30 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-cyan-100">
+                  <p className="font-semibold mb-1">Quick Start:</p>
+                  <p>
+                    Want a popular model? Scroll down to the <span className="text-cyan-400 font-semibold">Popular Models</span> section below and click "Use" on any model to auto-fill the download form.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Download Form */}
             <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-bold text-white mb-4">Download Model or VAE</h2>

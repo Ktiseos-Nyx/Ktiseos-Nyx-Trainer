@@ -18,8 +18,8 @@ import { fileAPI, FileInfo, DirectoryListing } from '@/lib/api';
 import { Tree, Folder as TreeFolder, File as TreeFile, type TreeViewElement } from '@/components/ui/file-tree';
 
 export default function FileManager() {
-  // Start at home directory for local dev, /workspace for cloud/VastAI
-  const [currentPath, setCurrentPath] = useState('~');
+  // Start at default workspace (will be set after fetching from backend)
+  const [currentPath, setCurrentPath] = useState<string>('');
   const [listing, setListing] = useState<DirectoryListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,9 +83,20 @@ export default function FileManager() {
     }
   }, [buildTreeElements]);
 
+  // Initialize with default workspace path
   useEffect(() => {
-    loadDirectory(currentPath);
-  }, []);
+    const initializeWorkspace = async () => {
+      try {
+        const { path } = await fileAPI.getDefaultWorkspace();
+        setCurrentPath(path);
+        loadDirectory(path);
+      } catch (err) {
+        console.error('Failed to get default workspace:', err);
+        setError('Unable to connect to backend');
+      }
+    };
+    initializeWorkspace();
+  }, [loadDirectory]);
 
   // File drop zone for uploads
   const onDrop = useCallback(

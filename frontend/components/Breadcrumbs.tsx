@@ -20,13 +20,13 @@ export default function Breadcrumbs({ items }: BreadcrumbsProps) {
         return (
           <div key={index} className="flex items-center">
             {index > 0 && (
-              <ChevronRight className="w-4 h-4 mx-2 text-gray-500" />
+              <ChevronRight className="w-4 h-4 mx-2 text-muted-foreground" />
             )}
 
             {item.href && !isLast ? (
               <Link
                 href={item.href}
-                className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
+                className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
               >
                 {item.icon}
                 {item.label}
@@ -34,8 +34,8 @@ export default function Breadcrumbs({ items }: BreadcrumbsProps) {
             ) : (
               <span className={`flex items-center gap-2 ${
                 isLast
-                  ? 'text-gray-300 font-semibold'
-                  : 'text-gray-500'
+                  ? 'text-foreground font-semibold'
+                  : 'text-muted-foreground'
               }`}>
                 {item.icon}
                 {item.label}

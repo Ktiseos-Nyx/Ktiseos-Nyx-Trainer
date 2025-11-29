@@ -19,8 +19,8 @@ export default function RootLayout({
       <body className="antialiased flex flex-col min-h-screen">
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          enableSystem
+          defaultTheme="system"
+          enableSystem={true}
           disableTransitionOnChange
         >
           <Navbar />

@@ -2,7 +2,25 @@
 
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { Zap } from "lucide-react"
+import {
+  Zap,
+  LayoutDashboard,
+  Database,
+  TrendingUp,
+  Wrench,
+  FolderTree,
+  BookOpen,
+  Info,
+  Settings as SettingsIcon,
+  FolderOpen,
+  Edit,
+  Tags,
+  Calculator as CalculatorIcon,
+  Package,
+  HardDrive,
+  Download,
+  Files
+} from "lucide-react"
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -21,44 +39,57 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo - Left */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg flex-shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 shadow-lg">
-            <Zap className="h-5 w-5 text-white" />
-          </div>
-          <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap">
-            KNX TRAINER
-          </span>
-        </Link>
+        {/* Left spacer for alignment */}
+        <div className="flex-1" />
 
-        {/* Navigation Links - Center (absolute positioning) */}
-        <NavigationMenu className="hidden md:flex absolute left-1/2 -translate-x-1/2">
-          <NavigationMenuList>
+        {/* Navigation Links - Center */}
+        <div className="flex justify-center">
+          <NavigationMenu>
+            <NavigationMenuList>
             {/* Dashboard - First! */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
                 <Link href="/dashboard" className={navigationMenuTriggerStyle()}>
+                  <LayoutDashboard className="w-4 h-4 mr-2" />
                   Dashboard
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            {/* Training Tools - Dropdown */}
+             {/* Dataset Tools - Dropdown */}
             <NavigationMenuItem>
-              <NavigationMenuTrigger>Training Tools</NavigationMenuTrigger>
+              <NavigationMenuTrigger>
+                <Database className="w-4 h-4 mr-2" />
+                Dataset Tools
+              </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                  <ListItem href="/dataset" title="Dataset">
+                  <ListItem href="/dataset" title="Dataset" icon={<FolderOpen className="w-4 h-4" />}>
                     Upload and prepare training datasets
                   </ListItem>
-                  <ListItem href="/training" title="Training">
+                  <ListItem href="/dataset/auto-tag" title="Auto-Tag" icon={<Zap className="w-4 h-4" />}>
+                    Auto-generate tags using WD14 models
+                  </ListItem>
+                  <ListItem href="/dataset/tags" title="Tag Editor" icon={<Tags className="w-4 h-4" />}>
+                    Manage image tags and captions
+                  </ListItem>
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Training Tools - Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger>
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Training Tools
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  <ListItem href="/training" title="Training" icon={<Zap className="w-4 h-4" />}>
                     Configure and monitor LoRA training
                   </ListItem>
-                  <ListItem href="/calculator" title="Calculator">
+                  <ListItem href="/calculator" title="Calculator" icon={<CalculatorIcon className="w-4 h-4" />}>
                     Calculate optimal training steps
-                  </ListItem>
-                  <ListItem href="/configs" title="Configs">
-                    Load and save training configurations
                   </ListItem>
                 </ul>
               </NavigationMenuContent>
@@ -66,32 +97,75 @@ export function Navbar() {
 
             {/* Utilities - Dropdown */}
             <NavigationMenuItem>
-              <NavigationMenuTrigger>Utilities</NavigationMenuTrigger>
+              <NavigationMenuTrigger>
+                <Wrench className="w-4 h-4 mr-2" />
+                Utilities
+              </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2">
-                  <ListItem href="/files" title="File Manager">
-                    Browse and manage training files
-                  </ListItem>
-                  <ListItem href="/utilities" title="LoRA Tools">
+                  <ListItem href="/utilities" title="LoRA Tools" icon={<Package className="w-4 h-4" />}>
                     Resize and upload trained LoRAs
+                  </ListItem>
+                  <ListItem href="/models" title="Models" icon={<HardDrive className="w-4 h-4" />}>
+                    Manage downloaded models and VAEs
+                  </ListItem>
+                  <ListItem href="/models/browse" title="Civitai Downloader" icon={<Download className="w-4 h-4" />}>
+                    Download models from Civitai
                   </ListItem>
                 </ul>
               </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* File Manager - Top level */}
+            <NavigationMenuItem>
+            <NavigationMenuTrigger>
+              <FolderTree className="w-4 h-4 mr-2" />
+              File Management
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-1">
+                  <ListItem href="/files" title="File Manager" icon={<Files className="w-4 h-4" />}>
+                    Use the File Manager to upload, download, and manage files!
+                  </ListItem>
+              </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Docs - Top level */}
+            <NavigationMenuItem>
+              <NavigationMenuLink asChild>
+                <Link href="/docs" className={navigationMenuTriggerStyle()}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Docs
+                </Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
+            {/* About - Top level */}
+            <NavigationMenuItem>
+              <NavigationMenuLink asChild>
+                <Link href="/about" className={navigationMenuTriggerStyle()}>
+                  <Info className="w-4 h-4 mr-2" />
+                  About
+                </Link>
+              </NavigationMenuLink>
             </NavigationMenuItem>
 
             {/* Settings - Top level */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
                 <Link href="/settings" className={navigationMenuTriggerStyle()}>
+                  <SettingsIcon className="w-4 h-4 mr-2" />
                   Settings
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
+        </div>
 
         {/* Theme Switcher - Right */}
-        <div className="flex items-center flex-shrink-0">
+        <div className="flex items-center justify-end flex-1">
           <ThemeSwitcher
             value={theme as "light" | "dark" | "system"}
             onChange={(newTheme) => setTheme(newTheme)}
@@ -107,12 +181,14 @@ const ListItem = ({
   title,
   children,
   href,
+  icon,
   ...props
 }: {
   className?: string
   title: string
   children: React.ReactNode
   href: string
+  icon?: React.ReactNode
 }) => {
   return (
     <li>
@@ -125,7 +201,10 @@ const ListItem = ({
           )}
           {...props}
         >
-          <div className="text-sm font-medium leading-none">{title}</div>
+          <div className="text-sm font-medium leading-none flex items-center gap-2">
+            {icon}
+            {title}
+          </div>
           <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
             {children}
           </p>

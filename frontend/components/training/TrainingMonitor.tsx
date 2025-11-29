@@ -117,14 +117,13 @@ export default function TrainingMonitor() {
   };
 
   return (
-    <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
+    <div className="rounded-xl border bg-card text-card-foreground shadow w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Activity className={`w-6 h-6 ${status.is_training ? 'text-green-400 animate-pulse' : 'text-gray-500'}`} />
-          <h2 className="text-2xl font-bold text-white">Training Monitor</h2>
+          <Activity className={`w-6 h-6 ${status.is_training ? 'text-green-400 animate-pulse' : 'text-muted-foreground'}`} />
+          <h2 className="text-2xl font-bold text-foreground">Training Monitor</h2>
         </div>
-
         <div className="flex items-center gap-2">
           {connected && (
             <span className="flex items-center gap-2 text-sm text-green-400">
@@ -134,8 +133,8 @@ export default function TrainingMonitor() {
           )}
           <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
             status.is_training
-              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-              : 'bg-slate-700/50 text-gray-400 border border-slate-600'
+              ? 'bg-green-300/20 text-green-400 border border-green-500/30'
+              : 'bg-muted text-muted-foreground border border-border'
           }`}>
             {status.is_training ? 'Training' : 'Idle'}
           </span>
@@ -148,14 +147,14 @@ export default function TrainingMonitor() {
           {/* Progress Bar */}
           <div>
             <div className="flex justify-between text-sm mb-2">
-              <span className="font-medium">
+              <span className="font-medium text-foreground">
                 Step {status.progress.current_step || 0} / {status.progress.total_steps || 0}
               </span>
-              <span className="text-gray-600">
+              <span className="text-muted-foreground">
                 {getProgress().toFixed(1)}%
               </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+            <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-300 relative"
                 style={{ width: `${getProgress()}%` }}
@@ -221,16 +220,16 @@ export default function TrainingMonitor() {
       )}
 
       {/* Logs Section */}
-      <div className="border border-slate-600 rounded-lg overflow-hidden">
-        <div className="bg-slate-800 px-4 py-2 border-b border-slate-600">
-          <span className="text-sm font-medium text-gray-300">
+      <div className="border border-border rounded-lg overflow-hidden">
+        <div className="bg-muted px-4 py-2 border-b border-border">
+          <span className="text-sm font-medium text-foreground">
             Training Logs {connected && <span className="text-green-400">(Live)</span>}
           </span>
         </div>
 
-        <div className="bg-slate-950 p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
+        <div className="bg-background  p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
           {logs.length === 0 ? (
-            <div className="text-gray-500 text-center py-8">
+            <div className="text-muted-foreground text-center py-8">
               {status.is_training
                 ? 'Waiting for logs...'
                 : 'Start training to see logs here'}
@@ -238,7 +237,7 @@ export default function TrainingMonitor() {
           ) : (
             <div className="space-y-1">
               {logs.map((log, index) => (
-                <div key={index} className="hover:bg-slate-900/50 px-2 py-1 rounded">
+                <div key={index} className="hover:bg-accent px-2 py-1 rounded">
                   {log}
                 </div>
               ))}
@@ -249,7 +248,7 @@ export default function TrainingMonitor() {
       </div>
 
       {!status.is_training && logs.length === 0 && (
-        <div className="mt-4 text-center text-sm text-gray-400">
+        <div className="mt-4 text-center text-sm text-muted-foreground">
           <p>WebSocket-based real-time updates</p>
         </div>
       )}

@@ -75,10 +75,10 @@ export default function DatasetTagsPage() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
             Tag Editor
           </h1>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-xl text-muted-foreground mt-4">
             Edit tags, bulk operations, and trigger word injection
           </p>
         </div>
@@ -159,8 +159,8 @@ function TagPreviewTab({ images, loading }: { images: ImageWithTags[], loading: 
   if (loading) {
     return (
       <div className="text-center py-12">
-        <Loader2 className="w-12 h-12 mx-auto text-gray-400 animate-spin mb-4" />
-        <p className="text-gray-500">Loading tags...</p>
+        <Loader2 className="w-12 h-12 mx-auto text-muted-foreground animate-spin mb-4" />
+        <p className="text-muted-foreground">Loading tags...</p>
       </div>
     );
   }
@@ -173,34 +173,34 @@ function TagPreviewTab({ images, loading }: { images: ImageWithTags[], loading: 
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700 p-6">
-          <div className="text-sm text-gray-400 mb-1">Total Images</div>
-          <div className="text-3xl font-bold text-white">{images.length}</div>
+        <div className="bg-card backdrop-blur-sm rounded-lg border border-border p-6">
+          <div className="text-sm text-muted-foreground mb-1">Total Images</div>
+          <div className="text-3xl font-bold text-foreground">{images.length}</div>
         </div>
-        <div className="bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700 p-6">
-          <div className="text-sm text-gray-400 mb-1">Tagged Images</div>
+        <div className="bg-card backdrop-blur-sm rounded-lg border border-border p-6">
+          <div className="text-sm text-muted-foreground mb-1">Tagged Images</div>
           <div className="text-3xl font-bold text-green-400">{taggedCount}</div>
         </div>
-        <div className="bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700 p-6">
-          <div className="text-sm text-gray-400 mb-1">Unique Tags</div>
+        <div className="bg-card backdrop-blur-sm rounded-lg border border-border p-6">
+          <div className="text-sm text-muted-foreground mb-1">Unique Tags</div>
           <div className="text-3xl font-bold text-cyan-400">{uniqueTags.length}</div>
         </div>
       </div>
 
       {/* Tag Cloud */}
-      <div className="bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700 p-6">
-        <h3 className="text-xl font-bold text-white mb-4">All Tags ({uniqueTags.length})</h3>
+      <div className="bg-card backdrop-blur-sm rounded-lg border border-border p-6">
+        <h3 className="text-xl font-bold text-foreground mb-4">All Tags ({uniqueTags.length})</h3>
         <div className="flex flex-wrap gap-2">
           {uniqueTags.slice(0, 100).map((tag, i) => (
             <span
               key={i}
-              className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full text-sm"
+              className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm border border-primary/20"
             >
               {tag}
             </span>
           ))}
           {uniqueTags.length > 100 && (
-            <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 rounded-full text-sm">
+            <span className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm">
               +{uniqueTags.length - 100} more
             </span>
           )}
@@ -208,22 +208,22 @@ function TagPreviewTab({ images, loading }: { images: ImageWithTags[], loading: 
       </div>
 
       {/* Images with Tags */}
-      <div className="bg-slate-900/50 backdrop-blur-sm rounded-lg border border-slate-700 p-6">
-        <h3 className="text-xl font-bold text-white mb-4">Images & Tags</h3>
+      <div className="bg-card backdrop-blur-sm rounded-lg border border-border p-6">
+        <h3 className="text-xl font-bold text-foreground mb-4">Images & Tags</h3>
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {images.slice(0, 20).map((img) => (
-            <div key={img.image_path} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            <div key={img.image_path} className="border border-border rounded-lg p-3">
               <div className="font-semibold text-sm mb-2">{img.image_name}</div>
               {img.has_tags ? (
                 <div className="flex flex-wrap gap-1">
                   {img.tags.map((tag, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-xs rounded">
+                    <span key={i} className="px-2 py-0.5 bg-muted text-xs rounded">
                       {tag}
                     </span>
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 italic">No tags</div>
+                <div className="text-sm text-muted-foreground italic">No tags</div>
               )}
             </div>
           ))}
@@ -446,13 +446,13 @@ function BulkOperationsTab({ datasetPath, onComplete }: { datasetPath: string, o
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
-      <h3 className="text-xl font-bold mb-4">Bulk Tag Operations</h3>
+    <div className="bg-card rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
+      <h3 className="text-xl font-bold text-foreground mb-4">Bulk Tag Operations</h3>
 
       <div className="space-y-4">
         {/* Operation Type */}
         <div>
-          <label className="block text-sm font-medium mb-2">Operation</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Operation</label>
           <div className="grid grid-cols-3 gap-2">
             {[
               { value: 'add', label: 'Add Tags', icon: Plus },
@@ -464,8 +464,8 @@ function BulkOperationsTab({ datasetPath, onComplete }: { datasetPath: string, o
                 onClick={() => setOperation(op.value as any)}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 ${
                   operation === op.value
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700'
-                    : 'border-gray-300 hover:border-gray-400'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:border-primary/50'
                 }`}
               >
                 <op.icon className="w-4 h-4" />
@@ -477,7 +477,7 @@ function BulkOperationsTab({ datasetPath, onComplete }: { datasetPath: string, o
 
         {/* Tags Input */}
         <div>
-          <label className="block text-sm font-medium mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Tags (comma-separated)
           </label>
           <input
@@ -485,14 +485,14 @@ function BulkOperationsTab({ datasetPath, onComplete }: { datasetPath: string, o
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="1girl, solo, smile"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary text-foreground"
           />
         </div>
 
         {/* Replace With (only for replace operation) */}
         {operation === 'replace' && (
           <div>
-            <label className="block text-sm font-medium mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Replace With (optional)
             </label>
             <input
@@ -500,7 +500,7 @@ function BulkOperationsTab({ datasetPath, onComplete }: { datasetPath: string, o
               value={replaceWith}
               onChange={(e) => setReplaceWith(e.target.value)}
               placeholder="Leave empty to remove"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary text-foreground"
             />
           </div>
         )}
@@ -517,7 +517,7 @@ function BulkOperationsTab({ datasetPath, onComplete }: { datasetPath: string, o
 
         {/* Result */}
         {result && (
-          <div className={`p-4 rounded-lg ${result.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          <div className={`p-4 rounded-lg ${result.success ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400 border border-green-200 dark:border-green-500/30' : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400 border border-red-200 dark:border-red-500/30'}`}>
             {result.success ? (
               <div>
                 <CheckCircle className="w-5 h-5 inline mr-2" />
@@ -559,35 +559,35 @@ function TriggerWordTab({ datasetPath, onComplete }: { datasetPath: string, onCo
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
-      <h3 className="text-xl font-bold mb-4">Inject Trigger Word</h3>
+    <div className="bg-card rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
+      <h3 className="text-xl font-bold text-foreground mb-4">Inject Trigger Word</h3>
 
       <div className="space-y-4">
         {/* Trigger Word Input */}
         <div>
-          <label className="block text-sm font-medium mb-2">Trigger Word</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Trigger Word</label>
           <input
             type="text"
             value={triggerWord}
             onChange={(e) => setTriggerWord(e.target.value)}
             placeholder="mycharacter"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary text-foreground"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             This word will help the model recognize your character/style
           </p>
         </div>
 
         {/* Position */}
         <div>
-          <label className="block text-sm font-medium mb-2">Position</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Position</label>
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => setPosition('start')}
               className={`px-4 py-3 rounded-lg border-2 ${
                 position === 'start'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700'
-                  : 'border-gray-300 hover:border-gray-400'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border hover:border-primary/50'
               }`}
             >
               Start of caption
@@ -596,8 +596,8 @@ function TriggerWordTab({ datasetPath, onComplete }: { datasetPath: string, onCo
               onClick={() => setPosition('end')}
               className={`px-4 py-3 rounded-lg border-2 ${
                 position === 'end'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700'
-                  : 'border-gray-300 hover:border-gray-400'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border hover:border-primary/50'
               }`}
             >
               End of caption
@@ -607,10 +607,10 @@ function TriggerWordTab({ datasetPath, onComplete }: { datasetPath: string, onCo
 
         {/* Info Box */}
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-          <p className="text-sm text-blue-900 dark:text-blue-100">
+          <p className="text-sm text-foreground">
             <strong>Example:</strong> If your trigger word is "mychar" and position is "start":
             <br />
-            <span className="font-mono text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded mt-2 inline-block">
+            <span className="font-mono text-xs bg-muted px-2 py-1 rounded mt-2 inline-block">
               1girl, smile → mychar, 1girl, smile
             </span>
           </p>
@@ -628,7 +628,7 @@ function TriggerWordTab({ datasetPath, onComplete }: { datasetPath: string, onCo
 
         {/* Result */}
         {result && (
-          <div className={`p-4 rounded-lg ${result.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          <div className={`p-4 rounded-lg ${result.success ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400 border border-green-200 dark:border-green-500/30' : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400 border border-red-200 dark:border-red-500/30'}`}>
             {result.success ? (
               <div>
                 <CheckCircle className="w-5 h-5 inline mr-2" />

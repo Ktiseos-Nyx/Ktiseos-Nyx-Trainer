@@ -4,29 +4,8 @@
 
 import Link from 'next/link';
 import { FileText, FolderOpen, Settings, Upload, Calculator, Wrench, Download, Zap, BookOpen, Info } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-import { ThemeSwitcher as InstalledThemeSwitcher } from '@/components/ui/shadcn-io/theme-switcher';
 
-// This is the controller component we defined. It connects the UI to the global theme.
-const ThemeController = () => {
-  const [mounted, setMounted] = useState(false);
-  const { theme, setTheme } = useTheme();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Don't render anything on the server or until the client has mounted
-  if (!mounted) {
-    return null;
-  }
-
-  // Type assertion to fix TypeScript error
-  return <InstalledThemeSwitcher value={theme as 'light' | 'dark' | 'system'} onChange={setTheme} />;
-};
-
-// --- YOUR MAIN DASHBOARD COMPONENT ---
+// --- DASHBOARD COMPONENT ---
 export default function Dashboard() {
   const cardClasses = "bg-card text-card-foreground backdrop-blur-sm border rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-accent transition-all cursor-pointer group";
 
@@ -34,21 +13,13 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-16">
 
-        <div className="flex justify-between items-start mb-16">
-            <div className="text-center flex-grow">
-                <h1 className="text-5xl font-bold text-foreground mb-4">
-                    Training Dashboard
-                </h1>
-                <p className="text-xl text-muted-foreground">
-                    Quick access to all your training tools
-                </p>
-            </div>
-
-            {/* =============================================================== */}
-            {/* FIX FOR ERROR #2 (Part 2): Render the 'ThemeController' component */}
-            {/* =============================================================== */}
-            <ThemeController />
-
+        <div className="text-center mb-16">
+            <h1 className="text-5xl font-bold text-foreground mb-4">
+                Training Dashboard
+            </h1>
+            <p className="text-xl text-muted-foreground">
+                Quick access to all your training tools
+            </p>
         </div>
 
 

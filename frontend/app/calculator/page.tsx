@@ -116,11 +116,11 @@ export default function CalculatorPage() {
                 />
               )}
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
-                <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                  📁 Kohya Format
+              <div className="bg-muted/50 border border-border rounded-lg p-3 text-sm">
+                <p className="font-medium text-foreground mb-1">
+                  Kohya Format
                 </p>
-                <p className="text-blue-700 dark:text-blue-300">
+                <p className="text-muted-foreground">
                   Auto-detects repeat counts from folder names (e.g., "10_character_name" → 10 repeats)
                 </p>
               </div>
@@ -172,17 +172,17 @@ export default function CalculatorPage() {
             )}
 
             {/* Info Box */}
-            <div className="mt-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg p-4">
-              <p className="text-sm font-medium mb-2">📊 Formula</p>
-              <code className="text-xs bg-white bg-card px-2 py-1 rounded">
+            <div className="mt-6 bg-muted/50 border border-border rounded-lg p-4">
+              <p className="text-sm font-medium text-foreground mb-2">Formula</p>
+              <code className="text-xs bg-background text-foreground px-2 py-1 rounded border border-border">
                 (Images × Repeats × Epochs) ÷ Batch Size = Steps
               </code>
             </div>
           </div>
 
           {/* Right: Results */}
-          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-4">Results</h2>
+          <div className="bg-card rounded-lg shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4 text-foreground">Results</h2>
 
             {result ? (
               <div className="space-y-4">
@@ -220,19 +220,19 @@ export default function CalculatorPage() {
 
                 {/* Caption */}
                 {result.caption && (
-                  <div className="bg-gray-50 bg-card rounded-lg p-4">
+                  <div className="bg-card rounded-lg p-4 border border-border">
                     <div className="text-sm font-medium text-muted-foreground mb-1">
                       Detected Caption
                     </div>
-                    <div className="font-mono text-sm">{result.caption}</div>
+                    <div className="font-mono text-sm text-foreground">{result.caption}</div>
                   </div>
                 )}
 
                 {/* Time Estimates */}
-                <div className="border border-gray-200 border-border rounded-lg p-4">
+                <div className="border border-border rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Clock className="w-5 h-5 text-gray-600" />
-                    <span className="font-semibold">Time Estimates (approximate)</span>
+                    <Clock className="w-5 h-5 text-foreground" />
+                    <span className="font-semibold text-foreground">Time Estimates (approximate)</span>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -262,57 +262,18 @@ export default function CalculatorPage() {
                 </div>
 
                 {/* Dataset Path */}
-                <div className="text-xs text-gray-500 text-muted-foreground font-mono bg-gray-50 bg-card rounded p-2">
+                <div className="text-xs text-muted-foreground font-mono bg-card rounded p-2 border border-border">
                   {result.dataset_path}
                 </div>
               </div>
             ) : (
               <div className="text-center py-12">
-                <Calculator className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500">
+                <Calculator className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
                   Enter your parameters and click Calculate
                 </p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Info Cards */}
-        <div className="mt-8 grid md:grid-cols-3 gap-6">
-          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
-                <Info className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="font-semibold">Kohya Compatible</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Uses the same calculation logic as Kohya sd-scripts for accurate step counts
-            </p>
-          </div>
-
-          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-purple-100 dark:bg-purple-900/30 p-3 rounded-lg">
-                <FolderOpen className="w-6 h-6 text-purple-600" />
-              </div>
-              <h3 className="font-semibold">Auto-Detection</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Automatically detects repeat counts and image counts from your dataset folder
-            </p>
-          </div>
-
-          <div className="bg-white bg-card rounded-lg shadow-lg p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
-                <Zap className="w-6 h-6 text-green-600" />
-              </div>
-              <h3 className="font-semibold">No More Guessing</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Get instant recommendations on whether your step count is optimal for training
-            </p>
           </div>
         </div>
 

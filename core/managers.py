@@ -2193,4 +2193,61 @@ class ModelManager:
 
         return self.download_file(vae_url, self.vae_dir, api_token)
 
+    def download_model_or_vae(self, url, download_dir):
+        """
+        Download a model or VAE using stored API keys from settings.
+
+        This method automatically loads API keys from user settings and
+        determines which key to use based on the URL.
+
+        Args:
+            url: URL to download from (HuggingFace or Civitai)
+            download_dir: Target directory for download
+
+        Returns:
+            dict: Result dictionary with success status, file_path, and message/error
+        """
+        try:
+            # Import here to avoid circular dependency
+            import sys
+            from pathlib import Path
+
+            # Add project root to path for settings import
+            project_root = Path(__file__).parent.parent
+            if str(project_root) not in sys.path:
+                sys.path.insert(0, str(project_root))
+
+            from api.routes.settings import get_api_keys
+
+            # Load API keys from settings
+            api_keys = get_api_keys()
+
+            # Determine which API token to use based on URL
+            api_token = ""
+            if "huggingface.co" in url:
+                api_token = api_keys.get("huggingface_token", "")
+            elif "civitai.com" in url:
+                api_token = api_keys.get("civitai_api_key", "")
+
+            # Download the file
+            result_path = self.download_file(url, download_dir, api_token)
+
+            if result_path and os.path.exists(result_path):
+                return {
+                    "success": True,
+                    "file_path": result_path,
+                    "message": f"Successfully downloaded to {result_path}"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "Download failed - no file path returned"
+                }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
 

@@ -96,7 +96,8 @@ async def load_config(path: str):
 async def save_config(request: SaveConfigRequest):
     """Save a configuration file"""
     try:
-        config_dir = Path("/workspace/configs")
+        # Use relative path from project root
+        config_dir = Path(__file__).parent.parent.parent / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
 
         config_path = config_dir / f"{request.name}.toml"

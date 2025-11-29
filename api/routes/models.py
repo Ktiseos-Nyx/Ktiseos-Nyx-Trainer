@@ -178,6 +178,11 @@ async def get_popular_models():
                     "description": "Official SDXL base model from Stability AI"
                 },
                 {
+                    "name": "Illustrious XL",
+                    "url": "https://huggingface.co/OnomaAIResearch/Illustrious-xl-early-release-v0/resolve/main/Illustrious-XL-v0.1.safetensors",
+                    "description": "High-quality anime/illustration model"
+                },
+                {
                     "name": "Pony Diffusion V6 XL",
                     "url": "https://civitai.com/api/download/models/290640",
                     "description": "Popular anime/cartoon model"
