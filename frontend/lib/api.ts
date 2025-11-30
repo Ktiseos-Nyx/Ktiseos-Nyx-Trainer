@@ -129,22 +129,17 @@ export interface PaginatedDatasetsResponse {
 }
 
 export const datasetAPI = {
-  list: async (page: number = 1, pageSize: number = 50): Promise<PaginatedDatasetsResponse> => {
-    const response = await fetch(`${API_BASE}/dataset/list?page=${page}&page_size=${pageSize}`);
+  // ✅ Now uses Python backend
+  list: async (): Promise<{ datasets: DatasetInfo[]; total: number }> => {
+    const response = await fetch(`${API_BASE}/dataset/list`);
     return handleResponse(response);
   },
 
-  uploadBatch: async (files: File[], datasetName: string) => {
-    const formData = new FormData();
-    files.forEach(file => formData.append('files', file));
-
-    const response = await fetch(
-      `${API_BASE}/dataset/upload-batch?dataset_name=${encodeURIComponent(datasetName)}`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
+  // ✅ New method
+  deleteDataset: async (name: string) => {
+    const response = await fetch(`${API_BASE}/dataset/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    });
     return handleResponse(response);
   },
 
