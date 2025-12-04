@@ -53,3 +53,28 @@ class HuggingFaceUploadResponse(BaseModel):
     repo_url: Optional[str] = None
     commit_hash: Optional[str] = None
     errors: list[str] = Field(default_factory=list)
+
+
+class LoRAInput(BaseModel):
+    """Single LoRA input for merging."""
+    path: str = Field(..., description="Path to LoRA file")
+    ratio: float = Field(1.0, ge=0.0, le=2.0, description="Merge weight ratio")
+
+
+class LoRAMergeRequest(BaseModel):
+    """Request to merge multiple LoRAs."""
+    lora_inputs: list[LoRAInput] = Field(..., min_length=2, description="List of LoRAs to merge")
+    output_path: str = Field(..., description="Path to output merged LoRA")
+    model_type: str = Field("sd", description="Model type: sd (SD1.5), sdxl, flux, svd")
+    device: str = Field("cpu", description="Device for processing (cpu/cuda)")
+    save_precision: str = Field("fp16", description="Save precision (fp16/bf16/fp32)")
+    precision: str = Field("float", description="Computation precision (float/fp16/bf16)")
+
+
+class LoRAMergeResponse(BaseModel):
+    """Response from LoRA merge operation."""
+    success: bool
+    message: str
+    output_path: Optional[str] = None
+    merged_count: Optional[int] = None
+    file_size_mb: Optional[float] = None

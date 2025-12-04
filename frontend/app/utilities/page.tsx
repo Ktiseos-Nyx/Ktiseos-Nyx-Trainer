@@ -82,62 +82,234 @@ export default function UtilitiesPage() {
 // ========== Merge LoRAs Tab ==========
 
 function MergeLoRATab() {
-  const [mergeType, setMergeType] = useState<'lora-to-lora' | 'lora-to-checkpoint'>('lora-to-lora');
+  const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
+  const [selectedLoras, setSelectedLoras] = useState<Array<{ path: string; name: string; ratio: number }>>([]);
+  const [outputPath, setOutputPath] = useState('');
+  const [modelType, setModelType] = useState<'sd' | 'sdxl' | 'flux' | 'svd'>('sdxl');
+  const [merging, setMerging] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load available files
+  useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        const dirsResponse = await utilitiesAPI.getDirectories();
+        const loraDir = dirsResponse.output || 'output';
+
+        const filesResponse = await utilitiesAPI.listLoraFiles(loraDir, 'safetensors', 'date');
+        if (filesResponse.success) {
+          setAvailableFiles(filesResponse.files);
+        }
+      } catch (err) {
+        console.error('Failed to load LoRA files:', err);
+      }
+    };
+    loadFiles();
+  }, []);
+
+  // Auto-generate output path when selection changes
+  useEffect(() => {
+    if (selectedLoras.length >= 2) {
+      const timestamp = new Date().toISOString().split('T')[0];
+      setOutputPath(`output/merged_${modelType}_${timestamp}.safetensors`);
+    }
+  }, [selectedLoras.length, modelType]);
+
+  const addLoraToMerge = (file: LoRAFile) => {
+    if (!selectedLoras.find(l => l.path === file.path)) {
+      setSelectedLoras([...selectedLoras, { path: file.path, name: file.name, ratio: 1.0 }]);
+    }
+  };
+
+  const removeLoraFromMerge = (path: string) => {
+    setSelectedLoras(selectedLoras.filter(l => l.path !== path));
+  };
+
+  const updateRatio = (path: string, ratio: number) => {
+    setSelectedLoras(
+      selectedLoras.map(l =>
+        l.path === path ? { ...l, ratio: Math.max(0, Math.min(2, ratio)) } : l
+      )
+    );
+  };
+
+  const handleMerge = async () => {
+    if (selectedLoras.length < 2) {
+      setError('Please select at least 2 LoRAs to merge');
+      return;
+    }
+
+    if (!outputPath) {
+      setError('Please provide an output path');
+      return;
+    }
+
+    try {
+      setMerging(true);
+      setError(null);
+      setResult(null);
+
+      const response = await utilitiesAPI.mergeLora(
+        selectedLoras.map(l => ({ path: l.path, ratio: l.ratio })),
+        outputPath,
+        modelType
+      );
+
+      if (response.success) {
+        setResult(response);
+        setSelectedLoras([]);
+      } else {
+        setError(response.message || 'Merge failed');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Merge failed');
+    } finally {
+      setMerging(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* Merge Type Selector */}
+      {/* Model Type Selector */}
       <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-foreground mb-4">Merge Type</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <button
-            onClick={() => setMergeType('lora-to-lora')}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              mergeType === 'lora-to-lora'
-                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
-            }`}
-          >
-            <div className="text-center">
-              <FolderOpen className="w-8 h-8 mx-auto mb-2" />
-              <h3 className="font-semibold">Merge Multiple LoRAs</h3>
-              <p className="text-sm mt-1 opacity-80">Combine 2+ LoRAs with custom weights</p>
-            </div>
-          </button>
-          <button
-            onClick={() => setMergeType('lora-to-checkpoint')}
-            className={`p-4 rounded-lg border-2 transition-all ${
-              mergeType === 'lora-to-checkpoint'
-                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
-                : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
-            }`}
-          >
-            <div className="text-center">
-              <Upload className="w-8 h-8 mx-auto mb-2" />
-              <h3 className="font-semibold">Bake LoRA into Model</h3>
-              <p className="text-sm mt-1 opacity-80">Merge LoRA into a base checkpoint</p>
-            </div>
-          </button>
+        <h2 className="text-xl font-bold text-foreground mb-4">Model Architecture</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {(['sd', 'sdxl', 'flux', 'svd'] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => setModelType(type)}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                modelType === type
+                  ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
+                  : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
+              }`}
+            >
+              <div className="text-center font-semibold">{type.toUpperCase()}</div>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Placeholder Content */}
+      {/* Available LoRAs */}
       <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-foreground mb-4">
-          {mergeType === 'lora-to-lora' ? 'LoRA Merging' : 'LoRA to Checkpoint'}
-        </h2>
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-6 text-center">
-          <p className="text-blue-300 mb-2">🚧 Coming Soon!</p>
-          <p className="text-sm text-muted-foreground">
-            {mergeType === 'lora-to-lora'
-              ? 'Merge multiple LoRAs together with custom weight ratios using Kohya\'s merge scripts.'
-              : 'Bake a LoRA into a base model checkpoint for standalone use without needing the LoRA file.'}
-          </p>
-          <p className="text-xs text-muted-foreground mt-4">
-            TODO: Add file selection, weight sliders, merge options, and backend API integration.
-          </p>
-        </div>
+        <h2 className="text-xl font-bold text-foreground mb-4">Available LoRAs</h2>
+        {availableFiles.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No LoRA files found in output directory
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+            {availableFiles.map((file) => (
+              <button
+                key={file.path}
+                onClick={() => addLoraToMerge(file)}
+                disabled={selectedLoras.some(l => l.path === file.path)}
+                className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-foreground truncate">{file.name}</div>
+                  <div className="text-sm text-muted-foreground">{file.size_formatted}</div>
+                </div>
+                {selectedLoras.some(l => l.path === file.path) && (
+                  <CheckCircle className="w-5 h-5 text-green-500 ml-2" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Selected LoRAs for Merge */}
+      {selectedLoras.length > 0 && (
+        <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
+          <h2 className="text-xl font-bold text-foreground mb-4">
+            Selected LoRAs ({selectedLoras.length})
+          </h2>
+          <div className="space-y-3">
+            {selectedLoras.map((lora) => (
+              <div key={lora.path} className="flex items-center gap-4 p-3 border border-border rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-foreground truncate">{lora.name}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">Ratio:</label>
+                  <input
+                    type="number"
+                    value={lora.ratio}
+                    onChange={(e) => updateRatio(lora.path, parseFloat(e.target.value) || 0)}
+                    step="0.1"
+                    min="0"
+                    max="2"
+                    className="w-20 px-2 py-1 bg-input border border-input text-foreground rounded text-center"
+                  />
+                </div>
+                <button
+                  onClick={() => removeLoraFromMerge(lora.path)}
+                  className="p-2 hover:bg-destructive/10 rounded text-destructive"
+                  title="Remove"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Output Path */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Output Path</label>
+            <input
+              type="text"
+              value={outputPath}
+              onChange={(e) => setOutputPath(e.target.value)}
+              className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg"
+              placeholder="output/merged.safetensors"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Merge Button */}
+      <button
+        onClick={handleMerge}
+        disabled={merging || selectedLoras.length < 2 || !outputPath}
+        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-4 rounded-lg font-semibold hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+      >
+        {merging ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Merging...
+          </>
+        ) : (
+          <>
+            <FolderOpen className="w-5 h-5" />
+            Merge {selectedLoras.length} LoRAs
+          </>
+        )}
+      </button>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* Success Result */}
+      {result && result.success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="w-5 h-5" />
+            <span className="font-semibold">Merge Successful!</span>
+          </div>
+          <div className="text-sm space-y-1">
+            <div>Output: {result.output_path}</div>
+            <div>Merged {result.merged_count} LoRAs</div>
+            <div>File Size: {result.file_size_mb} MB</div>
+            <div className="mt-2 font-medium">{result.message}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

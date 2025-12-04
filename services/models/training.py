@@ -67,17 +67,25 @@ class SaveModelAs(str, Enum):
     CKPT = "ckpt"
 
 
+class TrainingMode(str, Enum):
+    """Training modes."""
+    LORA = "lora"
+    CHECKPOINT = "checkpoint"
+
+
 class TrainingConfig(BaseModel):
     """
-    Complete LoRA training configuration.
+    Complete training configuration.
 
     Supports SD1.5, SDXL, Flux, SD3.5, and Lumina model types.
+    Supports both LoRA and full checkpoint training.
     Matches frontend TrainingConfig interface.
     """
 
     # ========== PROJECT & MODEL SETUP ==========
     project_name: str = Field(..., description="Name of the training project")
     model_type: ModelType = Field(..., description="Model architecture type")
+    training_mode: TrainingMode = Field(TrainingMode.LORA, description="Training mode: LoRA or full checkpoint")
     pretrained_model_name_or_path: str = Field(..., description="Path to pretrained model checkpoint")
     vae_path: Optional[str] = Field(None, description="Path to VAE model")
 

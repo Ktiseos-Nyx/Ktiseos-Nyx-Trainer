@@ -251,7 +251,7 @@ export const datasetAPI = {
   },
 
   injectTriggerWord: async (datasetPath: string, triggerWord: string, position: 'start' | 'end' = 'start') => {
-    const response = await fetch(`${API_BASE}/dataset/inject-trigger-word`, {
+    const response = await fetch(`${API_BASE}/dataset/captions/add-trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -265,6 +265,84 @@ export const datasetAPI = {
 
   // WebSocket for tagging logs (job-based)
   connectTaggingLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      onMessage(data);
+    };
+
+    if (onError) {
+      ws.onerror = onError;
+    }
+
+    return ws;
+  },
+};
+
+// ========== Captioning Operations (BLIP/GIT) ==========
+
+export interface BLIPConfig {
+  dataset_dir: string;
+  caption_extension?: string;
+  caption_weights?: string;
+  batch_size?: number;
+  max_workers?: number;
+  beam_search?: boolean;
+  num_beams?: number;
+  top_p?: number;
+  max_length?: number;
+  min_length?: number;
+  recursive?: boolean;
+  debug?: boolean;
+}
+
+export interface GITConfig {
+  dataset_dir: string;
+  caption_extension?: string;
+  model_id?: string;
+  batch_size?: number;
+  max_workers?: number;
+  max_length?: number;
+  remove_words?: boolean;
+  recursive?: boolean;
+  debug?: boolean;
+}
+
+export const captioningAPI = {
+  startBLIP: async (config: BLIPConfig) => {
+    const response = await fetch(`${API_BASE}/dataset/caption/blip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return handleResponse(response);
+  },
+
+  startGIT: async (config: GITConfig) => {
+    const response = await fetch(`${API_BASE}/dataset/caption/git`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return handleResponse(response);
+  },
+
+  getStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/caption/status/${jobId}`);
+    return handleResponse(response);
+  },
+
+  stop: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/caption/stop/${jobId}`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+
+  // WebSocket for captioning logs (reuses same endpoint as tagging)
+  connectLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
     const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
     const ws = new WebSocket(wsUrl);
 
@@ -589,15 +667,15 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
-  stop: async () => {
-    const response = await fetch(`${API_BASE}/training/stop`, {
+  stop: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/training/stop/${jobId}`, {
       method: 'POST',
     });
     return handleResponse(response);
   },
 
-  status: async () => {
-    const response = await fetch(`${API_BASE}/training/status`);
+  status: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/training/status/${jobId}`);
     return handleResponse(response);
   },
 
@@ -611,8 +689,8 @@ export const trainingAPI = {
   },
 
   // WebSocket for logs
-  connectLogs: (onMessage: (data: any) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/training/logs`;
+  connectLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
@@ -752,6 +830,29 @@ export const utilitiesAPI = {
         output_path: outputPath,
         new_dim: newDim,
         new_alpha: newAlpha
+      }),
+    });
+    return handleResponse(response);
+  },
+
+  mergeLora: async (
+    loraInputs: Array<{ path: string; ratio: number }>,
+    outputPath: string,
+    modelType: string = 'sd',
+    device: string = 'cpu',
+    savePrecision: string = 'fp16',
+    precision: string = 'float'
+  ) => {
+    const response = await fetch(`${API_BASE}/utilities/lora/merge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lora_inputs: loraInputs,
+        output_path: outputPath,
+        model_type: modelType,
+        device,
+        save_precision: savePrecision,
+        precision,
       }),
     });
     return handleResponse(response);

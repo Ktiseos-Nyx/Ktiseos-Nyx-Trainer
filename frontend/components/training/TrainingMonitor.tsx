@@ -20,6 +20,7 @@ export default function TrainingMonitor() {
   const [status, setStatus] = useState<TrainingStatus>({ is_training: false });
   const [logs, setLogs] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,20 +35,33 @@ export default function TrainingMonitor() {
 
   // Initial check on mount (for page refreshes during active training)
   useEffect(() => {
-    const checkInitialStatus = async () => {
+    // Try to restore job_id from localStorage
+    const storedJobId = localStorage.getItem('current_training_job_id');
+    if (storedJobId) {
+      setJobId(storedJobId);
+    }
+
+    const checkInitialStatus = async (currentJobId: string) => {
       try {
-        const statusData = await trainingAPI.status();
+        const statusData = await trainingAPI.status(currentJobId);
         setStatus(statusData);
       } catch (err) {
         // No training running - stay idle
+        setStatus({ is_training: false });
       }
     };
 
-    checkInitialStatus();
+    if (storedJobId) {
+      checkInitialStatus(storedJobId);
+    }
 
     // Listen for training start event from TrainingConfig
-    const handleTrainingStart = () => {
-      checkInitialStatus();
+    const handleTrainingStart = (event: any) => {
+      const newJobId = event.detail?.jobId || localStorage.getItem('current_training_job_id');
+      if (newJobId) {
+        setJobId(newJobId);
+        checkInitialStatus(newJobId);
+      }
     };
 
     window.addEventListener('training-started', handleTrainingStart);
@@ -59,19 +73,20 @@ export default function TrainingMonitor() {
 
   // Poll training status (only when training is active)
   useEffect(() => {
-    // Don't poll if not training
-    if (!status.is_training) return;
+    // Don't poll if not training or no job_id
+    if (!status.is_training || !jobId) return;
 
     const pollStatus = async () => {
       // Don't poll if page is hidden
       if (document.hidden) return;
 
       try {
-        const statusData = await trainingAPI.status();
+        const statusData = await trainingAPI.status(jobId);
         setStatus(statusData);
       } catch (err: any) {
         // Training ended or error - stop polling
         setStatus({ is_training: false });
+        localStorage.removeItem('current_training_job_id');
       }
     };
 
@@ -91,15 +106,16 @@ export default function TrainingMonitor() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [status.is_training]);
+  }, [status.is_training, jobId]);
 
   // WebSocket for logs
   useEffect(() => {
-    if (!status.is_training) return;
+    if (!status.is_training || !jobId) return;
 
-    console.log('Connecting to training logs WebSocket...');
+    console.log(`Connecting to training logs WebSocket for job ${jobId}...`);
 
     const ws = trainingAPI.connectLogs(
+      jobId,
       (data) => {
         console.log('WebSocket message:', data);
 
@@ -134,7 +150,7 @@ export default function TrainingMonitor() {
     return () => {
       ws.close();
     };
-  }, [status.is_training]);
+  }, [status.is_training, jobId]);
 
   // Calculate progress percentage
   const getProgress = () => {

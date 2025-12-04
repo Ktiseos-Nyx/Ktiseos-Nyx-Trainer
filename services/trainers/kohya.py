@@ -172,18 +172,34 @@ class KohyaTrainer(BaseTrainer):
 
     def get_script_path(self) -> Path:
         """
-        Get the appropriate training script for the model type.
+        Get the appropriate training script for the model type and training mode.
 
         Returns:
             Path to training script
         """
-        script_map = {
-            ModelType.SD15: "train_network.py",
-            ModelType.SDXL: "sdxl_train_network.py",
-            ModelType.FLUX: "flux_train_network.py",
-            ModelType.SD3: "sd3_train_network.py",
-            ModelType.LUMINA: "flux_train_network.py",  # Lumina uses same script
-        }
+        from services.models.training import TrainingMode
 
-        script_name = script_map.get(self.config.model_type, "train_network.py")
+        # Select script based on training mode
+        if self.config.training_mode == TrainingMode.CHECKPOINT:
+            # Full checkpoint/model training
+            script_map = {
+                ModelType.SD15: "fine_tune.py",
+                ModelType.SDXL: "sdxl_train.py",
+                ModelType.FLUX: "flux_train.py",
+                ModelType.SD3: "sd3_train.py",
+                ModelType.LUMINA: "lumina_train.py",
+            }
+            default_script = "fine_tune.py"
+        else:
+            # LoRA network training (default)
+            script_map = {
+                ModelType.SD15: "train_network.py",
+                ModelType.SDXL: "sdxl_train_network.py",
+                ModelType.FLUX: "flux_train_network.py",
+                ModelType.SD3: "sd3_train_network.py",
+                ModelType.LUMINA: "flux_train_network.py",  # Lumina uses same script
+            }
+            default_script = "train_network.py"
+
+        script_name = script_map.get(self.config.model_type, default_script)
         return self.sd_scripts_dir / script_name

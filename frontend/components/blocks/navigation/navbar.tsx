@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import {
@@ -19,7 +20,8 @@ import {
   Package,
   HardDrive,
   Download,
-  Files
+  Files,
+  Cpu
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -32,9 +34,24 @@ import {
 } from "@/components/ui/navigation-menu"
 import { ThemeSwitcher } from "@/components/ui/shadcn-io/theme-switcher"
 import { cn } from "@/lib/utils"
+import { datasetAPI, DatasetInfo } from '@/lib/api';
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
+  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
+
+  useEffect(() => {
+    const loadDatasets = async () => {
+      try {
+        const data = await datasetAPI.list();
+        setDatasets(data.datasets || []);
+      } catch (err) {
+        console.error('Failed to load datasets for navbar:', err);
+      }
+    };
+    loadDatasets();
+  }, []);
+
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -67,12 +84,16 @@ export function Navbar() {
                   <ListItem href="/dataset" title="Dataset" icon={<FolderOpen className="w-4 h-4" />}>
                     Upload and prepare training datasets
                   </ListItem>
-                  <ListItem href="/dataset/auto-tag" title="Auto-Tag" icon={<Zap className="w-4 h-4" />}>
-                    Auto-generate tags using WD14 models
-                  </ListItem>
-                  <ListItem href="/dataset/tags" title="Tag Editor" icon={<Tags className="w-4 h-4" />}>
-                    Manage image tags and captions
-                  </ListItem>
+                  {datasets.length > 0 && (
+                    <>
+                      <ListItem href={`/dataset/${datasets[0].name}/auto-tag`} title="Auto-Tag" icon={<Zap className="w-4 h-4" />}>
+                        Auto-generate tags using WD14 models
+                      </ListItem>
+                      <ListItem href={`/dataset/${datasets[0].name}/tags`} title="Tag Editor" icon={<Tags className="w-4 h-4" />}>
+                        Manage image tags and captions
+                      </ListItem>
+                    </>
+                  )}
                 </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
@@ -85,8 +106,11 @@ export function Navbar() {
               </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                  <ListItem href="/training" title="Training" icon={<Zap className="w-4 h-4" />}>
-                    Configure and monitor LoRA training
+                  <ListItem href="/training" title="LoRA Training" icon={<Zap className="w-4 h-4" />}>
+                    Train LoRA adapters (lightweight, fast)
+                  </ListItem>
+                  <ListItem href="/checkpoint-training" title="Checkpoint Training" icon={<Cpu className="w-4 h-4" />}>
+                    Full model fine-tuning (high VRAM required)
                   </ListItem>
                   <ListItem href="/calculator" title="Calculator" icon={<CalculatorIcon className="w-4 h-4" />}>
                     Calculate optimal training steps

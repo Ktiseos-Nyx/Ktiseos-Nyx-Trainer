@@ -18,6 +18,8 @@ from services.models.lora import (
     LoRAResizeResponse,
     HuggingFaceUploadRequest,
     HuggingFaceUploadResponse,
+    LoRAMergeRequest,
+    LoRAMergeResponse,
 )
 from services.core.exceptions import ValidationError, ProcessError, NotFoundError
 
@@ -36,10 +38,16 @@ class LoRAService:
 
     def __init__(self):
         self.project_root = Path.cwd()
-        self.resize_script = (
-            self.project_root / "trainer" / "derrian_backend" / "sd_scripts" /
-            "networks" / "resize_lora.py"
+        self.scripts_path = (
+            self.project_root / "trainer" / "derrian_backend" / "sd_scripts" / "networks"
         )
+        self.resize_script = self.scripts_path / "resize_lora.py"
+        self.merge_scripts = {
+            "sd": self.scripts_path / "merge_lora.py",
+            "sdxl": self.scripts_path / "sdxl_merge_lora.py",
+            "flux": self.scripts_path / "flux_merge_lora.py",
+            "svd": self.scripts_path / "svd_merge_lora.py",
+        }
 
     async def resize_lora(self, request: LoRAResizeRequest) -> LoRAResizeResponse:
         """
@@ -238,6 +246,112 @@ class LoRAService:
                 success=False,
                 message=f"Internal error: {e}",
                 errors=[str(e)]
+            )
+
+    async def merge_lora(self, request: LoRAMergeRequest) -> LoRAMergeResponse:
+        """
+        Merge multiple LoRA models into one.
+
+        Args:
+            request: LoRA merge request
+
+        Returns:
+            LoRAMergeResponse with result
+        """
+        try:
+            # Validate all input LoRAs exist
+            for lora_input in request.lora_inputs:
+                input_path = Path(lora_input.path)
+                if not input_path.exists():
+                    raise NotFoundError(f"Input LoRA not found: {lora_input.path}")
+
+                if input_path.suffix.lower() not in ['.safetensors', '.pt', '.ckpt']:
+                    raise ValidationError(f"Invalid LoRA file format: {input_path.suffix}")
+
+            # Validate output path
+            output_path = Path(request.output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Select appropriate merge script
+            model_type = request.model_type.lower()
+            if model_type not in self.merge_scripts:
+                raise ValidationError(
+                    f"Unsupported model type: {model_type}. "
+                    f"Supported types: {list(self.merge_scripts.keys())}"
+                )
+
+            merge_script = self.merge_scripts[model_type]
+            if not merge_script.exists():
+                raise NotFoundError(
+                    f"Merge script not found for {model_type}. "
+                    "Please ensure the training backend is installed."
+                )
+
+            # Build command
+            command = [
+                sys.executable,
+                str(merge_script),
+                "--save_to", str(output_path),
+                "--save_precision", request.save_precision,
+                "--precision", request.precision,
+            ]
+
+            # Add each LoRA with its ratio
+            for lora_input in request.lora_inputs:
+                command.extend(["--models", lora_input.path])
+                command.extend(["--ratios", str(lora_input.ratio)])
+
+            # Add device
+            if request.device != "cpu":
+                command.extend(["--device", request.device])
+
+            logger.info(
+                f"Merging {len(request.lora_inputs)} LoRAs "
+                f"using {model_type} merge script"
+            )
+
+            # Execute merge
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=self.project_root,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode != 0:
+                error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
+                raise ProcessError(f"LoRA merge failed: {error_msg}")
+
+            # Get file size
+            file_size_mb = output_path.stat().st_size / (1024 * 1024)
+
+            logger.info(
+                f"LoRAs merged successfully: {output_path.name} "
+                f"({file_size_mb:.2f} MB)"
+            )
+
+            return LoRAMergeResponse(
+                success=True,
+                message=f"Successfully merged {len(request.lora_inputs)} LoRAs",
+                output_path=str(output_path),
+                merged_count=len(request.lora_inputs),
+                file_size_mb=round(file_size_mb, 2)
+            )
+
+        except (ValidationError, NotFoundError, ProcessError) as e:
+            logger.error(f"LoRA merge failed: {e}")
+            return LoRAMergeResponse(
+                success=False,
+                message=str(e)
+            )
+
+        except Exception as e:
+            logger.exception(f"Unexpected error during LoRA merge: {e}")
+            return LoRAMergeResponse(
+                success=False,
+                message=f"Internal error: {e}"
             )
 
     def _generate_readme(self, request: HuggingFaceUploadRequest) -> Optional[str]:
