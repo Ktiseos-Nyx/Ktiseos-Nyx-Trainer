@@ -1,4 +1,5 @@
 import TrainingConfig from '@/components/training/TrainingConfig';
+import { TrainingDefaults } from '@/components/training/TrainingDefaults';
 import TrainingMonitor from '@/components/training/TrainingMonitor';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Home, Settings } from 'lucide-react';
@@ -27,6 +28,9 @@ export default function TrainingPage() {
 
         {/* Main Content */}
         <div className="space-y-8">
+          {/* Training Defaults */}
+          <TrainingDefaults />
+
           {/* Training Configuration */}
           <TrainingConfig />
 

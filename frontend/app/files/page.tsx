@@ -1,5 +1,6 @@
 import FileManager from '@/components/FileManager';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import { File, Folder, Tree } from "@/components/ui/file-tree"
 import { Home, FolderOpen } from 'lucide-react';
 
 export default function FilesPage() {

@@ -13,8 +13,12 @@ from pydantic import BaseModel
 
 # Import new service
 from services import lora_service
-from services.models.lora import LoRAResizeRequest as ServiceResizeRequest
-from services.models.lora import HuggingFaceUploadRequest as ServiceHFRequest
+from services.models.lora import (
+    LoRAResizeRequest as ServiceResizeRequest,
+    HuggingFaceUploadRequest as ServiceHFRequest,
+    LoRAMergeRequest as ServiceMergeRequest,
+    LoRAInput,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -274,6 +278,54 @@ async def resize_lora(request: LoRAResizeRequest):
 
     except Exception as e:
         logger.error(f"LoRA resize error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class LoRAMergeRequest(BaseModel):
+    """Request model for LoRA merging"""
+    lora_inputs: list[dict]  # [{path: str, ratio: float}, ...]
+    output_path: str
+    model_type: str = "sd"
+    device: str = "cpu"
+    save_precision: str = "fp16"
+    precision: str = "float"
+
+
+@router.post("/lora/merge")
+async def merge_lora(request: LoRAMergeRequest):
+    """
+    Merge multiple LoRA models into one.
+    Uses Kohya's merge scripts from vendored backend.
+    """
+    try:
+        # Convert dict inputs to LoRAInput models
+        lora_inputs = [
+            LoRAInput(path=lora["path"], ratio=lora.get("ratio", 1.0))
+            for lora in request.lora_inputs
+        ]
+
+        # Convert to service request
+        service_request = ServiceMergeRequest(
+            lora_inputs=lora_inputs,
+            output_path=request.output_path,
+            model_type=request.model_type,
+            device=request.device,
+            save_precision=request.save_precision,
+            precision=request.precision
+        )
+
+        response = await lora_service.merge_lora(service_request)
+
+        return {
+            "success": response.success,
+            "message": response.message,
+            "output_path": response.output_path,
+            "merged_count": response.merged_count,
+            "file_size_mb": response.file_size_mb
+        }
+
+    except Exception as e:
+        logger.error(f"LoRA merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

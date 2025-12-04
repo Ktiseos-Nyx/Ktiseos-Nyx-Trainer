@@ -2,20 +2,45 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { datasetAPI, DatasetInfo } from '@/lib/api';
-import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders } from 'lucide-react';
+import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig } from '@/lib/api';
+import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { GradientCard } from '@/components/effects';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+type CaptioningMethod = 'wd14' | 'blip' | 'git';
 
 export default function AutoTagPage() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Method selection
+  const [method, setMethod] = useState<CaptioningMethod>('wd14');
 
   // Basic settings
   const [selectedDataset, setSelectedDataset] = useState<string>('');
   const [taggerModel, setTaggerModel] = useState('SmilingWolf/wd-vit-large-tagger-v3');
   const [captionExtension, setCaptionExtension] = useState('.txt');
   const [captionSeparator, setCaptionSeparator] = useState(', ');
+
+  // BLIP settings
+  const [blipBeamSearch, setBlipBeamSearch] = useState(false);
+  const [blipNumBeams, setBlipNumBeams] = useState(3);
+  const [blipTopP, setBlipTopP] = useState(0.9);
+  const [blipMaxLength, setBlipMaxLength] = useState(75);
+  const [blipMinLength, setBlipMinLength] = useState(5);
+
+  // GIT settings
+  const [gitModel, setGitModel] = useState('microsoft/git-large-textcaps');
+  const [gitMaxLength, setGitMaxLength] = useState(50);
+  const [gitRemoveWords, setGitRemoveWords] = useState(true);
 
   // Thresholds (3 separate!)
   const [threshold, setThreshold] = useState(0.35);
@@ -151,7 +176,7 @@ export default function AutoTagPage() {
     }
   };
 
-  // Start tagging
+  // Start tagging/captioning
   const handleStartTagging = async () => {
     if (!selectedDataset) {
       alert('Please select a dataset!');
@@ -165,13 +190,48 @@ export default function AutoTagPage() {
     setCurrentImage(null);
     setTotalImages(null);
 
-    addLog('🚀 Starting auto-tagging...');
+    const methodLabel = method === 'wd14' ? 'WD14 Tagging' : method === 'blip' ? 'BLIP Captioning' : 'GIT Captioning';
+    addLog(`🚀 Starting ${methodLabel}...`);
     addLog(`📁 Dataset: ${selectedDataset}`);
-    addLog(`🤖 Model: ${taggerModel}`);
-    addLog(`🎯 Thresholds: Overall=${threshold}, General=${useGeneralThreshold ? generalThreshold : 'default'}, Character=${useCharacterThreshold ? characterThreshold : 'default'}`);
 
     try {
-      const response = await datasetAPI.tag({
+      let response;
+
+      if (method === 'blip') {
+        addLog(`🤖 Model: BLIP (${blipBeamSearch ? 'beam search' : 'nucleus sampling'})`);
+        const config: BLIPConfig = {
+          dataset_dir: selectedDataset,
+          caption_extension: captionExtension,
+          batch_size: batchSize,
+          max_workers: maxWorkers,
+          beam_search: blipBeamSearch,
+          num_beams: blipNumBeams,
+          top_p: blipTopP,
+          max_length: blipMaxLength,
+          min_length: blipMinLength,
+          recursive,
+          debug,
+        };
+        response = await captioningAPI.startBLIP(config);
+      } else if (method === 'git') {
+        addLog(`🤖 Model: ${gitModel}`);
+        const config: GITConfig = {
+          dataset_dir: selectedDataset,
+          caption_extension: captionExtension,
+          model_id: gitModel,
+          batch_size: batchSize,
+          max_workers: maxWorkers,
+          max_length: gitMaxLength,
+          remove_words: gitRemoveWords,
+          recursive,
+          debug,
+        };
+        response = await captioningAPI.startGIT(config);
+      } else {
+        // WD14 Tagging
+        addLog(`🤖 Model: ${taggerModel}`);
+        addLog(`🎯 Thresholds: Overall=${threshold}, General=${useGeneralThreshold ? generalThreshold : 'default'}, Character=${useCharacterThreshold ? characterThreshold : 'default'}`);
+        response = await datasetAPI.tag({
         datasetDir: selectedDataset,
         model: taggerModel,
         forceDownload,
@@ -195,12 +255,30 @@ export default function AutoTagPage() {
         useOnnx,
         frequencyTags,
         debug,
-      });
+        });
+      }
 
+      // Handle response (same for all methods)
       if (response.success && response.job_id) {
         setJobId(response.job_id);
         addLog(`✅ Job started! ID: ${response.job_id}`);
-        connectLogs(response.job_id);
+
+        // Connect logs and status polling
+        if (method === 'wd14') {
+          connectLogs(response.job_id);
+        } else {
+          // BLIP/GIT use same WebSocket endpoint
+          if (wsRef.current) wsRef.current.close();
+          wsRef.current = captioningAPI.connectLogs(
+            response.job_id,
+            (data) => { if (data.log) setLogs(prev => [...prev, data.log]); },
+            (error) => {
+              console.error('WebSocket error:', error);
+              addLog('⚠️ Log connection lost - using status polling');
+            }
+          );
+        }
+
         startStatusPolling(response.job_id);
       } else {
         addLog(`❌ Failed: ${response.message}`);
@@ -208,7 +286,7 @@ export default function AutoTagPage() {
       }
     } catch (err) {
       addLog(`❌ Error: ${err}`);
-      alert(`❌ Tagging failed: ${err}`);
+      alert(`❌ ${methodLabel} failed: ${err}`);
       setTagging(false);
     }
   };
@@ -243,22 +321,72 @@ export default function AutoTagPage() {
 
         <div className="mb-8">
           <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-pink-400 via-rose-400 to-pink-400 bg-clip-text text-transparent">
-            WD14 Auto-Tagging
+            Auto-Tagging & Captioning
           </h1>
           <p className="text-xl text-muted-foreground mt-4">
-            Automatic caption generation with comprehensive control over tag processing
+            Generate tags or captions for your dataset
           </p>
+
+          {/* Method Selector */}
+          <div className="mt-6 grid grid-cols-3 gap-4 max-w-3xl">
+            <button
+              onClick={() => setMethod('wd14')}
+              disabled={tagging}
+              className={`p-6 rounded-xl border-2 transition-all ${
+                method === 'wd14'
+                  ? 'border-pink-500 bg-pink-500/10'
+                  : 'border-border hover:border-pink-300'
+              } disabled:opacity-50`}
+            >
+              <Tag className={`w-8 h-8 mx-auto mb-2 ${method === 'wd14' ? 'text-pink-500' : 'text-muted-foreground'}`} />
+              <div className="font-bold text-lg">WD14 Tags</div>
+              <div className="text-sm text-muted-foreground mt-1">Anime-style booru tags</div>
+              <div className="text-xs text-muted-foreground mt-2">girl, blue_eyes, smile</div>
+            </button>
+
+            <button
+              onClick={() => setMethod('blip')}
+              disabled={tagging}
+              className={`p-6 rounded-xl border-2 transition-all ${
+                method === 'blip'
+                  ? 'border-cyan-500 bg-cyan-500/10'
+                  : 'border-border hover:border-cyan-300'
+              } disabled:opacity-50`}
+            >
+              <Sparkles className={`w-8 h-8 mx-auto mb-2 ${method === 'blip' ? 'text-cyan-500' : 'text-muted-foreground'}`} />
+              <div className="font-bold text-lg">BLIP</div>
+              <div className="text-sm text-muted-foreground mt-1">Natural language</div>
+              <div className="text-xs text-muted-foreground mt-2">a girl with blue eyes smiling</div>
+            </button>
+
+            <button
+              onClick={() => setMethod('git')}
+              disabled={tagging}
+              className={`p-6 rounded-xl border-2 transition-all ${
+                method === 'git'
+                  ? 'border-purple-500 bg-purple-500/10'
+                  : 'border-border hover:border-purple-300'
+              } disabled:opacity-50`}
+            >
+              <Camera className={`w-8 h-8 mx-auto mb-2 ${method === 'git' ? 'text-purple-500' : 'text-muted-foreground'}`} />
+              <div className="font-bold text-lg">GIT</div>
+              <div className="text-sm text-muted-foreground mt-1">Photo captions</div>
+              <div className="text-xs text-muted-foreground mt-2">a portrait of a girl with blue eyes</div>
+            </button>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Column: Basic Settings */}
           <div className="space-y-6">
-            <GradientCard variant="watermelon" intensity="subtle">
-              <div className="p-6 space-y-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <Zap className="w-6 h-6 text-pink-600 dark:text-pink-400" />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="w-5 h-5" />
                   Basic Settings
-                </h2>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
 
                 {/* Dataset */}
                 <div>
@@ -330,14 +458,16 @@ export default function AutoTagPage() {
                     className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
                   />
                 </div>
-              </div>
-            </GradientCard>
+              </CardContent>
+            </Card>
 
             {/* Dataset Info */}
             {selectedDatasetInfo && (
-              <GradientCard variant="shadow" intensity="subtle">
-                <div className="p-6">
-                  <h3 className="text-xl font-bold mb-4">Selected Dataset</h3>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Selected Dataset</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
                       <span className="text-orange-400">📁</span>
@@ -361,19 +491,22 @@ export default function AutoTagPage() {
                       )}
                     </div>
                   </div>
-                </div>
-              </GradientCard>
+                </CardContent>
+              </Card>
             )}
           </div>
 
-          {/* Middle Column: Thresholds & Tag Processing */}
+          {/* Middle Column: Method-Specific Settings */}
           <div className="space-y-6">
-            <GradientCard variant="ocean" intensity="subtle">
-              <div className="p-6 space-y-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <Sliders className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
-                  Thresholds
-                </h2>
+            {method === 'wd14' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sliders className="w-5 h-5" />
+                    Thresholds
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
 
                 {/* Overall Threshold */}
                 <div>
@@ -455,15 +588,185 @@ export default function AutoTagPage() {
                     💡 Separate thresholds for general/character tags allow fine-tuned control
                   </p>
                 </div>
-              </div>
-            </GradientCard>
+              </CardContent>
+            </Card>
+            )}
 
-            <GradientCard variant="watermelon" intensity="subtle">
-              <div className="p-6 space-y-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <Tag className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+            {method === 'blip' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5" />
+                    BLIP Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+
+                  {/* Sampling Method */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Sampling Method</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={!blipBeamSearch}
+                          onChange={() => setBlipBeamSearch(false)}
+                          disabled={tagging}
+                          className="accent-cyan-500"
+                        />
+                        <span className="text-sm">Nucleus (faster)</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={blipBeamSearch}
+                          onChange={() => setBlipBeamSearch(true)}
+                          disabled={tagging}
+                          className="accent-cyan-500"
+                        />
+                        <span className="text-sm">Beam Search (better)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Beam Settings */}
+                  {blipBeamSearch && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Number of Beams: {blipNumBeams}</label>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={blipNumBeams}
+                        onChange={(e) => setBlipNumBeams(parseInt(e.target.value))}
+                        disabled={tagging}
+                        className="w-full accent-cyan-500"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">More beams = better quality but slower</p>
+                    </div>
+                  )}
+
+                  {/* Top-P */}
+                  {!blipBeamSearch && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Top-P (Nucleus): {blipTopP.toFixed(2)}</label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="1.0"
+                        step="0.05"
+                        value={blipTopP}
+                        onChange={(e) => setBlipTopP(parseFloat(e.target.value))}
+                        disabled={tagging}
+                        className="w-full accent-cyan-500"
+                      />
+                    </div>
+                  )}
+
+                  {/* Length */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Max Length: {blipMaxLength}</label>
+                    <input
+                      type="range"
+                      min="20"
+                      max="150"
+                      step="5"
+                      value={blipMaxLength}
+                      onChange={(e) => setBlipMaxLength(parseInt(e.target.value))}
+                      disabled={tagging}
+                      className="w-full accent-cyan-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Min Length: {blipMinLength}</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      value={blipMinLength}
+                      onChange={(e) => setBlipMinLength(parseInt(e.target.value))}
+                      disabled={tagging}
+                      className="w-full accent-cyan-500"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {method === 'git' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Camera className="w-5 h-5" />
+                    GIT Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+
+                  {/* Model */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Model</label>
+                    <select
+                      value={gitModel}
+                      onChange={(e) => setGitModel(e.target.value)}
+                      disabled={tagging}
+                      className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                    >
+                      <option value="microsoft/git-large-textcaps">GIT Large TextCaps (best)</option>
+                      <option value="microsoft/git-large">GIT Large</option>
+                      <option value="microsoft/git-base">GIT Base (faster)</option>
+                    </select>
+                  </div>
+
+                  {/* Max Length */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Max Caption Length: {gitMaxLength}</label>
+                    <input
+                      type="range"
+                      min="20"
+                      max="100"
+                      step="5"
+                      value={gitMaxLength}
+                      onChange={(e) => setGitMaxLength(parseInt(e.target.value))}
+                      disabled={tagging}
+                      className="w-full accent-purple-500"
+                    />
+                  </div>
+
+                  {/* Remove Words */}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="git-remove-words"
+                      checked={gitRemoveWords}
+                      onChange={(e) => setGitRemoveWords(e.target.checked)}
+                      disabled={tagging}
+                      className="w-4 h-4 accent-purple-500"
+                    />
+                    <label htmlFor="git-remove-words" className="text-sm cursor-pointer">
+                      Remove "with the words xxx" artifacts
+                    </label>
+                  </div>
+
+                  <div className="pt-4 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      💡 GIT is optimized for photo-realistic images and general scenes
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {method === 'wd14' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tag className="w-5 h-5" />
                   Tag Processing
-                </h2>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
 
                 {/* Prefix Tags */}
                 <div>
@@ -598,18 +901,21 @@ export default function AutoTagPage() {
                     </label>
                   </div>
                 </div>
-              </div>
-            </GradientCard>
+              </CardContent>
+            </Card>
+            )}
           </div>
 
           {/* Right Column: Performance & Actions */}
           <div className="space-y-6">
-            <GradientCard variant="cotton-candy" intensity="subtle">
-              <div className="p-6 space-y-6">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <Settings className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
                   Performance
-                </h2>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
 
                 {/* Batch Size */}
                 <div>
@@ -743,12 +1049,12 @@ export default function AutoTagPage() {
                     </div>
                   </div>
                 )}
-              </div>
-            </GradientCard>
+              </CardContent>
+            </Card>
 
             {/* Action Buttons */}
-            <GradientCard variant="watermelon" intensity="subtle">
-              <div className="p-6 space-y-4">
+            <Card>
+              <CardContent className="pt-6 space-y-4">
                 <div className="flex gap-3">
                   <button
                     onClick={handleStartTagging}
@@ -789,16 +1095,18 @@ export default function AutoTagPage() {
                     )}
                   </div>
                 )}
-              </div>
-            </GradientCard>
+              </CardContent>
+            </Card>
 
             {/* How It Works */}
-            <GradientCard variant="ocean" intensity="subtle">
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  <Info className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="w-5 h-5" />
                   How It Works
-                </h3>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-start gap-2">
                     <span className="text-cyan-400">1.</span>
@@ -817,8 +1125,8 @@ export default function AutoTagPage() {
                     <span>Saves as .txt files (Kohya format)</span>
                   </li>
                 </ul>
-              </div>
-            </GradientCard>
+              </CardContent>
+            </Card>
           </div>
         </div>
 

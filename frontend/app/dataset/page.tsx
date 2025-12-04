@@ -7,7 +7,8 @@ import DatasetUploader from '@/components/DatasetUploader';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { datasetAPI, DatasetInfo } from '@/lib/api';
 import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Edit, Zap, Info } from 'lucide-react';
-import { GradientCard } from '@/components/effects';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function DatasetPage() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
@@ -69,6 +70,7 @@ export default function DatasetPage() {
             </div>
 
             {/* Quick Actions */}
+            {!loading && datasets.length > 0 && (
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/dataset/auto-tag"
@@ -85,6 +87,7 @@ export default function DatasetPage() {
                 Edit Tags
               </Link>
             </div>
+            )}
           </div>
         </div>
 
@@ -95,18 +98,22 @@ export default function DatasetPage() {
           </div>
 
           {/* Right: Dataset List (1/3 width) */}
-          <GradientCard variant="ocean" intensity="subtle">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-foreground">Existing Datasets</h2>
-                <button
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Existing Datasets</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={loadDatasets}
-                  className="flex items-center gap-1 text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
+                  className="gap-1"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Refresh
-                </button>
+                </Button>
               </div>
+            </CardHeader>
+            <CardContent>
 
               {loading ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -167,18 +174,20 @@ export default function DatasetPage() {
                   ))}
                 </div>
               )}
-            </div>
-          </GradientCard>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Workflow Guide */}
         <div className="mt-8">
-          <GradientCard variant="watermelon" intensity="subtle">
-            <div className="p-6">
-              <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
-                <Info className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="w-5 h-5" />
                 Dataset Workflow
-              </h2>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -208,8 +217,8 @@ export default function DatasetPage() {
                   </p>
                 </div>
               </div>
-            </div>
-          </GradientCard>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

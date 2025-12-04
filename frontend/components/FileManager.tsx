@@ -236,43 +236,56 @@ export default function FileManager() {
                 elements={treeElements}
                 className="h-full"
               >
-                {treeElements.map((element) => (
-                  element.children ? (
-                    <TreeFolder
-                      key={element.id}
-                      element={element.name}
-                      value={element.id}
-                      isSelectable={element.isSelectable}
-                    >
-                      {element.children.map((child) => (
-                        child.children ? (
-                          <TreeFolder
-                            key={child.id}
-                            element={child.name}
-                            value={child.id}
-                            isSelectable={child.isSelectable}
-                          />
-                        ) : (
-                          <TreeFile
-                            key={child.id}
-                            value={child.id}
-                            onClick={() => navigateTo(child.id)}
-                          >
-                            <span className="ml-1">{child.name}</span>
-                          </TreeFile>
-                        )
-                      ))}
-                    </TreeFolder>
-                  ) : (
-                    <TreeFile
-                      key={element.id}
-                      value={element.id}
-                      onClick={() => navigateTo(element.id)}
-                    >
-                      <span className="ml-1">{element.name}</span>
-                    </TreeFile>
-                  )
-                ))}
+                {treeElements.map((element) => {
+                  const hasChildren = element.children && element.children.length > 0;
+
+                  if (hasChildren) {
+                    return (
+                      <TreeFolder
+                        key={element.id}
+                        element={element.name}
+                        value={element.id}
+                        isSelectable={element.isSelectable}
+                      >
+                        {element.children!.map((child) => {
+                          const childHasChildren = child.children && child.children.length > 0;
+
+                          if (childHasChildren) {
+                            return (
+                              <TreeFolder
+                                key={child.id}
+                                element={child.name}
+                                value={child.id}
+                                isSelectable={child.isSelectable}
+                              />
+                            );
+                          } else {
+                            return (
+                              <TreeFile
+                                key={child.id}
+                                value={child.id}
+                                onClick={() => navigateTo(child.id)}
+                              >
+                                <span className="ml-1">{child.name}</span>
+                              </TreeFile>
+                            );
+                          }
+                        })}
+                      </TreeFolder>
+                    );
+                  } else {
+                    return (
+                      <TreeFile
+                        key={element.id}
+                        value={element.id}
+                        onClick={() => navigateTo(element.id)}
+                        isSelectable={element.isSelectable}
+                      >
+                        <span className="ml-1">{element.name}</span>
+                      </TreeFile>
+                    );
+                  }
+                })}
               </Tree>
             </div>
           </div>

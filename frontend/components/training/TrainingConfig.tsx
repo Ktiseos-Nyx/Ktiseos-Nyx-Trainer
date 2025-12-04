@@ -221,8 +221,25 @@ export default function TrainingConfig() {
   useEffect(() => {
     const loadDefaults = async () => {
       try {
-        const defaults = await configAPI.defaults();
-        setConfig((prev) => ({ ...prev, ...defaults }));
+        const apiDefaults = await configAPI.defaults();
+        let mergedDefaults = { ...apiDefaults };
+
+        const stored = localStorage.getItem('ktiseos-nyx-settings');
+        if (stored) {
+            const settings = JSON.parse(stored);
+            if (settings.defaultEpochs !== undefined) {
+                mergedDefaults.max_train_epochs = settings.defaultEpochs;
+            }
+            if (settings.defaultBatchSize !== undefined) {
+                mergedDefaults.train_batch_size = settings.defaultBatchSize;
+            }
+            if (settings.defaultLearningRate !== undefined) {
+                mergedDefaults.unet_lr = settings.defaultLearningRate;
+                mergedDefaults.text_encoder_lr = settings.defaultLearningRate;
+            }
+        }
+        
+        setConfig((prev) => ({ ...prev, ...mergedDefaults }));
       } catch (err) {
         console.error('Failed to load defaults:', err);
         // Silently continue - component has built-in defaults already
@@ -354,10 +371,16 @@ export default function TrainingConfig() {
 
       // Training started successfully
       if (result.success) {
-        setSuccess(`Training started! ID: ${result.training_id}`);
+        const jobId = result.job_id || result.training_id; // Support both old and new API
+        setSuccess(`Training started! Job ID: ${jobId}`);
+
+        // Store job_id for TrainingMonitor
+        if (jobId) {
+          localStorage.setItem('current_training_job_id', jobId);
+        }
 
         // Notify TrainingMonitor to start polling
-        window.dispatchEvent(new CustomEvent('training-started'));
+        window.dispatchEvent(new CustomEvent('training-started', { detail: { jobId } }));
       } else {
         setError(result.message || 'Failed to start training');
       }

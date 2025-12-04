@@ -278,6 +278,97 @@ async def stop_tagging(job_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ========== BLIP/GIT Captioning ==========
+
+from services import captioning_service
+from services.models.captioning import BLIPConfig, GITConfig
+
+
+@router.post("/caption/blip")
+async def start_blip_captioning(config: BLIPConfig):
+    """
+    Start BLIP natural language captioning.
+    Returns job_id for monitoring progress.
+    """
+    try:
+        response = await captioning_service.start_blip_captioning(config)
+
+        return {
+            "success": response.success,
+            "message": response.message,
+            "job_id": response.job_id,
+            "validation_errors": response.validation_errors
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to start BLIP captioning: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/caption/git")
+async def start_git_captioning(config: GITConfig):
+    """
+    Start GIT natural language captioning.
+    Returns job_id for monitoring progress.
+    """
+    try:
+        response = await captioning_service.start_git_captioning(config)
+
+        return {
+            "success": response.success,
+            "message": response.message,
+            "job_id": response.job_id,
+            "validation_errors": response.validation_errors
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to start GIT captioning: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/caption/status/{job_id}")
+async def get_captioning_status(job_id: str):
+    """Get captioning job status and progress"""
+    try:
+        status = await captioning_service.get_status(job_id)
+
+        if not status:
+            raise HTTPException(status_code=404, detail="Captioning job not found")
+
+        return {
+            "job_id": status.job_id,
+            "status": status.status.value,
+            "progress": status.progress,
+            "current_image": status.current_image,
+            "total_images": status.total_images,
+            "error": status.error
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get captioning status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/caption/stop/{job_id}")
+async def stop_captioning(job_id: str):
+    """Stop a running captioning job"""
+    try:
+        stopped = await captioning_service.stop_captioning(job_id)
+
+        if not stopped:
+            raise HTTPException(status_code=404, detail="Job not found or already stopped")
+
+        return {"success": True, "message": f"Captioning {job_id} stopped"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to stop captioning: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ========== Caption Editing ==========
 
 @router.post("/captions/add-trigger")
@@ -332,6 +423,94 @@ async def write_caption(request: WriteCaptionRequest):
         return response.dict()
     except Exception as e:
         logger.error(f"Failed to write caption: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Tag Management (Direct) ==========
+
+class UpdateTagsRequest(BaseModel):
+    """Request to update tags for a single image"""
+    image_path: str
+    tags: list[str]
+
+
+@router.post("/update-tags")
+async def update_tags_endpoint(request: UpdateTagsRequest):
+    """Update tags for a single image"""
+    try:
+        from pathlib import Path
+        from services.core.validation import validate_path
+
+        # Get image and caption file paths
+        img_path = Path(request.image_path)
+        caption_path = img_path.with_suffix('.txt')
+
+        # Write tags to caption file
+        caption_path.write_text(', '.join(request.tags), encoding='utf-8')
+
+        logger.info(f"Updated tags for {img_path.name}: {len(request.tags)} tags")
+
+        return {
+            "success": True,
+            "image_path": request.image_path,
+            "tags": request.tags
+        }
+    except Exception as e:
+        logger.error(f"Failed to update tags: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BulkTagOperationRequest(BaseModel):
+    """Request for bulk tag operation"""
+    dataset_path: str
+    operation: str  # "add", "remove", "replace"
+    tags: list[str]
+    replace_with: str = ""
+
+
+@router.post("/bulk-tag-operation")
+async def bulk_tag_operation_endpoint(request: BulkTagOperationRequest):
+    """Bulk tag operation on all images in dataset"""
+    try:
+        from pathlib import Path
+        from services.core.validation import validate_dataset_path, ALLOWED_IMAGE_EXTENSIONS
+
+        dataset_dir = validate_dataset_path(request.dataset_path)
+        modified_count = 0
+
+        # Find all caption files
+        for ext in ALLOWED_IMAGE_EXTENSIONS:
+            for img_path in dataset_dir.glob(f"*{ext}"):
+                caption_path = img_path.with_suffix('.txt')
+
+                if not caption_path.exists():
+                    continue
+
+                # Read current tags
+                current_tags = caption_path.read_text(encoding='utf-8').strip().split(', ')
+                current_tags = [t.strip() for t in current_tags if t.strip()]
+
+                # Apply operation
+                if request.operation == "add":
+                    current_tags.extend([t for t in request.tags if t not in current_tags])
+                elif request.operation == "remove":
+                    current_tags = [t for t in current_tags if t not in request.tags]
+                elif request.operation == "replace":
+                    current_tags = [request.replace_with if t in request.tags else t for t in current_tags]
+
+                # Write back
+                caption_path.write_text(', '.join(current_tags), encoding='utf-8')
+                modified_count += 1
+
+        logger.info(f"Bulk {request.operation} operation: modified {modified_count} files")
+
+        return {
+            "success": True,
+            "modified_count": modified_count,
+            "operation": request.operation
+        }
+    except Exception as e:
+        logger.error(f"Bulk tag operation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
