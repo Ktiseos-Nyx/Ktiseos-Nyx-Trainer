@@ -9,7 +9,7 @@ echo "  Ktiseos Nyx LoRA Trainer - Starting Up"
 echo "=================================================="
 
 # Navigate to workspace
-cd /workspace/Ktiseos-Nyx-Trainer
+cd /opt/workspace-internal/Ktiseos-Nyx-Trainer
 
 # Repository code is already in the Docker image!
 # Submodule logic is now handled by vendoring.
@@ -30,10 +30,13 @@ echo "=================================================="
 echo "  Starting Services"
 echo "=================================================="
 
+# Create logs directory
+mkdir -p /opt/workspace-internal/logs
+
 # Start FastAPI backend in background
 echo "Starting FastAPI backend on port 8000..."
-cd /workspace/Ktiseos-Nyx-Trainer
-nohup uvicorn api.main:app --host 0.0.0.0 --port 8000 > /workspace/logs/backend.log 2>&1 &
+cd /opt/workspace-internal/Ktiseos-Nyx-Trainer
+nohup uvicorn api.main:app --host 0.0.0.0 --port 8000 > /opt/workspace-internal/logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo "Backend started (PID: $BACKEND_PID)"
 
@@ -49,18 +52,18 @@ done
 
 # Start Next.js frontend
 echo "Starting Next.js frontend on port 3000..."
-cd /workspace/Ktiseos-Nyx-Trainer/frontend
-nohup npm run start > /workspace/logs/frontend.log 2>&1 &
+cd /opt/workspace-internal/Ktiseos-Nyx-Trainer/frontend
+nohup npm run start > /opt/workspace-internal/logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
 echo "Frontend started (PID: $FRONTEND_PID)"
 
 # Optional: Start Jupyter if requested
 if [ "$START_JUPYTER" = "true" ]; then
     echo "Starting Jupyter Lab on port 8888..."
-    cd /workspace/Ktiseos-Nyx-Trainer
+    cd /opt/workspace-internal/Ktiseos-Nyx-Trainer
     nohup jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
         --NotebookApp.token='' --NotebookApp.password='' \
-        > /workspace/logs/jupyter.log 2>&1 &
+        > /opt/workspace-internal/logs/jupyter.log 2>&1 &
     JUPYTER_PID=$!
     echo "Jupyter started (PID: $JUPYTER_PID)"
 fi
@@ -68,8 +71,8 @@ fi
 # Optional: Start TensorBoard if requested
 if [ "$START_TENSORBOARD" = "true" ]; then
     echo "Starting TensorBoard on port 6006..."
-    nohup tensorboard --logdir=/workspace/training_logs --host=0.0.0.0 --port=6006 \
-        > /workspace/logs/tensorboard.log 2>&1 &
+    nohup tensorboard --logdir=/opt/workspace-internal/logs --host=0.0.0.0 --port=6006 \
+        > /opt/workspace-internal/logs/tensorboard.log 2>&1 &
     TENSORBOARD_PID=$!
     echo "TensorBoard started (PID: $TENSORBOARD_PID)"
 fi
@@ -85,8 +88,8 @@ echo "  - Frontend UI:  http://localhost:3000"
 [ "$START_JUPYTER" = "true" ] && echo "  - Jupyter Lab:  http://localhost:8888"
 [ "$START_TENSORBOARD" = "true" ] && echo "  - TensorBoard:  http://localhost:6006"
 echo ""
-echo "Logs available at: /workspace/logs/"
-echo "Training outputs: /workspace/output/"
+echo "Logs available at: /opt/workspace-internal/logs/"
+echo "Training outputs: /opt/workspace-internal/output/"
 echo ""
 echo "Press Ctrl+C to stop services"
 echo "=================================================="
@@ -95,13 +98,13 @@ echo "=================================================="
 while true; do
     # Check if backend is still running
     if ! kill -0 $BACKEND_PID 2>/dev/null; then
-        echo "ERROR: Backend process died! Check /workspace/logs/backend.log"
+        echo "ERROR: Backend process died! Check /opt/workspace-internal/logs/backend.log"
         exit 1
     fi
 
     # Check if frontend is still running
     if ! kill -0 $FRONTEND_PID 2>/dev/null; then
-        echo "ERROR: Frontend process died! Check /workspace/logs/frontend.log"
+        echo "ERROR: Frontend process died! Check /opt/workspace-internal/logs/frontend.log"
         exit 1
     fi
 
