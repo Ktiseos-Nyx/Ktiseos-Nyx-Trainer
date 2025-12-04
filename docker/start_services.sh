@@ -8,18 +8,18 @@ echo "=================================================="
 echo ""
 
 # Check if we're in the right place
-if [ ! -d "/workspace/Ktiseos-Nyx-Trainer" ]; then
-    echo "❌ Repository not found at /workspace/Ktiseos-Nyx-Trainer"
+if [ ! -d "/opt/workspace-internal/Ktiseos-Nyx-Trainer" ]; then
+    echo "❌ Repository not found at /opt/workspace-internal/Ktiseos-Nyx-Trainer"
     echo ""
     echo "Running first-time setup..."
     /startup.sh
     exit 0
 fi
 
-cd /workspace/Ktiseos-Nyx-Trainer
+cd /opt/workspace-internal/Ktiseos-Nyx-Trainer
 
 # Create logs directory
-mkdir -p /workspace/logs
+mkdir -p /opt/workspace-internal/logs
 
 # Check if services are already running
 BACKEND_RUNNING=$(pgrep -f "uvicorn api.main:app" || echo "")
@@ -30,7 +30,7 @@ if [ -n "$BACKEND_RUNNING" ]; then
     echo "   To restart, run: pkill -f uvicorn && bash $0"
 else
     echo "🚀 Starting Backend API..."
-    nohup uvicorn api.main:app --host 0.0.0.0 --port 8000 > /workspace/logs/backend.log 2>&1 &
+    nohup uvicorn api.main:app --host 0.0.0.0 --port 8000 > /opt/workspace-internal/logs/backend.log 2>&1 &
     BACKEND_PID=$!
     echo "   ✅ Backend started (PID: $BACKEND_PID)"
 fi
@@ -54,7 +54,7 @@ else
         npm run build
     fi
 
-    nohup npm run start > /workspace/logs/frontend.log 2>&1 &
+    nohup npm run start > /opt/workspace-internal/logs/frontend.log 2>&1 &
     FRONTEND_PID=$!
     echo "   ✅ Frontend started (PID: $FRONTEND_PID)"
     cd ..
@@ -71,8 +71,8 @@ echo "   Backend:   http://$(hostname -I | awk '{print $1}'):8000"
 echo "   API Docs:  http://$(hostname -I | awk '{print $1}'):8000/docs"
 echo ""
 echo "📝 View logs:"
-echo "   Backend:   tail -f /workspace/logs/backend.log"
-echo "   Frontend:  tail -f /workspace/logs/frontend.log"
+echo "   Backend:   tail -f /opt/workspace-internal/logs/backend.log"
+echo "   Frontend:  tail -f /opt/workspace-internal/logs/frontend.log"
 echo ""
 echo "🛑 Stop services:"
 echo "   pkill -f uvicorn"

@@ -52,8 +52,9 @@ RUN uv pip install --system -r /tmp/requirements-backend.txt \
 
 # Copy application code
 COPY api/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/api/
-COPY core/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/core/
-COPY widgets/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/widgets/
+COPY services/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/services/
+COPY trainer/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/trainer/
+COPY custom/ /opt/workspace-internal/Ktiseos-Nyx-Trainer/custom/
 COPY installer.py /opt/workspace-internal/Ktiseos-Nyx-Trainer/
 
 # Copy frontend code for building
