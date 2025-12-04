@@ -41,7 +41,14 @@ if [ -d "frontend" ]; then
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     cd frontend
-    npm start -- -p 3000 &
+
+    # Check if build exists
+    if [ ! -d ".next" ]; then
+        echo "   ⚠️  No build found, running npm run build first..."
+        npm run build
+    fi
+
+    npm run start &
     FRONTEND_PID=$!
     echo "   Frontend PID: $FRONTEND_PID"
     cd ..
