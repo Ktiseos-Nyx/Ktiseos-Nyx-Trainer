@@ -2,12 +2,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { datasetAPI, ImageWithTags } from '@/lib/api';
 import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 
-export default function DatasetTagsPage({ params }: { params: { name: string } }) {
-  const datasetName = params.name;
+export default function DatasetTagsPage() {
+  const params = useParams();
+  const datasetName = params.name as string;
   const [images, setImages] = useState<ImageWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [localImages, setLocalImages] = useState<ImageWithTags[]>([]);

@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Download,
 } from 'lucide-react';
-import { datasetAPI } from '@/lib/api';
+import { datasetAPI, fileAPI } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface UploadedFile {
@@ -86,12 +86,23 @@ export default function DatasetUploader() {
         prev.map((f) => ({ ...f, status: 'uploading' as const }))
       );
 
-      const imageFiles = files.filter(f => f.file.type.startsWith('image/')).map((f) => f.file);
+      const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
 
       if (imageFiles.length > 0) {
-        await datasetAPI.uploadBatch(imageFiles, datasetName);
+        const destination = `datasets/${datasetName}`;
+        for (let i = 0; i < imageFiles.length; i++) {
+          await fileAPI.upload(imageFiles[i].file, destination);
+          setFiles((prev) =>
+            prev.map((f, idx) =>
+              idx === files.findIndex(file => file.file === imageFiles[i].file)
+                ? { ...f, status: 'success' as const, progress: 100 }
+                : f
+            )
+          );
+        }
       }
 
+      // Mark any remaining files as success
       setFiles((prev) =>
         prev.map((f) => ({
           ...f,
