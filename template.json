@@ -1,7 +1,7 @@
 {
   "name": "Ktiseos Nyx LoRA Trainer",
-  "version": "0.9.0-beta",
-  "description": "⚠️ BETA: In active development - may not work as expected. Professional LoRA training environment for SDXL, SD 1.5, Flux, and SD3. Features a modern Next.js web UI with comprehensive training configuration, real-time monitoring, dataset management, and automatic captioning. Powered by Kohya's sd-scripts with LyCORIS support.",
+  "version": "0.9.1-beta",
+  "description": "⚠️ BETA: In active development - may not work as expected. Professional LoRA training environment for SDXL, SD 1.5, Flux, and SD3. Features a modern Next.js web UI with comprehensive training configuration, real-time monitoring, dataset management, and automatic captioning. Powered by Kohya's sd-scripts with LyCORIS support. Uses vendored backend for reliable deployment.",
   "author": "Duskfall",
   "tags": [
     "stable-diffusion",
@@ -16,14 +16,18 @@
     "lycoris"
   ],
   "image": {
-    "dockerfile": "Dockerfile",
+    "dockerfile": "Dockerfile.vastai",
     "build_context": ".",
-    "base_image": "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04"
+    "base_image": "vastai/pytorch:2.6.0-cuda-12.6.3-py312"
   },
   "launch_mode": {
     "default": "jupyter_ssh",
     "supported": ["jupyter_ssh", "ssh", "docker_entrypoint"],
     "description": "Jupyter+SSH mode recommended for debugging and manual intervention if services fail"
+  },
+  "provisioning": {
+    "script_url": "https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh",
+    "description": "Automatic setup script that clones repo, installs dependencies, builds frontend, and starts services"
   },
   "gpu": {
     "required": true,
