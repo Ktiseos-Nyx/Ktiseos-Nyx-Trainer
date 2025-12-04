@@ -120,7 +120,7 @@ export default function TrainingMonitor() {
         console.log('WebSocket message:', data);
 
         if (data.type === 'log') {
-          setLogs((prev) => [...prev, data.message]);
+          setLogs((prev) => [...prev, data.message as string]);
         } else if (data.type === 'progress') {
           setStatus((prev) => ({
             ...prev,

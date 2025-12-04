@@ -28,6 +28,7 @@ const TextureCardStyled = React.forwardRef<
     </div>
   </div>
 ))
+TextureCardStyled.displayName = "TextureCardStyled"
 
 // Allows for global css overrides and theme support - similar to shad cn
 const TextureCard = React.forwardRef<

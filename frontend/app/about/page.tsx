@@ -40,7 +40,7 @@ export default function AboutPage() {
                   <strong className="text-purple-600 dark:text-purple-400">Ktiseos Nyx</strong> is a space cultivated by{' '}
                   <strong className="text-foreground">Earth & Dusk Media</strong>, a name whispered from the echoes of{' '}
                   <em>Ktisis Hyperboreia</em>, the level 87 dungeon in Final Fantasy XIV: Endwalker. Like the Ktiseos
-                  gear found within that ancient place, we see power and potential in what's often overlooked – a place
+                  gear found within that ancient place, we see power and potential in what&apos;s often overlooked – a place
                   where we are allowed to grow, experiment, and expand.
                 </p>
                 <p>
@@ -50,7 +50,7 @@ export default function AboutPage() {
                 </p>
                 <p>
                   Ktiseos Nyx is a refuge for those who value community, where the foundations we build are as important
-                  as the tools themselves. We don't aim to simply conform; we strive to create connections, push limits,
+                  as the tools themselves. We don&apos;t aim to simply conform; we strive to create connections, push limits,
                   and foster a sanctuary for the bold and brilliant.
                 </p>
                 <p className="text-purple-600 dark:text-purple-300 font-semibold italic">
