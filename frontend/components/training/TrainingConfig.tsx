@@ -222,7 +222,7 @@ export default function TrainingConfig() {
     const loadDefaults = async () => {
       try {
         const apiDefaults = await configAPI.defaults();
-        let mergedDefaults = { ...apiDefaults };
+        const mergedDefaults = { ...apiDefaults };
 
         const stored = localStorage.getItem('ktiseos-nyx-settings');
         if (stored) {

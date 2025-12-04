@@ -164,7 +164,7 @@ export default function AutoTagPage() {
     try {
       wsRef.current = datasetAPI.connectTaggingLogs(
         jobId,
-        (data) => { if (data.log) setLogs(prev => [...prev, data.log]); },
+        (data) => { if (data.log) setLogs(prev => [...prev, data.log as string]); },
         (error) => {
           console.error('WebSocket error:', error);
           addLog('⚠️ Log connection lost - using status polling');
@@ -271,7 +271,7 @@ export default function AutoTagPage() {
           if (wsRef.current) wsRef.current.close();
           wsRef.current = captioningAPI.connectLogs(
             response.job_id,
-            (data) => { if (data.log) setLogs(prev => [...prev, data.log]); },
+            (data) => { if (data.log) setLogs(prev => [...prev, data.log as string]); },
             (error) => {
               console.error('WebSocket error:', error);
               addLog('⚠️ Log connection lost - using status polling');

@@ -18,6 +18,18 @@ async function handleResponse(response: Response) {
   return response.json();
 }
 
+// ========== Type Definitions ==========
+
+export interface WebSocketLogMessage {
+  message?: string;
+  log?: string;
+  progress?: number;
+  status?: string;
+  type?: string;
+  data?: number | string | object;
+  [key: string]: unknown; // Allow additional properties
+}
+
 // ========== File Operations ==========
 
 export interface FileInfo {
@@ -264,7 +276,7 @@ export const datasetAPI = {
   },
 
   // WebSocket for tagging logs (job-based)
-  connectTaggingLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+  connectTaggingLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
     const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
     const ws = new WebSocket(wsUrl);
 
@@ -342,7 +354,7 @@ export const captioningAPI = {
   },
 
   // WebSocket for captioning logs (reuses same endpoint as tagging)
-  connectLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+  connectLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
     const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
     const ws = new WebSocket(wsUrl);
 
@@ -689,7 +701,7 @@ export const trainingAPI = {
   },
 
   // WebSocket for logs
-  connectLogs: (jobId: string, onMessage: (data: any) => void, onError?: (error: Event) => void) => {
+  connectLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
     const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
     const ws = new WebSocket(wsUrl);
 
@@ -719,7 +731,7 @@ export const configAPI = {
     return handleResponse(response);
   },
 
-  save: async (name: string, config: any) => {
+  save: async (name: string, config: Record<string, unknown>) => {
     const response = await fetch(`${API_BASE}/config/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -943,7 +955,7 @@ export interface CivitaiImage {
   width: number;
   height: number;
   hash: string;
-  meta?: any;
+  meta?: Record<string, unknown>;
 }
 
 export interface CivitaiModelVersion {
