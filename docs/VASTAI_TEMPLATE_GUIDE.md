@@ -77,7 +77,7 @@ Click **"+ Add Port"** for each:
 |------|----------|-------------|
 | `3000` | `http` | **Next.js Web UI (MAIN)** |
 | `8000` | `http` | FastAPI Backend API |
-| `8888` | `http` | Jupyter Lab (optional) |
+| `8888` | `http` | Jupyter Lab (diagnostics only) |
 | `22` | `tcp` | SSH (automatically configured) |
 
 **Expose Direct:**
@@ -88,7 +88,7 @@ Click **"+ Add Port"** for each:
 
 **Select:**
 ```
-☑️ Run Jupyter in background (optional)
+☑️ Run Jupyter in background (optional for debugging)
 ☑️ Run SSH service
 ```
 
@@ -98,9 +98,9 @@ Jupyter + SSH
 ```
 
 This enables:
-- Automatic Jupyter Lab on port 8888 (for power users)
-- SSH access for debugging
+- SSH access for debugging and diagnostics
 - Your startup script runs automatically
+- Jupyter Lab on port 8888 (for debugging only, not primary workflow)
 
 ### Step 7: Docker Options (Advanced)
 
@@ -150,7 +150,7 @@ A professional web-based LoRA training system with modern UI.
 After the instance starts, you'll see port links like:
 - **Port 3000** ← 🎯 **CLICK THIS!** (Main UI)
 - Port 8000 (API docs)
-- Port 8888 (Jupyter Lab - optional)
+- Port 8888 (Jupyter Lab - diagnostics only)
 
 ## 📁 File System
 
@@ -219,7 +219,7 @@ Ports:
   8888: http (Jupyter - optional)
   22: tcp (SSH)
 
-Launch Mode: Jupyter + SSH
+Launch Mode: Jupyter + SSH (for diagnostics)
 ```
 
 ## For Users: How to Use Your Template

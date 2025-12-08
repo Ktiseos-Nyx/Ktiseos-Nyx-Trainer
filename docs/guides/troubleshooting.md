@@ -18,11 +18,12 @@ This guide provides solutions to the most common errors and issues you might enc
   2. Ensure you're using the correct Python version (3.10+)
   3. Check that you're in the project directory
 
-### "Jupyter not found" error
-- **Cause**: Jupyter Lab/Notebook not installed on system
+### "Frontend or backend not starting" error
+- **Cause**: Services not properly installed or starting
 - **Solution**:
-  1. Install Jupyter: `pip install jupyterlab` or `pip install notebook`
-  2. Alternatively, use Anaconda which includes Jupyter
+  1. Check requirements: `pip install -r requirements.txt`
+  2. Verify backend: `python -c "import fastapi"`
+  3. Verify frontend: `cd frontend && npm install`
 
 ### Installer fails with download errors
 - **Cause**: Network connection or storage issues
@@ -76,7 +77,7 @@ This guide provides solutions to the most common errors and issues you might enc
 
 **Error**: PyTorch/training backend not found
 - **Solutions**:
-  1. **Run Environment Setup**: Use Cell 1 in `Lora_Trainer_Widget.ipynb`
+  1. **Run Environment Setup**: Execute the installer script: `python installer.py`
   2. **Check Installation**: Re-run the installer script
   3. **Manual Install**: Install PyTorch manually for your system
 
@@ -118,16 +119,16 @@ This guide provides solutions to the most common errors and issues you might enc
   3. **Manual Check**: Verify a few files manually
   4. **Re-apply**: Run trigger word addition again
 
-## Widget/Interface Issues
+## Web UI Interface Issues
 
-### Widgets Not Displaying
+### Frontend Not Loading
 
-**Issue**: Empty cells or widgets don't appear
+**Issue**: Web UI doesn't load or shows blank page
 - **Solutions**:
-  1. **Restart Kernel**: Kernel → Restart in Jupyter
-  2. **Clear Output**: Cell → All Output → Clear
-  3. **Re-run Cell**: Run the widget cell again
-  4. **Check Dependencies**: Ensure ipywidgets is installed
+  1. **Check Services**: Verify backend is running on port 8000: `curl http://localhost:8000/health`
+  2. **Clear Browser Cache**: Hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
+  3. **Check Console**: Open browser DevTools (F12) for error messages
+  4. **Rebuild Frontend**: `cd frontend && npm run build`
 
 ### "Shared managers not found" error
 
@@ -135,15 +136,16 @@ This guide provides solutions to the most common errors and issues you might enc
 - **Solutions**:
   1. **Check Working Directory**: Ensure you're in the project root
   2. **File Paths**: Verify all project files are present
-  3. **Restart Kernel**: Fresh start often fixes import issues
+  3. **Restart Services**: Stop and restart both frontend and backend
 
-### Progress Bars Stuck
+### Progress Tracking Not Updating
 
-**Issue**: Training progress bars don't update
+**Issue**: Training progress doesn't update in real-time
 - **Solutions**:
   1. **Refresh Browser**: Sometimes helps with display issues
-  2. **Check Logs**: Look at text output for actual progress
-  3. **System Resources**: Ensure system isn't overloaded
+  2. **Check Backend**: Verify FastAPI server is running and healthy
+  3. **WebSocket Connection**: Check browser DevTools for WebSocket errors
+  4. **System Resources**: Ensure system isn't overloaded
 
 ## Performance Issues
 
@@ -322,7 +324,7 @@ python --version
 
 #### ✅ **Official Support Channels (We Actually Monitor These!)**
 
-1. **GitHub Issues**: [Open an Issue](https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter/issues) - Best for bugs and feature requests
+1. **GitHub Issues**: [Open an Issue](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) - Best for bugs and feature requests
 2. **Our Discord**: [Join Here](https://discord.gg/HhBSM9gBY) - Real-time help and community support
 
 #### ❌ **Where We DON'T Provide Support**

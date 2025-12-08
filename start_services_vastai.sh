@@ -9,6 +9,19 @@ echo "🚀 Starting Ktiseos-Nyx-Trainer Services (Vast.ai/Cloud)..."
 echo "=========================================="
 
 # --------------------------------------------------------------------
+# Step 0: Clean up any existing processes using the ports
+# --------------------------------------------------------------------
+echo "🧹 Cleaning up any existing processes on ports 8000 and 3000..."
+lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+
+# Also kill any existing uvicorn or next processes to prevent conflicts
+pkill -f "uvicorn.*api.main" 2>/dev/null || true
+pkill -f "node.*next" 2>/dev/null || true
+
+sleep 3  # Give time for processes to terminate
+
+# --------------------------------------------------------------------
 # Step 1: Ensure environment is set up via installer.py
 # Note: VastAI PyTorch template might already have venv activated.
 # The installer.py will verify and install missing components.
@@ -24,7 +37,8 @@ python installer.py
 # Start FastAPI backend (if api directory exists)
 if [ -d "api" ]; then
     echo "🐍 Starting FastAPI backend on port 8000 (bind 0.0.0.0)..."
-    python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload &
+    # Use 0.0.0.0 for cloud/VastAI access, remove --reload in production for stability
+    python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
     BACKEND_PID=$!
     echo "   Backend PID: $BACKEND_PID"
 else
@@ -48,6 +62,7 @@ if [ -d "frontend" ]; then
         npm run build
     fi
 
+    # Use production start mode, not development
     npm run start &
     FRONTEND_PID=$!
     echo "   Frontend PID: $FRONTEND_PID"
@@ -71,8 +86,8 @@ echo "📊 To monitor services:"
 echo "   ps aux | grep -E 'uvicorn|node'"
 echo ""
 echo "🛑 To stop services:"
-echo "   pkill -f uvicorn"
-echo "   pkill -f 'node.*next'"
+echo "   lsof -ti:8000 | xargs kill -9"
+echo "   lsof -ti:3000 | xargs kill -9"
 echo ""
 
 # Keep script running (important for Docker containers)

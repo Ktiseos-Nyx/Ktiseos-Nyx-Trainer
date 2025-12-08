@@ -87,10 +87,15 @@ Lora_Easy_Training_Jupyter/
 
 **Core Training Stack:**
 - **PyTorch**: GPU-accelerated deep learning framework (auto-configured for your hardware)
-- **Transformers**: Hugging Face model library (4.44.0)
-- **Diffusers**: Stable Diffusion pipeline library (0.25.0)
-- **Safetensors**: Secure tensor format (0.4.4)
+- **Transformers**: Hugging Face model library (4.54.1)
+- **Diffusers**: Stable Diffusion pipeline library (0.32.1)
+- **Safetensors**: Secure tensor format (0.5.3)
 - **Accelerate**: Distributed training library (0.33.0)
+
+**Core Server Stack:**
+- **FastAPI**: Modern Python web framework with async support
+- **uvicorn**: ASGI server for serving FastAPI applications
+- **aiohttp**: Async HTTP client/server library (required for Civitai integration)
 
 **Specialized Optimizers:**
 - **CAME**: Custom confidence-guided memory-efficient optimizer
@@ -102,7 +107,7 @@ Lora_Easy_Training_Jupyter/
 - **WD14 Taggers**: Anime/art content recognition (v3 models)
 - **BLIP**: Natural image captioning
 - **ONNX Runtime**: Accelerated inference for tagging (CUDA 12.1)
-- **OpenCV**: Image processing (4.8.1.78)
+- **OpenCV**: Image processing (4.10.0.84)
 - **FiftyOne**: Visual dataset curation
 
 ## Installation Process
@@ -135,7 +140,7 @@ python installer.py --verbose
 1. **Environment Detection**: Analyzes your system for GPU type, drivers, and Python environment
 2. **Submodule Management**: Clones/updates the Derrian backend with Kohya scripts and LyCORIS
 3. **System Dependencies**: Installs aria2c for fast model downloads (via package manager)
-4. **Python Packages**: Installs 50+ specialized ML packages using uv (fast) or pip (fallback)
+4. **Python Packages**: Installs all required packages from a single consolidated requirements.txt using uv (fast) or pip (fallback)
 5. **GPU Configuration**: Auto-configures PyTorch for NVIDIA CUDA, AMD ROCm, or CPU-only
 6. **ONNX Optimization**: Installs CUDA 12.1 ONNX runtime for 3-5x faster image tagging
 7. **Platform Fixes**: Applies Windows-specific fixes for bitsandbytes and safetensors compilation

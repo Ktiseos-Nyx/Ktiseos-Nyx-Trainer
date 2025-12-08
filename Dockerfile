@@ -54,14 +54,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Pre-install PyTorch with CUDA 12.1 support (saves time on container startup)
 RUN pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 
-# Copy requirements files for layer caching
-COPY requirements-api.txt /tmp/
-COPY requirements-backend.txt /tmp/
+# Copy requirements file for layer caching
+COPY requirements.txt /tmp/
 
-# Install Python dependencies (backend + API)
+# Install Python dependencies
 # Use uv for faster installation
-RUN uv pip install --system -r /tmp/requirements-backend.txt \
-    && uv pip install --system -r /tmp/requirements-api.txt
+RUN uv pip install --system -r /tmp/requirements.txt
 
 # Copy application code
 COPY api/ /workspace/Ktiseos-Nyx-Trainer/api/
