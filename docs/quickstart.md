@@ -1,10 +1,14 @@
 # Getting Started: Your First LoRA
 
-Welcome to LoRA Easy Training! This guide will walk you through the entire process of training your first LoRA using our widget-based notebooks. We'll go from installation to a finished, usable LoRA in just a few steps.
+Welcome to Ktiseos Nyx LoRA Trainer! This guide will walk you through the entire process of training your first LoRA using our modern Next.js web interface. We'll go from installation to a finished, usable LoRA in just a few steps.
 
 ## Prerequisites
 
-**Important**: This installation assumes you already have Jupyter Lab or Jupyter Notebook running on your system.
+**System Requirements:**
+- **GPU**: NVIDIA GPU with CUDA 12.1+ support (12GB+ VRAM recommended)
+- **OS**: Windows, Linux, or macOS
+- **Python**: 3.10 or 3.11
+- **Node.js**: 20+ (for local development)
 
 ## 1. Installation
 
@@ -12,72 +16,78 @@ First, you need to get the project onto your machine and install the necessary d
 
 1. **Clone the Repository**: Open a terminal or command prompt and run:
    ```bash
-   git clone https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter.git
+   git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
    ```
 
 2. **Run the Installer**: Navigate into the newly created directory and run the installer script:
    ```bash
-   cd Lora_Easy_Training_Jupyter
+   cd Ktiseos-Nyx-Trainer
    python installer.py
    ```
    This step might take a while, as it needs to download several gigabytes of data.
 
-3. **Launch Jupyter**: Start your Jupyter environment:
+3. **Start Services**: Run the start script to launch both frontend and backend:
    ```bash
-   jupyter lab
-   # or
-   jupyter notebook
+   # For local development
+   ./start_services_local.sh
+
+   # Or for production (using built frontend)
+   ./start.sh
    ```
 
-## 2. The Three-Notebook System
+4. **Access the Web UI**: Open your browser to `http://localhost:3000`
 
-The project uses three specialized notebooks for different purposes:
+## 2. Web UI Architecture
 
-### 📁 **Dataset_Preparation.ipynb** 
-- **Purpose**: Prepare your training dataset
-- **What it handles**: Upload images, visual curation with FiftyOne, auto-tag with WD14/BLIP, edit captions, add trigger words
-- **Required**: Must complete this before training
-- **Features**: Image deduplication, quality inspection, advanced tagging options
+The project uses a modern Next.js frontend with FastAPI backend, organized into several tabs:
 
-### 🚀 **Unified_LoRA_Trainer.ipynb**
+### 📁 **Files Page**
+- **Purpose**: File browser and management
+- **What it handles**: Upload images, organize datasets, manage models
+- **Features**: Drag & drop uploads, directory creation, file operations
+
+### 🖼️ **Dataset Page**
+- **Purpose**: Dataset preparation and management
+- **What it handles**: Image tagging with WD14, caption editing, dataset validation
+- **Features**: Batch tagging, caption review, dataset organization
+
+### 🎓 **Training Page**
 - **Purpose**: Configure and run training
-- **What it does**: Environment setup, universal training configuration (auto-detects SD1.5/SDXL/Flux), live monitoring
-- **Smart Detection**: Automatically selects the correct Kohya training script based on your model
+- **What it handles**: 132 training parameters, model configuration, start/stop training
+- **Features**: Real-time monitoring, config templates, parameter validation
 
-### 🛠️ **Utilities_Notebook.ipynb**
+### 🧪 **Utilities Page**
 - **Purpose**: Post-training utilities and tools
-- **What it handles**: LoRA resizing, file management, uploading to HuggingFace, testing tools, calculators
+- **What it handles**: Model conversion, upload to HuggingFace, file management
 
 ## 3. Your First LoRA: Step-by-Step
 
 ### Step 1: Prepare Your Dataset
 
-1. **Open**: `Dataset_Preparation.ipynb`
-2. **Run Cell 1A** (if needed): Environment setup validation (skip if already done)
-3. **Run Cell 3**: Dataset Management Widget
-4. **Prepare your images**:
+1. **Navigate to**: **Dataset Page** in the web UI
+2. **Prepare your images**:
    - Gather 15-30 high-quality images of your character/style
-   - Create a ZIP file of your images OR prepare a folder
-5. **Upload and curate**:
-   - Upload your ZIP file or point to your folder using the widget
-   - Use FiftyOne for visual curation (remove duplicates, inspect quality)
-   - Clean and organize your dataset
-6. **Auto-tag your images**:
-   - Choose tagging method (WD14 for anime, BLIP for photos)  
-   - Set threshold (0.35 for characters)
-   - Run auto-tagging
-7. **Add trigger word**:
-   - Choose a unique trigger word (e.g., "saria_zelda", "mystyle_art")
-   - Add it to all captions using the bulk edit tools
-8. **Review and refine**: Check a few captions manually and edit if needed
+   - Ensure images are in common formats (JPG/PNG)
+3. **Upload images**:
+   - Drag and drop your images directly into the upload area
+   - Or click to select files from your computer
+   - Images will be organized into a new dataset folder
+4. **Auto-tag your images**:
+   - Click the **"Auto-Tag"** button
+   - Select **"WD14 Tagger"** for anime/illustration or **"BLIP"** for photos
+   - Set appropriate threshold (0.35 for characters)
+   - Review and edit tags as needed
+5. **Add trigger word**:
+   - Add a unique trigger word to all captions (e.g., "saria_zelda", "mystyle_art")
+   - Use the bulk edit tools to apply to all images
 
 ### Pre-Training Checklist
 
 Before moving to training, ensure you have:
 
 **✅ Dataset Structure**
-- [ ] Images are in a single folder
-- [ ] All images have corresponding .txt caption files
+- [ ] Images are uploaded to a dedicated folder
+- [ ] All images have corresponding caption files
 - [ ] No corrupted or unreadable images
 - [ ] Consistent image format (jpg/png)
 
@@ -95,31 +105,31 @@ Before moving to training, ensure you have:
 
 ### Step 2: Train Your LoRA
 
-1. **Open**: `Unified_LoRA_Trainer.ipynb`
-2. **Run Cell 1**: Environment validation (validates installer.py setup)
-3. **Run Cell 2**: Universal training configuration widget
-4. **Configure basic settings**:
+1. **Navigate to**: **Training Page** in the web UI
+2. **Load a config template**: Use the default "SDXL LoRA" or "SD1.5 LoRA" template
+3. **Configure basic settings**:
    - **Model Name**: Give your LoRA a unique name (e.g., "my_first_character")
-   - **Base Model**: Choose your model file (system auto-detects SD1.5/SDXL/Flux/SD3)
-   - **Dataset Path**: Point to your prepared dataset folder
+   - **Base Model**: Choose your model file (auto-detects SD1.5/SDXL/Flux/SD3)
+   - **Dataset Path**: Select your prepared dataset folder
    - **Trigger Word**: Same one you used in dataset prep
    - **Network Settings**: Start with 8 dim / 4 alpha
    - **Learning Rate**: 5e-4 for UNet, 1e-4 for Text Encoder
-5. **Run Cell 3**: Training execution and real-time monitoring
-6. **Monitor progress**: Watch the live training logs, loss curves, and progress bars
-7. **Smart Detection**: System automatically selects the correct Kohya training script
+4. **Review advanced settings** (optional):
+   - Adjust batch size based on your VRAM
+   - Enable gradient checkpointing if memory-constrained
+5. **Click "Start Training"**: Monitor progress in real-time
+6. **Monitor progress**: Watch the live training logs, loss curves, and progress indicators
 
-### Step 3: Post-Training (Optional)
+### Step 3: Post-Training
 
-1. **Open**: `Utilities_Notebook.ipynb` for additional tools:
-   - **LoRA Resizing**: Reduce file size while maintaining quality
-   - **Upload to HuggingFace**: Share your LoRA with the community
-   - **File Management**: Organize and backup your training outputs
-   - **Training Calculator**: Plan future training sessions
+1. **Wait for completion**: Training will automatically stop when finished
+2. **Find your LoRA**: Navigate to **Files Page** → `/output` folder
+3. **Download**: Click the download icon next to your `.safetensors` file
+4. **Upload to HuggingFace**: Use the **Utilities Page** → "Upload to HuggingFace" tool
 
 ### Step 4: Use Your LoRA
 
-1. **Find your LoRA**: After training completes, your `.safetensors` file will be in the output folder
+1. **Find your LoRA**: The `.safetensors` file will be in your output folder
 2. **Install in your SD UI**: Copy the file to your Stable Diffusion web UI's `models/lora` directory
 3. **Test generation**: Use your trigger word in prompts to activate the LoRA
 4. **Optional**: See our [Testing LoRAs guide](guides/testing-loras.md) for setting up Automatic1111/Forge
@@ -137,8 +147,8 @@ Before moving to training, ensure you have:
 - **Don't overtrain**: Stop if loss plateaus or starts increasing
 
 ### Common Issues
-- **CUDA out of memory**: Reduce batch size to 1
-- **Training too slow**: Check your target step count with the calculator
+- **CUDA out of memory**: Reduce batch size to 1, enable gradient checkpointing
+- **Training too slow**: Check your target step count in the calculator
 - **Poor results**: Review dataset quality and caption accuracy
 
 ## 5. Next Steps
@@ -148,7 +158,7 @@ Once you've successfully trained your first LoRA:
 1. **Experiment with settings**: Try different optimizers (CAME, Prodigy)
 2. **Advanced techniques**: Explore DoRA, LoKr, and other network types
 3. **Larger datasets**: Scale up to 50-200 images for style LoRAs
-4. **Share your work**: Upload to HuggingFace or Civitai using the utilities widget
+4. **Share your work**: Upload to HuggingFace or Civitai using the utilities tools
 
 **Congratulations on your first LoRA!** 🎉
 

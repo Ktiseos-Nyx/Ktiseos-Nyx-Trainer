@@ -192,9 +192,9 @@ For local development without Docker.
    python installer.py
    ```
 
-3. **Install API Dependencies**:
+3. **Install Dependencies**:
    ```bash
-   pip install -r requirements-api.txt
+   pip install -r requirements.txt
    ```
 
 4. **Start FastAPI Backend**:

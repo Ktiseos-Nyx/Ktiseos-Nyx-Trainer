@@ -2,9 +2,7 @@
 
 > ⚠️ **BETA - IN ACTIVE DEVELOPMENT**: Features may not work as expected. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues)
 
-A professional LoRA training system built on Kohya SS, offering **two workflows**:
-- 🌐 **Modern Web UI** - Next.js frontend with FastAPI backend
-- 📓 **Jupyter Notebooks** - Classic widget-based interface
+A professional LoRA training system built on Kohya SS, centered around a **Modern Web UI** powered by Next.js frontend with FastAPI backend.
 
 Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 
@@ -33,7 +31,6 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 **Platform Support:**
 - 💻 **Cross-platform** - Windows, Linux, macOS
 - 🌩️ **Cloud Ready** - VastAI, RunPod templates available
-- 📓 **Legacy Jupyter Support** - Original widget-based notebooks still available
 
 ### ⚠️ Note
 
@@ -55,9 +52,7 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 
 ## 🚀 Quick Start
 
-### Choose Your Workflow
-
-#### 🌐 Web UI (Recommended for Most Users)
+### 🌐 Web UI (Primary Workflow)
 Modern, responsive web interface with real-time monitoring:
 
 **VastAI Deployment** (Easiest):
@@ -94,28 +89,6 @@ Access at: `http://localhost:3000`
 
 **See**: [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions
 
-#### 📓 Jupyter Notebooks (Legacy - For Transition)
-Widget-based interface with step-by-step control:
-
-> **Note**: Jupyter notebooks are kept in a separate `jupyter-notebooks/` directory for users transitioning from the old workflow. These may be deprecated in future releases as we focus on the modern Web UI. If you prefer the notebook workflow, you can continue using them, or even move them to the project root if desired.
-
-```bash
-# 1. Clone and setup
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
-python installer.py
-
-# 2. Start Jupyter
-jupyter lab
-
-# 3. Open notebooks
-# Navigate to jupyter-notebooks/ directory in Jupyter's file browser
-# Or optionally move notebooks to project root:
-# cp jupyter-notebooks/*.ipynb .
-```
-
-**See**: [Jupyter Notebooks Guide](jupyter-notebooks/README.md)
-
 ---
 
 ### Requirements
@@ -141,7 +114,7 @@ If you don't have python, you can install Python 3.10+ from Python's [main websi
 ```bash
 # 1. Clone the repository
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Lora_Easy_Training_Jupyter
+cd Ktiseos-Nyx-Trainer
 
 # 2. Run the installer (downloads ~10-15GB)
 python ./installer.py
@@ -149,9 +122,6 @@ python ./installer.py
 # For detailed installation output (recommended for troubleshooting):
 python ./installer.py --verbose
 # or: python ./installer.py -v
-
-# Alternative for Mac/Linux:
-chmod +x ./jupyter.sh && ./jupyter.sh
 ```
 
 ## 📖 Usage Guide
@@ -199,37 +169,26 @@ The web interface provides a streamlined, tab-based workflow:
 
 **Full Guide**: [Web UI Documentation](docs/WEB_UI_GUIDE.md) (coming soon)
 
-### Jupyter Notebook Workflow
-
-Three specialized notebooks available in `jupyter-notebooks/`:
-
-- **`Unified_LoRA_Trainer.ipynb`** - Complete training pipeline (all-in-one)
-- **`Dataset_Preparation.ipynb`** - Dataset management only
-- **`Utilities_Notebook.ipynb`** - Post-training tools
-
-**Full Guide**: [Jupyter Notebooks Guide](jupyter-notebooks/README.md)
-
 ### VastAI Users
 
-Both workflows work on VastAI:
-- **Jupyter**: Access at `http://<instance-ip>:8888` (auto-started)
-- **Web UI**: Run `/start_services.sh` via SSH, access at `http://<instance-ip>:3000`
+The Web UI workflow works seamlessly on VastAI:
+- **Web UI**: Access at `http://<instance-ip>:3000` after running `/start_services.sh` via SSH
 
-**Full Guide**: [VastAI Jupyter Guide](jupyter-notebooks/VASTAI_JUPYTER.md)
+**Full Guide**: [VastAI Setup Guide](VASTAI_SETUP.md)
 
 ## 🛠️ Troubleshooting & Support
 
-For more help and support please check [Troubleshooting](docs/guides/troubleshooting.md) this has more comprehensive information. If you're a developer, we're working on our testing notebook, there is one in the wings of the /tests folder, but it has older code and may not match what is current running.
+For more help and support please check [Troubleshooting](docs/guides/troubleshooting.md) this has more comprehensive information.
 
 ### 📋 **Support Requirements**
 Before asking for help, please review our [Support Guidelines](docs/guides/troubleshooting.md#support-guidelines--boundaries). We're happy to assist, but effective troubleshooting requires your participation - this means running the basic diagnostic commands and providing complete error information. Cherry-picking troubleshooting steps won't lead to solutions!
 
-**Windows Users:** If you encounter Rust compilation errors during safetensors installation, this is not related to our notebook setup. It's a common Python packaging issue on Windows. Feel free to reach out on our [Discord](https://discord.gg/HhBSM9gBY) for assistance - we're happy to help guide you through the solution!
+**Windows Users:** If you encounter Rust compilation errors during safetensors installation, this is a common Python packaging issue on Windows. Feel free to reach out on our [Discord](https://discord.gg/HhBSM9gBY) for assistance - we're happy to help guide you through the solution!
 
 **Getting Help**:
-    - ✅ **Official Support**: [GitHub Issues](https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter/issues) or [Our Discord](https://discord.gg/HhBSM9gBY)
+    - ✅ **Official Support**: [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Our Discord](https://discord.gg/HhBSM9gBY)
     - ❌ **No Support**: Random discords, Reddit DMs, social media comments, etc.
-    - 📚 **Self-Help**: Check our comprehensive [docs/](https://github.com/Ktiseos-Nyx/Lora_Easy_Training_Jupyter/tree/main/docs) folder first
+    - 📚 **Self-Help**: Check our comprehensive [docs/](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/tree/main/docs) folder first
     - 🎯 **Submodule Issues**: Feel free to blame us on the original repos (kohya-ss, LyCORIS, etc.)!
 
 ## 🙏 Credits & Acknowledgements

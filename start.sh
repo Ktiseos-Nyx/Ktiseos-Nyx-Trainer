@@ -22,13 +22,26 @@ echo "=========================================="
 set -e
 
 # --------------------------------------------------------------------
+# Step 0: Clean up any existing processes using the ports
+# --------------------------------------------------------------------
+echo "🧹 Cleaning up any existing processes on ports 8000 and 3000..."
+lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+
+# Also kill any existing uvicorn or next processes to prevent conflicts
+pkill -f "uvicorn.*api.main" 2>/dev/null || true
+pkill -f "node.*next" 2>/dev/null || true
+
+sleep 3  # Give time for processes to terminate
+
+# --------------------------------------------------------------------
 # Step 1: Python / Backend
 # --------------------------------------------------------------------
 if [ -d "api" ]; then
     echo "🐍 Starting FastAPI backend..."
     # Note: Removed --reload because you said 'Production Build'.
     # Reload is for dev. If you want dev, add --reload back.
-    python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 &
+    python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
     BACKEND_PID=$!
     echo "   Backend PID: $BACKEND_PID"
 else

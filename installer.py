@@ -233,39 +233,39 @@ class UnifiedInstaller:
 
     def install_dependencies(self):
         """Install dependencies with uv → pip fallback"""
-        requirements_file = os.path.join(self.project_root, "requirements-backend.txt")
+        requirements_file = os.path.join(self.project_root, "requirements.txt")
         if not os.path.exists(requirements_file):
-            error_msg = f"❌ CRITICAL: requirements-backend.txt not found!"
+            error_msg = f"❌ CRITICAL: requirements.txt not found!"
             self.logger.error(error_msg)
             print(error_msg)
             return False
-        
+
         self.logger.info(f"Installing dependencies from: {requirements_file}")
-        
+
         # Try with current package manager first
         install_cmd = self.get_install_command('-r', requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
-        
+
         # If uv failed, fallback to pip
         if not success and self.package_manager['name'] == 'uv':
             self.logger.warning("uv installation failed, falling back to pip")
             print("⚠️ uv installation failed, falling back to pip...")
-            
+
             # Update package manager to pip
             self.package_manager = {
                 'name': 'pip',
                 'install_cmd': [self.python_cmd, '-m', 'pip', 'install'],
                 'available': True
             }
-            
+
             # Retry with pip
             install_cmd = self.get_install_command('-r', requirements_file)
             success = self.run_command(install_cmd, "Installing Python packages with pip (fallback)")
-        
+
         # Post-installation: Force correct CUDA 12 ONNX runtime
         if success:
             self.fix_onnx_runtime()
-        
+
         return success
 
     def fix_onnx_runtime(self):

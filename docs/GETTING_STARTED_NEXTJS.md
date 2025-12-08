@@ -7,8 +7,8 @@ Welcome to the new Next.js-based interface! No more Jupyter widget race conditio
 ### 1. Start the Backend
 
 ```bash
-# Install API dependencies
-pip install -r requirements-api.txt
+# Install dependencies
+pip install -r requirements.txt
 
 # Start FastAPI server
 cd api
