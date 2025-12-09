@@ -1,145 +1,23 @@
-# Deprecated/archived code - do not use
-archive/
+# ============================================================================
+# KTISEOS NYX TRAINER - GITIGNORE
+# ============================================================================
 
-# macOS (comprehensive - all directories)
-**/.DS_Store
-**/.DS_Store?
-**/._*
-**/.AppleDouble
-**/.LSOverride
-**/.DocumentRevisions-V100
-**/.fseventsd
-**/.Spotlight-V100
-**/.TemporaryItems
-**/.Trashes
-**/.VolumeIcon.icns
-**/.com.apple.timemachine.donotpresent
-**/.AppleDB
-**/.AppleDesktop
-**/Network Trash Folder
-**/Temporary Items
-**/.apdisk
+# ----------------------------------------------------------------------------
+# Archive & Temporary Storage
+# ----------------------------------------------------------------------------
+archive/                    # Deprecated/archived code and docs
+temp/
+tmp/
+.temp/
+.tmp/
+*.tmp
+*.temp
+*.bak
 
-# OpenSSL-related files best not committed
-
-## Certificate Authority
-*.ca
-
-## Certificate
-*.crt
-
-## Certificate Sign Request
-*.csr
-
-## Certificate
-*.der
-
-## Key database file
-*.kdb
-
-## OSCP request data
-*.org
-
-## PKCS #12
-*.p12
-
-## PEM-encoded certificate data
-*.pem
-
-## Random number seed
-*.rnd
-
-## SSLeay data
-*.ssleay
-
-## S/MIME message
-*.smime
-
-# gitignore template for Nikola static site generator
-# website: https://getnikola.com/
-
-.doit.db
-*.py[cod]
-cache/
-output/
-
-# gitignore template for Jupyter Notebooks
-# website: http://jupyter.org/
-
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
-
-# IPython
-profile_default/
-ipython_config.py
-
-# Jupyter lab virtual documents
-# https://jupyterlab-lsp.readthedocs.io/en/2.x/Configuring.html#virtual_documents_dir
-.virtual_documents/
-
-# Remove previous ipynb_checkpoints
-#   git rm -r .ipynb_checkpoints/
-
-# Icon files (must end with two \r)
-**/Icon[
-]*
-
-# iCloud generated files
-**/*.icloud
-
-# Windows (comprehensive - all directories)
-# Windows thumbnail cache files
-**/Thumbs.db
-**/Thumbs.db:encryptable
-**/ehthumbs.db
-**/ehthumbs_vista.db
-
-# Dump file
-**/*.stackdump
-
-# Folder config file
-**/[Dd]esktop.ini
-
-# Recycle Bin used on file shares
-**/$RECYCLE.BIN/
-
-# Windows Installer files
-**/*.cab
-**/*.msi
-**/*.msix
-**/*.msm
-**/*.msp
-
-# Windows shortcuts
-**/*.lnk
-
-# Linux (comprehensive - all directories)
-# Backup files
-**/*~
-
-# temporary files which can be created if a process still has a handle open of a deleted file
-**/.fuse_hidden*
-
-# KDE directory preferences
-**/.directory
-
-# Linux trash folder which might appear on any partition or disk
-**/.Trash-*
-
-# .nfs files are created when an open file is removed but is still being accessed
-**/.nfs*
-
-# Arch Linux Packages
-**/*.jar
-**/*.exe
-**/*.tgz
-**/*.sig
-**/pkg/
-**/src/
-
-# Python (comprehensive - enhanced with Toptal patterns)
+# ----------------------------------------------------------------------------
+# Python
+# ----------------------------------------------------------------------------
 __pycache__/
-**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -156,21 +34,22 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# PyInstaller
-*.manifest
-*.spec
+# Virtual environments
+.env
+.venv
+env/
+venv/
+virtualenv/
+ENV/
+env.bak/
+venv.bak/
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
+# Testing & Coverage
 htmlcov/
 .tox/
 .nox/
@@ -180,170 +59,62 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-*.py,cover
 .hypothesis/
 .pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Virtual environments
-.env
-.venv
-env/
-virtualenv/
-ENV/
-env.bak/
-virtualenv.bak/
-
-# Jupyter Notebook (comprehensive)
-.ipynb_checkpoints
-**/.ipynb_checkpoints
-*/.ipynb_checkpoints/*
-
-# IPython
-profile_default/
-ipython_config.py
-
-# Remove previous ipynb_checkpoints
-#   git rm -r .ipynb_checkpoints/
-
-# Modern Python tooling
-# pipenv
-Pipfile.lock
-
-# poetry
-poetry.lock
-poetry.toml
-
-# pdm
-pdm.lock
-.pdm.toml
-
-# PEP 582
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmpy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# ruff
 .ruff_cache/
 
-# LSP config files
+# Type checking
+.mypy_cache/
+.dmypy.json
+.pytype/
 pyrightconfig.json
 
-# Development documentation (private)
-docs/development/
+# ----------------------------------------------------------------------------
+# Jupyter Notebooks
+# ----------------------------------------------------------------------------
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+.virtual_documents/
 
-# Gemini research (private)
-docs/research/
+# ----------------------------------------------------------------------------
+# Node.js & Frontend
+# ----------------------------------------------------------------------------
+node_modules/
+package-lock.json
+.next/
+dist/
+out/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
 
-# Work-in-progress documentation (private)
-wip_documentation/
-WIP_FEATURES.md
+# Root level shadcn artifacts
+/package.json
+/package-lock.json
 
-# Reference materials (private)
-kohya-colab-main/
+# Frontend demo pages (don't track changes)
+frontend/app/editor-00/
+frontend/app/footers-01/
+frontend/app/effects-demo/
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Training artifacts
+# ----------------------------------------------------------------------------
+# Training Artifacts (Large Files)
+# ----------------------------------------------------------------------------
 pretrained_model/
 vae/
 tagger_models/
 output/
-/dataset/
+dataset/
 datasets/
 logs/
 *.log
-trainer/sd_scripts/venv/
-trainer/*/logs/
 training_configs/
 *.toml
 
-# User configuration files
-config/user_settings.json
-
-# Temporary files
-*.tmp
-*.temp
-temp/
-tmp/
-.cache/
-cache/
-
-# Personal/sensitive files
-*.env
-.env.*
-config.json
-secrets.json
-api_keys.txt
-hf_token.txt
-GEMINI.md
-
-# Claude Code project instructions (private)
-CLAUDE.md
-CLAUDE_*.md
-.mcp.json
-TODO_*.md
-
-# Gemini task/handover docs (private)
-GEMINI_*.md
-
-# Internal planning documents
-TRAINING_EXPANSION_PLAN.md
-*_PLAN.md
-
-# OS generated files
-.directory
-.fuse_hidden*
-.nfs*
-
-# Model files (large)
+# Model files
 *.safetensors
 *.ckpt
 *.pt
@@ -357,150 +128,26 @@ TRAINING_EXPANSION_PLAN.md
 *.rar
 *.7z
 
-# Gemini-generated test files
-cuda_check.html
-*.html
+# ----------------------------------------------------------------------------
+# IDEs & Editors
+# ----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursorignore
+.cursorindexingignore
 
-# Test and debug files
-test_*.py
-debug_*.py
-*_test.py
-*_debug.py
-
-# User submitted logs and debugging materials
-user_logs_submissions/
-
-# Session planning and tracking files
-Error_Tracking_PlsGitIgnore.txt
-*_AUDIT.md
-*_CHECKLIST.md
-
-# Research and development configs (many TOML files)
-research_dev/
-
-# Documentation hold folders (temporary storage for review)
-docs/reference/_hold/
-docs/*/_hold/
-
-# Node.js artifacts
-# Root level (shadcn artifacts)
-/node_modules/
-/package-lock.json
-/package.json
-# Frontend
-frontend/node_modules/
-frontend/.next/
-frontend/dist/
-frontend/out/
-
-# Demo/test pages (keep in repo but don't track changes)
-frontend/app/editor-00/
-frontend/app/footers-01/
-frontend/app/effects-demo/
-
-
-#Ignore vscode AI rules
-.github/instructions/codacy.instructions.md
-# Ignored directories
-.codacy/
-Gemini_Weirdness/
-Qwen_Suggestions/
-# Planning docs (internal)
-docs/planning/
-
-# Nestjs specific
-/dist
-/node_modules
-/build
-/tmp
-
-# Logs
-logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# dotenv environment variable files
-.env
-.env.development
-.env.test
-.env.production
-
-# temp directory
-.temp
-.tmp
-
-# DW Dreamweaver added files
-_notes
-_compareTemp
-configs/
-dwsync.xml
-dw_php_codehinting.config
-*.mno
-
-# Notepad++ backups #
-*.bak
-
-# Ignore redis binary dump (dump.rdb) files
-
-*.rdb
-
-# Syncthing caches
-.stversions
-
-# Virtualenv
-# https://realpython.com/python-virtual-environments-a-primer/#the-virtualenv-project
-.Python
-[Bb]in
-[Ii]nclude
-[Ll]ib
-[Ll]ib64
-[Ll]ocal
-[Ss]cripts
-pyvenv.cfg
-.venv
-pip-selfcheck.json
-
-# Windows thumbnail cache files
-Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-
-# Dump file
-*.stackdump
-
-# Folder config file
-[Dd]esktop.ini
-
-# Recycle Bin used on file shares
-$RECYCLE.BIN/
-
-# Windows Installer files
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-
-# Windows shortcuts
-*.lnk
-
-# General
+# ----------------------------------------------------------------------------
+# Operating Systems
+# ----------------------------------------------------------------------------
+# macOS
 .DS_Store
-__MACOSX/
+**/.DS_Store
+._*
 .AppleDouble
 .LSOverride
-Icon[
-]
-
-# Thumbnails
-._*
-
-# Files that might appear in the root of a volume
 .DocumentRevisions-V100
 .fseventsd
 .Spotlight-V100
@@ -508,126 +155,90 @@ Icon[
 .Trashes
 .VolumeIcon.icns
 .com.apple.timemachine.donotpresent
+Icon
 
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
-# Covers JetBrains IDEs: IntelliJ, GoLand, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
-# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
 
-# User-specific stuff
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
+# ----------------------------------------------------------------------------
+# Personal & Sensitive Files
+# ----------------------------------------------------------------------------
+*.env
+.env.*
+config.json
+secrets.json
+api_keys.txt
+hf_token.txt
+config/user_settings.json
 
-# AWS User-specific
-.idea/**/aws.xml
+# Claude Code & Gemini docs (private)
+CLAUDE.md
+CLAUDE_*.md
+GEMINI.md
+GEMINI_*.md
+TODO_*.md
+*_PLAN.md
+*_AUDIT.md
+*_CHECKLIST.md
+.mcp.json
 
-# Generated files
-.idea/**/contentModel.xml
+# Documentation (private)
+docs/development/
+docs/research/
+docs/planning/
+docs/reference/_hold/
+wip_documentation/
+WIP_FEATURES.md
 
-# Sensitive or high-churn files
-.idea/**/dataSources/
-.idea/**/dataSources.ids
-.idea/**/dataSources.local.xml
-.idea/**/sqlDataSources.xml
-.idea/**/dynamic.xml
-.idea/**/uiDesigner.xml
-.idea/**/dbnavigator.xml
+# Reference materials
+kohya-colab-main/
 
-# Gradle
-.idea/**/gradle.xml
-.idea/**/libraries
+# User logs & debugging
+user_logs_submissions/
+Error_Tracking_PlsGitIgnore.txt
+test_*.py
+debug_*.py
+*_test.py
+*_debug.py
 
-# Gradle and Maven with auto-import
-# When using Gradle or Maven with auto-import, you should exclude module files,
-# since they will be recreated, and may cause churn.  Uncomment if using
-# auto-import.
-# .idea/artifacts
-# .idea/compiler.xml
-# .idea/jarRepositories.xml
-# .idea/modules.xml
-# .idea/*.iml
-# .idea/modules
-# *.iml
-# *.ipr
+# ----------------------------------------------------------------------------
+# AI/ML Specific
+# ----------------------------------------------------------------------------
+# Gemini artifacts
+Gemini_Weirdness/
+cuda_check.html
+*.html
 
-# CMake
-cmake-build-*/
+# Research configs
+research_dev/
+Qwen_Suggestions/
 
-# Mongo Explorer plugin
-.idea/**/mongoSettings.xml
+# ----------------------------------------------------------------------------
+# Security & Certificates
+# ----------------------------------------------------------------------------
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.der
 
-# File-based project format
-*.iws
-
-# IntelliJ
-out/
-
-# mpeltonen/sbt-idea plugin
-.idea_modules/
-
-# JIRA plugin
-atlassian-ide-plugin.xml
-
-# Cursive Clojure plugin
-.idea/replstate.xml
-
-# SonarLint plugin
-.idea/sonarlint/
-.idea/sonarlint.xml # see https://community.sonarsource.com/t/is-the-file-idea-idea-idea-sonarlint-xml-intended-to-be-under-source-control/121119
-
-# Crashlytics plugin (for Android Studio and IntelliJ)
-com_crashlytics_export_strings.xml
-crashlytics.properties
-crashlytics-build.properties
-fabric.properties
-
-# Editor-based HTTP Client
-.idea/httpRequests
-http-client.private.env.json
-
-# Android studio 3.1+ serialized cache file
-.idea/caches/build_file_checksums.ser
-
-# Apifox Helper cache
-.idea/.cache/.Apifox_Helper
-.idea/ApifoxUploaderProjectSetting.xml
-
-# Github Copilot persisted session migrations, see: https://github.com/microsoft/copilot-intellij-feedback/issues/712#issuecomment-3322062215
-.idea/**/copilot.data.migration.*.xml
-
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
-!*.code-workspace
-
-# Built Visual Studio Code Extensions
-*.vsix
-
-
-# Backup files
-*.bak
-*.gho
-*.ori
-*.orig
-*.tmp
-
-# Cursor IDE
-.cursorignore
-.cursorindexingignore
-
-# JEnv local Java version configuration file
-.java-version
-
-# Used by previous versions of JEnv
-.jenv-version
+# ----------------------------------------------------------------------------
+# Special Directories
+# ----------------------------------------------------------------------------
+.codacy/
+.github/instructions/codacy.instructions.md
+cache/
+.cache/
+.stversions
