@@ -27,6 +27,7 @@ class DatasetInfo(BaseModel):
     total_size: int = 0
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
+    tags_present: bool = False
 
 
 class CreateDatasetRequest(BaseModel):

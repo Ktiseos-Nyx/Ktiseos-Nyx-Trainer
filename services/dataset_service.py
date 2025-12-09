@@ -215,7 +215,8 @@ class DatasetService:
             caption_count=caption_count,
             total_size=total_size,
             created_at=created_at,
-            modified_at=modified_at
+            modified_at=modified_at,
+            tags_present=caption_count > 0
         )
 
     def _get_file_info(self, file_path: Path) -> FileInfo:

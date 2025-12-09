@@ -84,16 +84,12 @@ export function Navbar() {
                   <ListItem href="/dataset" title="Dataset" icon={<FolderOpen className="w-4 h-4" />}>
                     Upload and prepare training datasets
                   </ListItem>
-                  {datasets.length > 0 && (
-                    <>
-                      <ListItem href={`/dataset/${datasets[0].name}/auto-tag`} title="Auto-Tag" icon={<Zap className="w-4 h-4" />}>
-                        Auto-generate tags using WD14 models
-                      </ListItem>
-                      <ListItem href={`/dataset/${datasets[0].name}/tags`} title="Tag Editor" icon={<Tags className="w-4 h-4" />}>
-                        Manage image tags and captions
-                      </ListItem>
-                    </>
-                  )}
+                  <ListItem href="/dataset/auto-tag" title="Auto-Tag" icon={<Zap className="w-4 h-4" />}>
+                    Auto-generate tags using WD14 models
+                  </ListItem>
+                  <ListItem href="/dataset/tags" title="Tag Editor" icon={<Tags className="w-4 h-4" />}>
+                    Manage image tags and captions
+                  </ListItem>
                 </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
@@ -115,20 +111,26 @@ export function Navbar() {
                   <ListItem href="/calculator" title="Calculator" icon={<CalculatorIcon className="w-4 h-4" />}>
                     Calculate optimal training steps
                   </ListItem>
+                  <ListItem href="/utilities#resize" title="Resize LoRA" icon={<Package className="w-4 h-4" />}>
+                    Resize trained LoRA to lower rank
+                  </ListItem>
+                  <ListItem href="/utilities#merge" title="Merge LoRAs" icon={<Package className="w-4 h-4" />}>
+                    Combine multiple LoRAs into one
+                  </ListItem>
                 </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
 
-            {/* Utilities - Dropdown */}
+            {/* File Management - Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger>
-                <Wrench className="w-4 h-4 mr-2" />
-                Utilities
+                <FolderTree className="w-4 h-4 mr-2" />
+                File Management
               </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2">
-                  <ListItem href="/utilities" title="LoRA Tools" icon={<Package className="w-4 h-4" />}>
-                    Resize and upload trained LoRAs
+                  <ListItem href="/files" title="File Manager" icon={<Files className="w-4 h-4" />}>
+                    Upload, download, and manage files
                   </ListItem>
                   <ListItem href="/models" title="Models" icon={<HardDrive className="w-4 h-4" />}>
                     Manage downloaded models and VAEs
@@ -136,22 +138,10 @@ export function Navbar() {
                   <ListItem href="/models/browse" title="Civitai Downloader" icon={<Download className="w-4 h-4" />}>
                     Download models from Civitai
                   </ListItem>
-                </ul>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
-            {/* File Manager - Top level */}
-            <NavigationMenuItem>
-            <NavigationMenuTrigger>
-              <FolderTree className="w-4 h-4 mr-2" />
-              File Management
-            </NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-1">
-                  <ListItem href="/files" title="File Manager" icon={<Files className="w-4 h-4" />}>
-                    Use the File Manager to upload, download, and manage files!
+                  <ListItem href="/utilities#upload" title="HuggingFace Upload" icon={<Download className="w-4 h-4" />}>
+                    Upload LoRAs to HuggingFace Hub
                   </ListItem>
-              </ul>
+                </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
 
