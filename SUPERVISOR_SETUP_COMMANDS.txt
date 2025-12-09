@@ -1,0 +1,94 @@
+# Create the supervisor script manually
+cat > /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+#!/bin/bash
+
+kill_subprocesses() {
+    local pid=$1
+    local subprocesses=$(pgrep -P "$pid")
+    
+    for process in $subprocesses; do
+        kill_subprocesses "$process"
+    done
+    
+    if [[ -n "$subprocesses" ]]; then
+        kill -TERM $subprocesses 2>/dev/null
+    fi
+}
+
+cleanup() {
+    kill_subprocesses $$
+    sleep 2
+    pkill -KILL -P $$ 2>/dev/null
+    exit 0
+}
+
+trap cleanup EXIT INT TERM
+
+# Wait for portal config and check if our services should be started
+while [ ! -f "$(realpath -q /etc/portal.yaml 2>/dev/null)" ]; do
+    echo "Waiting for /etc/portal.yaml before starting ${PROC_NAME}..." | tee -a "/var/log/portal/${PROC_NAME}.log"
+    sleep 1
+done
+
+# Check for our services in the portal config
+search_term="NextJS Frontend"
+search_pattern=$(echo "$search_term" | sed 's/[ _-]/[ _-]/g')
+if ! grep -qiE "^[^#].*${search_pattern}" /etc/portal.yaml; then
+    echo "Skipping startup for ${PROC_NAME} (not in /etc/portal.yaml)" | tee -a "/var/log/portal/${PROC_NAME}.log"
+    exit 0
+fi
+
+echo "Starting Ktiseos Nyx Trainer services" | tee "/var/log/portal/${PROC_NAME}.log"
+
+# Activate virtual environment
+. /venv/main/bin/activate
+
+# Navigate to the project directory
+cd /workspace/Ktiseos-Nyx-Trainer
+
+# Clean up any existing processes on our ports
+lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+
+# Start the backend first
+echo "Starting FastAPI backend..." | tee -a "/var/log/portal/${PROC_NAME}.log"
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
+BACKEND_PID=$!
+
+# Start the frontend
+echo "Starting NextJS frontend..." | tee -a "/var/log/portal/${PROC_NAME}.log"
+cd frontend && npm run start &
+FRONTEND_PID=$!
+
+# Keep the script running and monitor processes
+wait $BACKEND_PID $FRONTEND_PID 2>/dev/null
+
+EOL
+
+chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
+
+# Create the supervisor config
+cat > /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOL'
+[program:ktiseos-nyx]
+environment=PROC_NAME="%(program_name)s",WORKSPACE="/workspace"
+command=/opt/supervisor-scripts/ktiseos-nyx.sh
+directory=/workspace/Ktiseos-Nyx-Trainer
+autostart=true
+autorestart=true
+exitcodes=0
+startsecs=0
+stopasgroup=true
+killasgroup=true
+stopsignal=TERM
+stopwaitsecs=10
+# This is necessary for Vast logging to work alongside the Portal logs (Must output to /dev/stdout)
+stdout_logfile=/dev/stdout
+redirect_stderr=true
+stdout_events_enabled=true
+stdout_logfile_maxbytes=0
+stdout_logfile_backups=0
+EOL
+
+# Reload supervisor to add the service
+supervisorctl reread
+supervisorctl update

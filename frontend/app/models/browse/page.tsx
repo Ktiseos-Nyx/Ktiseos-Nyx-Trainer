@@ -11,7 +11,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { civitaiAPI, CivitaiModel } from '@/lib/api';
+import { civitaiAPI, CivitaiModel, API_BASE } from '@/lib/api';
 import {
   Download,
   Search,
@@ -106,7 +106,6 @@ export default function CivitaiBrowsePage() {
   useEffect(() => {
     const checkApiKey = async () => {
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
         const response = await fetch(`${API_BASE}/settings/user`);
         if (response.ok) {
           const data = await response.json();

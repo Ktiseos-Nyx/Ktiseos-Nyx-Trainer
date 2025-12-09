@@ -69,7 +69,7 @@ cd Ktiseos-Nyx-Trainer
 # 2. Install backend
 python installer.py
 
-# 3. Start services (uses safe localhost binding)
+# 3. Start services (safe localhost binding for local dev)
 ./start_services_local.sh
 ```
 

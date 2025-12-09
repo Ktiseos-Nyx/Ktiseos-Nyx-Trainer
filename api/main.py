@@ -5,19 +5,17 @@ Provides REST API and WebSocket endpoints for the Next.js frontend.
 import sys
 from pathlib import Path
 
-# Add project root to Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 
 from api.routes import training, dataset, files, config, utilities, models, settings, civitai
-
-# Import WebSocket routes from new service layer
 from services import websocket
+
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 # Configure logging
 logging.basicConfig(

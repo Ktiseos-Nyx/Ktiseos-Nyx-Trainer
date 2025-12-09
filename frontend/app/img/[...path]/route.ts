@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+import { API_BASE } from '@/lib/api';
 
 export async function GET(
   request: NextRequest,

@@ -36,21 +36,22 @@ provisioning_start() {
     git config --file $GIT_CONFIG_GLOBAL --add safe.directory '*'
 
     # Navigate to workspace
-    cd /workspace
-
-    # Clone the repository if it doesn't exist
-    if [ ! -d "Ktiseos-Nyx-Trainer" ]; then
-        echo "📥 Cloning repository..."
-        git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-    else
-        echo "📂 Repository exists, pulling latest changes..."
-        cd Ktiseos-Nyx-Trainer
+    # Note: When using Docker image, code is already copied into /opt/workspace-internal/Ktiseos-Nyx-Trainer
+    # If not using Docker (bare provisioning), clone from GitHub
+    if [ -d "/opt/workspace-internal/Ktiseos-Nyx-Trainer" ]; then
+        echo "📂 Using pre-installed code from Docker image..."
+        cd /opt/workspace-internal/Ktiseos-Nyx-Trainer
+    elif [ -d "/workspace/Ktiseos-Nyx-Trainer" ]; then
+        echo "📂 Repository exists in /workspace, pulling latest changes..."
+        cd /workspace/Ktiseos-Nyx-Trainer
         git config --file $GIT_CONFIG_GLOBAL --add safe.directory "$(pwd)"
-        git pull
-        cd ..
+        git pull || echo "⚠️ Git pull failed, continuing with existing code"
+    else
+        echo "📥 Cloning repository (fallback for bare provisioning)..."
+        cd /workspace
+        git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+        cd Ktiseos-Nyx-Trainer
     fi
-
-    cd Ktiseos-Nyx-Trainer
 
     # Ensure we're using the right Python
     PYTHON_CMD=$(which python || which python3)

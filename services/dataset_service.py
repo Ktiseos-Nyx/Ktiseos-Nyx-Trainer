@@ -248,6 +248,217 @@ class DatasetService:
         }
         return extension_map.get(file_path.suffix.lower(), "application/octet-stream")
 
+    async def upload_files(self, files, dataset_name: str):
+        """
+        Upload files to a dataset.
+
+        Args:
+            files: List of UploadFile objects from FastAPI
+            dataset_name: Name of the dataset to upload to
+
+        Returns:
+            dict with success status, uploaded files, and errors
+        """
+        from fastapi import UploadFile
+        from services.core.validation import validate_dataset_path, ALLOWED_IMAGE_EXTENSIONS
+
+        # Validate and get dataset path
+        dataset_path = validate_dataset_path(dataset_name)
+        dataset_path.mkdir(parents=True, exist_ok=True)
+
+        uploaded_files = []
+        errors = []
+
+        for file in files:
+            try:
+                # Check file extension
+                file_path = Path(file.filename)
+                if file_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+                    errors.append(f"{file.filename}: Invalid file type - only images allowed")
+                    continue
+
+                # Save file
+                destination = dataset_path / file.filename
+                content = await file.read()
+                destination.write_bytes(content)
+
+                uploaded_files.append(str(destination))
+
+            except Exception as e:
+                errors.append(f"{file.filename}: {str(e)}")
+
+        return {
+            "uploaded_files": uploaded_files,
+            "errors": errors
+        }
+
+    async def upload_zip(self, file, dataset_name: str):
+        """
+        Upload and extract a ZIP file to a dataset.
+
+        Args:
+            file: UploadFile object from FastAPI (ZIP file)
+            dataset_name: Name of the dataset to extract to
+
+        Returns:
+            dict with extracted files, errors, and stats
+        """
+        import zipfile
+        import tempfile
+        from services.core.validation import validate_dataset_path, ALLOWED_IMAGE_EXTENSIONS
+
+        # Validate dataset path
+        dataset_path = validate_dataset_path(dataset_name)
+        dataset_path.mkdir(parents=True, exist_ok=True)
+
+        extracted_files = []
+        errors = []
+
+        try:
+            # Save ZIP to temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+                content = await file.read()
+                tmp.write(content)
+                tmp_path = tmp.name
+
+            # Extract ZIP
+            with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
+                # Get list of files
+                zip_files = zip_ref.namelist()
+
+                for zip_file in zip_files:
+                    # Skip directories and hidden files
+                    if zip_file.endswith('/') or Path(zip_file).name.startswith('.'):
+                        continue
+
+                    # Check if it's an image
+                    file_path = Path(zip_file)
+                    if file_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+                        errors.append(f"{zip_file}: Not an image file, skipped")
+                        continue
+
+                    try:
+                        # Extract file
+                        extracted_data = zip_ref.read(zip_file)
+
+                        # Save to dataset (flatten directory structure)
+                        destination = dataset_path / file_path.name
+
+                        # Handle duplicate filenames
+                        if destination.exists():
+                            base = destination.stem
+                            ext = destination.suffix
+                            counter = 1
+                            while destination.exists():
+                                destination = dataset_path / f"{base}_{counter}{ext}"
+                                counter += 1
+
+                        destination.write_bytes(extracted_data)
+                        extracted_files.append(str(destination))
+
+                    except Exception as e:
+                        errors.append(f"{zip_file}: {str(e)}")
+
+            # Clean up temp file
+            Path(tmp_path).unlink()
+
+        except zipfile.BadZipFile:
+            errors.append("Invalid ZIP file")
+        except Exception as e:
+            errors.append(f"Failed to extract ZIP: {str(e)}")
+
+        return {
+            "extracted_files": extracted_files,
+            "errors": errors,
+            "total_extracted": len(extracted_files)
+        }
+
+    async def download_from_url(self, url: str, dataset_name: str):
+        """
+        Download dataset from URL (HuggingFace, direct link, etc).
+
+        Args:
+            url: URL to download from
+            dataset_name: Name of dataset to save to
+
+        Returns:
+            dict with downloaded files and status
+        """
+        import aiohttp
+        import tempfile
+        from services.core.validation import validate_dataset_path
+
+        # Validate dataset path
+        dataset_path = validate_dataset_path(dataset_name)
+        dataset_path.mkdir(parents=True, exist_ok=True)
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=3600)) as response:
+                    if response.status != 200:
+                        return {
+                            "success": False,
+                            "error": f"Failed to download: HTTP {response.status}"
+                        }
+
+                    # Get filename from URL or Content-Disposition
+                    filename = url.split('/')[-1]
+                    content_disp = response.headers.get('Content-Disposition', '')
+                    if 'filename=' in content_disp:
+                        filename = content_disp.split('filename=')[-1].strip('"\'')
+
+                    # Determine if it's a ZIP
+                    is_zip = filename.lower().endswith('.zip') or response.headers.get('Content-Type', '').endswith('zip')
+
+                    # Download file
+                    if is_zip:
+                        # Download to temp file then extract
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+                            async for chunk in response.content.iter_chunked(1024 * 1024):
+                                tmp.write(chunk)
+                            tmp_path = tmp.name
+
+                        # Create a fake UploadFile object for upload_zip
+                        class FakeUploadFile:
+                            def __init__(self, path):
+                                self.path = path
+                            async def read(self):
+                                return Path(self.path).read_bytes()
+
+                        fake_file = FakeUploadFile(tmp_path)
+                        result = await self.upload_zip(fake_file, dataset_name)
+
+                        # Clean up
+                        Path(tmp_path).unlink()
+
+                        return {
+                            "success": True,
+                            "extracted_files": result["extracted_files"],
+                            "errors": result["errors"]
+                        }
+                    else:
+                        # Direct image download
+                        destination = dataset_path / filename
+                        content = await response.read()
+                        destination.write_bytes(content)
+
+                        return {
+                            "success": True,
+                            "downloaded_files": [str(destination)],
+                            "errors": []
+                        }
+
+        except aiohttp.ClientError as e:
+            return {
+                "success": False,
+                "error": f"Download failed: {str(e)}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Unexpected error: {str(e)}"
+            }
+
 
 # Global service instance
 dataset_service = DatasetService()

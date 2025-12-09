@@ -27,6 +27,17 @@ class SaveConfigRequest(BaseModel):
     config: Dict[str, Any]
 
 
+class ValidateConfigRequest(BaseModel):
+    """Validate configuration request"""
+    config: Dict[str, Any]
+
+
+class ValidationResponse(BaseModel):
+    """Validation response"""
+    valid: bool
+    errors: List[str] = []
+
+
 @router.get("/templates")
 async def list_config_templates():
     """List available configuration templates"""
@@ -116,30 +127,54 @@ async def save_config(request: SaveConfigRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/validate")
-async def validate_config(config: Dict[str, Any]):
-    """Validate a training configuration"""
+@router.post("/validate", response_model=ValidationResponse)
+async def validate_config(request: ValidateConfigRequest) -> ValidationResponse:
+    """
+    Validate a training configuration
+
+    Checks for required fields and validates field types.
+    Uses Pydantic for automatic validation.
+    """
     try:
-        # TODO: Implement proper Pydantic validation for training configs
-        # For now, basic validation
+        config = request.config
+        errors = []
+
+        # Required fields validation
         required_fields = [
             "pretrained_model_name_or_path",
             "train_data_dir",
             "output_dir"
         ]
 
-        missing = [f for f in required_fields if f not in config]
+        for field in required_fields:
+            if field not in config:
+                errors.append(f"Missing required field: {field}")
 
-        if missing:
-            return {
-                "valid": False,
-                "errors": [f"Missing required field: {f}" for f in missing]
-            }
+        # Type validation for common fields
+        if "learning_rate" in config:
+            try:
+                float(config["learning_rate"])
+            except (ValueError, TypeError):
+                errors.append("learning_rate must be a number")
 
-        return {
-            "valid": True,
-            "errors": []
-        }
+        if "max_train_epochs" in config:
+            try:
+                int(config["max_train_epochs"])
+            except (ValueError, TypeError):
+                errors.append("max_train_epochs must be an integer")
+
+        if "train_batch_size" in config:
+            try:
+                batch_size = int(config["train_batch_size"])
+                if batch_size < 1:
+                    errors.append("train_batch_size must be >= 1")
+            except (ValueError, TypeError):
+                errors.append("train_batch_size must be an integer")
+
+        return ValidationResponse(
+            valid=len(errors) == 0,
+            errors=errors
+        )
 
     except Exception as e:
         logger.error(f"Failed to validate config: {e}", exc_info=True)

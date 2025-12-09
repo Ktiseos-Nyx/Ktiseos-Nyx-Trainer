@@ -44,6 +44,13 @@ class UploadImageRequest(BaseModel):
     overwrite: bool = Field(False, description="Overwrite existing files")
 
 
+class UploadRequest(BaseModel):
+    """Request to upload files to a dataset."""
+    dataset_name: str
+    file_names: List[str]  # filenames to be uploaded
+    overwrite: bool = Field(False, description="Overwrite existing files")
+
+
 class DatasetListResponse(BaseModel):
     """List of datasets."""
     datasets: List[DatasetInfo]
