@@ -16,7 +16,7 @@ import {
   RefreshCw,
   Download,
 } from 'lucide-react';
-import { datasetAPI, fileAPI } from '@/lib/api';
+import { datasetAPI, fileAPI, API_BASE } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface UploadedFile {
@@ -144,8 +144,28 @@ export default function DatasetUploader() {
     setUploading(true);
 
     try {
-      // TODO: Implement ZIP upload endpoint
-      alert('✅ ZIP upload & extraction complete!');
+      const formData = new FormData();
+      formData.append('file', zipFiles[0].file);
+      formData.append('dataset_name', datasetName);
+
+      const response = await fetch(`${API_BASE}/dataset/upload-zip`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Upload failed');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ ZIP uploaded! Extracted ${result.extracted} images.\n${result.errors.length > 0 ? `Errors:\n${result.errors.join('\n')}` : ''}`);
+        setFiles([]);
+      } else {
+        throw new Error('No files extracted from ZIP');
+      }
     } catch (err) {
       alert(`❌ ZIP upload failed: ${err}`);
     } finally {
@@ -180,8 +200,31 @@ export default function DatasetUploader() {
     setDownloading(true);
 
     try {
-      // TODO: Implement URL download endpoint
-      alert(`✅ Downloading dataset to: /workspace/datasets/${projectName}`);
+      const response = await fetch(`${API_BASE}/dataset/download-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: datasetUrl,
+          dataset_name: projectName,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Download failed');
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const fileCount = result.files.length;
+        alert(`✅ Downloaded ${fileCount} file(s) to: datasets/${projectName}\n${result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : ''}`);
+        setDatasetUrl('');
+      } else {
+        throw new Error('Download failed');
+      }
     } catch (err) {
       alert(`❌ Download failed: ${err}`);
     } finally {

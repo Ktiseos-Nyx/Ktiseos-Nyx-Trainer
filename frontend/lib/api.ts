@@ -1,13 +1,30 @@
 /**
  * API client for backend communication
  * Centralized place for all API calls
+ *
+ * Uses relative URLs by default (/api) so Next.js can proxy requests.
+ * This works across local dev, VastAI, and Cloudflare tunnels.
+ * Override with NEXT_PUBLIC_API_URL env var if needed.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 // Derive WebSocket base URL from API_BASE
-// Converts http:// -> ws:// and https:// -> wss://
-const WS_BASE = API_BASE.replace(/^http/, 'ws');
+// For relative URLs, construct WebSocket URL from current page location
+// For absolute URLs, converts http:// -> ws:// and https:// -> wss://
+export const getWsUrl = (path: string): string => {
+  if (API_BASE.startsWith('/')) {
+    // Relative URL - construct from window.location
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}${path}`;
+    }
+    // Server-side fallback
+    return `ws://localhost:8000${path}`;
+  }
+  // Absolute URL - replace http with ws
+  return API_BASE.replace(/^http/, 'ws') + path.replace(/^\/api/, '');
+};
 
 // Helper for handling API responses
 async function handleResponse(response: Response) {
@@ -769,11 +786,13 @@ export interface CalculatorResponse {
 }
 
 export interface DatasetInfo {
-  path: string;
   name: string;
+  path: string;
   image_count: number;
-  repeats?: number;
-  caption?: string;
+  caption_count: number;
+  total_size: number;
+  created_at?: string;
+  modified_at?: string;
   tags_present?: boolean;
 }
 
