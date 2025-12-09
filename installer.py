@@ -27,9 +27,10 @@ def get_python_command():
     raise RuntimeError("❌ Python 3.10+ not found. Please install Python 3.10+")
 
 class UnifiedInstaller:
-    def __init__(self, verbose=False):
+    def __init__(self, verbose=False, skip_install=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
+        self.skip_install = skip_install
         
         # Setup logging
         self.setup_logging()
@@ -233,6 +234,11 @@ class UnifiedInstaller:
 
     def install_dependencies(self):
         """Install dependencies with uv → pip fallback"""
+        if self.skip_install:
+            print("⏩ Skipping dependency installation (--skip-install flag)")
+            self.logger.info("Skipping dependency installation due to --skip-install flag")
+            return True
+
         requirements_file = os.path.join(self.project_root, "requirements.txt")
         if not os.path.exists(requirements_file):
             error_msg = f"❌ CRITICAL: requirements.txt not found!"
@@ -659,6 +665,7 @@ Examples:
   python installer.py                    # Normal installation
   python installer.py --verbose         # Verbose installation with detailed output
   python installer.py -v                # Short form of verbose
+  python installer.py --skip-install    # Quick restart (skip dependency installation)
 
 The installer will:
   1. Verify vendored derrian_backend directory
@@ -676,11 +683,17 @@ Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
         action='store_true',
         help='Enable verbose output with detailed logging'
     )
-    
+
+    parser.add_argument(
+        '--skip-install',
+        action='store_true',
+        help='Skip dependency installation (for quick restarts when deps already installed)'
+    )
+
     args = parser.parse_args()
-    
+
     try:
-        installer = UnifiedInstaller(verbose=args.verbose)
+        installer = UnifiedInstaller(verbose=args.verbose, skip_install=args.skip_install)
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
