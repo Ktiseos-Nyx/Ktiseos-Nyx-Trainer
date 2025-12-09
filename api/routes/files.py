@@ -196,7 +196,8 @@ async def upload_file(
 async def serve_image(path: str):
     """Serve an image file (for thumbnails/previews)"""
     try:
-        file_path = Path("/" + path).resolve()
+        # Construct path relative to datasets directory
+        file_path = (PROJECT_ROOT / "datasets" / path).resolve()
 
         # Security check
         if not any(str(file_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):

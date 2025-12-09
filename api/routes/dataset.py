@@ -514,10 +514,6 @@ async def bulk_tag_operation_endpoint(request: BulkTagOperationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ========== File Upload ==========
-# Note: This is kept from old routes for file uploads
-# Can be enhanced later with proper upload service
-
 @router.post("/upload-batch")
 async def upload_batch(
     files: list[UploadFile] = File(...),
@@ -528,42 +524,106 @@ async def upload_batch(
     Creates dataset directory if it doesn't exist.
     """
     try:
-        from services.core.validation import validate_dataset_path, ALLOWED_IMAGE_EXTENSIONS
-
-        # Validate and get dataset path
-        dataset_path = validate_dataset_path(dataset_name)
-        dataset_path.mkdir(parents=True, exist_ok=True)
-
-        uploaded_files = []
-        errors = []
-
+        # Validate files first
+        from services.core.validation import ALLOWED_IMAGE_EXTENSIONS
         for file in files:
-            try:
-                # Check file extension
-                file_path = Path(file.filename)
-                if file_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
-                    errors.append(f"{file.filename}: Invalid file type")
-                    continue
+            file_path = Path(file.filename)
+            if file_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid file type for {file.filename}: only images allowed"
+                )
 
-                # Save file
-                destination = dataset_path / file.filename
-                content = await file.read()
-                destination.write_bytes(content)
-
-                uploaded_files.append(str(destination))
-
-            except Exception as e:
-                errors.append(f"{file.filename}: {str(e)}")
+        # Use the dataset service for upload
+        response = await dataset_service.upload_files(files, dataset_name)
 
         return {
-            "success": len(uploaded_files) > 0,
-            "uploaded": len(uploaded_files),
-            "files": uploaded_files,
-            "errors": errors
+            "success": len(response["uploaded_files"]) > 0,
+            "uploaded": len(response["uploaded_files"]),
+            "files": [str(f) for f in response["uploaded_files"]],
+            "errors": response["errors"]
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to upload files: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/upload-zip")
+async def upload_zip(
+    file: UploadFile = File(...),
+    dataset_name: str = "my_dataset"
+):
+    """
+    Upload and extract a ZIP file to a dataset.
+    Automatically extracts images and flattens directory structure.
+    """
+    try:
+        # Validate file is ZIP
+        if not file.filename.lower().endswith('.zip'):
+            raise HTTPException(
+                status_code=400,
+                detail="File must be a ZIP archive"
+            )
+
+        # Use dataset service
+        result = await dataset_service.upload_zip(file, dataset_name)
+
+        return {
+            "success": len(result["extracted_files"]) > 0,
+            "extracted": len(result["extracted_files"]),
+            "files": result["extracted_files"],
+            "errors": result["errors"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to upload ZIP: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class DownloadUrlRequest(BaseModel):
+    """Request to download dataset from URL"""
+    url: str
+    dataset_name: str = "my_dataset"
+
+
+@router.post("/download-url")
+async def download_from_url(request: DownloadUrlRequest):
+    """
+    Download dataset from URL (direct link or HuggingFace).
+    Supports ZIP files (auto-extracted) and direct image links.
+    """
+    try:
+        # Basic URL validation
+        if not request.url.startswith(('http://', 'https://')):
+            raise HTTPException(
+                status_code=400,
+                detail="URL must start with http:// or https://"
+            )
+
+        # Use dataset service
+        result = await dataset_service.download_from_url(request.url, request.dataset_name)
+
+        if not result.get("success", False):
+            raise HTTPException(
+                status_code=400,
+                detail=result.get("error", "Download failed")
+            )
+
+        return {
+            "success": True,
+            "files": result.get("extracted_files", result.get("downloaded_files", [])),
+            "errors": result.get("errors", [])
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to download from URL: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

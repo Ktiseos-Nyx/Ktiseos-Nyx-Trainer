@@ -483,7 +483,8 @@ export default function TrainingConfig() {
         )}
 
         {/* Template Selector */}
-        {templates.length > 0 && (
+        {/* TODO: Discuss template system with bmaltais before enabling */}
+        {/* {templates.length > 0 && (
           <div className="space-y-2">
             <Label>Load Template</Label>
             <Select onValueChange={loadTemplate}>
@@ -499,7 +500,7 @@ export default function TrainingConfig() {
               </SelectContent>
             </Select>
           </div>
-        )}
+        )} */}
 
         {/* Tabs */}
         <Tabs defaultValue="setup" className="w-full">
@@ -569,6 +570,13 @@ export default function TrainingConfig() {
                     <FolderOpen className="w-4 h-4" />
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Need to download a model? Use the{' '}
+                  <a href="/models" className="text-cyan-500 hover:text-cyan-400 underline">
+                    Model Downloader
+                  </a>
+                  {' '}(HuggingFace & Civitai)
+                </p>
               </div>
 
               <div className="space-y-2">

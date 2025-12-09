@@ -117,7 +117,7 @@ export default function DatasetTagsPage() {
                   src={`/api/files/image/${datasetName}/${img.image_name}`}
                   alt={img.image_name}
                   className="w-full h-full object-contain"
-                  onError={(e) => (e.currentTarget.src = '/placeholder.png')}
+                  onError={(e) => (e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect width="200" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif"%3ENo Image%3C/text%3E%3C/svg%3E')}
                 />
               </div>
               <div className="p-3">

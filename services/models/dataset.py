@@ -27,6 +27,7 @@ class DatasetInfo(BaseModel):
     total_size: int = 0
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
+    tags_present: bool = False
 
 
 class CreateDatasetRequest(BaseModel):
@@ -41,6 +42,13 @@ class CreateDatasetRequest(BaseModel):
 class UploadImageRequest(BaseModel):
     """Metadata for image upload."""
     dataset_name: str
+    overwrite: bool = Field(False, description="Overwrite existing files")
+
+
+class UploadRequest(BaseModel):
+    """Request to upload files to a dataset."""
+    dataset_name: str
+    file_names: List[str]  # filenames to be uploaded
     overwrite: bool = Field(False, description="Overwrite existing files")
 
 

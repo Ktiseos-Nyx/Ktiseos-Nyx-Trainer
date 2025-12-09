@@ -209,7 +209,9 @@ export default function SettingsPage() {
         </div>
 
         {/* API Configuration */}
-        <GradientCard variant="dusk" intensity="subtle" className="mb-6">
+        {/* TODO: Re-enable if/when we add ComfyUI or Forge backend support */}
+        {/* For now, API routing is transparent via Next.js rewrites - no config needed! */}
+        {/* <GradientCard variant="dusk" intensity="subtle" className="mb-6">
           <div className="p-6">
             <h2 className="text-2xl font-bold text-foreground mb-4">API Configuration</h2>
 
@@ -245,7 +247,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-        </GradientCard>
+        </GradientCard> */}
 
         {/* API Keys */}
         <GradientCard variant="ocean" intensity="subtle" className="mb-6">
@@ -385,10 +387,10 @@ export default function SettingsPage() {
           </div>
         </GradientCard>
 
-        {/* File Management */}
+        {/* File Settings */}
         <GradientCard variant="watermelon" intensity="subtle" className="mb-6">
           <div className="p-6">
-            <h2 className="text-2xl font-bold text-foreground mb-4">File Management</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">File Settings</h2>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">

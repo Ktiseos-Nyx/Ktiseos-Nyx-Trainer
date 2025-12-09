@@ -69,19 +69,37 @@ export default function DatasetPage() {
               </p>
             </div>
 
-            {/* Quick Actions */}
-            {!loading && datasets.length > 0 && (
+            {/* Quick Actions - Always visible */}
+            {!loading && (
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/dataset/auto-tag"
-                className="px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-lg font-semibold transition-all shadow-lg flex items-center gap-2"
+                className={`px-4 py-2 ${datasets.length > 0
+                  ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600'
+                  : 'bg-muted cursor-not-allowed opacity-60'
+                } text-white rounded-lg font-semibold transition-all shadow-lg flex items-center gap-2`}
+                onClick={(e) => {
+                  if (datasets.length === 0) {
+                    e.preventDefault();
+                    alert('📸 Upload a dataset first to use auto-tagging!');
+                  }
+                }}
               >
                 <Zap className="w-4 h-4" />
                 Auto-Tag
               </Link>
               <Link
                 href="/dataset/tags"
-                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-lg font-semibold transition-all shadow-lg flex items-center gap-2"
+                className={`px-4 py-2 ${datasets.length > 0
+                  ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600'
+                  : 'bg-muted cursor-not-allowed opacity-60'
+                } text-white rounded-lg font-semibold transition-all shadow-lg flex items-center gap-2`}
+                onClick={(e) => {
+                  if (datasets.length === 0) {
+                    e.preventDefault();
+                    alert('🏷️ Upload a dataset first to edit tags!');
+                  }
+                }}
               >
                 <Tag className="w-4 h-4" />
                 Edit Tags
@@ -120,13 +138,43 @@ export default function DatasetPage() {
                   Loading...
                 </div>
               ) : datasets.length === 0 ? (
-                <div className="text-center py-12">
-                  <FolderOpen className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground text-sm">
-                    No datasets yet.
-                    <br />
-                    Upload some images to get started!
-                  </p>
+                <div className="space-y-3">
+                  {/* Placeholder cards - visual demo */}
+                  {['Sample Dataset 1', 'Sample Dataset 2', 'Sample Dataset 3'].map((name, i) => (
+                    <div
+                      key={i}
+                      className="border border-dashed border-border rounded-lg p-4 opacity-50 cursor-not-allowed"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <FolderOpen className="w-5 h-5 text-muted-foreground" />
+                          <h3 className="font-semibold text-muted-foreground">{name}</h3>
+                        </div>
+                      </div>
+
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4" />
+                          <span>0 images</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Tag className="w-4 h-4" />
+                          <span className="text-yellow-600 dark:text-yellow-400">No tags</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 text-xs text-muted-foreground font-mono">
+                        datasets/{name.toLowerCase().replace(' ', '_')}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="text-center pt-4 pb-2">
+                    <p className="text-sm text-muted-foreground">
+                      👆 These are placeholder cards. Upload images above to create real datasets!
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">

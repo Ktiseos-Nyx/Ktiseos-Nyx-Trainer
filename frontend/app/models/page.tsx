@@ -249,7 +249,10 @@ export default function ModelsPage() {
                     placeholder="https://huggingface.co/.../model.safetensors"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Supports HuggingFace (resolve links) and Civitai (direct download links)
+                    Supports HuggingFace (resolve links) and Civitai (direct download links).{' '}
+                    <Link href="/models/browse" className="text-cyan-400 hover:text-cyan-300 underline">
+                      Browse Civitai Models →
+                    </Link>
                   </p>
                 </div>
               </div>

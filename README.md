@@ -69,9 +69,14 @@ cd Ktiseos-Nyx-Trainer
 # 2. Install backend
 python installer.py
 
-# 3. Start services (uses safe localhost binding)
+# 3. Start services (safe localhost binding for local dev)
 ./start_services_local.sh
+
+# 4. Quick restart (skip dependency reinstall)
+./restart.sh  # 10x faster for subsequent starts!
 ```
+
+**Pro Tip:** Use `./restart.sh` for quick restarts without reinstalling dependencies. Perfect for UI rebuilds or simple restarts!
 
 Or manually start services:
 ```bash

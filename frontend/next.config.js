@@ -1,12 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // API backend proxy
+  // Routes /api/* requests to the backend server
   async rewrites() {
+    // For VastAI/Docker: Backend is on localhost:8000
+    // For local dev: Backend is on localhost:8000 or 127.0.0.1:8000
+    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+
     return [
       {
         source: '/api/:path*',
-        destination: process.env.BACKEND_URL || 'http://localhost:8000/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
       },
+      // Note: WebSocket connections (/ws/*) connect directly to backend
+      // Next.js rewrites don't support ws:// protocol
+      // Frontend uses getWsUrl() to construct WebSocket URLs
     ];
   },
   // Disable strict mode for development (optional)
