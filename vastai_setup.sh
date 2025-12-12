@@ -206,7 +206,7 @@ while [ ! -f "$(realpath -q /etc/portal.yaml 2>/dev/null)" ]; do
 done
 
 # Check for our services in the portal config
-search_term="NextJS Frontend"
+search_term="Frontend"
 search_pattern=$(echo "$search_term" | sed 's/[ _-]/[ _-]/g')
 if ! grep -qiE "^[^#].*${search_pattern}" /etc/portal.yaml; then
     echo "Skipping startup for ${PROC_NAME} (not in /etc/portal.yaml)" | tee -a "/var/log/portal/${PROC_NAME}.log"
