@@ -176,7 +176,7 @@ provisioning_start() {
     # Create log directory
     mkdir -p /workspace/logs
 
-    # Create supervisor config for auto-restart (but don't activate yet!)
+    # Create supervisor config for auto-restart
     echo ""
     echo "📝 Creating supervisor config for auto-restart..."
 
@@ -197,14 +197,17 @@ lsof -ti:8000 | xargs kill -9 2>/dev/null || true
 lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 
 # Start backend
-echo "Starting FastAPI backend on port 8000..."
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > /workspace/logs/backend.log 2>&1 &
+echo "[$(date)] Starting FastAPI backend on port 8000..." | tee -a /workspace/logs/supervisor.log
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 2>&1 | tee -a /workspace/logs/backend.log &
 BACKEND_PID=$!
 
+# Give backend a moment to start
+sleep 2
+
 # Start frontend
-echo "Starting Next.js frontend on port 3000..."
+echo "[$(date)] Starting Next.js frontend on port 3000..." | tee -a /workspace/logs/supervisor.log
 cd frontend || exit 1
-npm run start > /workspace/logs/frontend.log 2>&1 &
+npm run start 2>&1 | tee -a /workspace/logs/frontend.log &
 FRONTEND_PID=$!
 
 # Wait for both processes
@@ -219,70 +222,42 @@ command=/opt/supervisor-scripts/ktiseos-nyx.sh
 directory=/workspace/Ktiseos-Nyx-Trainer
 autostart=true
 autorestart=true
-startsecs=5
+startsecs=10
 stopasgroup=true
 killasgroup=true
 stdout_logfile=/workspace/logs/supervisor.log
 redirect_stderr=true
+stdout_logfile_maxbytes=50MB
+stdout_logfile_backups=3
 EOL
 
-    echo "   ✅ Supervisor config created (will activate after Portal is ready)"
-
-    # Start services immediately with nohup (don't wait for supervisor)
-    echo ""
-    echo "🚀 Starting services now (supervisor will take over later)..."
-
-    # Activate virtual environment
-    source /venv/main/bin/activate 2>/dev/null || true
-
-    # Clean up any existing processes
-    lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-
-    # Start backend
-    echo "   Starting FastAPI backend on port 8000..."
-    nohup python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > /workspace/logs/backend.log 2>&1 &
-    echo $! > /workspace/logs/backend.pid
-
-    # Start frontend
-    echo "   Starting Next.js frontend on port 3000..."
-    cd frontend
-    nohup npm run start > /workspace/logs/frontend.log 2>&1 &
-    echo $! > /workspace/logs/frontend.pid
-    cd ..
-
-    # Give services a moment to start
-    sleep 3
-
-    # Check if services are running
-    if ps -p $(cat /workspace/logs/backend.pid 2>/dev/null) > /dev/null 2>&1; then
-        echo "   ✅ Backend started (PID: $(cat /workspace/logs/backend.pid))"
-    else
-        echo "   ⚠️  Backend may have failed to start - check /workspace/logs/backend.log"
-    fi
-
-    if ps -p $(cat /workspace/logs/frontend.pid 2>/dev/null) > /dev/null 2>&1; then
-        echo "   ✅ Frontend started (PID: $(cat /workspace/logs/frontend.pid))"
-    else
-        echo "   ⚠️  Frontend may have failed to start - check /workspace/logs/frontend.log"
-    fi
-
-    # Activate supervisor in background after Portal is ready
-    # This runs AFTER provisioning completes so it won't interfere
-    (
-        sleep 10  # Give Portal time to fully initialize
-        if command -v supervisorctl &> /dev/null; then
-            echo "🔄 Activating supervisor auto-restart..." >> /workspace/logs/supervisor-activation.log
-            supervisorctl reread >> /workspace/logs/supervisor-activation.log 2>&1
-            supervisorctl update >> /workspace/logs/supervisor-activation.log 2>&1
-            echo "✅ Supervisor activated - services will auto-restart on crash" >> /workspace/logs/supervisor-activation.log
-        fi
-    ) &
+    echo "   ✅ Supervisor config created"
 
     echo ""
     echo "=========================================="
     echo "✅ Setup Complete!"
     echo "=========================================="
+    echo ""
+    echo "🚀 Activating supervisor to start services..."
+
+    # Activate supervisor NOW (at the very end, after everything is ready)
+    if command -v supervisorctl &> /dev/null; then
+        supervisorctl reread
+        supervisorctl update
+
+        # Give services a moment to start
+        sleep 5
+
+        # Check if services started
+        if supervisorctl status ktiseos-nyx | grep -q RUNNING; then
+            echo "   ✅ Services started successfully!"
+        else
+            echo "   ⚠️  Services may not have started - check logs"
+        fi
+    else
+        echo "   ⚠️  supervisorctl not found - services won't auto-start"
+    fi
+
     echo ""
     echo "🌐 Access your applications via VastAI portal links:"
     echo "   - Frontend: Next.js UI (port 3000)"
@@ -292,18 +267,17 @@ EOL
     echo ""
     echo "♻️  Auto-restart is enabled!"
     echo "   - Supervisor will automatically restart services if they crash"
-    echo "   - Check activation status: cat /workspace/logs/supervisor-activation.log"
     echo ""
     echo "📋 Service logs:"
     echo "   - Backend:    /workspace/logs/backend.log"
     echo "   - Frontend:   /workspace/logs/frontend.log"
     echo "   - Supervisor: /workspace/logs/supervisor.log"
     echo ""
-    echo "🔧 To manually restart services:"
-    echo "   - supervisorctl restart ktiseos-nyx"
-    echo ""
-    echo "📊 Check service status:"
-    echo "   - supervisorctl status"
+    echo "🔧 Manual service control:"
+    echo "   - Restart:  supervisorctl restart ktiseos-nyx"
+    echo "   - Status:   supervisorctl status"
+    echo "   - Stop:     supervisorctl stop ktiseos-nyx"
+    echo "   - Start:    supervisorctl start ktiseos-nyx"
     echo ""
 }
 
