@@ -26,7 +26,7 @@ def validate_dataset_path(dataset_name: str) -> Path:
     Validate dataset path is within datasets directory.
 
     Args:
-        dataset_name: Name of the dataset (e.g., "my_character")
+        dataset_name: Name of the dataset (e.g., "my_character" or "datasets/my_character")
 
     Returns:
         Path: Validated absolute path to dataset
@@ -38,7 +38,16 @@ def validate_dataset_path(dataset_name: str) -> Path:
         >>> path = validate_dataset_path("my_character")
         >>> str(path)
         '/path/to/datasets/my_character'
+        >>> path = validate_dataset_path("datasets/my_character")
+        >>> str(path)
+        '/path/to/datasets/my_character'
     """
+    # Strip "datasets/" prefix if user included it (be forgiving!)
+    if dataset_name.startswith("datasets/"):
+        dataset_name = dataset_name[9:]  # Remove "datasets/"
+    elif dataset_name.startswith("datasets\\"):
+        dataset_name = dataset_name[9:]  # Remove "datasets\"
+
     # Remove path traversal attempts
     clean_name = dataset_name.replace("..", "").replace("/", "").replace("\\", "").strip()
 
