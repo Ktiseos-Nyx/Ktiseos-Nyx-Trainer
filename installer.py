@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-LoRA Easy Training - Unified Command-Line Installer
-Enhanced with uv fallback and comprehensive logging
+Ktiseos-Nyx-Trainer - Backend Dependency Installer
+Installs training dependencies (Kohya SS, LyCORIS, ONNX, etc.)
+Enhanced with comprehensive logging and platform-specific fixes
 """
 
 import os
@@ -104,8 +105,8 @@ class UnifiedInstaller:
     def print_banner(self):
         banner_lines = [
             "=" * 70,
-            "🚀 LoRA Easy Training - Unified Command-Line Installer",
-            "   Enhanced with comprehensive logging and error handling",
+            "🚀 Ktiseos-Nyx-Trainer - Backend Dependency Installer",
+            "   Installing training backend (Kohya SS, LyCORIS, ONNX)",
             "=" * 70,
             f"🐍 Using Python: {self.python_cmd}",
             f"📦 Package Manager: {self.package_manager['name']}",
@@ -636,8 +637,10 @@ class UnifiedInstaller:
                 f"📦 Package manager used: {self.package_manager['name']}",
                 f"📝 Full log available at: {self.log_file}",
                 "",
-                "🚀 You can now start Jupyter and use the training notebooks.",
-                "   Run: jupyter notebook",
+                "🚀 Backend dependencies installed successfully!",
+                "   Next steps:",
+                "   - VastAI: Services will auto-start via supervisor",
+                "   - Local: Run ./start_services_local.sh to start the web UI",
                 "=" * 70
             ]
             
@@ -658,7 +661,7 @@ class UnifiedInstaller:
 def main():
     """Main entry point with argument parsing"""
     parser = argparse.ArgumentParser(
-        description="LoRA Easy Training - Unified Command-Line Installer",
+        description="Ktiseos-Nyx-Trainer - Backend Dependency Installer",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -668,11 +671,15 @@ Examples:
   python installer.py --skip-install    # Quick restart (skip dependency installation)
 
 The installer will:
-  1. Verify vendored derrian_backend directory
+  1. Verify vendored derrian_backend directory (Kohya SS + LyCORIS)
   2. Install system dependencies (aria2c)
-  3. Install Python packages using uv (if available) or pip
-  4. Apply platform-specific fixes
+  3. Install Python packages for training backend
+  4. Apply platform-specific fixes (CUDA, ONNX runtime)
   5. Set up editable installs for development packages
+
+After installation:
+  - VastAI: Services auto-start via supervisor (FastAPI + Next.js)
+  - Local: Run ./start_services_local.sh to start the web interface
 
 Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
         """

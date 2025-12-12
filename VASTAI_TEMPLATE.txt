@@ -8,19 +8,26 @@ DOCKER IMAGE:
 vastai/pytorch:2.6.0-cuda-12.6.3-py312-24.04
 
 
-DOCKER OPTIONS:
----------------
--p 1111:1111 -p 6006:6006 -p 8080:8080 -p 8384:8384 -p 72299:72299 -e OPEN_BUTTON_PORT=1111 -e OPEN_BUTTON_TOKEN=1 -e JUPYTER_DIR=/ -e DATA_DIRECTORY=/workspace/ -e PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh
+DOCKER OPTIONS (COPY THIS ENTIRE LINE):
+----------------------------------------
+-p 1111:1111 -p 6006:6006 -p 8080:8080 -p 8384:8384 -p 72299:72299 -e OPEN_BUTTON_PORT=1111 -e OPEN_BUTTON_TOKEN=1 -e JUPYTER_DIR=/ -e DATA_DIRECTORY=/workspace/ -e PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh -e PORTAL_CONFIG="localhost:1111:11111:/:Instance Portal|localhost:8080:18080:/:Jupyter|localhost:8080:8080:/terminals/1:Jupyter Terminal|localhost:8384:18384:/:Syncthing|localhost:6006:16006:/:TensorBoard|localhost:3000:13000:/:Frontend|localhost:8000:18000:/:API"
 
 
-ENVIRONMENT VARIABLES:
-----------------------
+ENVIRONMENT VARIABLES - BATCH PASTE MODE (COPY ALL OF THIS):
+-------------------------------------------------------------
+OPEN_BUTTON_PORT=1111
+OPEN_BUTTON_TOKEN=1
+JUPYTER_DIR=/
+DATA_DIRECTORY=/workspace/
 PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh
+PORTAL_CONFIG=localhost:1111:11111:/:Instance Portal|localhost:8080:18080:/:Jupyter|localhost:8080:8080:/terminals/1:Jupyter Terminal|localhost:8384:18384:/:Syncthing|localhost:6006:16006:/:TensorBoard|localhost:3000:13000:/:Frontend|localhost:8000:18000:/:API
 
 
-PORTAL CONFIG (in Environment Variables):
-------------------------------------------
-localhost:1111:11111:/:Instance Portal|localhost:8080:18080:/:Jupyter|localhost:8080:8080:/terminals/1:Jupyter Terminal|localhost:8384:18384:/:Syncthing|localhost:6006:16006:/:TensorBoard|localhost:3000:13000:/:Frontend|localhost:8000:18000:/:API
+IMPORTANT NOTE:
+---------------
+⚠️ Use BATCH PASTE mode in VastAI Environment Variables field!
+⚠️ Keep the -e flags in Docker Options too (redundant = safe when VastAI is weird)
+⚠️ All environment variables are in BOTH places to ensure they get set properly
 
 
 ================================================================================
