@@ -49,6 +49,13 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 >
 > **Cross-Trainer Compatibility Goal**: We're researching support for additional memory-efficient optimizers and training techniques (inspired by [Flow](https://github.com/lodestone-rock/flow)) to enable training on a wider range of GPU configurations. This is future work - contributions and testing welcome!
 
+### 🔒 Security Notice
+
+> ⚠️ **File Manager Security**: The file browser currently has basic path validation but lacks authentication middleware. **Safe for VastAI/personal use** (protected by VastAI Portal auth), but **DO NOT expose port 8000 publicly** without adding authentication first.
+>
+> **Status:** Will be fixed ASAP! However, development is on holiday break through Christmas/New Year's 2024. Dusk from KNX needs a well-deserved vacation (Claude is expensive but SO worth it! 🤑). "Summer school with Claude" resumes January 2025 for security improvements and feature polish.
+>
+> **Until then:** Use behind VastAI Portal or private networks only. Don't expose the API to the public internet.
 
 ## 🚀 Quick Start
 
