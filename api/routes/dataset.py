@@ -438,11 +438,10 @@ class UpdateTagsRequest(BaseModel):
 async def update_tags_endpoint(request: UpdateTagsRequest):
     """Update tags for a single image"""
     try:
-        from pathlib import Path
-        from services.core.validation import validate_path
+        from services.core.validation import validate_image_path
 
-        # Get image and caption file paths
-        img_path = Path(request.image_path)
+        # Validate and get image path (prevents path traversal!)
+        img_path = validate_image_path(request.image_path)
         caption_path = img_path.with_suffix('.txt')
 
         # Write tags to caption file
@@ -452,7 +451,7 @@ async def update_tags_endpoint(request: UpdateTagsRequest):
 
         return {
             "success": True,
-            "image_path": request.image_path,
+            "image_path": str(img_path),
             "tags": request.tags
         }
     except Exception as e:

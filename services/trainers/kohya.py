@@ -57,29 +57,46 @@ class KohyaTrainer(BaseTrainer):
         Returns:
             (is_valid, error_messages)
         """
+        from services.core.validation import (
+            validate_dataset_path,
+            validate_model_path,
+            validate_output_path,
+            ValidationError as PathValidationError
+        )
+
         errors = []
 
-        # Check base model exists
-        model_path = Path(self.config.pretrained_model_name_or_path)
-        if not model_path.is_absolute():
-            model_path = self.project_root / model_path
-        if not model_path.exists():
-            errors.append(f"Model not found: {model_path}")
+        # Validate dataset path (security + existence)
+        try:
+            dataset_path = validate_dataset_path(self.config.train_data_dir)
+            if not dataset_path.exists():
+                errors.append(f"Dataset not found: {dataset_path}")
+        except PathValidationError as e:
+            errors.append(f"Invalid dataset path: {e}")
 
-        # Check dataset directory exists
-        dataset_path = Path(self.config.train_data_dir)
-        if not dataset_path.is_absolute():
-            dataset_path = self.project_root / dataset_path
-        if not dataset_path.exists():
-            errors.append(f"Dataset not found: {dataset_path}")
+        # Validate base model path (security + existence)
+        try:
+            model_path = validate_model_path(self.config.pretrained_model_name_or_path)
+            if not model_path.exists():
+                errors.append(f"Model not found: {model_path}")
+        except PathValidationError as e:
+            errors.append(f"Invalid model path: {e}")
 
-        # Check VAE if specified
+        # Validate VAE path if specified (security + existence)
         if self.config.vae_path:
-            vae_path = Path(self.config.vae_path)
-            if not vae_path.is_absolute():
-                vae_path = self.project_root / vae_path
-            if not vae_path.exists():
-                errors.append(f"VAE not found: {vae_path}")
+            try:
+                vae_path = validate_model_path(self.config.vae_path)
+                if not vae_path.exists():
+                    errors.append(f"VAE not found: {vae_path}")
+            except PathValidationError as e:
+                errors.append(f"Invalid VAE path: {e}")
+
+        # Validate output directory (security - will be created if doesn't exist)
+        try:
+            output_path = validate_output_path(self.config.output_name)
+            # Output dir will be created during training, so we don't check existence
+        except PathValidationError as e:
+            errors.append(f"Invalid output path: {e}")
 
         # Flux/SD3 specific validation
         if self.config.model_type in [ModelType.FLUX, ModelType.SD3]:
