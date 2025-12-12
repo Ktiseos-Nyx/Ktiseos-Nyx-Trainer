@@ -182,11 +182,13 @@ api_keys.txt
 hf_token.txt
 config/user_settings.json
 
-# Claude Code & Gemini docs (private)
+# Claude Code, Gemini & Qwen docs (private)
 CLAUDE.md
 CLAUDE_*.md
 GEMINI.md
 GEMINI_*.md
+QWEN.md
+QWEN_*.md
 TODO_*.md
 *_PLAN.md
 *_AUDIT.md

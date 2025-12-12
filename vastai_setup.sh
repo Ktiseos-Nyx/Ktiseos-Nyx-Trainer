@@ -170,11 +170,18 @@ if ! command -v node &> /dev/null; then
 fi
 
 # Navigate to project directory
-cd /workspace/Ktiseos-Nyx-Trainer || exit 1
+if [ ! -d /workspace/Ktiseos-Nyx-Trainer ]; then
+    echo "[$(date)] ERROR: Project directory not found at /workspace/Ktiseos-Nyx-Trainer" | tee -a /workspace/logs/supervisor.log
+    exit 1
+fi
+cd /workspace/Ktiseos-Nyx-Trainer
 
-# Clean up any existing processes on our ports
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+# Clean up any existing processes on our ports (only if they're python/node processes)
+# This prevents accidentally killing VastAI infrastructure
+echo "[$(date)] Checking for existing services on ports 8000 and 3000..." | tee -a /workspace/logs/supervisor.log
+pkill -f "uvicorn api.main:app" 2>/dev/null || true
+pkill -f "next-server.*3000" 2>/dev/null || true
+sleep 1
 
 # Start backend
 echo "[$(date)] Starting FastAPI backend on port 8000..." | tee -a /workspace/logs/supervisor.log
