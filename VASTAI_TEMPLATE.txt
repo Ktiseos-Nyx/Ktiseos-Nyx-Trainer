@@ -1,0 +1,72 @@
+================================================================================
+VASTAI TEMPLATE CONFIGURATION - Ktiseos-Nyx-Trainer
+Fixed Caddy Port Conflict
+================================================================================
+
+DOCKER IMAGE:
+-------------
+vastai/pytorch:2.6.0-cuda-12.6.3-py312-24.04
+
+
+DOCKER OPTIONS:
+---------------
+-p 1111:1111 -p 6006:6006 -p 8080:8080 -p 8384:8384 -e OPEN_BUTTON_PORT=1111 -e OPEN_BUTTON_TOKEN=1 -e JUPYTER_DIR=/ -e DATA_DIRECTORY=/workspace/ -e PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh
+
+
+ENVIRONMENT VARIABLES:
+----------------------
+PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh
+
+
+PORTAL CONFIG (in Environment Variables):
+------------------------------------------
+localhost:1111:11111:/:Instance Portal|localhost:8080:18080:/:Jupyter|localhost:8080:8080:/terminals/1:Jupyter Terminal|localhost:8384:18384:/:Syncthing|localhost:6006:16006:/:TensorBoard|localhost:3000:13000:/:Frontend|localhost:8000:18000:/:API
+
+
+================================================================================
+CRITICAL FIX:
+================================================================================
+
+❌ REMOVED: -p 3000:3000 and -p 8000:8000 from Docker Options
+   → These conflict with PORTAL_CONFIG
+   → Caddy handles the proxying via PORTAL_CONFIG
+
+✅ KEPT: Port mappings for services NOT in PORTAL_CONFIG
+   - Port 1111 (Instance Portal)
+   - Port 6006 (TensorBoard)
+   - Port 8080 (Jupyter)
+   - Port 8384 (Syncthing)
+
+✅ PORTAL_CONFIG proxies:
+   - Port 3000 → 13000 (Frontend)
+   - Port 8000 → 18000 (Backend API)
+
+
+================================================================================
+HOW IT WORKS:
+================================================================================
+
+1. VastAI starts supervisor
+2. Provisioning script runs (installs deps, builds frontend)
+3. Supervisor starts ktiseos-nyx service
+4. Service starts:
+   - Backend on localhost:8000
+   - Frontend on localhost:3000
+5. Caddy PROXIES (doesn't bind!) to localhost:3000 and localhost:8000
+6. External access via Cloudflare tunnels:
+   - https://[id].instances.vast.ai:13000 → localhost:3000
+   - https://[id].instances.vast.ai:18000 → localhost:8000
+
+
+================================================================================
+ACCESS URLS (after instance starts):
+================================================================================
+
+https://[instance-id].instances.vast.ai:11111  - Instance Portal
+https://[instance-id].instances.vast.ai:18080  - Jupyter (file management)
+https://[instance-id].instances.vast.ai:13000  - Frontend (Next.js UI)
+https://[instance-id].instances.vast.ai:18000  - Backend (FastAPI)
+https://[instance-id].instances.vast.ai:16006  - TensorBoard
+
+
+================================================================================
