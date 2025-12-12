@@ -131,6 +131,41 @@ def validate_image_filename(filename: str) -> str:
     return safe_name
 
 
+def validate_image_path(image_path: str) -> Path:
+    """
+    Validate image path is within datasets directory.
+
+    Args:
+        image_path: Path to image file (e.g., "datasets/my_dataset/image.jpg" or "/full/path/to/image.jpg")
+
+    Returns:
+        Path: Validated absolute path to image
+
+    Raises:
+        ValidationError: If path traversal detected or path outside datasets
+
+    Example:
+        >>> path = validate_image_path("datasets/my_dataset/image.jpg")
+        >>> str(path)
+        '/path/to/datasets/my_dataset/image.jpg'
+    """
+    # Convert to Path and resolve to absolute
+    try:
+        img_path = Path(image_path).resolve()
+    except (ValueError, OSError) as e:
+        raise ValidationError(f"Invalid image path: {e}")
+
+    # Ensure it's within DATASETS_DIR
+    if not str(img_path).startswith(str(DATASETS_DIR)):
+        raise ValidationError(f"Image path must be within datasets directory: {image_path}")
+
+    # Check it has valid image extension
+    if img_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValidationError(f"Invalid image extension: {img_path.suffix}. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}")
+
+    return img_path
+
+
 def validate_output_path(filename: str) -> Path:
     """
     Validate output path is within output directory.
