@@ -3,7 +3,8 @@
 # This script runs automatically when a VastAI instance starts
 # Set via: PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh
 
-set -e  # Exit on error
+# Note: Removed 'set -e' for more resilient provisioning
+# Critical errors are handled explicitly below
 
 provisioning_start() {
     echo "=========================================="
@@ -58,38 +59,56 @@ provisioning_start() {
     echo "🐍 Using Python: $PYTHON_CMD"
 
     # Install Node.js 20+ (needed for Next.js frontend and to resolve dependency compatibility issues)
-    echo "📦 Ensuring Node.js 20+ is installed..."
+    echo "📦 Checking Node.js installation..."
+
+    NODEJS_INSTALLED=false
     if command -v node &> /dev/null; then
         CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-        if [ "$CURRENT_VERSION" -lt 20 ]; then
-            echo "Current Node.js version ($CURRENT_VERSION) is too old, upgrading to Node.js 20+..."
+        if [ "$CURRENT_VERSION" -ge 20 ]; then
+            echo "✅ Node.js $CURRENT_VERSION already installed: $(node --version)"
+            NODEJS_INSTALLED=true
         else
-            echo "✅ Node.js version is sufficient: $(node --version)"
+            echo "⚠️  Current Node.js version ($CURRENT_VERSION) is too old, need v20+"
         fi
     fi
 
-    # Install/upgrade to Node.js 20 regardless of what's currently there to avoid dependency conflicts
-    if command -v apt-get &> /dev/null; then
-        # Try to install Node.js 20 using nodesource
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-        apt-get install -y nodejs npm
-    else
-        # Try using nvm to ensure Node.js 20
-        export NVM_DIR="$HOME/.nvm"
-        if [ -s "$NVM_DIR/nvm.sh" ]; then
-            \. "$NVM_DIR/nvm.sh"
-        else
-            # Install nvm first, then install node 20
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    # Only install if not already present
+    if [ "$NODEJS_INSTALLED" = false ]; then
+        echo "📦 Installing Node.js 20+..."
+        if command -v apt-get &> /dev/null; then
+            # Try to install Node.js 20 using nodesource
+            if curl -fsSL https://deb.nodesource.com/setup_20.x | bash - ; then
+                # Try installing - but don't fail if there are conflicts
+                apt-get install -y nodejs npm || {
+                    echo "⚠️  apt-get install failed, trying nvm fallback..."
+                    NODEJS_INSTALLED=false
+                }
+            fi
+        fi
+
+        # Fallback to nvm if apt-get failed or not available
+        if [ "$NODEJS_INSTALLED" = false ] && ! command -v node &> /dev/null; then
+            echo "📦 Trying nvm installation..."
             export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+                \. "$NVM_DIR/nvm.sh"
+            else
+                # Install nvm first, then install node 20
+                curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+                export NVM_DIR="$HOME/.nvm"
+                [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            fi
+            nvm install 20 && nvm use 20
         fi
-        nvm install 20
-        nvm use 20
     fi
 
-    echo "✅ Node.js installation complete: $(node --version)"
-    echo "✅ npm version: $(npm --version)"
+    # Verify Node.js is available
+    if command -v node &> /dev/null; then
+        echo "✅ Node.js ready: $(node --version)"
+        echo "✅ npm version: $(npm --version)"
+    else
+        echo "❌ Node.js installation failed - frontend build will be skipped"
+    fi
 
     # Run unified installer (handles all backend dependencies and setup)
     echo "🔧 Running unified installer..."
@@ -111,25 +130,33 @@ provisioning_start() {
 
     # Setup Next.js Frontend
     if [ -d "frontend" ]; then
-        echo "🎨 Setting up Next.js frontend..."
-        cd frontend
+        if command -v node &> /dev/null && command -v npm &> /dev/null; then
+            echo "🎨 Setting up Next.js frontend..."
+            cd frontend
 
-        # Ensure Node.js is available
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            # Ensure Node.js is available
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-        # Check node version and install dependencies
-        echo "Node version: $(node --version)"
-        echo "NPM version: $(npm --version)"
+            # Check node version and install dependencies
+            echo "Node version: $(node --version)"
+            echo "NPM version: $(npm --version)"
 
-        echo "   Installing npm packages..."
-        npm ci --prefer-offline || npm install
+            echo "   Installing npm packages..."
+            npm ci --prefer-offline || npm install || {
+                echo "⚠️  npm install failed, continuing anyway..."
+            }
 
-        # Build for production
-        echo "🏗️  Building Next.js app..."
-        npm run build
+            # Build for production
+            echo "🏗️  Building Next.js app..."
+            npm run build || {
+                echo "⚠️  Frontend build failed, services may not work correctly"
+            }
 
-        cd ..
+            cd ..
+        else
+            echo "⚠️  Node.js/npm not available - skipping frontend setup"
+        fi
     else
         echo "⚠️  Frontend directory not found - skipping Next.js setup"
     fi
@@ -244,8 +271,10 @@ EOL
 
     # Reload Supervisor to apply new configuration
     if command -v supervisorctl &> /dev/null; then
-        supervisorctl reread
-        supervisorctl update
+        supervisorctl reread || echo "⚠️  supervisorctl reread failed"
+        supervisorctl update || echo "⚠️  supervisorctl update failed"
+    else
+        echo "⚠️  supervisorctl not available - services will not auto-start"
     fi
 
     echo ""
@@ -258,10 +287,14 @@ EOL
     echo "🌐 Access your applications via the portal links on your instance page:"
     echo "   - Frontend: NextJS UI (port 3000)"
     echo "   - Backend: FastAPI API (port 8000)"
-    echo "   - Jupyter: For diagnostics (port 8888)"
+    echo "   - Jupyter: For file management (port 8080)"
     echo "   - TensorBoard: For monitoring (port 6006)"
     echo ""
     echo "ℹ️  Supervisor will manage services with proper logging and restart capabilities."
+    echo ""
+    echo "📋 If services don't start automatically, check:"
+    echo "   - supervisorctl status"
+    echo "   - /var/log/portal/ktiseos-nyx.log"
     echo ""
 }
 
