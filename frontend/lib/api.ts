@@ -292,6 +292,21 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  // Upload multiple files in one request
+  uploadBatch: async (files: File[], datasetName: string) => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+    formData.append('dataset_name', datasetName);
+
+    const response = await fetch(`${API_BASE}/dataset/upload-batch`, {
+      method: 'POST',
+      body: formData,
+    });
+    return handleResponse(response);
+  },
+
   // WebSocket for tagging logs (job-based)
   connectTaggingLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
     const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
