@@ -58,57 +58,26 @@ provisioning_start() {
     PYTHON_CMD=$(which python || which python3)
     echo "🐍 Using Python: $PYTHON_CMD"
 
-    # Install Node.js 20+ (needed for Next.js frontend and to resolve dependency compatibility issues)
+    # Check Node.js version (Next.js requires 18.18+)
     echo "📦 Checking Node.js installation..."
 
-    NODEJS_INSTALLED=false
-    if command -v node &> /dev/null; then
-        CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-        if [ "$CURRENT_VERSION" -ge 20 ]; then
-            echo "✅ Node.js $CURRENT_VERSION already installed: $(node --version)"
-            NODEJS_INSTALLED=true
-        else
-            echo "⚠️  Current Node.js version ($CURRENT_VERSION) is too old, need v20+"
-        fi
+    if ! command -v node &> /dev/null; then
+        echo "❌ ERROR: Node.js not found!"
+        echo "   VastAI PyTorch images should have Node.js pre-installed."
+        echo "   Please use a VastAI image with Node.js 18+ included."
+        exit 1
     fi
 
-    # Only install if not already present
-    if [ "$NODEJS_INSTALLED" = false ]; then
-        echo "📦 Installing Node.js 20+..."
-        if command -v apt-get &> /dev/null; then
-            # Try to install Node.js 20 using nodesource
-            if curl -fsSL https://deb.nodesource.com/setup_20.x | bash - ; then
-                # Try installing - but don't fail if there are conflicts
-                apt-get install -y nodejs npm || {
-                    echo "⚠️  apt-get install failed, trying nvm fallback..."
-                    NODEJS_INSTALLED=false
-                }
-            fi
-        fi
-
-        # Fallback to nvm if apt-get failed or not available
-        if [ "$NODEJS_INSTALLED" = false ] && ! command -v node &> /dev/null; then
-            echo "📦 Trying nvm installation..."
-            export NVM_DIR="$HOME/.nvm"
-            if [ -s "$NVM_DIR/nvm.sh" ]; then
-                \. "$NVM_DIR/nvm.sh"
-            else
-                # Install nvm first, then install node 20
-                curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-                export NVM_DIR="$HOME/.nvm"
-                [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            fi
-            nvm install 20 && nvm use 20
-        fi
+    CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
+    if [ "$CURRENT_VERSION" -lt 18 ]; then
+        echo "❌ ERROR: Node.js $CURRENT_VERSION is too old (need 18+)"
+        echo "   Found at: $(which node)"
+        echo "   Please use a VastAI image with Node.js 18+ included."
+        exit 1
     fi
 
-    # Verify Node.js is available
-    if command -v node &> /dev/null; then
-        echo "✅ Node.js ready: $(node --version)"
-        echo "✅ npm version: $(npm --version)"
-    else
-        echo "❌ Node.js installation failed - frontend build will be skipped"
-    fi
+    echo "✅ Node.js $CURRENT_VERSION ready: $(node --version) at $(which node)"
+    echo "✅ npm version: $(npm --version)"
 
     # Run unified installer (handles all backend dependencies and setup)
     echo "🔧 Running unified installer..."
@@ -188,6 +157,17 @@ provisioning_start() {
 
 # Activate virtual environment
 source /venv/main/bin/activate 2>/dev/null || true
+
+# Ensure node is in PATH (check common locations if not found)
+if ! command -v node &> /dev/null; then
+    # Check common node installation paths
+    for node_path in /opt/nvm/versions/node/*/bin /usr/bin /usr/local/bin; do
+        if [ -f "$node_path/node" ]; then
+            export PATH="$node_path:$PATH"
+            break
+        fi
+    done
+fi
 
 # Navigate to project directory
 cd /workspace/Ktiseos-Nyx-Trainer || exit 1
