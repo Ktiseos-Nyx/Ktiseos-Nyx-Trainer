@@ -89,17 +89,9 @@ export default function DatasetUploader() {
       const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
 
       if (imageFiles.length > 0) {
-        const destination = `datasets/${datasetName}`;
-        for (let i = 0; i < imageFiles.length; i++) {
-          await fileAPI.upload(imageFiles[i].file, destination);
-          setFiles((prev) =>
-            prev.map((f, idx) =>
-              idx === files.findIndex(file => file.file === imageFiles[i].file)
-                ? { ...f, status: 'success' as const, progress: 100 }
-                : f
-            )
-          );
-        }
+        // Upload all files in one batch request (much faster!)
+        const filesToUpload = imageFiles.map(f => f.file);
+        await datasetAPI.uploadBatch(filesToUpload, datasetName);
       }
 
       // Mark any remaining files as success
@@ -154,8 +146,15 @@ export default function DatasetUploader() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Upload failed');
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json();
+          throw new Error(error.detail || 'Upload failed');
+        } else {
+          const text = await response.text();
+          throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`);
+        }
       }
 
       const result = await response.json();

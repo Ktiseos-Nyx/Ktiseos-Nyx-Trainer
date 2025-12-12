@@ -270,23 +270,34 @@ class DatasetService:
         uploaded_files = []
         errors = []
 
-        for file in files:
+        async def upload_single_file(file):
+            """Upload a single file and return result"""
             try:
                 # Check file extension
                 file_path = Path(file.filename)
                 if file_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
-                    errors.append(f"{file.filename}: Invalid file type - only images allowed")
-                    continue
+                    return None, f"{file.filename}: Invalid file type - only images allowed"
 
                 # Save file
                 destination = dataset_path / file.filename
                 content = await file.read()
                 destination.write_bytes(content)
 
-                uploaded_files.append(str(destination))
+                return str(destination), None
 
             except Exception as e:
-                errors.append(f"{file.filename}: {str(e)}")
+                return None, f"{file.filename}: {str(e)}"
+
+        # Process all files in parallel
+        import asyncio
+        results = await asyncio.gather(*[upload_single_file(file) for file in files])
+
+        # Separate successes from errors
+        for result_path, error in results:
+            if result_path:
+                uploaded_files.append(result_path)
+            if error:
+                errors.append(error)
 
         return {
             "uploaded_files": uploaded_files,
