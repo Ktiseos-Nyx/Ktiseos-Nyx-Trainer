@@ -170,106 +170,49 @@ provisioning_start() {
         chmod +x start_services_local.sh
     fi
 
-    # Configure git for root usage (similar to SD-Forge script)
+    # Configure git for root usage
     git config --global --add safe.directory $(pwd)
 
-    # Create Supervisor startup script for our services
-    cat > /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
-#!/bin/bash
+    # Start services directly (simpler, won't interfere with VastAI Portal)
+    echo ""
+    echo "🚀 Starting services..."
 
-kill_subprocesses() {
-    local pid=$1
-    local subprocesses=$(pgrep -P "$pid")
+    # Activate virtual environment
+    source /venv/main/bin/activate 2>/dev/null || true
 
-    for process in $subprocesses; do
-        kill_subprocesses "$process"
-    done
+    # Clean up any existing processes on our ports
+    lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
 
-    if [[ -n "$subprocesses" ]]; then
-        kill -TERM $subprocesses 2>/dev/null
-    fi
-}
+    # Create log directory
+    mkdir -p /workspace/logs
 
-cleanup() {
-    kill_subprocesses $$
-    sleep 2
-    pkill -KILL -P $$ 2>/dev/null
-    exit 0
-}
+    # Start backend
+    echo "   Starting FastAPI backend on port 8000..."
+    nohup python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > /workspace/logs/backend.log 2>&1 &
+    echo $! > /workspace/logs/backend.pid
 
-trap cleanup EXIT INT TERM
+    # Start frontend
+    echo "   Starting Next.js frontend on port 3000..."
+    cd frontend
+    nohup npm run start > /workspace/logs/frontend.log 2>&1 &
+    echo $! > /workspace/logs/frontend.pid
+    cd ..
 
-# Wait for portal config and check if our services should be started
-while [ ! -f "$(realpath -q /etc/portal.yaml 2>/dev/null)" ]; do
-    echo "Waiting for /etc/portal.yaml before starting ${PROC_NAME}..." | tee -a "/var/log/portal/${PROC_NAME}.log"
-    sleep 1
-done
+    # Give services a moment to start
+    sleep 3
 
-# Check for our services in the portal config
-search_term="Frontend"
-search_pattern=$(echo "$search_term" | sed 's/[ _-]/[ _-]/g')
-if ! grep -qiE "^[^#].*${search_pattern}" /etc/portal.yaml; then
-    echo "Skipping startup for ${PROC_NAME} (not in /etc/portal.yaml)" | tee -a "/var/log/portal/${PROC_NAME}.log"
-    exit 0
-fi
-
-echo "Starting Ktiseos Nyx Trainer services" | tee "/var/log/portal/${PROC_NAME}.log"
-
-# Activate virtual environment
-. /venv/main/bin/activate
-
-# Navigate to the project directory
-cd /workspace/Ktiseos-Nyx-Trainer
-
-# Clean up any existing processes on our ports
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-
-# Start the backend first
-echo "Starting FastAPI backend..." | tee -a "/var/log/portal/${PROC_NAME}.log"
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
-
-# Start the frontend
-echo "Starting NextJS frontend..." | tee -a "/var/log/portal/${PROC_NAME}.log"
-cd frontend && npm run start &
-FRONTEND_PID=$!
-
-# Keep the script running and monitor processes
-wait $BACKEND_PID $FRONTEND_PID 2>/dev/null
-
-EOL
-
-    chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
-
-    # Generate the supervisor config file
-    cat > /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOL'
-[program:ktiseos-nyx]
-environment=PROC_NAME="%(program_name)s",WORKSPACE="/workspace"
-command=/opt/supervisor-scripts/ktiseos-nyx.sh
-directory=/workspace/Ktiseos-Nyx-Trainer
-autostart=true
-autorestart=true
-exitcodes=0
-startsecs=0
-stopasgroup=true
-killasgroup=true
-stopsignal=TERM
-stopwaitsecs=10
-# This is necessary for Vast logging to work alongside the Portal logs (Must output to /dev/stdout)
-stdout_logfile=/dev/stdout
-redirect_stderr=true
-stdout_events_enabled=true
-stdout_logfile_maxbytes=0
-stdout_logfile_backups=0
-EOL
-
-    # Reload Supervisor to apply new configuration
-    if command -v supervisorctl &> /dev/null; then
-        supervisorctl reread || echo "⚠️  supervisorctl reread failed"
-        supervisorctl update || echo "⚠️  supervisorctl update failed"
+    # Check if services are running
+    if ps -p $(cat /workspace/logs/backend.pid 2>/dev/null) > /dev/null 2>&1; then
+        echo "   ✅ Backend started (PID: $(cat /workspace/logs/backend.pid))"
     else
-        echo "⚠️  supervisorctl not available - services will not auto-start"
+        echo "   ⚠️  Backend may have failed to start - check /workspace/logs/backend.log"
+    fi
+
+    if ps -p $(cat /workspace/logs/frontend.pid 2>/dev/null) > /dev/null 2>&1; then
+        echo "   ✅ Frontend started (PID: $(cat /workspace/logs/frontend.pid))"
+    else
+        echo "   ⚠️  Frontend may have failed to start - check /workspace/logs/frontend.log"
     fi
 
     echo ""
@@ -277,19 +220,19 @@ EOL
     echo "✅ Setup Complete!"
     echo "=========================================="
     echo ""
-    echo "🚀 Services will start automatically via VastAI's supervisor..."
+    echo "🌐 Access your applications via VastAI portal links:"
+    echo "   - Frontend: Next.js UI (port 3000)"
+    echo "   - Backend: FastAPI (port 8000)"
+    echo "   - Jupyter: File management (port 8080)"
+    echo "   - TensorBoard: Training monitoring (port 6006)"
     echo ""
-    echo "🌐 Access your applications via the portal links on your instance page:"
-    echo "   - Frontend: NextJS UI (port 3000)"
-    echo "   - Backend: FastAPI API (port 8000)"
-    echo "   - Jupyter: For file management (port 8080)"
-    echo "   - TensorBoard: For monitoring (port 6006)"
+    echo "📋 Service logs:"
+    echo "   - Backend:  /workspace/logs/backend.log"
+    echo "   - Frontend: /workspace/logs/frontend.log"
     echo ""
-    echo "ℹ️  Supervisor will manage services with proper logging and restart capabilities."
-    echo ""
-    echo "📋 If services don't start automatically, check:"
-    echo "   - supervisorctl status"
-    echo "   - /var/log/portal/ktiseos-nyx.log"
+    echo "🔧 To restart services:"
+    echo "   - Backend:  kill \$(cat /workspace/logs/backend.pid) && cd /workspace/Ktiseos-Nyx-Trainer && nohup python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > /workspace/logs/backend.log 2>&1 &"
+    echo "   - Frontend: kill \$(cat /workspace/logs/frontend.pid) && cd /workspace/Ktiseos-Nyx-Trainer/frontend && nohup npm run start > /workspace/logs/frontend.log 2>&1 &"
     echo ""
 }
 
