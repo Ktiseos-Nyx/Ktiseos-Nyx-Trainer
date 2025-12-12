@@ -119,12 +119,12 @@ provisioning_start() {
 
         # Fallback: Install dependencies manually
         echo "🐍 Installing all dependencies..."
-        $PYTHON_CMD -m pip install --upgrade pip
+        $PYTHON_CMD -m pip install --upgrade pip -v
         if [ -f "requirements.txt" ]; then
             # First try to resolve any version conflicts
-            $PYTHON_CMD -m pip install --upgrade setuptools wheel
-            # Install with conflict resolution
-            $PYTHON_CMD -m pip install -r requirements.txt --no-cache-dir
+            $PYTHON_CMD -m pip install --upgrade setuptools wheel -v
+            # Install with conflict resolution (verbose for debugging)
+            $PYTHON_CMD -m pip install -r requirements.txt --no-cache-dir -v
         fi
     fi
 
@@ -172,11 +172,6 @@ provisioning_start() {
 
     # Configure git for root usage (similar to SD-Forge script)
     git config --global --add safe.directory $(pwd)
-
-    # Set up the instance portal configuration for VastAI
-    echo "🔧 Configuring Instance Portal..."
-    rm -f /etc/portal.yaml
-    export PORTAL_CONFIG="localhost:3000:3000:/:NextJS Frontend|localhost:8000:8000:/:FastAPI Backend|localhost:8888:8888:/:Jupyter|localhost:6006:6006:/:TensorBoard"
 
     # Create Supervisor startup script for our services
     cat > /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
