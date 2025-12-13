@@ -1,1 +1,0 @@
-sed -i 's/source \/venv\/main\/bin\/activate/. \/venv\/main\/bin\/activate 2>\/dev\/null \|\| conda activate \/\venv\/main 2>\/dev\/null \|\| echo "Activation may have failed"/' vastai_setup.sh
