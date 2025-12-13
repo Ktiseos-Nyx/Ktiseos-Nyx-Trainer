@@ -1,11 +1,13 @@
 ================================================================================
 VASTAI TEMPLATE CONFIGURATION - Ktiseos-Nyx-Trainer
-Fixed Caddy Port Conflict
+CUDA 12.1 for Maximum GPU Compatibility
 ================================================================================
 
 DOCKER IMAGE:
 -------------
-vastai/pytorch:2.6.0-cuda-12.6.3-py312-24.04
+vastai/pytorch:2.5.1-cuda-12.1.1-py310-ipv2
+
+(Note: CUDA 12.1.1 works with more VastAI GPUs than 12.6.3)
 
 
 DOCKER OPTIONS (COPY THIS ENTIRE LINE):

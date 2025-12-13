@@ -48,25 +48,50 @@ fi
 
 # Start Next.js frontend (if frontend directory exists)
 if [ -d "frontend" ]; then
-    echo "🎨 Starting Next.js frontend on port 3000..."
-
-    # Load NVM (if available, for local setup consistency)
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-    cd frontend
-
-    # Check if build exists
-    if [ ! -d ".next" ]; then
-        echo "   ⚠️  No build found, running npm run build first..."
-        npm run build
+    # Try to find Node.js in common locations if not in PATH
+    if ! command -v node &> /dev/null; then
+        echo "   Node.js not in PATH, searching common locations..."
+        for node_path in /opt/nvm/versions/node/*/bin /usr/bin /usr/local/bin ~/.nvm/versions/node/*/bin; do
+            if [ -f "$node_path/node" ]; then
+                echo "   Found Node.js at: $node_path/node"
+                export PATH="$node_path:$PATH"
+                break
+            fi
+        done
     fi
 
-    # Use production start mode, not development
-    npm run start &
-    FRONTEND_PID=$!
-    echo "   Frontend PID: $FRONTEND_PID"
-    cd ..
+    # Check if Node.js and npm are available
+    if command -v node &> /dev/null && command -v npm &> /dev/null; then
+        echo "🎨 Starting Next.js frontend on port 3000..."
+
+        # Load NVM (if available, for local setup consistency)
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+        cd frontend
+
+        # Check if build exists
+        if [ ! -d ".next" ]; then
+            echo "   ⚠️  No build found, running npm run build first..."
+            npm run build || {
+                echo "❌ Frontend build failed - skipping frontend startup"
+                cd ..
+                echo "⚠️  Frontend unavailable. Backend API will still work on port 8000."
+                echo ""
+            }
+        fi
+
+        # Use production start mode, not development (only if build succeeded)
+        if [ -d ".next" ]; then
+            npm run start &
+            FRONTEND_PID=$!
+            echo "   Frontend PID: $FRONTEND_PID"
+            cd ..
+        fi
+    else
+        echo "⚠️  Node.js/npm not found - skipping frontend startup"
+        echo "   Frontend unavailable. Backend API will still work on port 8000."
+    fi
 else
     echo "⚠️  Frontend directory not found - skipping frontend startup"
     echo "   Create /frontend with Next.js app"

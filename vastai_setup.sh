@@ -61,23 +61,45 @@ provisioning_start() {
     # Check Node.js version (Next.js requires 18.18+)
     echo "📦 Checking Node.js installation..."
 
+    # Try to find Node.js in common locations if not in PATH
     if ! command -v node &> /dev/null; then
-        echo "❌ ERROR: Node.js not found!"
-        echo "   VastAI PyTorch images should have Node.js pre-installed."
-        echo "   Please use a VastAI image with Node.js 18+ included."
-        exit 1
+        echo "   Node.js not in PATH, searching common locations..."
+        NODE_FOUND=false
+
+        for node_path in /opt/nvm/versions/node/*/bin /usr/bin /usr/local/bin ~/.nvm/versions/node/*/bin; do
+            if [ -f "$node_path/node" ]; then
+                echo "   Found Node.js at: $node_path/node"
+                export PATH="$node_path:$PATH"
+                NODE_FOUND=true
+                break
+            fi
+        done
+
+        if [ "$NODE_FOUND" = false ]; then
+            echo "⚠️  WARNING: Node.js not found!"
+            echo "   Frontend will be unavailable (Next.js requires Node.js 18+)"
+            echo "   Backend API will still work normally."
+            echo ""
+            echo "   Continuing with backend-only setup..."
+            SKIP_FRONTEND=true
+        fi
     fi
 
-    CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-    if [ "$CURRENT_VERSION" -lt 18 ]; then
-        echo "❌ ERROR: Node.js $CURRENT_VERSION is too old (need 18+)"
-        echo "   Found at: $(which node)"
-        echo "   Please use a VastAI image with Node.js 18+ included."
-        exit 1
+    # Validate Node.js version if found
+    if [ "$SKIP_FRONTEND" != true ] && command -v node &> /dev/null; then
+        CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
+        if [ "$CURRENT_VERSION" -lt 18 ]; then
+            echo "⚠️  WARNING: Node.js $CURRENT_VERSION is too old (need 18+)"
+            echo "   Found at: $(which node)"
+            echo "   Frontend will be unavailable."
+            echo "   Backend API will still work normally."
+            echo ""
+            SKIP_FRONTEND=true
+        else
+            echo "✅ Node.js $CURRENT_VERSION ready: $(node --version) at $(which node)"
+            echo "✅ npm version: $(npm --version)"
+        fi
     fi
-
-    echo "✅ Node.js $CURRENT_VERSION ready: $(node --version) at $(which node)"
-    echo "✅ npm version: $(npm --version)"
 
     # Run unified installer (handles all backend dependencies and setup)
     echo "🔧 Running unified installer..."
@@ -98,7 +120,7 @@ provisioning_start() {
     fi
 
     # Setup Next.js Frontend
-    if [ -d "frontend" ]; then
+    if [ -d "frontend" ] && [ "$SKIP_FRONTEND" != true ]; then
         if command -v node &> /dev/null && command -v npm &> /dev/null; then
             echo "🎨 Setting up Next.js frontend..."
             cd frontend
@@ -126,6 +148,8 @@ provisioning_start() {
         else
             echo "⚠️  Node.js/npm not available - skipping frontend setup"
         fi
+    elif [ "$SKIP_FRONTEND" = true ]; then
+        echo "⏭️  Skipping frontend setup (Node.js not available)"
     else
         echo "⚠️  Frontend directory not found - skipping Next.js setup"
     fi

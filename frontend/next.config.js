@@ -19,8 +19,8 @@ const nextConfig = {
   },
   // Disable strict mode for development (optional)
   reactStrictMode: true,
-  // Output standalone for Docker
-  output: 'standalone',
+  // Note: Standalone mode disabled for VastAI deployment (use normal build)
+  // output: 'standalone',
   // Ignore ESLint errors during build (keep linting for dev)
   eslint: {
     ignoreDuringBuilds: true,
