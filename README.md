@@ -26,7 +26,9 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 - 🔧 **Multiple LoRA Variants** - Standard, LoCon, LoHa, LoKr, DoRA support
 - 🚀 **Advanced Optimizers** - AdamW8bit, Prodigy, Lion, CAME, and more
 - ☁️ **HuggingFace Integration** - Upload datasets and trained LoRAs directly
-- 📊 **Async Uploads** - Non-blocking file uploads so your images don't become dreams
+- 📊 **Smart Upload System** - Powered by Uppy with auto-retry, progress tracking, and batch uploads
+- 💾 **State Persistence** - Zustand-powered config storage prevents losing training settings
+- ✅ **Schema Validation** - Zod validation catches configuration errors before training starts
 
 **Platform Support:**
 - 💻 **Cross-platform** - Windows, Linux, macOS
@@ -167,8 +169,10 @@ The web interface provides a streamlined, tab-based workflow:
 
 1. **📁 Files Page** - Browse and upload datasets
    - File browser for managing training data
-   - Drag-and-drop upload support
+   - Drag-and-drop upload support with Uppy (auto-retry, progress tracking)
+   - Batch uploads (10 files at a time) for optimal network performance
    - Directory creation and organization
+   - Test the new Uppy uploader at `/dataset-uppy`
 
 2. **🖼️ Dataset Page** - Prepare images for training
    - WD14 auto-tagging with multiple tagger options

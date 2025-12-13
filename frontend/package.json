@@ -6,9 +6,9 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "next dev -H localhost",
+    "dev": "next dev -H localhost -p 3000",
     "build": "next build",
-    "start": "next start -H 0.0.0.0",
+    "start": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint"
   },
   "dependencies": {
@@ -20,6 +20,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@gsap/react": "^2.1.2",
+    "@hookform/resolvers": "^5.2.2",
     "@lexical/react": "^0.38.2",
     "@lexical/rich-text": "^0.38.2",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -48,6 +49,13 @@
     "@tabler/icons-react": "^3.35.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@tanstack/react-query": "^5.90.9",
+    "@uppy/core": "^4.3.3",
+    "@uppy/dashboard": "^4.1.2",
+    "@uppy/drag-drop": "^4.0.4",
+    "@uppy/file-input": "^4.0.4",
+    "@uppy/progress-bar": "^4.0.4",
+    "@uppy/react": "^4.0.5",
+    "@uppy/xhr-upload": "^4.2.1",
     "@wandry/inertia-form": "^1.11.0",
     "axios": "^1.6.8",
     "class-variance-authority": "^0.7.1",
@@ -62,10 +70,13 @@
     "react": "19.0.1",
     "react-dom": "19.0.1",
     "react-dropzone": "^14.3.8",
+    "react-hook-form": "^7.68.0",
     "react-resizable-panels": "^3.0.6",
     "styled-jsx": "^5.1.7",
     "tailwind-merge": "^2.6.0",
-    "tailwind-variants": "^3.1.1"
+    "tailwind-variants": "^3.1.1",
+    "zod": "^4.1.13",
+    "zustand": "^5.0.9"
   },
   "overrides": {
     "framer-motion": {
