@@ -560,15 +560,22 @@ async def upload_zip(
     Automatically extracts images and flattens directory structure.
     """
     try:
+        logger.info(f"📦 ZIP upload started: {file.filename} → {dataset_name}")
+
         # Validate file is ZIP
         if not file.filename.lower().endswith('.zip'):
+            logger.warning(f"❌ Invalid file type: {file.filename}")
             raise HTTPException(
                 status_code=400,
                 detail="File must be a ZIP archive"
             )
 
+        logger.info(f"✅ File validated, calling dataset service...")
+
         # Use dataset service
         result = await dataset_service.upload_zip(file, dataset_name)
+
+        logger.info(f"✅ ZIP extraction complete: {len(result['extracted_files'])} files")
 
         return {
             "success": len(result["extracted_files"]) > 0,
@@ -580,7 +587,7 @@ async def upload_zip(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to upload ZIP: {e}", exc_info=True)
+        logger.error(f"❌ Failed to upload ZIP: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

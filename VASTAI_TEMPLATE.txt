@@ -3,15 +3,16 @@ VASTAI TEMPLATE CONFIGURATION - Ktiseos-Nyx-Trainer
 CUDA 12.1 for Maximum GPU Compatibility
 ================================================================================
 
+🎯 QUICK START - COPY THESE VALUES INTO VASTAI:
+================================================================================
+
 DOCKER IMAGE:
 -------------
 vastai/pytorch:2.5.1-cuda-12.1.1-py310-ipv2
 
-(Note: CUDA 12.1.1 works with more VastAI GPUs than 12.6.3)
 
-
-DOCKER OPTIONS (COPY THIS ENTIRE LINE):
-----------------------------------------
+DOCKER OPTIONS (SELECT ALL AND COPY - ONE LINE, NO BREAKS):
+------------------------------------------------------------
 -p 1111:1111 -p 6006:6006 -p 8080:8080 -p 8384:8384 -p 72299:72299 -e OPEN_BUTTON_PORT=1111 -e OPEN_BUTTON_TOKEN=1 -e JUPYTER_DIR=/ -e DATA_DIRECTORY=/workspace/ -e PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh -e PORTAL_CONFIG="localhost:1111:11111:/:Instance Portal|localhost:8080:18080:/:Jupyter|localhost:8080:8080:/terminals/1:Jupyter Terminal|localhost:8384:18384:/:Syncthing|localhost:6006:16006:/:TensorBoard|localhost:3000:13000:/:Frontend|localhost:8000:18000:/:API"
 
 
@@ -73,9 +74,37 @@ ACCESS URLS (after instance starts):
 
 https://[instance-id].instances.vast.ai:11111  - Instance Portal
 https://[instance-id].instances.vast.ai:18080  - Jupyter (file management)
-https://[instance-id].instances.vast.ai:13000  - Frontend (Next.js UI)
-https://[instance-id].instances.vast.ai:18000  - Backend (FastAPI)
+https://[instance-id].instances.vast.ai:13000  - Frontend (Next.js UI) ⭐
+https://[instance-id].instances.vast.ai:18000  - Backend (FastAPI) ⭐
 https://[instance-id].instances.vast.ai:16006  - TensorBoard
+
+
+================================================================================
+TROUBLESHOOTING - If Portal URLs Don't Work:
+================================================================================
+
+1. Check if services started:
+   supervisorctl status
+
+2. Check if ports are listening:
+   lsof -i :8000  # Backend
+   lsof -i :3000  # Frontend
+
+3. Check Caddy is running:
+   supervisorctl status caddy
+
+4. View service logs:
+   tail -50 /workspace/logs/backend.log
+   tail -50 /workspace/logs/frontend.log
+
+5. If Caddy crashed, PORTAL_CONFIG might have syntax error
+   Check: supervisorctl tail caddy stderr
+
+6. Services should bind to 0.0.0.0 or localhost (NOT 127.0.0.1 only)
+
+⚠️ If portals are completely broken (can't access Jupyter either):
+   - The PORTAL_CONFIG might be malformed
+   - Try removing Frontend/Backend from PORTAL_CONFIG to isolate issue
 
 
 ================================================================================
