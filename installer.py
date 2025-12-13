@@ -321,23 +321,30 @@ class UnifiedInstaller:
             self.logger.info(f"Detected system: {system}")
             
             if system == "linux":
+                # Check if running as root (VastAI containers run as root)
+                import os
+                is_root = os.geteuid() == 0 if hasattr(os, 'geteuid') else False
+                sudo_prefix = "" if is_root else "sudo "
+
                 # Try different package managers
+                # Use shell=True with proper string commands
                 package_managers = [
-                    (['apt', '--version'], ['sudo', 'apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'aria2']),
-                    (['yum', '--version'], ['sudo', 'yum', 'install', '-y', 'aria2']),
-                    (['dnf', '--version'], ['sudo', 'dnf', 'install', '-y', 'aria2'])
+                    (['apt', '--version'], f"{sudo_prefix}apt update && {sudo_prefix}apt install -y aria2"),
+                    (['yum', '--version'], f"{sudo_prefix}yum install -y aria2"),
+                    (['dnf', '--version'], f"{sudo_prefix}dnf install -y aria2")
                 ]
-                
+
                 for pm_cmd, install_cmd in package_managers:
                     try:
                         subprocess.run(pm_cmd, capture_output=True, check=True)
                         pm_name = pm_cmd[0]
                         self.logger.info(f"Found package manager: {pm_name}")
                         print(f"     ✅ Installing with {pm_name}...")
-                        
+
                         result = subprocess.run(install_cmd, shell=True, capture_output=True, text=True)
                         if result.returncode == 0:
                             self.logger.info(f"Successfully installed aria2c with {pm_name}")
+                            print(f"     ✅ Successfully installed aria2c")
                             break
                         else:
                             self.logger.warning(f"Failed to install with {pm_name}: {result.stderr}")
@@ -347,8 +354,12 @@ class UnifiedInstaller:
                     warning_msg = "Could not auto-install aria2c. Please install manually:"
                     self.logger.warning(warning_msg)
                     print(f"     ⚠️  {warning_msg}")
-                    print("        Ubuntu/Debian: sudo apt install aria2")
-                    print("        CentOS/RHEL: sudo yum install aria2")
+                    if is_root:
+                        print("        Ubuntu/Debian: apt update && apt install -y aria2")
+                        print("        CentOS/RHEL: yum install -y aria2")
+                    else:
+                        print("        Ubuntu/Debian: sudo apt update && sudo apt install -y aria2")
+                        print("        CentOS/RHEL: sudo yum install -y aria2")
             
             elif system == "darwin":
                 if shutil.which('brew'):
