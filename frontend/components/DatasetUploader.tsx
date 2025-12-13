@@ -89,8 +89,9 @@ export default function DatasetUploader() {
       const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
 
       if (imageFiles.length > 0) {
-        // Upload all files in one batch request (much faster!)
+        // Upload all at once - chunking adds overhead on slow networks
         const filesToUpload = imageFiles.map(f => f.file);
+        console.log(`📤 Uploading ${filesToUpload.length} images...`);
         await datasetAPI.uploadBatch(filesToUpload, datasetName);
       }
 
@@ -133,17 +134,35 @@ export default function DatasetUploader() {
       return;
     }
 
+    // Validate the file exists and has size
+    const zipFile = zipFiles[0].file;
+    if (!zipFile || zipFile.size === 0) {
+      alert('❌ ZIP file is empty or not loaded yet!');
+      return;
+    }
+
+    console.log(`📦 Uploading ZIP: ${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(2)} MB)`);
     setUploading(true);
 
     try {
       const formData = new FormData();
-      formData.append('file', zipFiles[0].file);
+      formData.append('file', zipFile);
       formData.append('dataset_name', datasetName);
+
+      console.log('🚀 Sending ZIP to backend...');
+
+      // Add timeout to prevent hanging forever (10 mins for slow networks)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
 
       const response = await fetch(`${API_BASE}/dataset/upload-zip`, {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+      console.log(`📥 Response status: ${response.status}`);
 
       if (!response.ok) {
         // Check if response is JSON before parsing
@@ -158,15 +177,23 @@ export default function DatasetUploader() {
       }
 
       const result = await response.json();
+      console.log('📊 Result:', result);
 
       if (result.success) {
+        console.log(`✅ Extracted ${result.extracted} images`);
         alert(`✅ ZIP uploaded! Extracted ${result.extracted} images.\n${result.errors.length > 0 ? `Errors:\n${result.errors.join('\n')}` : ''}`);
         setFiles([]);
       } else {
-        throw new Error('No files extracted from ZIP');
+        console.error('❌ No files extracted');
+        throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
       }
     } catch (err) {
-      alert(`❌ ZIP upload failed: ${err}`);
+      console.error('❌ Upload error:', err);
+      if (err instanceof Error && err.name === 'AbortError') {
+        alert(`❌ ZIP upload timed out after 10 minutes. The network might be too slow or the backend crashed.`);
+      } else {
+        alert(`❌ ZIP upload failed: ${err}`);
+      }
     } finally {
       setUploading(false);
     }
@@ -362,11 +389,11 @@ export default function DatasetUploader() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleReset}
-                    className="text-sm text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 flex items-center gap-1"
-                    disabled={uploading}
+                    className="text-sm text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 flex items-center gap-1 font-semibold"
+                    title="Force reset - always works even if upload is stuck"
                   >
                     <RefreshCw className="w-3 h-3" />
-                    Reset
+                    Reset {uploading && '(Force)'}
                   </button>
                   <button
                     onClick={handleClear}

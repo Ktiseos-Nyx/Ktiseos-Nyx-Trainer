@@ -32,6 +32,29 @@ Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 - 💻 **Cross-platform** - Windows, Linux, macOS
 - 🌩️ **Cloud Ready** - VastAI, RunPod templates available
 
+---
+
+## 🚀 Quick Deploy on VastAI
+
+**One-click deployment with our pre-configured template!**
+
+[![Deploy on VastAI](https://img.shields.io/badge/Deploy%20on-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer)
+
+**What you get:**
+- ✅ **Fully automated setup** - Provisioning script handles everything
+- ✅ **Web UI ready** - Frontend + Backend auto-start on boot
+- ✅ **Node.js auto-detected** - No manual configuration needed
+- ✅ **Supervisor auto-restart** - Services restart if they crash
+
+**After deployment:**
+- Frontend: `https://[instance-id].instances.vast.ai:13000`
+- Backend API: `https://[instance-id].instances.vast.ai:18000`
+- Jupyter: `https://[instance-id].instances.vast.ai:18080`
+
+See [VASTAI_TEMPLATE.txt](./VASTAI_TEMPLATE.txt) for manual setup instructions.
+
+---
+
 ### ⚠️ Note
 
 > **We are STILL in heavy development. New features in theory SHOULD WORK, but are hard to catch.**
