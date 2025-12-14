@@ -371,7 +371,7 @@ export default function TrainingConfig() {
 
       // Training started successfully
       if (result.success) {
-        const jobId = result.job_id || result.training_id; // Support both old and new API
+        const jobId = result.job_id; // Support both old and new API
         setSuccess(`Training started! Job ID: ${jobId}`);
 
         // Store job_id for TrainingMonitor

@@ -694,9 +694,9 @@ export interface ValidationError {
 }
 
 export interface TrainingStartResponse {
-  success: boolean;
+  success: bool;
   message: string;
-  training_id?: string;
+  job_id?: string;
   warnings?: string[];  // Deprecated
   validation_errors?: ValidationError[];
 }

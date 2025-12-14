@@ -110,7 +110,7 @@ export default function CheckpointTrainingConfig() {
       const result = await trainingAPI.start(trainingConfig as any);
 
       if (result.success) {
-        const jobId = result.job_id || result.training_id;
+        const jobId = result.job_id;
         setSuccess(`Training started! Job ID: ${jobId}`);
 
         // Store job ID for monitor

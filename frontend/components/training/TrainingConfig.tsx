@@ -64,12 +64,12 @@ export default function TrainingConfigNew() {
       const response = await trainingAPI.start(validatedConfig);
 
       if (response.success) {
-        setTrainingJobId(response.training_id || null);
-        alert(`✅ Training started! Job ID: ${response.training_id}`);
+        setTrainingJobId(response.job_id || null);
+        alert(`✅ Training started! Job ID: ${response.job_id}`);
 
         // Redirect to monitor page
-        if (response.training_id) {
-          window.location.href = `/training/monitor?job=${response.training_id}`;
+        if (response.job_id) {
+          window.location.href = `/training/monitor?job=${response.job_id}`;
         }
       } else {
         alert(`❌ Training failed: ${response.message}`);
