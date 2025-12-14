@@ -28,7 +28,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ CAUSED SHIT WITH FRONTEND
 lib64/
 parts/
 sdist/
