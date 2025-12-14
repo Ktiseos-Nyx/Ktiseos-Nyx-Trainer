@@ -8,7 +8,7 @@ CUDA 12.1 for Maximum GPU Compatibility
 
 DOCKER IMAGE:
 -------------
-vastai/pytorch:2.5.1-cuda-12.1.1-py310-ipv2
+vastai/pytorch:2.4.1-cuda-12.1.1-py310-ipv2
 
 
 DOCKER OPTIONS (SELECT ALL AND COPY - ONE LINE, NO BREAKS):
@@ -23,7 +23,7 @@ OPEN_BUTTON_TOKEN=1
 JUPYTER_DIR=/
 DATA_DIRECTORY=/workspace/
 PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh
-PORTAL_CONFIG=localhost:1111:11111:/:Instance Portal|localhost:8080:18080:/:Jupyter|localhost:8080:8080:/terminals/1:Jupyter Terminal|localhost:8384:18384:/:Syncthing|localhost:6006:16006:/:TensorBoard|localhost:3000:13000:/:Frontend|localhost:8000:18000:/:API
+PORTAL_CONFIG="localhost:1111:11111:/:Instance Portal|localhost:8080:18080:/:Jupyter|localhost:8080:8080:/terminals/1:Jupyter Terminal|localhost:8384:18384:/:Syncthing|localhost:6006:16006:/:TensorBoard|localhost:3000:13000:/:Frontend|localhost:8000:18000:/:API"
 
 
 IMPORTANT NOTE:

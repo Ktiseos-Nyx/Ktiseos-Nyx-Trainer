@@ -17,6 +17,12 @@ const nextConfig = {
       // Frontend uses getWsUrl() to construct WebSocket URLs
     ];
   },
+  // Configure API routes body parser limit for large uploads
+  api: {
+    bodyParser: {
+      sizeLimit: '10gb', // Increased limit for file uploads (e.g., ZIPs) - Effectively no practical limit
+    },
+  },
   // Disable strict mode for development (optional)
   reactStrictMode: true,
   // Note: Standalone mode disabled for VastAI deployment (use normal build)

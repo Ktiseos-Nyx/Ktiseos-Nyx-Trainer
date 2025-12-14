@@ -18,6 +18,7 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".", // Add this line
     "paths": {
       "@/*": ["./*"],
       "@repo/shadcn-ui/components/ui/*": ["./components/ui/*"]
