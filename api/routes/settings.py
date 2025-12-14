@@ -10,6 +10,10 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 # Settings file location
@@ -51,7 +55,7 @@ def save_settings(settings: dict) -> bool:
             json.dump(settings, f, indent=2)
         return True
     except Exception as e:
-        print(f"Error saving settings: {e}")
+        logger.error(f"Error saving settings to {SETTINGS_FILE}: {e}", exc_info=True)
         return False
 
 
