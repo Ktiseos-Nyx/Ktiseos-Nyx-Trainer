@@ -25,6 +25,7 @@ DEFAULT_WORKSPACE = PROJECT_ROOT
 
 class ValidationError(BaseModel):
     """Structured validation error with field reference"""
+
     field: str
     message: str
     severity: str = "warning"
@@ -159,6 +160,7 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
 
 class TrainingStartResponse(BaseModel):
     """Response when training starts"""
+
     success: bool
     message: str
     job_id: Optional[str] = None  # Changed from training_id to job_id
@@ -167,6 +169,7 @@ class TrainingStartResponse(BaseModel):
 
 class TrainingStatusResponse(BaseModel):
     """Training status response"""
+
     job_id: str
     status: str
     progress: int = 0
@@ -195,7 +198,7 @@ async def start_training(config: TrainingConfig):
                 validation_errors=validation_errors,
             )
 
-        logger.info(f"Starting training: {config.project_name}")
+        logger.info("Starting training: %s", config.project_name)
 
         # Use new service layer
         response = await training_service.start_training(config)
@@ -203,8 +206,10 @@ async def start_training(config: TrainingConfig):
         # Add our validation warnings/info to the response
         if validation_errors and response.success:
             response.validation_errors.extend(
-                [{"field": e.field, "message": e.message, "severity": e.severity}
-                 for e in validation_errors]
+                [
+                    {"field": e.field, "message": e.message, "severity": e.severity}
+                    for e in validation_errors
+                ]
             )
 
         return TrainingStartResponse(
@@ -215,7 +220,7 @@ async def start_training(config: TrainingConfig):
         )
 
     except Exception as e:
-        logger.error(f"Failed to start training: {e}", exc_info=True)
+        logger.error("Failed to start training: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -228,7 +233,7 @@ async def validate_config(config: TrainingConfig):
     errors = validate_training_config_extended(config)
     return {
         "valid": len([e for e in errors if e.severity == "error"]) == 0,
-        "warnings": errors
+        "warnings": errors,
     }
 
 
@@ -248,13 +253,13 @@ async def get_training_status(job_id: str):
             current_step=status.current_step,
             current_epoch=status.current_epoch,
             total_epochs=status.total_epochs,
-            error=status.error
+            error=status.error,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get training status: {e}", exc_info=True)
+        logger.error("Failed to get training status: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -262,13 +267,12 @@ async def get_training_status(job_id: str):
 async def stop_training(job_id: str):
     """Stop a running training job"""
     try:
-        logger.info(f"Stopping training: {job_id}")
+        logger.info("Stopping training: %s", job_id)
         stopped = await training_service.stop_training(job_id)
 
         if not stopped:
             raise HTTPException(
-                status_code=404,
-                detail="Training job not found or already stopped"
+                status_code=404, detail="Training job not found or already stopped"
             )
 
         return {"success": True, "message": f"Training {job_id} stopped"}
@@ -276,7 +280,7 @@ async def stop_training(job_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to stop training: {e}", exc_info=True)
+        logger.error("Failed to stop training: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -304,7 +308,7 @@ async def get_training_history():
         return {"trainings": trainings}
 
     except Exception as e:
-        logger.error(f"Failed to get training history: {e}", exc_info=True)
+        logger.error("Failed to get training history: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

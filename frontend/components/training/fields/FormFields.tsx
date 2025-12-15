@@ -43,6 +43,7 @@ interface BaseFieldProps<T extends FieldValues> {
   description?: string;
   placeholder?: string;
   disabled?: boolean;
+  readOnly?: boolean; // <--- ADD THIS LINE
 }
 
 /**
@@ -66,6 +67,7 @@ export function TextFormField<T extends FieldValues>({
   description,
   placeholder,
   disabled,
+  readOnly, // <--- ACCEPT THE NEW PROP
 }: BaseFieldProps<T>) {
   return (
     <FormField
@@ -78,6 +80,7 @@ export function TextFormField<T extends FieldValues>({
             <Input
               placeholder={placeholder}
               disabled={disabled}
+              readOnly={readOnly} // <--- PASS IT TO THE INPUT
               {...field}
               value={field.value ?? ''}
             />
@@ -363,6 +366,60 @@ export function SliderFormField<T extends FieldValues>({
               step={step}
               value={[field.value ?? min]}
               onValueChange={(value) => field.onChange(value[0])}
+              disabled={disabled}
+            />
+          </FormControl>
+          {description && <FormDescription>{description}</FormDescription>}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+// --- PASTE THIS AT THE END OF FormFields.tsx ---
+
+import { Combobox } from '@/components/ui/combobox'; // Make sure this path is correct
+
+/**
+ * Combobox Field (for searchable dropdowns)
+ *
+ * Usage:
+ * ```tsx
+ * <ComboboxFormField
+ *   form={form}
+ *   name="pretrained_model_name_or_path"
+ *   label="Base Model"
+ *   options={[{ value: '/path/model.safetensors', label: 'model.safetensors' }]}
+ * />
+ * ```
+ */
+export function ComboboxFormField<T extends FieldValues>({
+  form,
+  name,
+  label,
+  description,
+  placeholder,
+  disabled,
+  options,
+}: BaseFieldProps<T> & {
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <Combobox
+              options={options}
+              value={field.value}
+              onSelect={(currentValue) => {
+                // Allows selecting and de-selecting
+                form.setValue(name, currentValue === field.value ? "" : currentValue, { shouldValidate: true });
+              }}
+              placeholder={placeholder || 'Select a file...'}
               disabled={disabled}
             />
           </FormControl>

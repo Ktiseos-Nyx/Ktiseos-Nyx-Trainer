@@ -7,22 +7,26 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { TextFormField, NumberFormField, CheckboxFormField } from '../fields/FormFields';
+// Make sure ComboboxFormField is imported
+import { TextFormField, NumberFormField, ComboboxFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { Database, Image } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// --- THIS IS NEW: Define the props this component accepts ---
 interface DatasetCardProps {
   form: UseFormReturn<Partial<TrainingConfig>>;
+  datasets: { value: string; label: string }[];
 }
 
-export function DatasetCard({ form }: DatasetCardProps) {
+// --- DELETED THE ROGUE TextFormFieldProps INTERFACE ---
+
+export function DatasetCard({ form, datasets }: DatasetCardProps) {
   const resolution = form.watch('resolution');
   const batchSize = form.watch('train_batch_size');
   const maxEpochs = form.watch('max_train_epochs');
   const maxSteps = form.watch('max_train_steps');
 
-  // Estimated VRAM usage
   const estimatedVRAM = resolution === 1024 ? (batchSize || 1) * 8 : (batchSize || 1) * 4;
 
   return (
@@ -37,21 +41,24 @@ export function DatasetCard({ form }: DatasetCardProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Data Paths */}
-        <TextFormField
+        {/* REPLACEMENT FOR TRAINING DATA DIRECTORY */}
+        <ComboboxFormField
           form={form}
           name="train_data_dir"
           label="Training Data Directory"
-          description="Directory containing your training images and captions"
-          placeholder="datasets/my_character"
+          description="Select a dataset from your /dataset folder"
+          placeholder="Select a dataset..."
+          options={datasets}
         />
 
+        {/* Make the output directory read-only for clarity */}
         <TextFormField
           form={form}
           name="output_dir"
-          label="Output Directory"
-          description="Where to save trained LoRA files"
+          label="Output Directory (Default)"
+          description="Trained LoRA files will be saved here"
           placeholder="output/my_lora"
+          readOnly={true} // <-- Changed to TRUE to make it actually read-only
         />
 
         {/* Resolution */}

@@ -34,9 +34,23 @@ import {
   SavingTab,
 } from './tabs';
 
+// --- Add this block right below the imports ---
+const PATHS = {
+  models: '/workspace/models/stable-diffusion',
+  vaes: '/workspace/models/vae',
+  datasets: '/workspace/dataset',
+  outputs: '/workspace/output'
+};
+// ---------------------------------------------
+
 export default function TrainingConfigNew() {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingJobId, setTrainingJobId] = useState<string | null>(null);
+    // --- Add these state variables for your file lists ---
+  const [models, setModels] = useState<{ value: string; label: string }[]>([]);
+  const [vaes, setVaes] = useState<{ value: string; label: string }[]>([]);
+  const [datasets, setDatasets] = useState<{ value: string; label: string }[]>([]);
+  // ---------------------------------------------------
 
   // Initialize the form with all the magic
   const {
@@ -55,6 +69,54 @@ export default function TrainingConfigNew() {
     validateOnChange: true,
   });
 
+  // --- ADD THIS USEEFFECT BLOCK ---
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [modelsRes, vaesRes, datasetsRes] = await Promise.all([
+          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.models)}`),
+          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.vaes)}`),
+          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.datasets)}`)
+        ]);
+
+        const modelsData = await modelsRes.json();
+        const vaesData = await vaesRes.json();
+        const datasetsData = await datasetsRes.json();
+
+        setModels(
+          modelsData.files
+            .filter((f: any) => f.type === 'file' && (f.name.endsWith('.safetensors') || f.name.endsWith('.ckpt')))
+            .map((file: any) => ({ value: file.path, label: file.name }))
+        );
+        setVaes(
+          vaesData.files
+            .filter((f: any) => f.type === 'file')
+            .map((file: any) => ({ value: file.path, label: file.name }))
+        );
+        setDatasets(
+          datasetsData.files
+            .filter((f: any) => f.type === 'dir')
+            .map((dir: any) => ({ value: dir.path, label: dir.name }))
+        );
+
+        // Set sane defaults only if the form is empty for those fields
+        if (!form.getValues('output_dir')) {
+            setValue('output_dir', PATHS.outputs);
+        }
+        if (!form.getValues('pretrained_model_name_or_path') && modelsData.files?.length > 0) {
+            const defaultModel = modelsData.files.find((f: any) => f.type === 'file');
+            if (defaultModel) setValue('pretrained_model_name_or_path', defaultModel.path);
+        }
+
+      } catch (error) {
+        console.error("Failed to fetch file options for form:", error);
+      }
+    };
+
+    fetchOptions();
+  }, [setValue, form]); // Pass setValue and form to the dependency array
+
+  // -----------------------------------
   /**
    * Start training with validated configuration
    */
@@ -99,7 +161,6 @@ export default function TrainingConfigNew() {
                 <p className="text-gray-400 mt-2">
                   Configure your LoRA training with auto-save and validation
                 </p>
-              </div>
               <div className="flex gap-2">
                 {isDirty && (
                   <Badge variant="outline" className="border-yellow-500 text-yellow-400">
@@ -187,6 +248,13 @@ export default function TrainingConfigNew() {
                     <SavingTab form={form} />
                   </TabsContent>
                 </Tabs>
+                  <TabsContent value="setup">
+                  <SetupTab form={form} models={models} vaes={vaes} />
+                  </TabsContent>
+
+                  <TabsContent value="dataset">
+                  <DatasetTab form={form} datasets={datasets} />
+                  </TabsContent>
 
                 {/* Action Buttons */}
                 <div className="mt-6 flex gap-4">

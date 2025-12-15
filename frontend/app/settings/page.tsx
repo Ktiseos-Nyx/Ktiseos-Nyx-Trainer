@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -133,6 +135,21 @@ export default function SettingsPage() {
         await loadApiKeys()
         return true
       }
+
+            // === SAFER ERROR BLOCK ===
+      let errorMessage = "Unknown Error";
+      try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || JSON.stringify(errorData);
+      } catch {
+          // If the server returned HTML or text (not JSON), fall back to status text
+          errorMessage = `Server Error ${response.status}: ${response.statusText}`;
+      }
+
+      console.error("Backend Save Error:", errorMessage);
+      alert(`Backend Error: ${errorMessage}`);
+      // =========================
+
       return false
     } catch (error) {
       console.error('Failed to save API keys:', error)
@@ -503,7 +520,7 @@ export default function SettingsPage() {
         {/* Info Note */}
         <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-500/30 rounded-lg">
           <p className="text-sm text-foreground">
-            <strong className="text-blue-600 dark:text-blue-400">Note:</strong> Settings are saved to your browser's local storage. They will persist across sessions but are device-specific.
+            <strong className="text-blue-600 dark:text-blue-400">Note:</strong> Settings are saved to your browser&apos;s local storage. They will persist across sessions but are device-specific.
           </p>
         </div>
       </div>

@@ -43,8 +43,9 @@ This list documents the concrete, actionable problems that are currently causing
 ## 7. `pytorch-lightning` Security Vulnerability
 
 *   **Observed:** Dependabot alert for `pytorch-lightning==1.9.0` (vulnerable to path traversal/RCE on Windows via `LightningApp`).
-*   **Status:** `LightningApp` not directly used in project codebase, user decided to defer upgrade for now.
-*   **Impact:** Outstanding security warning, potential future risk despite current non-applicability.
+*   **Status:** `LightningApp` not directly used in project codebase. User decided to defer upgrade for now.
+*   **Impact:** Outstanding security warning. Potential future risk, but attack vector is considered highly unlikely given non-usage of `LightningApp` and Linux deployment environment.
+*   **Resolution Path:** Defer upgrade. User will explicitly inform Dependabot that the current version is considered not exploitable in this specific context due to non-usage of the vulnerable component (`LightningApp`) and the Linux environment. Re-evaluate at a later date when potential dependency conflicts are resolved.
 
 ## 8. `npm` Deprecation Warnings
 

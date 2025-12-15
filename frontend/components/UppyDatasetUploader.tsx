@@ -8,31 +8,34 @@ import XHRUpload from '@uppy/xhr-upload';
 // Uppy styles
 import '@uppy/core/dist/style.css';
 import '@uppy/dashboard/dist/style.css';
+import '@/styles/uppy-custom.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 export default function UppyDatasetUploader() {
-  const [datasetName, setDatasetName] = useState('my_dataset');
   const [uppy] = useState(() =>
     new Uppy({
       id: 'dataset-uploader',
       autoProceed: false,
       allowMultipleUploadBatches: true,
       restrictions: {
-        maxFileSize: 500 * 1024 * 1024, // 500MB max per file
-        allowedFileTypes: ['image/*', '.zip'],
+        // CHANGE 1: Bump to 10GB (10 * 1024 * 1024 * 1024)
+        maxFileSize: 10 * 1024 * 1024 * 1024,
+        allowedFileTypes: ['image/*', '.zip', '.tar', '.7z'], // Added tar/7z just in case
       },
     })
       .use(XHRUpload, {
         id: 'XHRUpload',
+        // FIX: Add this line to satisfy TypeScript
+        endpoint: `${API_BASE}/dataset/upload-batch`,
+
         formData: true,
         fieldName: 'files',
         method: 'POST',
-        // Send all files in batches of 10
-        limit: 10,
-        timeout: 300000, // 5 minute timeout per batch
-        // Endpoint is set dynamically before upload
+        limit: 3, // Remember to use the lower limit we discussed!
+        timeout: 0, // Infinite timeout
       })
+      // ... rest of your code
       .on('upload', () => {
         // Update endpoint with current dataset name before each upload
         const plugin = uppy.getPlugin('XHRUpload');
@@ -77,8 +80,10 @@ export default function UppyDatasetUploader() {
   );
 
   // Cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
-    return () => uppy.close({ reason: 'unmount' });
+    // Cast to any to access the .close() method
+    return () => (uppy as any).close({ reason: 'unmount' });
   }, [uppy]);
 
   return (
@@ -148,25 +153,6 @@ export default function UppyDatasetUploader() {
           </div>
         </div>
       </div>
-
-      <style jsx global>{`
-        .uppy-Dashboard {
-          font-family: inherit;
-        }
-        .uppy-Dashboard-inner {
-          background-color: rgb(30 41 59 / 0.5) !important;
-          border: 1px solid rgb(51 65 85) !important;
-        }
-        .uppy-Dashboard-AddFiles {
-          border: 2px dashed rgb(139 92 246) !important;
-        }
-        .uppy-Dashboard-AddFiles-title {
-          color: rgb(226 232 240) !important;
-        }
-        .uppy-StatusBar {
-          background-color: rgb(15 23 42) !important;
-        }
-      `}</style>
     </div>
   );
 }

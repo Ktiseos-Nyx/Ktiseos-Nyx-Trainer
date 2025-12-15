@@ -66,7 +66,7 @@ class TrainingService:
                 process=process
             )
 
-            logger.info(f"Training started: {job_id} ({config.model_type} - {config.project_name})")
+            logger.info("Training started: %s (%s - %s)", job_id, config.model_type, config.project_name)
 
             return TrainingStartResponse(
                 success=True,
@@ -75,7 +75,7 @@ class TrainingService:
             )
 
         except ValidationError as e:
-            logger.warning(f"Training validation failed: {e}")
+            logger.warning("Training validation failed: %s", e)
             return TrainingStartResponse(
                 success=False,
                 message=str(e),
@@ -83,19 +83,19 @@ class TrainingService:
             )
 
         except (ConfigError, ProcessError) as e:
-            logger.error(f"Training startup failed: {e}")
+            logger.error("Training startup failed: %s", e)
             return TrainingStartResponse(
                 success=False,
                 message=f"Failed to start training: {e}",
                 validation_errors=[{"field": "system", "message": str(e), "severity": "error"}]
             )
 
-        except Exception as e:
-            logger.exception(f"Unexpected error starting training: {e}")
+        except RuntimeError as e:
+            logger.exception("Unexpected runtime error starting training: %s", e)
             return TrainingStartResponse(
                 success=False,
-                message=f"Internal error: {e}",
-                validation_errors=[{"field": "system", "message": str(e), "severity": "error"}]
+                message="Internal runtime error occurred.",
+                validation_errors=[{"field": "system", "message": "An unexpected runtime error occurred.", "severity": "error"}]
             )
 
     async def get_status(self, job_id: str) -> Optional[JobStatus]:
