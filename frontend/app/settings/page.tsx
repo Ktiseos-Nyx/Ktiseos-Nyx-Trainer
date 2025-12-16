@@ -315,7 +315,7 @@ export default function SettingsPage() {
               {/* Civitai API Key */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  Civitai API Key {hasCivitaiApiKey && <span className="text-green-600 dark:text-green-400 text-xs">(✓ Saved)</span>}
+                  Civitai API Key <span className="text-xs text-muted-foreground font-normal">(Optional)</span> {hasCivitaiApiKey && <span className="text-green-600 dark:text-green-400 text-xs">(✓ Saved)</span>}
                 </label>
                 <div className="relative">
                   <input
@@ -334,7 +334,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Used for downloading models from Civitai. Get your key from{' '}
+                  <strong className="text-foreground">Optional:</strong> Provides better rate limits and NSFW access on Civitai. Get your key from{' '}
                   <a
                     href="https://civitai.com/user/account"
                     target="_blank"

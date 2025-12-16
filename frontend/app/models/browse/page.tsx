@@ -342,13 +342,13 @@ export default function CivitaiBrowsePage() {
           />
 
           <div className="mt-12 bg-card/50 backdrop-blur-sm border border-border rounded-lg p-12 text-center">
-            <Lock className="w-20 h-20 mx-auto text-red-400 mb-6" />
-            <h1 className="text-4xl font-bold text-foreground mb-4">Civitai API Key Required</h1>
+            <Lock className="w-20 h-20 mx-auto text-yellow-400 mb-6" />
+            <h1 className="text-4xl font-bold text-foreground mb-4">Add Civitai API Key</h1>
             <p className="text-xl text-foreground mb-6">
-              To browse Civitai models, you need to add your Civitai API key in Settings.
+              Browsing Civitai requires an API key for better rate limits and NSFW access.
             </p>
             <p className="text-muted-foreground mb-8">
-              This helps prevent rate limiting and ensures smooth browsing experience.
+              <strong>Optional but recommended:</strong> Add your free API key in Settings to unlock full browsing capabilities.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
