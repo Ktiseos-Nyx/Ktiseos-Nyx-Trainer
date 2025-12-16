@@ -29,13 +29,14 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
           Advanced Settings
         </CardTitle>
         <CardDescription>
-          Experimental features and advanced techniques
+          Noise, loss functions, timesteps, and model-specific options
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* SNR & Noise */}
         <div className="space-y-3">
           <p className="text-sm font-semibold text-gray-300">SNR & Noise Settings</p>
+          <p className="text-xs text-gray-400">Signal-to-noise ratio and noise injection techniques (all models)</p>
 
           <NumberFormField
             form={form}
@@ -118,6 +119,7 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
         {/* Loss Functions */}
         <div className="space-y-3 pt-4 border-t border-slate-700">
           <p className="text-sm font-semibold text-gray-300">Loss Functions</p>
+          <p className="text-xs text-gray-400">Advanced loss calculation methods and weighting (all models)</p>
 
           <CheckboxFormField
             form={form}
@@ -157,6 +159,7 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
         {/* Timestep Settings */}
         <div className="space-y-3 pt-4 border-t border-slate-700">
           <p className="text-sm font-semibold text-gray-300">Timestep Settings</p>
+          <p className="text-xs text-gray-400">Control diffusion timestep range (all models)</p>
 
           <div className="grid grid-cols-2 gap-4">
             <NumberFormField
@@ -182,7 +185,8 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
         {/* SD 2.x Specific */}
         {isSD2 && (
           <div className="space-y-3 p-4 border border-blue-500/30 rounded-lg bg-blue-500/5">
-            <p className="text-sm font-semibold text-blue-400">SD 2.x Settings</p>
+            <p className="text-sm font-semibold text-blue-400">🔷 SD 2.x Specific Settings</p>
+            <p className="text-xs text-blue-300">Only for Stable Diffusion 2.0/2.1 models</p>
 
             <CheckboxFormField
               form={form}
@@ -203,7 +207,8 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
         {/* Flux Specific */}
         {isFlux && (
           <div className="space-y-3 p-4 border border-purple-500/30 rounded-lg bg-purple-500/5">
-            <p className="text-sm font-semibold text-purple-400">Flux Settings</p>
+            <p className="text-sm font-semibold text-purple-400">⚡ Flux Specific Settings</p>
+            <p className="text-xs text-purple-300">Only for Flux.1 models (schnell/dev)</p>
 
             <NumberFormField
               form={form}
@@ -282,7 +287,8 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
         {/* Lumina Specific */}
         {isLumina && (
           <div className="space-y-3 p-4 border border-yellow-500/30 rounded-lg bg-yellow-500/5">
-            <p className="text-sm font-semibold text-yellow-400">Lumina Settings</p>
+            <p className="text-sm font-semibold text-yellow-400">✨ Lumina Specific Settings</p>
+            <p className="text-xs text-yellow-300">Only for Lumina architecture models</p>
 
             <TextFormField
               form={form}
@@ -304,24 +310,6 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
           </div>
         )}
 
-        {/* General Advanced */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
-          <p className="text-sm font-semibold text-gray-300">Other Advanced Options</p>
-
-          <CheckboxFormField
-            form={form}
-            name="network_train_unet_only"
-            label="Train UNet Only"
-            description="Don't train text encoder (recommended for SDXL)"
-          />
-
-          <CheckboxFormField
-            form={form}
-            name="lowram"
-            label="Low RAM Mode"
-            description="Reduce RAM usage at cost of speed"
-          />
-        </div>
       </CardContent>
     </Card>
   );

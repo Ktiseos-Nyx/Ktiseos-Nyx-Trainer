@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Play, Save, RotateCcw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,17 +30,25 @@ import {
   DatasetTab,
   LoRATab,
   LearningTab,
+  PerformanceTab,
   AdvancedTab,
   SavingTab,
 } from './tabs';
 
-// --- Add this block right below the imports ---
-const PATHS = {
-  models: '/workspace/models/stable-diffusion',
-  vaes: '/workspace/models/vae',
-  datasets: '/workspace/dataset',
-  outputs: '/workspace/output'
-};
+// --- Paths: VastAI vs Local ---
+const PATHS = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  ? {
+      models: './pretrained_model',
+      vaes: './vae',
+      datasets: './dataset',
+      outputs: './output'
+    }
+  : {
+      models: '/workspace/models/stable-diffusion',
+      vaes: '/workspace/models/vae',
+      datasets: '/workspace/dataset',
+      outputs: '/workspace/output'
+    };
 // ---------------------------------------------
 
 export default function TrainingConfigNew() {
@@ -79,9 +87,10 @@ export default function TrainingConfigNew() {
           fetch(`/api/files/list?path=${encodeURIComponent(PATHS.datasets)}`)
         ]);
 
-        const modelsData = await modelsRes.json();
-        const vaesData = await vaesRes.json();
-        const datasetsData = await datasetsRes.json();
+        // Handle non-OK responses gracefully
+        const modelsData = modelsRes.ok ? await modelsRes.json() : { files: [] };
+        const vaesData = vaesRes.ok ? await vaesRes.json() : { files: [] };
+        const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
 
         setModels(
           modelsData.files
@@ -101,11 +110,19 @@ export default function TrainingConfigNew() {
 
         // Set sane defaults only if the form is empty for those fields
         if (!form.getValues('output_dir')) {
-            setValue('output_dir', PATHS.outputs);
+            form.setValue('output_dir', PATHS.outputs);
         }
         if (!form.getValues('pretrained_model_name_or_path') && modelsData.files?.length > 0) {
             const defaultModel = modelsData.files.find((f: any) => f.type === 'file');
-            if (defaultModel) setValue('pretrained_model_name_or_path', defaultModel.path);
+            if (defaultModel) form.setValue('pretrained_model_name_or_path', defaultModel.path);
+        }
+        if (!form.getValues('vae') && vaesData.files?.length > 0) {
+            const defaultVae = vaesData.files.find((f: any) => f.type === 'file');
+            if (defaultVae) form.setValue('vae', defaultVae.path);
+        }
+        if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
+            const defaultDataset = datasetsData.files.find((f: any) => f.type === 'dir');
+            if (defaultDataset) form.setValue('train_data_dir', defaultDataset.path);
         }
 
       } catch (error) {
@@ -114,7 +131,7 @@ export default function TrainingConfigNew() {
     };
 
     fetchOptions();
-  }, [setValue, form]); // Pass setValue and form to the dependency array
+  }, [form]); // Pass form to the dependency array
 
   // -----------------------------------
   /**
@@ -161,6 +178,7 @@ export default function TrainingConfigNew() {
                 <p className="text-gray-400 mt-2">
                   Configure your LoRA training with auto-save and validation
                 </p>
+              </div>
               <div className="flex gap-2">
                 {isDirty && (
                   <Badge variant="outline" className="border-yellow-500 text-yellow-400">
@@ -215,11 +233,12 @@ export default function TrainingConfigNew() {
               {/* Main Configuration Tabs */}
               <div className="lg:col-span-2">
                 <Tabs defaultValue="setup" className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="setup">Setup</TabsTrigger>
                     <TabsTrigger value="dataset">Dataset</TabsTrigger>
                     <TabsTrigger value="lora">LoRA</TabsTrigger>
                     <TabsTrigger value="learning">Learning</TabsTrigger>
+                    <TabsTrigger value="performance">Performance</TabsTrigger>
                     <TabsTrigger value="advanced">Advanced</TabsTrigger>
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
@@ -240,6 +259,10 @@ export default function TrainingConfigNew() {
                     <LearningTab form={form} />
                   </TabsContent>
 
+                  <TabsContent value="performance">
+                    <PerformanceTab form={form} />
+                  </TabsContent>
+
                   <TabsContent value="advanced">
                     <AdvancedTab form={form} />
                   </TabsContent>
@@ -248,13 +271,6 @@ export default function TrainingConfigNew() {
                     <SavingTab form={form} />
                   </TabsContent>
                 </Tabs>
-                  <TabsContent value="setup">
-                  <SetupTab form={form} models={models} vaes={vaes} />
-                  </TabsContent>
-
-                  <TabsContent value="dataset">
-                  <DatasetTab form={form} datasets={datasets} />
-                  </TabsContent>
 
                 {/* Action Buttons */}
                 <div className="mt-6 flex gap-4">

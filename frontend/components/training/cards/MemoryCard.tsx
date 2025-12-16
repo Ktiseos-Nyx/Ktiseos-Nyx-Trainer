@@ -169,6 +169,18 @@ export function MemoryCard({ form }: MemoryCardProps) {
             description="Keep workers alive between epochs (faster)"
           />
         </div>
+
+        {/* Memory Optimization */}
+        <div className="space-y-3 pt-4 border-t border-slate-700">
+          <p className="text-sm font-semibold text-gray-300">Memory Optimization</p>
+
+          <CheckboxFormField
+            form={form}
+            name="lowram"
+            label="Low RAM Mode"
+            description="Reduce RAM usage at cost of speed"
+          />
+        </div>
       </CardContent>
     </Card>
   );

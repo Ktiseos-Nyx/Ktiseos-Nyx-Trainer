@@ -37,7 +37,8 @@ export function HeroAnimated({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // Use dark as default during SSR to match defaultTheme in layout

@@ -13,6 +13,9 @@ import '@/styles/uppy-custom.css';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 export default function UppyDatasetUploader() {
+  const [datasetName, setDatasetName] = useState('');
+
+  // Initialize Uppy instance without event handlers
   const [uppy] = useState(() =>
     new Uppy({
       id: 'dataset-uploader',
@@ -23,68 +26,79 @@ export default function UppyDatasetUploader() {
         maxFileSize: 10 * 1024 * 1024 * 1024,
         allowedFileTypes: ['image/*', '.zip', '.tar', '.7z'], // Added tar/7z just in case
       },
+    }).use(XHRUpload, {
+      id: 'XHRUpload',
+      endpoint: `${API_BASE}/dataset/upload-batch`,
+      formData: true,
+      fieldName: 'files',
+      method: 'POST',
+      limit: 3,
+      timeout: 0, // Infinite timeout
     })
-      .use(XHRUpload, {
-        id: 'XHRUpload',
-        // FIX: Add this line to satisfy TypeScript
-        endpoint: `${API_BASE}/dataset/upload-batch`,
-
-        formData: true,
-        fieldName: 'files',
-        method: 'POST',
-        limit: 3, // Remember to use the lower limit we discussed!
-        timeout: 0, // Infinite timeout
-      })
-      // ... rest of your code
-      .on('upload', () => {
-        // Update endpoint with current dataset name before each upload
-        const plugin = uppy.getPlugin('XHRUpload');
-        if (plugin) {
-          plugin.setOptions({
-            endpoint: `${API_BASE}/dataset/upload-batch?dataset_name=${datasetName}`,
-          });
-        }
-
-        // Validate dataset name
-        if (!datasetName.trim()) {
-          uppy.info('Please enter a dataset name!', 'error', 5000);
-          uppy.cancelAll();
-          return;
-        }
-
-        console.log(`📤 Starting upload to dataset: ${datasetName}`);
-      })
-      .on('upload-success', (file, response) => {
-        console.log('✅ Upload success:', file?.name);
-      })
-      .on('upload-error', (file, error, response) => {
-        console.error('❌ Upload error:', file?.name, error);
-      })
-      .on('complete', (result) => {
-        console.log('🎉 Upload complete!', result);
-        if (result.successful.length > 0) {
-          uppy.info(
-            `✅ Successfully uploaded ${result.successful.length} files!`,
-            'success',
-            5000
-          );
-        }
-        if (result.failed.length > 0) {
-          uppy.info(
-            `❌ ${result.failed.length} files failed to upload`,
-            'error',
-            5000
-          );
-        }
-      })
   );
 
-  // Cleanup on unmount
-  // Cleanup on unmount
+  // Set up event handlers after uppy is initialized
   useEffect(() => {
-    // Cast to any to access the .close() method
-    return () => (uppy as any).close({ reason: 'unmount' });
-  }, [uppy]);
+    const handleUpload = () => {
+      // Update endpoint with current dataset name before each upload
+      const plugin = uppy.getPlugin('XHRUpload');
+      if (plugin) {
+        plugin.setOptions({
+          endpoint: `${API_BASE}/dataset/upload-batch?dataset_name=${datasetName}`,
+        });
+      }
+
+      // Validate dataset name
+      if (!datasetName.trim()) {
+        uppy.info('Please enter a dataset name!', 'error', 5000);
+        uppy.cancelAll();
+        return;
+      }
+
+      console.log(`📤 Starting upload to dataset: ${datasetName}`);
+    };
+
+    const handleUploadSuccess = (file: any, response: any) => {
+      console.log('✅ Upload success:', file?.name);
+    };
+
+    const handleUploadError = (file: any, error: any, response: any) => {
+      console.error('❌ Upload error:', file?.name, error);
+    };
+
+    const handleComplete = (result: any) => {
+      console.log('🎉 Upload complete!', result);
+      if (result.successful.length > 0) {
+        uppy.info(
+          `✅ Successfully uploaded ${result.successful.length} files!`,
+          'success',
+          5000
+        );
+      }
+      if (result.failed.length > 0) {
+        uppy.info(
+          `❌ ${result.failed.length} files failed to upload`,
+          'error',
+          5000
+        );
+      }
+    };
+
+    // Register event handlers
+    uppy.on('upload', handleUpload);
+    uppy.on('upload-success', handleUploadSuccess);
+    uppy.on('upload-error', handleUploadError);
+    uppy.on('complete', handleComplete);
+
+    // Cleanup handlers on unmount
+    return () => {
+      uppy.off('upload', handleUpload);
+      uppy.off('upload-success', handleUploadSuccess);
+      uppy.off('upload-error', handleUploadError);
+      uppy.off('complete', handleComplete);
+      (uppy as any).close({ reason: 'unmount' });
+    };
+  }, [uppy, datasetName]);
 
   return (
     <div className="container mx-auto p-8 max-w-6xl">

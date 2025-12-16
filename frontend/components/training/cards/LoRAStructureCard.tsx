@@ -173,6 +173,18 @@ export function LoRAStructureCard({ form }: LoRAStructureCardProps) {
           step={0.01}
         />
 
+        {/* Training Target */}
+        <div className="space-y-3 pt-4 border-t border-slate-700">
+          <p className="text-sm font-semibold text-gray-300">Training Target</p>
+
+          <CheckboxFormField
+            form={form}
+            name="network_train_unet_only"
+            label="Train UNet Only"
+            description="Don't train text encoder (recommended for SDXL)"
+          />
+        </div>
+
         {/* Advanced: Dimension from weights */}
         <CheckboxFormField
           form={form}

@@ -20,7 +20,10 @@ export default function TrainingMonitor() {
   const [status, setStatus] = useState<TrainingStatus>({ is_training: false });
   const [logs, setLogs] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
+  // Try to restore job_id from localStorage
+  const [jobId, setJobId] = useState<string | null>(() => {
+    return localStorage.getItem('current_training_job_id');
+  });
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -35,12 +38,6 @@ export default function TrainingMonitor() {
 
   // Initial check on mount (for page refreshes during active training)
   useEffect(() => {
-    // Try to restore job_id from localStorage
-    const storedJobId = localStorage.getItem('current_training_job_id');
-    if (storedJobId) {
-      setJobId(storedJobId);
-    }
-
     const checkInitialStatus = async (currentJobId: string) => {
       try {
         const statusData = await trainingAPI.status(currentJobId);
@@ -51,8 +48,8 @@ export default function TrainingMonitor() {
       }
     };
 
-    if (storedJobId) {
-      checkInitialStatus(storedJobId);
+    if (jobId) {
+      checkInitialStatus(jobId);
     }
 
     // Listen for training start event from TrainingConfig
@@ -69,7 +66,7 @@ export default function TrainingMonitor() {
     return () => {
       window.removeEventListener('training-started', handleTrainingStart);
     };
-  }, []);
+  }, [jobId]);
 
   // Poll training status (only when training is active)
   useEffect(() => {

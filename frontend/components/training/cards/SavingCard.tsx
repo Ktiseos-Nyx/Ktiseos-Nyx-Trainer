@@ -39,9 +39,8 @@ export function SavingCard({ form }: SavingCardProps) {
           label="Save Format"
           description="File format for saved LoRA"
           options={[
-            { value: 'safetensors', label: 'SafeTensors', description: 'Recommended, safer' },
-            { value: 'ckpt', label: 'Checkpoint', description: 'Legacy format' },
-            { value: 'pt', label: 'PyTorch', description: 'PyTorch format' },
+            { value: 'safetensors', label: 'SafeTensors', description: 'Recommended, safer and faster' },
+            { value: 'pt', label: 'PT (Pickle)', description: 'Pickled tensor format for diffusers' },
           ]}
         />
 

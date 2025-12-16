@@ -198,6 +198,7 @@ class TrainingConfig(BaseModel):
     cross_attention: CrossAttention = Field(CrossAttention.SDPA, description="Cross attention")
     persistent_data_loader_workers: int = Field(0, ge=0, description="Persistent workers")
     no_token_padding: bool = Field(False, description="Disable token padding")
+    lowram: bool = Field(False, description="Low RAM mode")
 
     # ========== SAVING & CHECKPOINTS ==========
     save_every_n_epochs: int = Field(1, ge=0, description="Save every N epochs")

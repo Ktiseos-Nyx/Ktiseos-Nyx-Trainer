@@ -92,7 +92,7 @@ export default function ModelsPage() {
     }
   };
 
-  const usePopularUrl = (url: string, type: 'model' | 'vae' = 'model') => {
+  const applyPopularUrl = (url: string, type: 'model' | 'vae' = 'model') => {
     setDownloadUrl(url);
     setDownloadType(type);
     setActiveTab('download');
@@ -326,7 +326,7 @@ export default function ModelsPage() {
                                 <p className="text-sm text-gray-400 mt-1">{model.description}</p>
                               </div>
                               <button
-                                onClick={() => usePopularUrl(model.url, 'model')}
+                                onClick={() => applyPopularUrl(model.url, 'model')}
                                 className="ml-4 flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-sm"
                               >
                                 <ExternalLink className="w-4 h-4" />
@@ -354,7 +354,7 @@ export default function ModelsPage() {
                               <p className="text-sm text-gray-400 mt-1">{vae.description}</p>
                             </div>
                             <button
-                              onClick={() => usePopularUrl(vae.url, 'vae')}
+                              onClick={() => applyPopularUrl(vae.url, 'vae')}
                               className="ml-4 flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-sm"
                             >
                               <ExternalLink className="w-4 h-4" />
