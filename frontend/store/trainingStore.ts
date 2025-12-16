@@ -131,7 +131,7 @@ const defaultConfig: Partial<TrainingConfig> = {
   multires_noise_discount: 0.3,
   lowram: false,
   max_data_loader_n_workers: 8,
-  persistent_data_loader_workers: false,
+  persistent_data_loader_workers: 0,
   vae_batch_size: 0,
   min_timestep: 0,
   max_timestep: 1000,

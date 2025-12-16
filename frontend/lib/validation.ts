@@ -8,15 +8,16 @@ import { z } from 'zod';
 /**
  * Model type enumeration
  */
+// FIX: Changed errorMap to 'message' based on your TS error
 export const ModelTypeSchema = z.enum(['SD1.5', 'SDXL', 'Flux', 'SD3', 'SD3.5', 'Lumina', 'Chroma'], {
-  errorMap: () => ({ message: 'Please select a valid model type' }),
+  message: 'Please select a valid model type',
 });
 
 /**
  * LoRA type enumeration
  */
 export const LoRATypeSchema = z.enum(['LoRA', 'LoCon', 'LoHa', 'LoKr', 'DoRA'], {
-  errorMap: () => ({ message: 'Please select a valid LoRA type' }),
+  message: 'Please select a valid LoRA type',
 });
 
 /**
@@ -38,7 +39,7 @@ export const OptimizerSchema = z.enum([
   'AdaFactor',
   'CAME',
 ], {
-  errorMap: () => ({ message: 'Please select a valid optimizer' }),
+  message: 'Please select a valid optimizer',
 });
 
 /**
@@ -53,22 +54,23 @@ export const LRSchedulerSchema = z.enum([
   'constant_with_warmup',
   'adafactor',
 ], {
-  errorMap: () => ({ message: 'Please select a valid learning rate scheduler' }),
+  message: 'Please select a valid learning rate scheduler',
 });
 
 /**
  * Mixed precision enumeration
  */
 export const MixedPrecisionSchema = z.enum(['no', 'fp16', 'bf16'], {
-  errorMap: () => ({ message: 'Please select a valid precision mode' }),
+  message: 'Please select a valid precision mode',
 });
 
 /**
  * Save format enumeration
  */
 export const SaveFormatSchema = z.enum(['safetensors', 'ckpt', 'pt'], {
-  errorMap: () => ({ message: 'Please select a valid save format' }),
+  message: 'Please select a valid save format',
 });
+
 
 /**
  * Training configuration validation schema
@@ -272,7 +274,15 @@ export const TrainingConfigSchema = z.object({
 
   cross_attention: z.string().optional(),
 
-  persistent_data_loader_workers: z.number().int().min(0),
+  persistent_data_loader_workers: z.union([z.boolean(), z.number()])
+  .transform((val) => {
+    // If it comes from the checkbox as true/false, convert to 1/0
+    if (typeof val === 'boolean') return val ? 1 : 0;
+    // If it's already a number (from a preset), keep it
+    return val;
+  })
+  .pipe(z.number().int().min(0)),
+  // Validate the final result is a number
 
   no_token_padding: z.boolean().optional(),
 
@@ -396,7 +406,8 @@ export function validatePartialConfig(config: unknown) {
  * Extract validation errors into user-friendly format
  */
 export function formatValidationErrors(errors: z.ZodError) {
-  return errors.errors.map((error) => ({
+  // TypeScript loves this:
+  return errors.issues.map((error) => ({
     field: error.path.join('.'),
     message: error.message,
     code: error.code,

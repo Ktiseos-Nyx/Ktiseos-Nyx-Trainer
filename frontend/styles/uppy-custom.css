@@ -1,0 +1,29 @@
+/* frontend/styles/uppy-custom.css */
+
+/* Forces the text to match your app font */
+.uppy-Dashboard {
+  font-family: inherit;
+}
+
+/* That nice slate background you wanted */
+.uppy-Dashboard-inner {
+  background-color: rgb(30 41 59 / 0.5) !important;
+  border: 1px solid rgb(51 65 85) !important;
+  backdrop-filter: blur(8px); /* Added this back for you because I know you like it */
+}
+
+/* The Purple Dashed Border */
+.uppy-Dashboard-AddFiles {
+  border: 2px dashed rgb(139 92 246) !important;
+}
+
+/* Text Colors */
+.uppy-Dashboard-AddFiles-title {
+  color: rgb(226 232 240) !important;
+}
+
+/* The bottom bar matches the dark theme */
+.uppy-StatusBar {
+  background-color: rgb(15 23 42) !important;
+  border-top: 1px solid rgb(51 65 85) !important;
+}

@@ -278,10 +278,11 @@ class DatasetService:
                 if file_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
                     return None, f"{file.filename}: Invalid file type - only images allowed"
 
-                # Save file
+                # Save file with streaming (1MB chunks)
                 destination = dataset_path / file.filename
-                content = await file.read()
-                destination.write_bytes(content)
+                with open(destination, 'wb') as f:
+                    while chunk := await file.read(1024 * 1024):  # 1MB chunks
+                        f.write(chunk)
 
                 return str(destination), None
 
@@ -327,10 +328,10 @@ class DatasetService:
         errors = []
 
         try:
-            # Save ZIP to temp file
+            # Save ZIP to temp file with streaming (1MB chunks)
             with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
-                content = await file.read()
-                tmp.write(content)
+                while chunk := await file.read(1024 * 1024):  # 1MB chunks
+                    tmp.write(chunk)
                 tmp_path = tmp.name
 
             # Extract ZIP
@@ -449,10 +450,11 @@ class DatasetService:
                             "errors": result["errors"]
                         }
                     else:
-                        # Direct image download
+                        # Direct image download with streaming
                         destination = dataset_path / filename
-                        content = await response.read()
-                        destination.write_bytes(content)
+                        with open(destination, 'wb') as f:
+                            async for chunk in response.content.iter_chunked(1024 * 1024):
+                                f.write(chunk)
 
                         return {
                             "success": True,

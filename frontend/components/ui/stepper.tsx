@@ -202,12 +202,13 @@ function StepperTrigger({ asChild = false, className, children, tabIndex, ...pro
     if (btnRef.current) {
       registerTrigger(btnRef.current);
     }
-  }, [btnRef.current]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registerTrigger]);
 
   // Find our index among triggers for navigation
   const myIdx = React.useMemo(
     () => triggerNodes.findIndex((n: HTMLButtonElement) => n === btnRef.current),
-    [triggerNodes, btnRef.current],
+    [triggerNodes],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {

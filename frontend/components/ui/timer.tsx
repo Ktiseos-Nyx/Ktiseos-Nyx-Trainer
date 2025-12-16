@@ -277,14 +277,17 @@ export function useTimer({
   }, [isRunning])
 
   useEffect(() => {
-    if (loading) {
-      if (resetOnLoadingChange) {
-        reset()
+    const timer = setTimeout(() => {
+      if (loading) {
+        if (resetOnLoadingChange) {
+          reset()
+        }
+        start()
+      } else {
+        stop()
       }
-      start()
-    } else {
-      stop()
-    }
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loading, resetOnLoadingChange, reset, start, stop])
 
   useEffect(() => {

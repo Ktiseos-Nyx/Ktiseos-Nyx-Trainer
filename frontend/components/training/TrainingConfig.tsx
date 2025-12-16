@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Play, Save, RotateCcw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,13 +30,35 @@ import {
   DatasetTab,
   LoRATab,
   LearningTab,
+  PerformanceTab,
   AdvancedTab,
   SavingTab,
 } from './tabs';
 
+// --- Paths: VastAI vs Local ---
+const PATHS = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  ? {
+      models: './pretrained_model',
+      vaes: './vae',
+      datasets: './dataset',
+      outputs: './output'
+    }
+  : {
+      models: '/workspace/models/stable-diffusion',
+      vaes: '/workspace/models/vae',
+      datasets: '/workspace/dataset',
+      outputs: '/workspace/output'
+    };
+// ---------------------------------------------
+
 export default function TrainingConfigNew() {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingJobId, setTrainingJobId] = useState<string | null>(null);
+    // --- Add these state variables for your file lists ---
+  const [models, setModels] = useState<{ value: string; label: string }[]>([]);
+  const [vaes, setVaes] = useState<{ value: string; label: string }[]>([]);
+  const [datasets, setDatasets] = useState<{ value: string; label: string }[]>([]);
+  // ---------------------------------------------------
 
   // Initialize the form with all the magic
   const {
@@ -55,6 +77,63 @@ export default function TrainingConfigNew() {
     validateOnChange: true,
   });
 
+  // --- ADD THIS USEEFFECT BLOCK ---
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [modelsRes, vaesRes, datasetsRes] = await Promise.all([
+          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.models)}`),
+          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.vaes)}`),
+          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.datasets)}`)
+        ]);
+
+        // Handle non-OK responses gracefully
+        const modelsData = modelsRes.ok ? await modelsRes.json() : { files: [] };
+        const vaesData = vaesRes.ok ? await vaesRes.json() : { files: [] };
+        const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
+
+        setModels(
+          modelsData.files
+            .filter((f: any) => f.type === 'file' && (f.name.endsWith('.safetensors') || f.name.endsWith('.ckpt')))
+            .map((file: any) => ({ value: file.path, label: file.name }))
+        );
+        setVaes(
+          vaesData.files
+            .filter((f: any) => f.type === 'file')
+            .map((file: any) => ({ value: file.path, label: file.name }))
+        );
+        setDatasets(
+          datasetsData.files
+            .filter((f: any) => f.type === 'dir')
+            .map((dir: any) => ({ value: dir.path, label: dir.name }))
+        );
+
+        // Set sane defaults only if the form is empty for those fields
+        if (!form.getValues('output_dir')) {
+            form.setValue('output_dir', PATHS.outputs);
+        }
+        if (!form.getValues('pretrained_model_name_or_path') && modelsData.files?.length > 0) {
+            const defaultModel = modelsData.files.find((f: any) => f.type === 'file');
+            if (defaultModel) form.setValue('pretrained_model_name_or_path', defaultModel.path);
+        }
+        if (!form.getValues('vae') && vaesData.files?.length > 0) {
+            const defaultVae = vaesData.files.find((f: any) => f.type === 'file');
+            if (defaultVae) form.setValue('vae', defaultVae.path);
+        }
+        if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
+            const defaultDataset = datasetsData.files.find((f: any) => f.type === 'dir');
+            if (defaultDataset) form.setValue('train_data_dir', defaultDataset.path);
+        }
+
+      } catch (error) {
+        console.error("Failed to fetch file options for form:", error);
+      }
+    };
+
+    fetchOptions();
+  }, [form]); // Pass form to the dependency array
+
+  // -----------------------------------
   /**
    * Start training with validated configuration
    */
@@ -154,11 +233,12 @@ export default function TrainingConfigNew() {
               {/* Main Configuration Tabs */}
               <div className="lg:col-span-2">
                 <Tabs defaultValue="setup" className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="setup">Setup</TabsTrigger>
                     <TabsTrigger value="dataset">Dataset</TabsTrigger>
                     <TabsTrigger value="lora">LoRA</TabsTrigger>
                     <TabsTrigger value="learning">Learning</TabsTrigger>
+                    <TabsTrigger value="performance">Performance</TabsTrigger>
                     <TabsTrigger value="advanced">Advanced</TabsTrigger>
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
@@ -177,6 +257,10 @@ export default function TrainingConfigNew() {
 
                   <TabsContent value="learning">
                     <LearningTab form={form} />
+                  </TabsContent>
+
+                  <TabsContent value="performance">
+                    <PerformanceTab form={form} />
                   </TabsContent>
 
                   <TabsContent value="advanced">

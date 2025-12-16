@@ -21,6 +21,7 @@ from services.models.caption import (
     ReadCaptionRequest,
     WriteCaptionRequest,
 )
+from fastapi.responses import FileResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -38,7 +39,7 @@ async def list_datasets():
             "total": response.total
         }
     except Exception as e:
-        logger.error(f"Failed to list datasets: {e}", exc_info=True)
+        logger.error("Failed to list datasets: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -49,7 +50,7 @@ async def create_dataset(request: CreateDatasetRequest):
         dataset_info = await dataset_service.create_dataset(request)
         return dataset_info.dict()
     except Exception as e:
-        logger.error(f"Failed to create dataset: {e}", exc_info=True)
+        logger.error("Failed to create dataset: %s", e, exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -83,10 +84,15 @@ async def get_images_with_tags(dataset_path: str):
                     tags_text = caption_path.read_text(encoding='utf-8').strip()
                     tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
                 except Exception as e:
-                    logger.warning(f"Failed to read tags for {img_path}: {e}")
+                    logger.warning("Failed to read tags for %s: %s", img_path, e)
+
+            # Create a valid URL that points to the new endpoint we just made
+            # Assuming your API runs at /api
+            web_url = f"/api/dataset/serve/{dataset_path}/{img_path.name}"
 
             result.append({
-                "image_path": str(img_path),
+                "image_path": str(img_path),  # Keep for backend reference
+                "url": web_url,              # <--- USE THIS IN YOUR FRONTEND <IMG SRC=...>
                 "image_name": img_path.name,
                 "tags": tags,
                 "has_tags": len(tags) > 0
@@ -100,7 +106,7 @@ async def get_images_with_tags(dataset_path: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get images with tags: {e}", exc_info=True)
+        logger.error("Failed to get images with tags: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -111,7 +117,7 @@ async def get_dataset(dataset_name: str):
         dataset_info = await dataset_service.get_dataset(dataset_name)
         return dataset_info.dict()
     except Exception as e:
-        logger.error(f"Failed to get dataset: {e}", exc_info=True)
+        logger.error("Failed to get dataset: %s", e, exc_info=True)
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -122,7 +128,7 @@ async def list_dataset_files(dataset_name: str):
         response = await dataset_service.list_files(dataset_name)
         return response.dict()
     except Exception as e:
-        logger.error(f"Failed to list files: {e}", exc_info=True)
+        logger.error("Failed to list files: %s", e, exc_info=True)
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -133,7 +139,7 @@ async def delete_dataset(dataset_name: str):
         await dataset_service.delete_dataset(dataset_name)
         return {"success": True, "message": f"Dataset {dataset_name} deleted"}
     except Exception as e:
-        logger.error(f"Failed to delete dataset: {e}", exc_info=True)
+        logger.error("Failed to delete dataset: %s", e, exc_info=True)
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -231,7 +237,7 @@ async def start_tagging(request: TaggingRequest):
         }
 
     except Exception as e:
-        logger.error(f"Failed to start tagging: {e}", exc_info=True)
+        logger.error("Failed to start tagging: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -256,7 +262,7 @@ async def get_tagging_status(job_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get tagging status: {e}", exc_info=True)
+        logger.error("Failed to get tagging status: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -274,7 +280,7 @@ async def stop_tagging(job_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to stop tagging: {e}", exc_info=True)
+        logger.error("Failed to stop tagging: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -301,7 +307,7 @@ async def start_blip_captioning(config: BLIPConfig):
         }
 
     except Exception as e:
-        logger.error(f"Failed to start BLIP captioning: {e}", exc_info=True)
+        logger.error("Failed to start BLIP captioning: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -322,7 +328,7 @@ async def start_git_captioning(config: GITConfig):
         }
 
     except Exception as e:
-        logger.error(f"Failed to start GIT captioning: {e}", exc_info=True)
+        logger.error("Failed to start GIT captioning: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -347,7 +353,7 @@ async def get_captioning_status(job_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get captioning status: {e}", exc_info=True)
+        logger.error("Failed to get captioning status: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -365,7 +371,7 @@ async def stop_captioning(job_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to stop captioning: {e}", exc_info=True)
+        logger.error("Failed to stop captioning: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -378,7 +384,7 @@ async def add_trigger_word(request: AddTriggerWordRequest):
         response = await caption_service.add_trigger_word(request)
         return response.dict()
     except Exception as e:
-        logger.error(f"Failed to add trigger word: {e}", exc_info=True)
+        logger.error("Failed to add trigger word: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -389,7 +395,7 @@ async def remove_tags(request: RemoveTagsRequest):
         response = await caption_service.remove_tags(request)
         return response.dict()
     except Exception as e:
-        logger.error(f"Failed to remove tags: {e}", exc_info=True)
+        logger.error("Failed to remove tags: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -400,7 +406,7 @@ async def replace_text(request: ReplaceTextRequest):
         response = await caption_service.replace_text(request)
         return response.dict()
     except Exception as e:
-        logger.error(f"Failed to replace text: {e}", exc_info=True)
+        logger.error("Failed to replace text: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -411,7 +417,7 @@ async def read_caption(request: ReadCaptionRequest):
         response = await caption_service.read_caption(request)
         return response.dict()
     except Exception as e:
-        logger.error(f"Failed to read caption: {e}", exc_info=True)
+        logger.error("Failed to read caption: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -422,7 +428,7 @@ async def write_caption(request: WriteCaptionRequest):
         response = await caption_service.write_caption(request)
         return response.dict()
     except Exception as e:
-        logger.error(f"Failed to write caption: {e}", exc_info=True)
+        logger.error("Failed to write caption: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -447,7 +453,7 @@ async def update_tags_endpoint(request: UpdateTagsRequest):
         # Write tags to caption file
         caption_path.write_text(', '.join(request.tags), encoding='utf-8')
 
-        logger.info(f"Updated tags for {img_path.name}: {len(request.tags)} tags")
+        logger.info("Updated tags for %s: %d tags", img_path.name, len(request.tags))
 
         return {
             "success": True,
@@ -455,7 +461,7 @@ async def update_tags_endpoint(request: UpdateTagsRequest):
             "tags": request.tags
         }
     except Exception as e:
-        logger.error(f"Failed to update tags: {e}", exc_info=True)
+        logger.error("Failed to update tags: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -501,7 +507,7 @@ async def bulk_tag_operation_endpoint(request: BulkTagOperationRequest):
                 caption_path.write_text(', '.join(current_tags), encoding='utf-8')
                 modified_count += 1
 
-        logger.info(f"Bulk {request.operation} operation: modified {modified_count} files")
+        logger.info("Bulk %s operation: modified %d files", request.operation, modified_count)
 
         return {
             "success": True,
@@ -509,7 +515,7 @@ async def bulk_tag_operation_endpoint(request: BulkTagOperationRequest):
             "operation": request.operation
         }
     except Exception as e:
-        logger.error(f"Bulk tag operation failed: {e}", exc_info=True)
+        logger.error("Bulk tag operation failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -546,7 +552,7 @@ async def upload_batch(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to upload files: {e}", exc_info=True)
+        logger.error("Failed to upload files: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -560,22 +566,22 @@ async def upload_zip(
     Automatically extracts images and flattens directory structure.
     """
     try:
-        logger.info(f"📦 ZIP upload started: {file.filename} → {dataset_name}")
+        logger.info("ZIP upload started: %s → %s", file.filename, dataset_name)
 
         # Validate file is ZIP
         if not file.filename.lower().endswith('.zip'):
-            logger.warning(f"❌ Invalid file type: {file.filename}")
+            logger.warning("Invalid file type: %s", file.filename)
             raise HTTPException(
                 status_code=400,
                 detail="File must be a ZIP archive"
             )
 
-        logger.info(f"✅ File validated, calling dataset service...")
+        logger.info("File validated, calling dataset service...")
 
         # Use dataset service
         result = await dataset_service.upload_zip(file, dataset_name)
 
-        logger.info(f"✅ ZIP extraction complete: {len(result['extracted_files'])} files")
+        logger.info("ZIP extraction complete: %d files", len(result['extracted_files']))
 
         return {
             "success": len(result["extracted_files"]) > 0,
@@ -587,7 +593,7 @@ async def upload_zip(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Failed to upload ZIP: {e}", exc_info=True)
+        logger.error("Failed to upload ZIP: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -629,10 +635,39 @@ async def download_from_url(request: DownloadUrlRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to download from URL: {e}", exc_info=True)
+        logger.error("Failed to download from URL: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # NOTE: WebSocket routes for real-time logs are in services/websocket.py
 # Use: ws://host/ws/jobs/{job_id}/logs for tagging log streaming
 # Use: ws://host/ws/jobs/{job_id}/status for tagging status updates
+
+# ========== IMAGE SERVING (The Fix) ==========
+
+@router.get("/serve/{dataset_name}/{filename}")
+async def serve_dataset_image(dataset_name: str, filename: str):
+    """
+    Explicitly serve an image file with correct MIME type.
+    Fixes WebP display issues by forcing media_type.
+    """
+    from services.core.validation import validate_dataset_path
+
+    # 1. Construct the full path safely
+    dataset_dir = validate_dataset_path(dataset_name)  # Ensure no "../" hacks
+    file_path = dataset_dir / filename
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    # 2. Determine MIME type (Critical for WebP!)
+    media_type = "application/octet-stream"  # Default
+    if filename.lower().endswith(".webp"):
+        media_type = "image/webp"
+    elif filename.lower().endswith(".png"):
+        media_type = "image/png"
+    elif filename.lower().endswith((".jpg", ".jpeg")):
+        media_type = "image/jpeg"
+
+    # 3. Serve the file with the explicit header
+    return FileResponse(file_path, media_type=media_type)

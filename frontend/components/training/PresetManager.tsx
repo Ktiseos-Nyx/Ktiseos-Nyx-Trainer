@@ -55,23 +55,23 @@ export default function PresetManager({
   onLoadPreset,
   onSavePreset,
 }: PresetManagerProps) {
-  const [customPresets, setCustomPresets] = useState<CustomPreset[]>([]);
+  // Load custom presets from localStorage on mount
+  const [customPresets, setCustomPresets] = useState<CustomPreset[]>(() => {
+    const saved = localStorage.getItem('training-presets');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to load custom presets:', e);
+        return [];
+      }
+    }
+    return [];
+  });
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [newPresetDescription, setNewPresetDescription] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<string>('');
-
-  // Load custom presets from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('training-presets');
-    if (saved) {
-      try {
-        setCustomPresets(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load custom presets:', e);
-      }
-    }
-  }, []);
 
   // Save custom presets to localStorage
   useEffect(() => {

@@ -36,12 +36,13 @@ export function SetupTab({ form }: TabProps) {
 
 /**
  * Dataset Tab
- * Data paths, augmentation, bucketing
+ * Data paths, augmentation, bucketing, captions
  */
 export function DatasetTab({ form }: TabProps) {
   return (
     <div className="space-y-6">
       <DatasetCard form={form} />
+      <CaptionCard form={form} />
       <AugmentationCard form={form} />
     </div>
   );
@@ -73,14 +74,24 @@ export function LearningTab({ form }: TabProps) {
 }
 
 /**
+ * Performance Tab
+ * Memory optimization and performance settings
+ */
+export function PerformanceTab({ form }: TabProps) {
+  return (
+    <div className="space-y-6">
+      <MemoryCard form={form} />
+    </div>
+  );
+}
+
+/**
  * Advanced Tab
- * Caption settings, memory, advanced techniques
+ * Advanced training techniques (noise, SNR, loss functions)
  */
 export function AdvancedTab({ form }: TabProps) {
   return (
     <div className="space-y-6">
-      <CaptionCard form={form} />
-      <MemoryCard form={form} />
       <AdvancedCard form={form} />
     </div>
   );

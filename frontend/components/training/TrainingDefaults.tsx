@@ -5,20 +5,24 @@ import { Save, RotateCcw } from 'lucide-react'
 import { GradientCard } from '@/components/effects'
 
 export function TrainingDefaults() {
-  const [defaultEpochs, setDefaultEpochs] = useState(10)
-  const [defaultBatchSize, setDefaultBatchSize] = useState(1)
-  const [defaultLearningRate, setDefaultLearningRate] = useState(0.0001)
-  
   // Load settings from localStorage
-  useEffect(() => {
+  const getStoredSettings = () => {
     const stored = localStorage.getItem('ktiseos-nyx-settings')
-    if (stored) {
-      const settings = JSON.parse(stored)
-      setDefaultEpochs(settings.defaultEpochs ?? 10)
-      setDefaultBatchSize(settings.defaultBatchSize ?? 1)
-      setDefaultLearningRate(settings.defaultLearningRate ?? 0.0001)
-    }
-  }, [])
+    return stored ? JSON.parse(stored) : {}
+  }
+
+  const [defaultEpochs, setDefaultEpochs] = useState(() => {
+    const settings = getStoredSettings()
+    return settings.defaultEpochs ?? 10
+  })
+  const [defaultBatchSize, setDefaultBatchSize] = useState(() => {
+    const settings = getStoredSettings()
+    return settings.defaultBatchSize ?? 1
+  })
+  const [defaultLearningRate, setDefaultLearningRate] = useState(() => {
+    const settings = getStoredSettings()
+    return settings.defaultLearningRate ?? 0.0001
+  })
 
   const handleSave = () => {
     const stored = localStorage.getItem('ktiseos-nyx-settings')

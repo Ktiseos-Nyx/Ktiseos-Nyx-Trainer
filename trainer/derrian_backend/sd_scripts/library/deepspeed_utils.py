@@ -128,7 +128,7 @@ def prepare_deepspeed_model(args: argparse.Namespace, **models):
             
             self.models = torch.nn.ModuleDict()
             
-            wrap_model_forward_with_torch_autocast = args.mixed_precision is not "no"
+            wrap_model_forward_with_torch_autocast = args.mixed_precision != "no"
 
             for key, model in kw_models.items():
                 if isinstance(model, list):

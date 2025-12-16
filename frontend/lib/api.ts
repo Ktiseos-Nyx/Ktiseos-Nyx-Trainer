@@ -29,10 +29,25 @@ export const getWsUrl = (path: string): string => {
 // Helper for handling API responses
 async function handleResponse(response: Response) {
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new Error(error.detail || `HTTP ${response.status}`);
+    // Try to parse error as JSON, fallback to text if it's HTML
+    try {
+      const error = await response.json();
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    } catch (jsonError) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+    }
   }
-  return response.json();
+
+  // Check content type before parsing
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  // Not JSON - return text or throw error
+  const text = await response.text();
+  throw new Error(`Expected JSON response, got: ${text.substring(0, 100)}`);
 }
 
 // ========== Type Definitions ==========
@@ -1105,6 +1120,61 @@ export const civitaiAPI = {
         download_url: downloadUrl,
         filename,
         model_type: modelType,
+      }),
+    });
+    return handleResponse(response);
+  },
+};
+
+// ========== Caption Editing API ==========
+
+export const captionAPI = {
+  addTrigger: async (params: {
+    dataset_path: string;
+    trigger_word: string;
+    position?: 'first' | 'last';
+  }) => {
+    const response = await fetch(`${API_BASE}/dataset/captions/add-trigger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dataset_path: params.dataset_path,
+        trigger_word: params.trigger_word,
+        position: params.position || 'first',
+      }),
+    });
+    return handleResponse(response);
+  },
+
+  removeTags: async (params: {
+    dataset_path: string;
+    tags_to_remove: string[];
+  }) => {
+    const response = await fetch(`${API_BASE}/dataset/captions/remove-tags`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dataset_path: params.dataset_path,
+        tags_to_remove: params.tags_to_remove,
+      }),
+    });
+    return handleResponse(response);
+  },
+
+  replace: async (params: {
+    dataset_path: string;
+    find: string;
+    replace: string;
+    use_regex?: boolean;
+  }) => {
+    const response = await fetch(`${API_BASE}/dataset/captions/replace`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dataset_path: params.dataset_path,
+        find: params.find,
+        replace: params.replace,
+        use_regex: params.use_regex || false,
       }),
     });
     return handleResponse(response);

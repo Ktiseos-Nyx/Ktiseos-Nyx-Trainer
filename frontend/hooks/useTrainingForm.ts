@@ -4,7 +4,7 @@
  * Provides the ultimate UX-friendly form experience
  */
 
-import { useForm, UseFormReturn } from 'react-hook-form';
+import { useForm, UseFormReturn, FieldError } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useCallback } from 'react';
 import { useTrainingStore } from '@/store/trainingStore';
@@ -155,7 +155,8 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
     const errors = form.formState.errors;
     return Object.entries(errors).map(([field, error]) => ({
       field,
-      message: error.message || 'Invalid value',
+      // FIX: Cast error as 'any' so we can access .message
+      message: (error as any)?.message || 'Invalid value',
     }));
   }, [form.formState.errors]);
 

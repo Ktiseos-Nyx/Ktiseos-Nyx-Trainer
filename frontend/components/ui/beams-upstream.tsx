@@ -5,28 +5,51 @@ import { cn } from "@/lib/utils";
 
 export const BeamsUpstream = React.memo(
   ({ className }: { className?: string }) => {
-    const generatePaths = () => {
-      const paths: string[] = [];
-      const screenSections = 12; 
-      
+    const [paths] = React.useState(() => {
+      const paths: Array<{
+        path: string;
+        duration: number;
+        delay: number;
+        particleDuration: number;
+        particleDelay: number;
+      }> = [];
+      const screenSections = 12;
+
       for (let section = 0; section < screenSections; section++) {
-        const baseX = (section * 100) / (screenSections - 1); 
+        const baseX = (section * 100) / (screenSections - 1);
         for (let variation = 0; variation < 4; variation++) {
-          const startX = baseX + (Math.random() - 0.5) * 15; 
+          const startX = baseX + (Math.random() - 0.5) * 15;
           const midX1 = startX + (Math.random() - 0.5) * 20;
           const midX2 = startX + (Math.random() - 0.5) * 25;
           const endX = startX + (Math.random() - 0.5) * 30;
-          const path = `M${startX} 100C${startX} 100 ${midX1} 75 ${midX1} 50C${midX1} 50 ${midX2} 25 ${midX2} 12C${midX2} 12 ${endX} 5 ${endX} 0`;
-          paths.push(path);
+          const pathStr = `M${startX} 100C${startX} 100 ${midX1} 75 ${midX1} 50C${midX1} 50 ${midX2} 25 ${midX2} 12C${midX2} 12 ${endX} 5 ${endX} 0`;
+          paths.push({
+            path: pathStr,
+            duration: Math.random() * 3 + 2,
+            delay: Math.random() * 4,
+            particleDuration: Math.random() * 8 + 6,
+            particleDelay: Math.random() * 6,
+          });
           const altPath = `M${startX} 100C${startX} 100 ${startX + 5} 80 ${midX1} 60C${midX1} 60 ${midX2} 35 ${midX2} 15C${midX2} 15 ${endX} 3 ${endX} -2`;
-          paths.push(altPath);
+          paths.push({
+            path: altPath,
+            duration: Math.random() * 3 + 2,
+            delay: Math.random() * 4,
+            particleDuration: Math.random() * 8 + 6,
+            particleDelay: Math.random() * 6,
+          });
         }
       }
-      
-      return paths;
-    };
 
-    const paths = generatePaths();
+      return paths;
+    });
+
+    const [gradientAnimations] = React.useState(() =>
+      Array.from({ length: 20 }, () => ({
+        duration: Math.random() * 4 + 3,
+        delay: Math.random() * 5,
+      }))
+    );
 
     return (
       <div
@@ -47,10 +70,10 @@ export const BeamsUpstream = React.memo(
           <rect width="100%" height="100%" fill="url(#backgroundGradient)" opacity="0.1" />
           
           <g opacity="0.2">
-            {paths.map((path, index) => (
+            {paths.map((pathData, index) => (
               <path
                 key={`static-path-${index}`}
-                d={path}
+                d={pathData.path}
                 stroke="url(#staticGradient)"
                 strokeOpacity="0.3"
                 strokeWidth="0.2"
@@ -60,10 +83,10 @@ export const BeamsUpstream = React.memo(
             ))}
           </g>
 
-          {paths.map((path, index) => (
+          {paths.map((pathData, index) => (
             <motion.path
               key={`path-${index}`}
-              d={path}
+              d={pathData.path}
               stroke={`url(#flowingGradient-${index % 20})`}
               strokeOpacity="0.8"
               strokeWidth="0.3"
@@ -72,16 +95,16 @@ export const BeamsUpstream = React.memo(
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
               transition={{
-                duration: Math.random() * 3 + 2,
+                duration: pathData.duration,
                 ease: "easeInOut",
                 repeat: Infinity,
                 repeatType: "loop",
-                delay: Math.random() * 4,
+                delay: pathData.delay,
               }}
             />
           ))}
 
-          {paths.slice(0, 20).map((path, index) => (
+          {paths.slice(0, 20).map((pathData, index) => (
             <motion.circle
               key={`particle-${index}`}
               r="0.3"
@@ -89,13 +112,13 @@ export const BeamsUpstream = React.memo(
               initial={{ offsetDistance: "0%" }}
               animate={{ offsetDistance: "100%" }}
               transition={{
-                duration: Math.random() * 8 + 6,
+                duration: pathData.particleDuration,
                 ease: "linear",
                 repeat: Infinity,
-                delay: Math.random() * 6,
+                delay: pathData.particleDelay,
               }}
               style={{
-                offsetPath: `path('${path}')`,
+                offsetPath: `path('${pathData.path}')`,
                 offsetRotate: "0deg",
               }}
             />
@@ -127,7 +150,7 @@ export const BeamsUpstream = React.memo(
               <stop offset="100%" stopColor="#EC4899" stopOpacity="0.4" />
             </linearGradient>
 
-            {Array.from({ length: 20 }).map((_, index) => (
+            {gradientAnimations.map((anim, index) => (
               <motion.linearGradient
                 key={`flowingGradient-${index}`}
                 id={`flowingGradient-${index}`}
@@ -145,10 +168,10 @@ export const BeamsUpstream = React.memo(
                   y2: ["90%", "-10%"],
                 }}
                 transition={{
-                  duration: Math.random() * 4 + 3,
+                  duration: anim.duration,
                   ease: "linear",
                   repeat: Infinity,
-                  delay: Math.random() * 5,
+                  delay: anim.delay,
                 }}
               >
                 <stop offset="0%" stopColor="#0EA5E9" stopOpacity="0" />

@@ -88,12 +88,18 @@ class LoRAService:
                 "--new_rank", str(request.target_dim),
                 "--device", request.device,
                 "--save_precision", request.save_precision,
-            ]
+                ]
 
-            if request.target_alpha is not None:
-                command.extend(["--new_alpha", str(request.target_alpha)])
+        # FIX: resize_lora.py does not support --new_alpha.
+        # It calculates alpha automatically based on SVD rank.
+        # if request.target_alpha is not None:
+        #     command.extend(["--new_alpha", str(request.target_alpha)])
 
-            logger.info(f"Resizing LoRA from {input_path.name} to rank {request.target_dim}")
+            logger.info(
+                "Resizing LoRA from %s to rank %s",
+                input_path.name,
+                request.target_dim
+            )
 
             # Execute resize
             process = await asyncio.create_subprocess_exec(
@@ -112,7 +118,11 @@ class LoRAService:
             # Get file size
             file_size_mb = output_path.stat().st_size / (1024 * 1024)
 
-            logger.info(f"LoRA resized successfully: {output_path.name} ({file_size_mb:.2f} MB)")
+            logger.info(
+                "LoRA resized successfully: %s (%.2f MB)",
+                output_path.name,
+                file_size_mb
+            )
 
             return LoRAResizeResponse(
                 success=True,
@@ -380,7 +390,8 @@ class LoRAService:
             "## Usage",
             "Download and use this LoRA with your favorite Stable Diffusion interface.",
             "",
-            f"Generated with [Ktiseos-Nyx-Trainer](https://github.com/yourusername/Ktiseos-Nyx-Trainer)"
+            "Generated with [Ktiseos-Nyx-Trainer]"
+            "(https://github.com/yourusername/Ktiseos-Nyx-Trainer)"
         ])
 
         return '\n'.join(lines)

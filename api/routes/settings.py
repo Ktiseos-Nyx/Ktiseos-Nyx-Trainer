@@ -5,12 +5,11 @@ API routes for user settings management.
 import json
 import os
 import shutil
-from typing import Optional
+import logging
 
+from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +26,45 @@ class UserSettings(BaseModel):
 
 
 def ensure_settings_dir():
-    """Ensure settings directory exists."""
-    os.makedirs(SETTINGS_DIR, exist_ok=True)
+    """
+    Ensures the settings directory exists AND is writable.
+    Only attempts to fix permissions if they are actually broken.
+    This is safe for both local machines and servers.
+    """
+    try:
+        # Step 1: Always ensure the directory exists.
+        os.makedirs(SETTINGS_DIR, exist_ok=True)
+
+        # Step 2: Check if the directory is writable by the current user.
+        if not os.access(SETTINGS_DIR, os.W_OK):
+            logger.warning(
+                "Configuration directory '%s' is not writable. "
+                "This can happen in Docker/server environments. "
+                "Attempting to auto-fix permissions...",
+                SETTINGS_DIR
+            )
+            # Step 3: If not writable, TRY to fix it.
+            try:
+                # 0o777 gives read/write/execute permissions to everyone.
+                os.chmod(SETTINGS_DIR, 0o777)
+                logger.info("✅ Successfully fixed directory permissions.")
+
+                # Also fix the settings file itself if it exists
+                if os.path.exists(SETTINGS_FILE):
+                    os.chmod(SETTINGS_FILE, 0o666)  # Read/Write for everyone
+
+            except PermissionError:
+                logger.error(
+                    "❌ Failed to fix permissions. The current user does not own the directory "
+                    "or lacks privileges to change permissions. Please fix manually."
+                )
+    except Exception as e:
+        logger.error(
+            "An unexpected error occurred while ensuring "
+            "settings directory: %s",
+            e,
+            exc_info=True
+        )
 
 
 def load_settings() -> dict:
@@ -39,10 +75,17 @@ def load_settings() -> dict:
         return {}
 
     try:
-        with open(SETTINGS_FILE, 'r') as f:
+        # THE FIX IS HERE:
+        with open(SETTINGS_FILE, 'r', encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading settings: {e}")
+        # Use the logger to be consistent
+        logger.error(
+            "Error loading settings from %s: %s",
+            SETTINGS_FILE,
+            e,
+            exc_info=True
+        )
         return {}
 
 
@@ -51,11 +94,17 @@ def save_settings(settings: dict) -> bool:
     ensure_settings_dir()
 
     try:
-        with open(SETTINGS_FILE, 'w') as f:
+        # Now, this 'settings' variable is correctly defined from the parameter
+        with open(SETTINGS_FILE, 'w', encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
         return True
     except Exception as e:
-        logger.error(f"Error saving settings to {SETTINGS_FILE}: {e}", exc_info=True)
+        logger.error(
+            "Error saving settings to %s: %s",
+            SETTINGS_FILE,
+            e,
+            exc_info=True
+        )
         return False
 
 
@@ -96,7 +145,7 @@ async def get_user_settings():
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/user")
@@ -126,7 +175,7 @@ async def update_user_settings(settings: UserSettings):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/user")
@@ -143,7 +192,7 @@ async def clear_user_settings():
             "message": "Settings cleared successfully"
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/user/{key}")
@@ -176,7 +225,7 @@ async def delete_setting_key(key: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/storage")
@@ -207,4 +256,7 @@ async def get_storage_info():
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get storage info: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get storage info: {str(e)}"
+        ) from e

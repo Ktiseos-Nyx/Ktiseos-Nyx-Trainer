@@ -10,17 +10,22 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { TextFormField, SelectFormField } from '../fields/FormFields';
+import { ComboboxFormField, TextFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { Folder, Sparkles } from 'lucide-react';
 
+// --- Define the props the Card now accepts ---
 interface ProjectSetupCardProps {
   form: UseFormReturn<Partial<TrainingConfig>>;
+  models: { value: string; label: string }[];
+  vaes: { value: string; label: string }[];
 }
 
-export function ProjectSetupCard({ form }: ProjectSetupCardProps) {
+// --- Update the function signature ---
+export function ProjectSetupCard({ form, models, vaes }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
   const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
+
 
   return (
     <Card className="border-purple-500/30">
@@ -83,22 +88,24 @@ export function ProjectSetupCard({ form }: ProjectSetupCardProps) {
           ]}
         />
 
-        {/* Base Model Path */}
-        <TextFormField
+        {/* --- REPLACEMENT FOR BASE MODEL PATH --- */}
+        <ComboboxFormField
           form={form}
           name="pretrained_model_name_or_path"
           label="Base Model Path"
-          description="Path to .safetensors or .ckpt file, or HuggingFace model ID"
-          placeholder="/path/to/model.safetensors or stabilityai/stable-diffusion-xl-base-1.0"
+          description="Select a model from your /models/stable-diffusion folder"
+          placeholder="Select or type a model path..."
+          options={models}
         />
 
-        {/* Optional: VAE Path */}
-        <TextFormField
+        {/* --- REPLACEMENT FOR VAE PATH --- */}
+        <ComboboxFormField
           form={form}
           name="vae_path"
           label="VAE Path (Optional)"
-          description="Custom VAE for better image quality"
-          placeholder="/path/to/vae.safetensors"
+          description="Select a VAE from your /models/vae folder"
+          placeholder="Select a VAE..."
+          options={vaes}
         />
 
         {/* Conditional: Flux/SD3 specific paths */}
