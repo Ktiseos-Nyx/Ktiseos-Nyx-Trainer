@@ -11,13 +11,11 @@ LoRA training system built on Kohya SS with a web UI (Next.js + FastAPI). Suppor
 ## Table of Contents
 
 - [Installation](#installation)
+  - [Requirements](#requirements)
   - [Local Installation](#local-installation)
   - [VastAI Deployment](#vastai-deployment)
-  - [Requirements](#requirements)
+  - [RunPod Deployment](#runpod-deployment)
 - [Overview](#overview)
-- [Usage](#usage)
-  - [Web UI Workflow](#web-ui-workflow)
-  - [VastAI Users](#vastai-users)
 - [Troubleshooting](#troubleshooting--support)
 - [Credits](#credits--acknowledgements)
 - [Security](#security)
@@ -88,20 +86,11 @@ See [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions.
 
 ### VastAI Deployment
 
-Click the deploy button in the table above or use this template link:
-[Ktiseos Nyx Template](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer)
+Use the template via the deploy button in the badge table above.
 
-**Setup:**
-- Automated provisioning via `vastai_setup.sh`
-- Services auto-start on boot (managed by supervisor)
-- Node.js auto-detected and configured
+### RunPod Deployment
 
-**Access URLs:**
-- Frontend: `https://[instance-id].instances.vast.ai:13000`
-- Backend: `https://[instance-id].instances.vast.ai:18000`
-- Jupyter: `https://[instance-id].instances.vast.ai:18080`
-
-See [VASTAI_TEMPLATE.txt](./VASTAI_TEMPLATE.txt) for manual setup instructions.
+RunPod deployment instructions are not yet available. If RunPod doesn't have a portal system like VastAI, the local installation scripts may work, but this is untested.
 
 ---
 
@@ -157,58 +146,6 @@ See [VASTAI_TEMPLATE.txt](./VASTAI_TEMPLATE.txt) for manual setup instructions.
 > These features use the underlying Kohya scripts but haven't been thoroughly tested in this setup. Report issues on GitHub.
 
 ---
-
-## Usage
-
-### Web UI Workflow
-
-The web interface provides a tab-based workflow:
-
-1. **Files** - Browse and upload datasets
-   - File browser for managing training data
-   - Drag-and-drop upload with auto-retry and progress tracking
-   - Batch uploads (10 files at a time)
-   - Directory creation and organization
-
-2. **Dataset** - Prepare images for training
-   - WD14 auto-tagging with multiple tagger options
-   - Caption editor with batch operations
-   - Image gallery with filtering and search
-
-3. **Training** - Configure and start training
-   - 7 tabs: Setup, Dataset, LoRA, Learning Rate, Advanced, Saving, Logging
-   - 132 training parameters with tooltips and validation
-   - Model-specific fields (Flux, SD3, Lumina auto-show based on selection)
-   - Real-time config validation
-
-4. **Monitor** - Track training progress *(coming soon)*
-   - Live loss graphs and metrics
-   - Sample image generation preview
-   - Training logs streaming
-
-5. **Models** - Manage trained LoRAs *(coming soon)*
-   - Browse output directory
-   - Preview LoRA metadata
-   - Download and share
-
-6. **Utilities** - Post-training tools *(coming soon)*
-   - LoRA resizing (extract/merge)
-   - HuggingFace upload
-   - Metadata editing
-
-**Service Architecture:**
-- Frontend: Port 3000 (Next.js)
-- Backend: Port 8000 (FastAPI)
-- Lazy-loaded managers: AI dependencies only load when needed
-- File browser and config work without AI packages installed
-
-See [Web UI Documentation](docs/WEB_UI_GUIDE.md) for detailed guide *(coming soon)*.
-
-### VastAI Usage
-
-Access the web UI at `http://<instance-ip>:3000` after services auto-start.
-
-See [VastAI Setup Guide](VASTAI_SETUP.md) for detailed instructions.
 
 ## Troubleshooting & Support
 
