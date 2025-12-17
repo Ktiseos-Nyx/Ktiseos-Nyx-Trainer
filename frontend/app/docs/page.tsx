@@ -65,6 +65,450 @@ const docSections: DocSection[] = [
     ],
   },
   {
+    id: 'terminology',
+    title: 'Terminology & Glossary',
+    icon: <BookOpen className="w-4 h-4" />,
+    content: `New to LoRA training? This glossary explains common terms you'll encounter.`,
+    subsections: [
+      {
+        id: 'term-hardware',
+        title: 'Hardware Terms',
+        content: `**VRAM (Video RAM)**
+- GPU memory used for training and image processing
+- More VRAM = can train larger models or use bigger batch sizes
+- Example: RTX 4090 has 24GB VRAM, RTX 3060 has 12GB
+
+**GPU (Graphics Processing Unit)**
+- The hardware that does the actual training
+- NVIDIA GPUs are required for CUDA acceleration
+- AMD GPUs can work with ROCm but have less support
+
+**CUDA**
+- NVIDIA's parallel computing platform
+- Required for fast training on NVIDIA GPUs
+- Version matters - this trainer uses CUDA 12.1+
+
+**Mixed Precision (fp16/bf16)**
+- Using 16-bit numbers instead of 32-bit to save memory
+- fp16 = float16 (older GPUs)
+- bf16 = bfloat16 (better for A100/H100, recommended when available)
+- Trade: slight quality loss for ~50% memory savings`,
+      },
+      {
+        id: 'term-training-basics',
+        title: 'Training Basics',
+        content: `**Epoch**
+- One complete pass through your entire dataset
+- If you have 20 images and train for 10 epochs = model sees each image 10 times
+- More epochs ≠ better (can cause overfitting)
+
+**Batch Size**
+- Number of images processed together in one step
+- Larger batch = faster training but uses more VRAM
+- Usually 1-4 for LoRA training (1 is safest for limited VRAM)
+
+**Learning Rate (LR)**
+- How much the model changes with each training step
+- Too high = unstable training, NaN losses
+- Too low = very slow learning
+- Typical range: 1e-6 to 1e-3 (written as 0.000001 to 0.001)
+
+**Steps**
+- Individual training updates
+- Total steps = (images × repeats × epochs) ÷ batch size
+- Example: 20 images, 10 repeats, 5 epochs, batch 1 = 1000 steps
+
+**Loss**
+- Number showing how "wrong" the model is
+- Lower = better (usually)
+- Should decrease steadily during training
+- If it goes to NaN = training failed (learning rate too high)
+
+**Overfitting**
+- Model memorizes your images instead of learning the concept
+- Signs: perfect on training images, poor on new prompts
+- Fix: fewer epochs, more varied dataset, regularization`,
+      },
+      {
+        id: 'term-lora-specific',
+        title: 'LoRA Specific',
+        content: `**LoRA (Low-Rank Adaptation)**
+- Method to fine-tune models with small file sizes
+- Adds trainable "adapter" layers instead of changing the whole model
+- Result: 10-300MB files instead of 2-7GB
+
+**Dim (Dimension/Rank)**
+- Size/complexity of the LoRA network
+- Higher dim = more capacity but larger file and more VRAM
+- Common values: 4, 8, 16, 32, 64, 128
+- Start with 8-32 for most use cases
+
+**Alpha**
+- Scaling factor that affects LoRA strength
+- Often set to same as dim or half of dim
+- Higher alpha = stronger effect
+- Typical: alpha = dim or alpha = dim/2
+
+**Network Rank**
+- How much information the LoRA can store
+- Related to dim - higher rank = more expressiveness
+- Trade-off: quality vs file size vs training time
+
+**Trigger Word**
+- Special word/phrase that activates your LoRA
+- Example: "sks_character" or "mystyle_art"
+- Should be unique (not a common word)
+- Added to all training captions`,
+      },
+      {
+        id: 'term-model-architecture',
+        title: 'Model Architecture',
+        content: `**Base Model / Checkpoint**
+- The foundation model you're training on top of
+- Examples: SDXL, SD 1.5, Flux, SD 3.5
+- Your LoRA will only work with models based on the same architecture
+
+**UNet**
+- The main image generation network in diffusion models
+- Where most LoRA training happens
+- Has its own learning rate (usually higher than text encoder)
+
+**Text Encoder**
+- Converts your text prompts into model-readable format
+- CLIP for SD 1.5/SDXL, T5 for Flux/SD3
+- Can be trained separately with its own learning rate
+
+**CLIP (Contrastive Language-Image Pre-training)**
+- The text encoder used in SD 1.5 and SDXL
+- Understands the relationship between text and images
+- Trained by OpenAI on 400M image-text pairs
+- Why your prompts work - it knows "cat" should look like a cat
+- LoRA can fine-tune CLIP to understand new concepts/words
+
+**VAE (Variational Auto-Encoder)**
+- Compresses images to/from "latent space"
+- Can be swapped for better image quality
+- Not trained during LoRA training (usually)
+
+**Latent Space**
+- Compressed representation of images the model works in
+- Saves VRAM vs working with full-resolution images
+- Why training is possible on consumer GPUs`,
+      },
+      {
+        id: 'term-optimizers',
+        title: 'Optimizers & Schedulers',
+        content: `**Optimizer**
+- Algorithm that updates model weights during training
+- Different optimizers = different training behavior
+- Common: AdamW (default), Prodigy (adaptive), CAME (memory efficient)
+
+**AdamW**
+- Most common optimizer, well-tested
+- Good default choice
+- Moderate memory usage
+
+**Prodigy**
+- Automatically adjusts learning rate
+- Good for beginners (less tuning needed)
+- Slightly more memory than AdamW
+
+**CAME**
+- Memory-efficient optimizer
+- Use when running out of VRAM
+- Similar results to AdamW but uses less memory
+
+**Learning Rate Scheduler**
+- Controls how learning rate changes during training
+- Constant = stays the same
+- Cosine = gradually decreases in a curve
+- Warmup = starts low, increases, then decreases
+- Affects training stability and final quality`,
+      },
+      {
+        id: 'term-memory-optimization',
+        title: 'Memory Optimization',
+        content: `**Gradient Checkpointing**
+- Technique to reduce VRAM usage
+- Trade: slower training for less memory
+- Enable when getting "CUDA out of memory" errors
+
+**Gradient Accumulation**
+- Simulates larger batch sizes without using more VRAM
+- Accumulates gradients over multiple steps
+- Example: batch_size=1, gradient_accumulation=4 = effective batch of 4
+
+**Cache Latents**
+- Pre-compute and store VAE outputs
+- Saves VRAM during training
+- Faster training, less memory
+- Can't use with data augmentation
+
+**Cache Text Encoder Outputs**
+- Pre-compute text encoder results
+- Saves memory if not training text encoder
+- Can't use with caption shuffling
+
+**Blocks to Swap**
+- Swaps transformer blocks between GPU and CPU
+- Flux/SD3 specific technique
+- More swapping = less VRAM but slower training`,
+      },
+      {
+        id: 'term-dataset',
+        title: 'Dataset Terms',
+        content: `**Caption / Tag File**
+- Text file (.txt or .caption) paired with each image
+- Contains description/tags for the image
+- Model learns to associate these words with the image
+
+**Trigger Word**
+- See LoRA Specific section above
+- Goes in every caption file
+
+**Repeats**
+- How many times each image appears per epoch
+- Higher repeats = model sees image more often
+- Use for small datasets or important images
+- Set in folder name: "10_character_name" = 10 repeats
+
+**WD14 Tagger**
+- Automated tagging for anime/illustration images
+- Generates caption tags from image analysis
+- Multiple model versions (v2/v3, ViT/ConvNeXT/SwinV2)
+
+**BLIP / GIT**
+- Automated captioning for photos/realistic images
+- Generates natural language descriptions
+- Alternative to manual captioning
+
+**Resolution**
+- Training image size (e.g., 512x512, 1024x1024)
+- Must match model architecture:
+  - SD 1.5: 512x512
+  - SDXL: 1024x1024
+  - Flux/SD3: 1024x1024 or higher
+- Images auto-resized during training`,
+      },
+      {
+        id: 'term-advanced',
+        title: 'Advanced Concepts',
+        content: `**Noise Offset**
+- Helps model learn very bright/dark images
+- Adds slight noise to training
+- Typical value: 0.03-0.1 (0 = disabled)
+
+**Min SNR Gamma**
+- Signal-to-noise ratio optimization
+- Improves training stability
+- Typical value: 5 (0 = disabled)
+
+**Dropout**
+- Randomly disables parts of network during training
+- Prevents overfitting
+- Values: 0.0 (off) to 0.5
+- Higher = more regularization
+
+**Network Args**
+- Algorithm-specific settings
+- Example: "conv_dim=4" for LoRA Conv layers
+- See Network Algorithms section for details
+
+**TOML Config**
+- Configuration file format used by training
+- Auto-generated from web UI settings
+- Advanced users can edit directly`,
+      },
+    ],
+  },
+  {
+    id: 'first-lora-walkthrough',
+    title: 'Your First LoRA: Complete Walkthrough',
+    icon: <Zap className="w-4 h-4" />,
+    content: `A complete step-by-step guide to training your first LoRA model from start to finish.`,
+    subsections: [
+      {
+        id: 'walkthrough-prep',
+        title: 'Step 1: Prepare Your Dataset',
+        content: `**Navigate to the Dataset Page** in the web UI
+
+**Gather Your Images:**
+- 15-30 high-quality images for characters
+- 50-200 images for styles
+- Ensure images are JPG or PNG format
+- Consistent quality across all images
+- Variety in poses, angles, and lighting
+
+**Upload Your Images:**
+- Drag and drop images directly into the upload area
+- Or click to select files from your computer
+- Images will be organized into a new dataset folder
+- Wait for upload to complete
+
+**Auto-Tag Your Images:**
+- Click the **"Auto-Tag"** button
+- Select **WD14 Tagger** for anime/illustration
+- Select **BLIP** for photos and realistic images
+- Set threshold to 0.35 for characters, 0.4 for detailed art
+- Review generated tags for accuracy
+- Edit any incorrect or unwanted tags
+
+**Add Your Trigger Word:**
+- Choose a unique identifier (e.g., "saria_zelda", "mystyle_art")
+- Use bulk edit tools to add to all captions
+- Place at the beginning or end consistently
+- Make it memorable and easy to type`,
+      },
+      {
+        id: 'walkthrough-checklist',
+        title: 'Pre-Training Checklist',
+        content: `Before starting training, verify all requirements are met:
+
+**Dataset Structure:**
+- Images uploaded to dedicated folder
+- All images have corresponding caption files
+- No corrupted or unreadable images
+- Consistent image format (jpg/png)
+
+**Caption Quality:**
+- All captions contain your trigger word
+- Tags are accurate and relevant
+- No unwanted or problematic tags
+- Caption length is reasonable (50-200 tokens)
+- Consistent formatting across captions
+
+**Content Verification:**
+- Images represent what you want to train
+- Sufficient variety in poses/angles
+- Consistent quality across dataset
+- No duplicate or near-duplicate images
+- Clear, well-lit images without artifacts`,
+      },
+      {
+        id: 'walkthrough-training',
+        title: 'Step 2: Configure & Train',
+        content: `**Navigate to the Training Page** in the web UI
+
+**Load a Config Template:**
+- Use "SDXL LoRA" for SDXL models
+- Use "SD1.5 LoRA" for Stable Diffusion 1.5
+- Templates provide good starting values
+
+**Configure Basic Settings:**
+- **Project Name**: Give your LoRA a unique name
+- **Base Model**: Choose your base model file
+- **Dataset Path**: Select your prepared dataset folder
+- **Trigger Word**: Same one from dataset prep
+- **Network Type**: Start with standard LoRA
+- **Network Dim**: 8 for testing, 16-32 for quality
+- **Network Alpha**: Same as dim or half of dim
+- **Learning Rate**: 5e-4 (UNet), 1e-4 (Text Encoder)
+- **Batch Size**: 1 for 12GB VRAM, 2-4 for 24GB+
+- **Epochs**: 8-10 for small datasets, 5-8 for larger
+
+**Review Advanced Settings (Optional):**
+- Enable gradient checkpointing if low on VRAM
+- Use mixed precision (bf16 if available, else fp16)
+- Cache latents for faster training
+- Set save frequency (save every N epochs)
+
+**Start Training:**
+- Click "Start Training" button
+- Monitor real-time progress
+- Watch loss curves for steady decrease
+- Check sample generations if enabled`,
+      },
+      {
+        id: 'walkthrough-monitoring',
+        title: 'Step 3: Monitor Progress',
+        content: `**Watch the Training Logs:**
+- Loss should decrease steadily
+- Normal fluctuations are okay
+- Sharp spikes indicate problems
+- Plateauing might mean convergence
+
+**Signs of Good Training:**
+- Loss decreases gradually
+- No NaN or infinity values
+- Stable progress across epochs
+- Sample images (if enabled) show improvement
+
+**Warning Signs:**
+- Loss goes to NaN = learning rate too high
+- Loss not decreasing = learning rate too low
+- Sudden spikes = possible bad batch
+- Very erratic = dataset might have issues
+
+**What to Do if Issues Occur:**
+- NaN loss: Stop, lower learning rate, restart
+- Out of memory: Reduce batch size or network dim
+- Very slow: Enable gradient checkpointing
+- Poor results: Check dataset quality and captions`,
+      },
+      {
+        id: 'walkthrough-completion',
+        title: 'Step 4: Post-Training',
+        content: `**Wait for Completion:**
+- Training stops automatically when done
+- Final model saved to output folder
+- Check logs for any final warnings
+
+**Find Your LoRA:**
+- Navigate to Files Page
+- Go to /output folder
+- Look for .safetensors file with your project name
+- File size typically 10-300MB depending on settings
+
+**Test Your LoRA:**
+- Download the .safetensors file
+- Copy to your SD UI's models/lora directory
+- Generate test images with trigger word
+- Try different prompts and settings
+- Adjust LoRA strength (0.5-1.2) as needed
+
+**Optional: Upload to HuggingFace:**
+- Go to Utilities Page
+- Use "Upload to HuggingFace" tool
+- Provide repo name and description
+- Add HuggingFace token if needed
+- Share with the community!`,
+      },
+      {
+        id: 'walkthrough-tips',
+        title: 'Tips for Success',
+        content: `**Dataset Quality:**
+- Quality over quantity - 20 great images beat 100 mediocre ones
+- Variety is essential - different poses, angles, lighting
+- Consistent style for style LoRAs
+- Remove blurry, low-res, or corrupted images
+- Check for duplicates or near-duplicates
+
+**Training Settings:**
+- Start with default settings for first LoRA
+- Monitor loss - should decrease steadily
+- Don't overtrain - stop if loss plateaus or increases
+- Lower learning rate if training is unstable
+- Increase if loss barely moves
+
+**Common Mistakes to Avoid:**
+- Too few images (under 15 for characters)
+- Inconsistent quality in dataset
+- Wrong trigger word (using common words)
+- Training for too many epochs (overfitting)
+- Not reviewing auto-generated tags
+- Skipping the pre-training checklist
+
+**When Results Aren't Good:**
+- Check dataset quality first
+- Verify all captions have trigger word
+- Try different learning rate
+- Adjust network dimension
+- Train for more/fewer epochs
+- Consider different optimizer`,
+      },
+    ],
+  },
+  {
     id: 'hardware-requirements',
     title: 'Hardware Requirements',
     icon: <Cpu className="w-4 h-4" />,
@@ -797,6 +1241,62 @@ Recommended to use --remove_words unless you specifically need text detection.
           { label: 'Kohya sd-scripts Repository', url: 'https://github.com/kohya-ss/sd-scripts' },
         ],
       },
+      {
+        id: 'datasets-best-practices',
+        title: 'Dataset Best Practices & Tips',
+        content: `**Caption Management:**
+- Review auto-generated captions for accuracy
+- Remove unwanted or irrelevant tags
+- Ensure trigger word is in ALL captions
+- Keep captions descriptive but not excessive (50-200 tokens)
+- Use consistent formatting across all captions
+
+**Trigger Word Strategy:**
+- Choose unique, uncommon words or combinations
+- Examples: "saria_zelda" (character), "cyber_neon_style" (style)
+- Avoid common words that conflict with existing prompts
+- Place consistently (beginning or end of captions)
+- Test in generation to ensure it activates properly
+
+**Image Quality Requirements:**
+- Resolution: Minimum 512px shortest side for SD 1.5, 768px+ for SDXL
+- Clarity: Sharp, well-focused images
+- Lighting: Good exposure, avoid very dark/bright extremes
+- Variety: Different poses, angles, expressions, backgrounds
+- Consistency: Similar quality across entire dataset
+- Remove: Blurry, corrupted, or low-quality images
+
+**Dataset Size Guidelines:**
+- Characters: 15-30 images minimum, 50-100 ideal
+- Styles: 50-200 images recommended
+- Concepts: 30-100 images depending on complexity
+- Quality over quantity - 20 perfect images beat 100 mediocre ones
+
+**Common Mistakes to Avoid:**
+- Using duplicate or near-duplicate images
+- Inconsistent image quality in dataset
+- Missing or incomplete captions
+- Forgetting trigger word in some captions
+- Using common words as trigger words
+- Too few images for the concept complexity
+- Not reviewing auto-generated tags
+
+**Caption Editing Workflow:**
+1. Auto-tag all images with WD14 or BLIP
+2. Review each caption for accuracy
+3. Add trigger word to all captions (bulk edit)
+4. Remove unwanted tags (explicit content, watermarks, etc.)
+5. Add specific details for important images
+6. Verify all captions are complete
+7. Final check before starting training
+
+**Organizing Multiple Concepts:**
+- Use subfolders to organize different image types
+- Keep related images together
+- Separate by resolution if training multiple sizes
+- Group by concept if training multi-concept LoRA
+- Use clear folder names for easy identification`,
+      },
     ],
   },
   {
@@ -1133,6 +1633,186 @@ Recommended to use --remove_words unless you specifically need text detection.
     ],
   },
   {
+    id: 'training-settings-by-size',
+    title: 'Training Settings by Dataset Size',
+    icon: <Database className="w-4 h-4" />,
+    content: `Recommended starting points for different dataset sizes. These are suggestions based on common practices - adjust based on your specific needs and results.
+
+**Important:** Training is experimental. These settings are starting points, not strict rules. Monitor your results and adjust accordingly.`,
+    subsections: [
+      {
+        id: 'settings-small',
+        title: 'Small Datasets (15-50 Images)',
+        content: `**Recommended Settings:**
+- Batch Size: 1-2
+- Epochs: 10-15
+- Learning Rate UNet: 5e-4 (0.0005)
+- Learning Rate Text Encoder: 1e-4 (0.0001)
+- Network Dim: 8-16
+- Network Alpha: Same as dim
+- Memory Usage: 8-10GB VRAM
+- Training Time: 1-3 hours
+
+**Best For:**
+- Single character LoRAs
+- Simple style concepts
+- Quick testing and experimentation
+- Learning the training process
+
+**Tips:**
+- Higher epochs needed due to fewer images
+- Watch for overfitting (model memorizes images)
+- Use lower dim to prevent overfitting
+- Consider data augmentation (flip_aug)`,
+      },
+      {
+        id: 'settings-medium',
+        title: 'Medium Datasets (50-150 Images)',
+        content: `**Recommended Settings:**
+- Batch Size: 2-3
+- Epochs: 8-10
+- Learning Rate UNet: 4e-4 (0.0004)
+- Learning Rate Text Encoder: 8e-5 (0.00008)
+- Network Dim: 16-32
+- Network Alpha: Same as dim or half
+- Memory Usage: 10-14GB VRAM
+- Training Time: 3-6 hours
+
+**Best For:**
+- Detailed character LoRAs
+- Style LoRAs with variety
+- Moderate complexity concepts
+- Multi-outfit characters
+
+**Tips:**
+- Sweet spot for most character training
+- Can use higher dim for more detail
+- Balance epochs to avoid over/underfitting
+- Good variety helps prevent memorization`,
+      },
+      {
+        id: 'settings-large',
+        title: 'Large Datasets (150-300 Images)',
+        content: `**Recommended Settings:**
+- Batch Size: 3-4
+- Epochs: 5-8
+- Learning Rate UNet: 3e-4 (0.0003)
+- Learning Rate Text Encoder: 6e-5 (0.00006)
+- Network Dim: 32-64
+- Network Alpha: Same as dim or half
+- Memory Usage: 12-18GB VRAM
+- Training Time: 6-10 hours
+
+**Best For:**
+- Professional character LoRAs
+- Complex style LoRAs
+- Multi-character datasets
+- Detailed concept learning
+
+**Tips:**
+- Fewer epochs needed with more data
+- Can use higher dim without overfitting
+- Monitor loss curves carefully
+- Consider saving checkpoints every 2 epochs`,
+      },
+      {
+        id: 'settings-very-large',
+        title: 'Very Large Datasets (300+ Images)',
+        content: `**Recommended Settings:**
+- Batch Size: 4-8
+- Epochs: 3-6
+- Learning Rate UNet: 2e-4 (0.0002)
+- Learning Rate Text Encoder: 5e-5 (0.00005)
+- Network Dim: 64-128
+- Network Alpha: Same as dim or half
+- Memory Usage: 16-24GB VRAM
+- Training Time: 8-20 hours
+
+**Best For:**
+- Professional-grade style LoRAs
+- Complex multi-concept training
+- Environment/scene training
+- Production-quality models
+
+**Tips:**
+- Lower learning rate for stability
+- Can train fewer epochs
+- Higher dim captures more detail
+- Use gradient checkpointing if needed
+- Consider splitting into multiple LoRAs`,
+      },
+      {
+        id: 'settings-recognition',
+        title: 'Recognizing Training Quality',
+        content: `**Signs of Good Training:**
+- Loss decreases steadily over time
+- Generated images match your concept
+- Variety in outputs (not just copies)
+- Responds well to different prompts
+- Consistent quality across generations
+- Works at different LoRA strengths
+
+**Overfitting Warning Signs:**
+- Generated images look identical
+- Same poses/backgrounds repeatedly
+- Poor response to new prompts
+- Only recreates training images exactly
+- Works only at very specific settings
+- Loss becomes very low but quality drops
+
+**Underfitting Warning Signs:**
+- Blurry or soft outputs
+- Weak response to trigger word
+- Generic results (looks like base model)
+- Inconsistent quality
+- Concept not clearly learned
+- Loss still high at end of training
+
+**What to Adjust:**
+- Overfitting: Reduce epochs, lower dim, more images
+- Underfitting: Increase epochs, higher learning rate, check dataset
+- Unstable: Lower learning rate, reduce batch size
+- Slow: Enable gradient checkpointing, lower resolution`,
+      },
+      {
+        id: 'settings-memory-optimization',
+        title: 'Memory Optimization by VRAM',
+        content: `**8GB VRAM (Minimum):**
+- Batch size: 1
+- Enable gradient checkpointing
+- Use CAME optimizer (saves memory)
+- Train at 512x512 for SD 1.5
+- Use mixed precision fp16
+- Network dim: 4-8 maximum
+- Cache latents and text encoder outputs
+
+**12GB VRAM (Comfortable):**
+- Batch size: 1-2
+- Gradient checkpointing optional
+- Standard optimizers work
+- Full resolution training possible
+- Mixed precision bf16 recommended
+- Network dim: 8-32
+
+**16GB VRAM (Good):**
+- Batch size: 2-4
+- No gradient checkpointing needed
+- Any optimizer works
+- High resolution training
+- Mixed precision bf16
+- Network dim: 16-64
+
+**24GB+ VRAM (Excellent):**
+- Batch size: 4-8
+- No optimization needed
+- Any settings work comfortably
+- Multiple resolutions simultaneously
+- Network dim: 64-128+
+- Can train at higher resolutions`,
+      },
+    ],
+  },
+  {
     id: 'monitoring',
     title: 'Training Monitoring',
     icon: <Monitor className="w-4 h-4" />,
@@ -1417,32 +2097,208 @@ These are starting points. The "right" repeat count depends on your specific dat
     id: 'troubleshooting',
     title: 'Troubleshooting',
     icon: <Bug className="w-4 h-4" />,
-    content: `Common issues and solutions.
+    content: `Common issues and their solutions. Most problems have simple fixes!`,
+    subsections: [
+      {
+        id: 'trouble-cuda-oom',
+        title: 'CUDA Out of Memory',
+        content: `**Error:** "RuntimeError: CUDA out of memory"
 
-**Training Won't Start:**
-- Check that base model is downloaded
-- Verify dataset path is correct
-- Ensure images are valid format
-- Check backend logs for errors
+**Cause:** Training process trying to use more VRAM than available
 
-**Out of Memory (OOM):**
-- Reduce batch size to 1
-- Lower network dimension (rank)
-- Enable gradient checkpointing
-- Use a smaller base model
+**Solutions (try in order):**
+1. **Reduce Batch Size**: Set to 1 in training configuration
+2. **Lower Resolution**: Use 768x768 instead of 1024x1024
+3. **Reduce Network Dimension**: Try 4 or 8 instead of 16-32
+4. **Enable Gradient Checkpointing**: In advanced options
+5. **Try CAME Optimizer**: Uses less memory than AdamW
+6. **Cache Latents**: Pre-compute VAE outputs
+7. **Lower Base Model**: Use SD 1.5 instead of SDXL if testing
+8. **Close Other Programs**: Free up GPU memory
 
-**Poor Results:**
-- Increase number of epochs
-- Adjust learning rate
-- Add more varied training images
-- Check image quality and tags
-- Try different LoRA type
+**Prevention:**
+- Start with conservative settings
+- Use memory calculator (if available)
+- Monitor GPU usage during training`,
+      },
+      {
+        id: 'trouble-nan-loss',
+        title: 'Loss Becomes NaN',
+        content: `**Error:** Training loss shows "NaN" values
 
-**Loss Not Decreasing:**
-- Increase learning rate
-- Check that images are properly tagged
-- Verify dataset structure
-- Increase batch size if possible`,
+**Cause:** Learning rate too high or numerical instability
+
+**Solutions:**
+1. **Lower Learning Rate**: Try half your current value
+   - UNet: 5e-4 → 2.5e-4
+   - Text Encoder: 1e-4 → 5e-5
+2. **Use Mixed Precision**: Enable fp16 or bf16
+3. **Reduce Batch Size**: Lower to 1
+4. **Check Dataset**: Remove corrupted images
+5. **Try Different Optimizer**: Switch from AdamW to Prodigy or CAME
+6. **Lower Network Dim**: Reduce from 32 to 16 or 8
+
+**Prevention:**
+- Start with recommended learning rates
+- Don't use very high learning rates (>1e-3)
+- Enable mixed precision by default`,
+      },
+      {
+        id: 'trouble-no-images',
+        title: 'No Images Found in Dataset',
+        content: `**Error:** "No images found" or empty dataset
+
+**Causes and Solutions:**
+1. **Wrong Path**: Check dataset path is correct
+2. **Unsupported Formats**: Only JPG, PNG, WebP supported
+3. **ZIP Structure**: Images should be in root or single subfolder
+4. **File Permissions**: Ensure files are readable
+5. **Hidden Files**: Some systems hide certain file types
+
+**Verification Steps:**
+- Navigate to dataset folder in file manager
+- Confirm images are visible
+- Check file extensions are .jpg, .png, or .webp
+- Verify no typos in path`,
+      },
+      {
+        id: 'trouble-missing-triggers',
+        title: 'Missing Trigger Words',
+        content: `**Issue:** Some images don't have trigger words in captions
+
+**Solutions:**
+1. **Use Bulk Add Tool**: "Add Trigger Word" in dataset interface
+2. **Check Filters**: Ensure trigger word isn't in blacklist
+3. **Manual Check**: Verify a few files manually
+4. **Re-apply**: Run trigger word addition again
+5. **Search & Replace**: Use caption editing tools
+
+**Prevention:**
+- Add trigger word immediately after tagging
+- Use bulk editing tools
+- Verify before starting training`,
+      },
+      {
+        id: 'trouble-poor-results',
+        title: 'Poor LoRA Quality',
+        content: `**Issue:** Trained LoRA doesn't work well or produces poor results
+
+**Common Causes & Fixes:**
+
+**1. Dataset Quality:**
+- Too few images (< 15 for characters)
+- Low quality or inconsistent images
+- Poor variety in poses/angles
+- **Fix:** Improve dataset quality, add more varied images
+
+**2. Training Settings:**
+- Wrong learning rate
+- Too many or too few epochs
+- Network dim too low
+- **Fix:** Adjust settings based on dataset size guide
+
+**3. Caption Issues:**
+- Missing trigger words
+- Inaccurate tags
+- Inconsistent formatting
+- **Fix:** Review and correct all captions
+
+**4. Overfitting:**
+- Trained too long
+- Dataset too small for settings
+- **Fix:** Reduce epochs, lower dim, add more images
+
+**5. Underfitting:**
+- Not trained enough
+- Learning rate too low
+- **Fix:** Train longer, increase learning rate
+
+**Debugging Steps:**
+1. Check loss curve - should decrease steadily
+2. Verify trigger word in all captions
+3. Test with different prompts
+4. Try different LoRA strengths (0.5-1.5)
+5. Compare with base model output`,
+      },
+      {
+        id: 'trouble-slow-training',
+        title: 'Very Slow Training',
+        content: `**Issue:** Training taking much longer than expected
+
+**Causes & Solutions:**
+
+**1. Not Using GPU:**
+- Check CUDA is installed
+- Verify GPU is detected
+- **Fix:** Install CUDA 12.1+, restart system
+
+**2. ONNX Not Optimized:**
+- WD14 tagger without ONNX
+- **Fix:** Enable ONNX runtime in tagger settings
+
+**3. High Gradient Checkpointing:**
+- Trading speed for memory
+- **Fix:** Disable if you have enough VRAM
+
+**4. Large Batch Processing:**
+- Very large images
+- High resolution training
+- **Fix:** Reduce resolution, enable cache latents
+
+**5. CPU Bottleneck:**
+- DataLoader not optimized
+- **Fix:** Increase num_workers in config
+
+**6. Disk I/O:**
+- Reading from slow drive
+- **Fix:** Move dataset to SSD`,
+      },
+      {
+        id: 'trouble-installation',
+        title: 'Installation Issues',
+        content: `**Frontend/Backend Not Starting:**
+- Check requirements installed: pip install -r requirements.txt
+- Verify backend: python -c "import fastapi"
+- Verify frontend: cd frontend && npm install
+- Check ports not in use (3000, 8000)
+
+**Module Not Found Errors:**
+- Re-run installer: python installer.py
+- Check Python version (3.10+)
+- Verify in project directory
+- Try: pip install --upgrade -r requirements.txt
+
+**Download Errors:**
+- Check internet connection
+- Ensure sufficient disk space (15-20GB free)
+- Try running installer again (resumes downloads)
+- Check firewall/antivirus not blocking
+
+**CUDA/ROCm Issues:**
+- Verify GPU drivers installed
+- Check CUDA version matches (12.1+)
+- AMD: Verify ROCm support
+- Mac: No CUDA support (frontend only)`,
+      },
+      {
+        id: 'trouble-known-issues',
+        title: 'Known Limitations',
+        content: `**No Support For:**
+- Local Mac ARM/M1-M4 machines (no CUDA/ROCm)
+- Training requires NVIDIA GPU with CUDA 12.1+
+- AMD support experimental (ROCm required)
+
+**Potential Issues:**
+- Triton/Bits and Bytes: Docker users may have issues with AdamW8bit
+- ONNX/CuDNN: Some machines have compatibility issues
+- File uploads may be slow in some container environments
+
+**Workarounds:**
+- Mac users: Use VastAI for training, Mac for frontend development
+- AdamW8bit issues: Use standard AdamW or CAME optimizer
+- Slow uploads: Use smaller batches or direct file copying`,
+      },
+    ],
   },
 ];
 
@@ -1513,7 +2369,7 @@ export default function DocsPage() {
         {/* Two Column Layout */}
         <div className="flex gap-8 items-start">
           {/* Navigation Bubble/Panel */}
-          <aside className="w-72 flex-shrink-0 sticky top-20 space-y-4">
+          <aside className="w-72 flex-shrink-0 space-y-4">
             {/* Header Bubble */}
             <div className="bg-card/50 backdrop-blur-sm border border-border rounded-lg p-4">
               <h2 className="font-semibold text-foreground mb-1">Contents</h2>
@@ -1617,55 +2473,138 @@ export default function DocsPage() {
                   <CardTitle className="text-3xl">{currentContent.title}</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="prose prose-invert max-w-none break-words overflow-hidden">
+              <CardContent className="space-y-6">
+                <div className="prose prose-invert max-w-none">
                   {currentContent.content.split('\n\n').map((paragraph, idx) => {
+                    // Major section header (ends with :**)
                     if (paragraph.startsWith('**') && paragraph.endsWith(':**')) {
-                      // Section header
                       return (
-                        <h3 key={idx} className="text-xl font-bold text-cyan-400 mt-6 mb-3">
-                          {paragraph.replace(/\*\*/g, '').replace(':', '')}
-                        </h3>
-                      );
-                    } else if (paragraph.startsWith('**') && paragraph.includes('**\n')) {
-                      // Bold header with content
-                      const [header, ...rest] = paragraph.split('\n');
-                      return (
-                        <div key={idx} className="mb-4">
-                          <h4 className="text-lg font-semibold text-foreground mb-2">
-                            {header.replace(/\*\*/g, '')}
-                          </h4>
-                          <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                            {rest.join('\n')}
-                          </p>
+                        <div key={idx} className="mt-8 first:mt-0 mb-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="h-1 w-12 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"></div>
+                            <h3 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                              {paragraph.replace(/\*\*/g, '').replace(':', '')}
+                            </h3>
+                          </div>
+                          <div className="h-px bg-gradient-to-r from-border via-border/50 to-transparent"></div>
                         </div>
                       );
-                    } else if (paragraph.startsWith('- ') || paragraph.includes('\n- ')) {
-                      // List items
+                    }
+
+                    // Bold term with description (term dictionary style)
+                    else if (paragraph.startsWith('**') && paragraph.includes('**\n')) {
+                      const [header, ...rest] = paragraph.split('\n');
+                      const content = rest.join('\n');
+
+                      // Check if it's a tip/note/warning callout
+                      const isCallout = content.toLowerCase().includes('tip:') ||
+                                       content.toLowerCase().includes('note:') ||
+                                       content.toLowerCase().includes('warning:');
+
+                      if (isCallout) {
+                        const calloutType = content.toLowerCase().includes('warning:') ? 'warning' :
+                                           content.toLowerCase().includes('tip:') ? 'tip' : 'note';
+                        const calloutColors = {
+                          warning: 'border-orange-500/50 bg-orange-500/10',
+                          tip: 'border-green-500/50 bg-green-500/10',
+                          note: 'border-blue-500/50 bg-blue-500/10'
+                        };
+                        const calloutIcons = {
+                          warning: '⚠️',
+                          tip: '💡',
+                          note: 'ℹ️'
+                        };
+
+                        return (
+                          <div key={idx} className={`p-4 rounded-lg border-l-4 ${calloutColors[calloutType]} mb-6`}>
+                            <div className="flex items-start gap-3">
+                              <span className="text-2xl">{calloutIcons[calloutType]}</span>
+                              <div className="flex-1">
+                                <h4 className="text-lg font-semibold text-foreground mb-2">
+                                  {header.replace(/\*\*/g, '')}
+                                </h4>
+                                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                                  {content}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Regular term card
+                      return (
+                        <div key={idx} className="p-5 rounded-lg bg-card/30 border border-border/50 mb-4 hover:border-border transition-colors">
+                          <h4 className="text-xl font-bold text-foreground mb-3 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                            {header.replace(/\*\*/g, '')}
+                          </h4>
+                          <div className="text-muted-foreground leading-relaxed space-y-2 ml-4">
+                            {content.split('\n').map((line, i) => {
+                              if (line.startsWith('- ')) {
+                                return (
+                                  <div key={i} className="flex items-start gap-2 py-1">
+                                    <span className="text-cyan-400 mt-1.5">•</span>
+                                    <span
+                                      dangerouslySetInnerHTML={{
+                                        __html: line.substring(2)
+                                          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground font-semibold">$1</strong>')
+                                          .replace(/`(.*?)`/g, '<code class="bg-slate-800/80 px-2 py-0.5 rounded text-cyan-300 text-sm font-mono">$1</code>')
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              }
+                              return (
+                                <p
+                                  key={i}
+                                  dangerouslySetInnerHTML={{
+                                    __html: line
+                                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground font-semibold">$1</strong>')
+                                      .replace(/`(.*?)`/g, '<code class="bg-slate-800/80 px-2 py-0.5 rounded text-cyan-300 text-sm font-mono">$1</code>')
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // List items (standalone lists)
+                    else if (paragraph.startsWith('- ') || paragraph.includes('\n- ')) {
                       const items = paragraph.split('\n').filter((line) => line.trim());
                       return (
-                        <ul key={idx} className="list-disc list-inside space-y-2 text-muted-foreground mb-4">
-                          {items.map((item, i) => (
-                            <li
-                              key={i}
-                              className="ml-4"
-                              dangerouslySetInnerHTML={{
-                                __html: item.replace(/^- /, '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
-                              }}
-                            />
-                          ))}
-                        </ul>
+                        <div key={idx} className="p-4 rounded-lg bg-accent/30 border border-border/30 mb-4">
+                          <ul className="space-y-2.5">
+                            {items.map((item, i) => (
+                              <li key={i} className="flex items-start gap-3 text-muted-foreground">
+                                <span className="text-cyan-400 mt-1 flex-shrink-0">▸</span>
+                                <span
+                                  className="flex-1"
+                                  dangerouslySetInnerHTML={{
+                                    __html: item.replace(/^- /, '')
+                                      .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground font-semibold">$1</strong>')
+                                      .replace(/`(.*?)`/g, '<code class="bg-slate-800/80 px-2 py-0.5 rounded text-cyan-300 text-sm font-mono">$1</code>')
+                                  }}
+                                />
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       );
-                    } else {
-                      // Regular paragraph
+                    }
+
+                    // Regular paragraph
+                    else {
                       return (
                         <p
                           key={idx}
-                          className="text-muted-foreground leading-relaxed mb-4"
+                          className="text-muted-foreground leading-relaxed text-base mb-4"
                           dangerouslySetInnerHTML={{
                             __html: paragraph
-                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
-                              .replace(/`(.*?)`/g, '<code class="bg-slate-800 px-2 py-1 rounded text-cyan-400 break-all">$1</code>'),
+                              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground font-semibold">$1</strong>')
+                              .replace(/`(.*?)`/g, '<code class="bg-slate-800/80 px-2 py-0.5 rounded text-cyan-300 text-sm font-mono">$1</code>')
                           }}
                         />
                       );

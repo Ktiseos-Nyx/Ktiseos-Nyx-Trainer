@@ -33,6 +33,9 @@
     "@hextaui": "https://hextaui.com/r/{name}.json",
     "@uitripled": "https://ui.tripled.work/r/{name}.json",
     "@paceui-ui": "https://ui.paceui.com/r/{name}.json",
-    "@aevr": "https://ui.aevr.space/r/{name}.json"
+    "@aevr": "https://ui.aevr.space/r/{name}.json",
+    "@intentui": "https://intentui.com/r/{name}",
+    "@hooks": "https://shadcn-hooks.vercel.app/r/{name}.json",
+    "@basecn": "https://basecn.dev/r/{name}.json"
   }
 }
