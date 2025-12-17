@@ -21,7 +21,8 @@ import {
   HardDrive,
   Download,
   Files,
-  Cpu
+  Cpu,
+  FileText
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -161,6 +162,16 @@ export function Navbar() {
                 <Link href="/about" className={navigationMenuTriggerStyle()}>
                   <Info className="w-4 h-4 mr-2" />
                   About
+                </Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
+            {/* Changelog - Top level */}
+            <NavigationMenuItem>
+              <NavigationMenuLink asChild>
+                <Link href="/changelog" className={navigationMenuTriggerStyle()}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Changelog
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>

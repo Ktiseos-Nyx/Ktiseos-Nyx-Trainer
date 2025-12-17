@@ -8,7 +8,7 @@ export default function Home() {
     <HeroAnimated
       title="KNX TRAINER"
       subtitle="LoRA Training Made Simple"
-      description="A powerful, notebook-based training environment for creating LoRA models. Upload datasets, configure training parameters, and monitor progress—all in one beautiful interface."
+      description="A powerful, web-based training environment for creating LoRA models. Upload datasets, configure training parameters, and monitor progress—all in one beautiful interface."
       features={[
         { icon: '🎯', label: 'Easy Dataset Management' },
         { icon: '⚡', label: 'Fast Training' },
