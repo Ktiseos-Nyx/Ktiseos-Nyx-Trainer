@@ -4,11 +4,11 @@
 
 ---
 
-This guide helps you set up a proper testing environment for your trained LoRAs using Automatic1111 WebUI or Forge. After training LoRAs with the Jupyter system, you need a good interface to test and refine them!
+This guide helps you set up a proper testing environment for your trained LoRAs using Automatic1111 WebUI or Forge. After training LoRAs with Ktiseos-Nyx-Trainer, you need a good interface to test and refine them!
 
 ## 📋 Prerequisites
 
-- **Completed LoRA training** using the Jupyter notebook system
+- **Completed LoRA training** using Ktiseos-Nyx-Trainer web interface
 - **Your trained LoRA files** (.safetensors format)
 - **Basic familiarity** with Stable Diffusion interfaces
 
@@ -209,20 +209,20 @@ models/lora/
 - Lower resolution for testing
 - Use xformers optimization
 
-## 🎯 Integration with Jupyter Workflow
+## 🎯 Integration with Training Workflow
 
 ### Seamless Testing Pipeline
 
-1. **Train in Jupyter**: Use the notebook system for training
+1. **Train with Web UI**: Use Ktiseos-Nyx-Trainer for training
 2. **Auto-transfer**: Set up automatic file copying to WebUI
 3. **Quick testing**: Immediate feedback on training results
-4. **Iterate**: Back to Jupyter for adjustments if needed
+4. **Iterate**: Back to training interface for adjustments if needed
 
 ### File Management
 
 **Organized Workflow:**
 ```
-Jupyter Output → WebUI LoRA folder → Testing → Documentation → Archive/Share
+Training Output → WebUI LoRA folder → Testing → Documentation → Archive/Share
 ```
 
 ## 🔍 Quality Assurance Checklist
@@ -286,7 +286,7 @@ Jupyter Output → WebUI LoRA folder → Testing → Documentation → Archive/S
 - **Original Setup Guide**: [DuskFall's My Setup for Testing Checkpoints and LoRAs](https://civitai.com/articles/13677/my-setup-for-testing-checkpoints-and-loras-a-guide)
 - **Author**: DuskFall (Ktiseos-Nyx)
 - **Installation Guide**: Wrench1815's A1111/Forge installation guide
-- **System Integration**: Adapted for LoRA Easy Training Jupyter workflow
+- **System Integration**: Adapted for Ktiseos-Nyx-Trainer web-based workflow
 
 ### Additional Resources
 

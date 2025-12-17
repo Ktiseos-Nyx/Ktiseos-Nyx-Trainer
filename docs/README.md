@@ -1,6 +1,6 @@
-# LoRA Easy Training Documentation
+# Ktiseos-Nyx-Trainer Documentation
 
-Welcome to the comprehensive documentation for LoRA Easy Training! This streamlined collection of guides will help you master every aspect of training custom LoRAs.
+Welcome to the comprehensive documentation for Ktiseos-Nyx-Trainer! This streamlined collection of guides will help you master every aspect of training custom LoRAs.
 
 ## 📚 Documentation Structure
 
@@ -9,7 +9,7 @@ Perfect entry point for beginners:
 
 - **[Quickstart Guide](quickstart.md)** - Your first LoRA from start to finish
 - **[Installation Guide](guides/installation.md)** - Comprehensive technical installation details
-- Complete walkthrough: Dataset_Preparation.ipynb → Unified_LoRA_Trainer.ipynb → Utilities_Notebook.ipynb
+- Complete walkthrough: Dataset Upload → Training Configuration → Utilities
 - Pre-training checklist and practical examples
 
 ### 📊 Dataset Guides
@@ -30,7 +30,7 @@ Training process and settings:
 ### 📋 Reference Materials
 Quick lookup for current system:
 
-- **[Widgets Reference](reference/widgets.md)** - Documentation for all current notebook widgets
+- **[Web Interface Guide](code-guides/TRAINING_FORM_GUIDE.md)** - Documentation for the web-based training interface
 
 ## 🚀 Quick Navigation
 
@@ -44,13 +44,13 @@ Quick lookup for current system:
 1. Master **[Dataset Preparation](dataset-guides/dataset_preparation.md)** techniques
 2. Explore **[Character Creation](dataset-guides/creating-characters.md)** methods
 3. Reference **[Training Settings](training-guides/training-settings.md)** for starting points
-4. Use **[Widgets Reference](reference/widgets.md)** for parameter details
+4. Use **[Training Form Guide](code-guides/TRAINING_FORM_GUIDE.md)** for parameter details
 
 ### Need Help Right Now?
 - **Installation Issues**: Check [Installation Guide](guides/installation.md) or [Quickstart - Installation](quickstart.md#1-installation)
-- **Training Errors**: Jump to [Troubleshooting - Training Errors](guides/troubleshooting.md#training-errors)
-- **Dataset Problems**: See [Troubleshooting - Dataset Issues](guides/troubleshooting.md#dataset-issues)
-- **Parameter Questions**: Look up in [Widgets Reference](reference/widgets.md)
+- **Training Errors**: Jump to [Troubleshooting - Training Errors](troubleshooting.md#training-errors)
+- **Dataset Problems**: See [Troubleshooting - Dataset Issues](troubleshooting.md#dataset-issues)
+- **Parameter Questions**: Look up in [Training Form Guide](code-guides/TRAINING_FORM_GUIDE.md)
 
 ## 🎯 Learning Paths
 
@@ -123,6 +123,6 @@ Found something unclear? Want to add your own wisdom?
 | Dataset Creation | ✅ Complete | Latest |
 | Troubleshooting | ✅ Complete | Latest |
 | Training Concepts | ✅ Complete | Latest |
-| Widget Reference | ✅ Complete | Latest |
+| Web Interface Guide | ✅ Complete | Latest |
 
 *Documentation is actively maintained and updated with each release.*

@@ -1,266 +1,256 @@
-# Ktiseos Nyx LoRA Trainer 🚀
+# Ktiseos Nyx LoRA Trainer
 
 > ⚠️ **BETA - IN ACTIVE DEVELOPMENT**: Features may not work as expected. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues)
 
-A professional LoRA training system built on Kohya SS, centered around a **Modern Web UI** powered by Next.js frontend with FastAPI backend.
+LoRA training system built on Kohya SS with a web UI (Next.js + FastAPI). Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 
-Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
+| Python | License | Deploy | Discord | Twitch | Support |
+|---|---|---|---|---|---|
+| ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Deploy on VastAI](https://img.shields.io/badge/Deploy-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer) | [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) | <a href="https://ko-fi.com/duskfallcrew"><img src="https://img.shields.io/badge/Ko--Fi-Support-FF5E5B?style=for-the-badge&logo=kofi" alt="Ko-fi"></a> |
 
-| Python Version | License | Discord | Twitch | Support |
-|---|---|---|---|---|
-| ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Server-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow%20on%20Twitch-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) |  <a href="https://ko-fi.com/duskfallcrew" target="_blank"><img src="https://img.shields.io/badge/Support%20us%20on-Ko--Fi-FF5E5B?style=for-the-badge&logo=kofi" alt="Support us on Ko-fi"></a> |
+## Table of Contents
 
-## 🌟 Overview & Key Features
+- [Installation](#installation)
+  - [Local Installation](#local-installation)
+  - [VastAI Deployment](#vastai-deployment)
+  - [Requirements](#requirements)
+- [Overview](#overview)
+- [Usage](#usage)
+  - [Web UI Workflow](#web-ui-workflow)
+  - [VastAI Users](#vastai-users)
+- [Troubleshooting](#troubleshooting--support)
+- [Credits](#credits--acknowledgements)
+- [Security](#security)
+- [License](#license)
+- [Contributing](#contributing)
 
-**Modern Web UI + Python Backend Architecture:**
-- 🌐 **Next.js Frontend** - Modern React-based interface with real-time updates
-- ⚡ **FastAPI Backend** - Fast, async Python API with lazy-loaded dependencies
-- 🎨 **Tailwind CSS + shadcn/ui** - Beautiful, responsive design system
-- 🔄 **Real-time Training Monitor** - Live progress tracking via WebSocket
-- 📁 **File Browser** - Manage datasets and models without leaving the UI
+## Installation
 
-**Training Features:**
-- 🖼️ **Integrated Dataset Prep** - Upload, tag with WD14, edit captions in-browser
-- 🧮 **Training Calculator** - Automatic step/epoch calculations
-- 🎯 **132 Training Parameters** - Full control over LoRA training (SDXL, SD1.5, Flux, SD3, Lumina, Chroma)
-- 🔧 **Multiple LoRA Variants** - Standard, LoCon, LoHa, LoKr, DoRA support
-- 🚀 **Advanced Optimizers** - AdamW8bit, Prodigy, Lion, CAME, and more
-- ☁️ **HuggingFace Integration** - Upload datasets and trained LoRAs directly
-- 📊 **Smart Upload System** - Powered by Uppy with auto-retry, progress tracking, and batch uploads
-- 💾 **State Persistence** - Zustand-powered config storage prevents losing training settings
-- ✅ **Schema Validation** - Zod validation catches configuration errors before training starts
+### Requirements
 
-**Platform Support:**
-- 💻 **Cross-platform** - Windows, Linux, macOS
-- 🌩️ **Cloud Ready** - VastAI, RunPod templates available
+- **GPU**: Nvidia (CUDA 12.1+) or AMD (ROCm)
+- **Python**: 3.10 or 3.11
+- **Node.js**: 18+ (for web UI)
+- **Platform**: Windows, Linux, or macOS
+- **VRAM**: 12GB minimum, 24GB recommended for SDXL
+- **Disk**: 50GB+ free space
 
----
+Install prerequisites if needed:
+- **Python**: Download from [python.org](https://www.python.org/downloads/) (3.10.6+ recommended)
+- **Git**:
+  - Windows: [git-scm.com](https://git-scm.com/download/win)
+  - Mac: `xcode-select --install`
+  - Linux: `sudo apt install git`
+- **Node.js**: Download from [nodejs.org](https://nodejs.org/) (18+)
 
-## 🚀 Quick Deploy on VastAI
+### Local Installation
 
-**One-click deployment with our pre-configured template!**
+```bash
+# 1. Clone repository
+git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+cd Ktiseos-Nyx-Trainer
 
-[![Deploy on VastAI](https://img.shields.io/badge/Deploy%20on-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer)
+# 2. Run installer (downloads ~10-15GB of dependencies)
+python installer.py
 
-**What you get:**
-- ✅ **Fully automated setup** - Provisioning script handles everything
-- ✅ **Web UI ready** - Frontend + Backend auto-start on boot
-- ✅ **Node.js auto-detected** - No manual configuration needed
-- ✅ **Supervisor auto-restart** - Services restart if they crash
+# Optional: Verbose output for troubleshooting
+python installer.py --verbose
 
-**After deployment:**
+# 3. Start services
+# Linux/Mac:
+./start_services_local.sh
+
+# Windows:
+start_services_local.bat
+
+# 4. Quick restart (skips reinstall - much faster)
+./restart.sh  # or restart.bat on Windows
+```
+
+**Access URLs:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
+
+**Manual Service Startup** (alternative):
+```bash
+# Terminal 1 - Backend
+uvicorn api.main:app --host 127.0.0.1 --port 8000
+
+# Terminal 2 - Frontend
+cd frontend
+npm install
+npm run build
+npm start
+```
+
+See [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions.
+
+### VastAI Deployment
+
+Click the deploy button in the table above or use this template link:
+[Ktiseos Nyx Template](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer)
+
+**Setup:**
+- Automated provisioning via `vastai_setup.sh`
+- Services auto-start on boot (managed by supervisor)
+- Node.js auto-detected and configured
+
+**Access URLs:**
 - Frontend: `https://[instance-id].instances.vast.ai:13000`
-- Backend API: `https://[instance-id].instances.vast.ai:18000`
+- Backend: `https://[instance-id].instances.vast.ai:18000`
 - Jupyter: `https://[instance-id].instances.vast.ai:18080`
 
 See [VASTAI_TEMPLATE.txt](./VASTAI_TEMPLATE.txt) for manual setup instructions.
 
 ---
 
-### ⚠️ Note
+## Overview
 
-> **We are STILL in heavy development. New features in theory SHOULD WORK, but are hard to catch.**
+### Architecture
+
+- **Frontend**: Next.js 14 with React, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend**: FastAPI with lazy-loaded manager system (dependencies load on-demand)
+- **Training**: Kohya SS (sd-scripts) with LyCORIS integration
+- **File Management**: Built-in browser with upload support (Uppy)
+
+### Core Features
+
+**Dataset Preparation:**
+- Upload and extract datasets via web UI
+- WD14 auto-tagging (supports v3 taggers with ONNX)
+- Caption editor with batch operations
+- Image gallery with filtering
+
+**Training Configuration:**
+- 132 training parameters across 7 organized tabs
+- Support for SDXL, SD1.5, Flux, SD3/SD3.5, Lumina, Chroma
+- Multiple LoRA types: Standard, LoCon, LoHa, LoKr, DoRA
+- Advanced optimizers: AdamW8bit, Prodigy, Lion, CAME, REX
+- Real-time validation with Zod schemas
+- Persistent state with Zustand
+
+**Training Execution:**
+- TOML-based configuration generation
+- Real-time progress monitoring via WebSocket
+- Training calculator for automatic step/epoch calculations
+
+**Utilities:**
+- LoRA resizing and extraction
+- HuggingFace dataset and model upload
+- Metadata editing
+
+**Platform Support:**
+- Cross-platform: Windows, Linux, macOS
+- Cloud-ready: VastAI, RunPod templates
+
+### Development Status
+
+> **BETA**: Active development. Features may not work as expected.
 >
-> This branch includes experimental features that are available in the Kohya backend but may not be fully tested in our setup:
-> - 🔬 **FLUX training** - Available in Kohya, integration status unknown
-> - 🧬 **SD3/SD3.5 training** - Available in Kohya, integration status unknown
-> - 🌟 **Lumina2 training** - Available in Kohya, integration status unknown
-> - 🎨 **Chroma training** - Basic support available (may not match [Flow trainer](https://github.com/lodestone-rock/flow) performance)
-> - 🔧 **Latest bug fixes** and performance improvements
-> - ⚡ **Enhanced upload widgets** (fixed cache issues)
-> - ⚡ **Language Cleanup** Cleaned up a lot of marketing speak and started the roadmap to check inconsistencies on missing content.
+> **Experimental Features** (available in Kohya backend, testing status varies):
+> - Flux training
+> - SD3/SD3.5 training
+> - Lumina2 training
+> - Chroma training (basic support)
 >
-> **Note**: These experimental features exist in the underlying Kohya scripts but haven't been thoroughly tested with our widget system. Use at your own risk and expect possible issues. If they look like they're exposed in our widget setup, there is no saying if they current work due to our unified setup. We're working on fast trying to get functionality quickly. If you have any issues please report them to the issues area.
->
-> **Cross-Trainer Compatibility Goal**: We're researching support for additional memory-efficient optimizers and training techniques (inspired by [Flow](https://github.com/lodestone-rock/flow)) to enable training on a wider range of GPU configurations. This is future work - contributions and testing welcome!
-
-### 🔒 Security Notice
-
-> ⚠️ **File Manager Security**: The file browser currently has basic path validation but lacks authentication middleware. **Safe for VastAI/personal use** (protected by VastAI Portal auth), but **DO NOT expose port 8000 publicly** without adding authentication first.
->
-> **Status:** Will be fixed ASAP! However, development is on holiday break through Christmas/New Year's 2024. Dusk from KNX needs a well-deserved vacation (Claude is expensive but SO worth it! 🤑). "Summer school with Claude" resumes January 2025 for security improvements and feature polish.
->
-> **Until then:** Use behind VastAI Portal or private networks only. Don't expose the API to the public internet.
-
-## 🚀 Quick Start
-
-### 🌐 Web UI (Primary Workflow)
-Modern, responsive web interface with real-time monitoring:
-
-**VastAI Deployment** (Easiest):
-- Launch the Ktiseos Nyx template on VastAI
-- Access web UI at `http://<instance-ip>:3000`
-- See [VastAI Setup Guide](VASTAI_SETUP.md)
-
-**Local Installation**:
-```bash
-# 1. Clone repository
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
-
-# 2. Install backend
-python installer.py
-
-# 3. Start services (safe localhost binding for local dev)
-./start_services_local.sh
-
-# 4. Quick restart (skip dependency reinstall)
-./restart.sh  # 10x faster for subsequent starts!
-```
-
-**Pro Tip:** Use `./restart.sh` for quick restarts without reinstalling dependencies. Perfect for UI rebuilds or simple restarts!
-
-Or manually start services:
-```bash
-# Start backend
-uvicorn api.main:app --host 127.0.0.1 --port 8000
-
-# Start frontend (in another terminal)
-cd frontend
-npm install
-npm run build
-npm run start
-```
-
-Access at: `http://localhost:3000`
-
-**See**: [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions
+> These features use the underlying Kohya scripts but haven't been thoroughly tested in this setup. Report issues on GitHub.
 
 ---
 
-### Requirements
-
-- **GPU**: Nvidia (CUDA 12.1+) or AMD (ROCm)
-- **Python**: 3.10 or 3.11
-- **Platform**: Windows, Linux, or macOS
-- **VRAM**: 12GB minimum, 24GB recommended for SDXL
-- **Disk**: 50GB+ free space
-
-More details: [Quick Start Guide](docs/quickstart.md) | [Installation Guide](docs/guides/installation.md)
-
-You will need Git and Python 3.10+.
-If you don't have python, you can install Python 3.10+ from Python's [main website here](https://www.python.org/downloads/). Our set up prefers 3.10.6 at a minimum.
-
-**Install Git if needed:**
-- **Windows**: Download from [git-scm.com](https://git-scm.com/download/win)
-- **Mac**: `xcode-select --install` in Terminal
-- **Linux**: `sudo apt install git` (Ubuntu/Debian)
-
-**Main Installation Steps:**
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
-
-# 2. Run the installer (downloads ~10-15GB)
-python ./installer.py
-
-# For detailed installation output (recommended for troubleshooting):
-python ./installer.py --verbose
-# or: python ./installer.py -v
-```
-
-## 📖 Usage Guide
+## Usage
 
 ### Web UI Workflow
 
-The web interface provides a streamlined, tab-based workflow:
+The web interface provides a tab-based workflow:
 
-1. **📁 Files Page** - Browse and upload datasets
+1. **Files** - Browse and upload datasets
    - File browser for managing training data
-   - Drag-and-drop upload support with Uppy (auto-retry, progress tracking)
-   - Batch uploads (10 files at a time) for optimal network performance
+   - Drag-and-drop upload with auto-retry and progress tracking
+   - Batch uploads (10 files at a time)
    - Directory creation and organization
-   - Test the new Uppy uploader at `/dataset-uppy`
 
-2. **🖼️ Dataset Page** - Prepare images for training
+2. **Dataset** - Prepare images for training
    - WD14 auto-tagging with multiple tagger options
    - Caption editor with batch operations
    - Image gallery with filtering and search
 
-3. **🎓 Training Page** - Configure and start training
-   - 7 organized tabs: Setup, Dataset, LoRA, Learning Rate, Advanced, Saving, Logging
+3. **Training** - Configure and start training
+   - 7 tabs: Setup, Dataset, LoRA, Learning Rate, Advanced, Saving, Logging
    - 132 training parameters with tooltips and validation
-   - Model-specific settings (Flux, SD3, Lumina fields auto-show)
+   - Model-specific fields (Flux, SD3, Lumina auto-show based on selection)
    - Real-time config validation
 
-4. **📊 Monitor** - Track training progress (coming soon)
+4. **Monitor** - Track training progress *(coming soon)*
    - Live loss graphs and metrics
    - Sample image generation preview
    - Training logs streaming
 
-5. **🎨 Models Page** - Manage trained LoRAs (coming soon)
+5. **Models** - Manage trained LoRAs *(coming soon)*
    - Browse output directory
    - Preview LoRA metadata
-   - Quick download and share
+   - Download and share
 
-6. **🔧 Utilities Page** - Post-training tools (coming soon)
+6. **Utilities** - Post-training tools *(coming soon)*
    - LoRA resizing (extract/merge)
    - HuggingFace upload
    - Metadata editing
 
-**Architecture**:
-- **Frontend** runs on port 3000 (Next.js)
-- **Backend** runs on port 8000 (FastAPI)
-- Backend uses **lazy-loaded managers** - AI dependencies only load when needed
-- **File browser and config** work without any AI packages installed
+**Service Architecture:**
+- Frontend: Port 3000 (Next.js)
+- Backend: Port 8000 (FastAPI)
+- Lazy-loaded managers: AI dependencies only load when needed
+- File browser and config work without AI packages installed
 
-**Full Guide**: [Web UI Documentation](docs/WEB_UI_GUIDE.md) (coming soon)
+See [Web UI Documentation](docs/WEB_UI_GUIDE.md) for detailed guide *(coming soon)*.
 
-### VastAI Users
+### VastAI Usage
 
-The Web UI workflow works seamlessly on VastAI:
-- **Web UI**: Access at `http://<instance-ip>:3000` after running `/start_services.sh` via SSH
+Access the web UI at `http://<instance-ip>:3000` after services auto-start.
 
-**Full Guide**: [VastAI Setup Guide](VASTAI_SETUP.md)
+See [VastAI Setup Guide](VASTAI_SETUP.md) for detailed instructions.
 
-## 🛠️ Troubleshooting & Support
+## Troubleshooting & Support
 
-For more help and support please check [Troubleshooting](docs/guides/troubleshooting.md) this has more comprehensive information.
+See [Troubleshooting Guide](docs/guides/troubleshooting.md) for comprehensive help.
 
-### 📋 **Support Requirements**
-Before asking for help, please review our [Support Guidelines](docs/guides/troubleshooting.md#support-guidelines--boundaries). We're happy to assist, but effective troubleshooting requires your participation - this means running the basic diagnostic commands and providing complete error information. Cherry-picking troubleshooting steps won't lead to solutions!
+### Support Requirements
 
-**Windows Users:** If you encounter Rust compilation errors during safetensors installation, this is a common Python packaging issue on Windows. Feel free to reach out on our [Discord](https://discord.gg/HhBSM9gBY) for assistance - we're happy to help guide you through the solution!
+Before requesting help, review the [Support Guidelines](docs/guides/troubleshooting.md#support-guidelines--boundaries). Effective troubleshooting requires running diagnostic commands and providing complete error information.
 
-**Getting Help**:
-    - ✅ **Official Support**: [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Our Discord](https://discord.gg/HhBSM9gBY)
-    - ❌ **No Support**: Random discords, Reddit DMs, social media comments, etc.
-    - 📚 **Self-Help**: Check our comprehensive [docs/](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/tree/main/docs) folder first
-    - 🎯 **Submodule Issues**: Feel free to blame us on the original repos (kohya-ss, LyCORIS, etc.)!
+### Getting Help
 
-## 🙏 Credits & Acknowledgements
+- **Official Support**: [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
+- **Documentation**: Check [docs/](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/tree/main/docs) first
+- **Not Supported**: Random Discord servers, Reddit DMs, social media comments
 
-- **Built on the Shoulders of Giants**
-This project builds upon and integrates the excellent work of:
-- **[Jelosus2's LoRA Easy Training Colab](https://github.com/Jelosus2/Lora_Easy_Training_Colab)** - Original Colab notebook that inspired this adaptation
-- **[Derrian-Distro's LoRA Easy Training Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** - Core training backend and scripts as well as the forked Lycoris Repository and CAME/REX optimization strategies.
-- **[HoloStrawberry's Training Methods](https://github.com/holostrawberry)** - Community wisdom and proven training techniques as well as foundational Google Colab notebooks.
-- **[Kohya-ss SD Scripts](https://github.com/kohya-ss/sd-scripts)** - Foundational training scripts and infrastructure
-- **[Linaqruf](https://github.com/Linaqruf)** - Pioneer in accessible LoRA training, creator of influential Colab notebooks and training methods that inspired much of this work
-- **AndroidXXL, Jelosus2** - Additional Colab notebook contributions that made LoRA training accessible
-- **[ArcEnCiel](https://arcenciel.io/)** - Ongoing support and testing as well as Open Source AI Generative Models.
-- **[Civitai](https://civitai.com/)** - Platform for Open Source AI Content
-- **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** - Inspiration for Civitai browsing interface and API integration patterns
+For issues with vendored dependencies (Kohya SS, LyCORIS), report them here - we maintain the vendored versions.
+
+## Credits & Acknowledgements
+
+This project builds upon the work of:
+
+- **[Jelosus2's LoRA Easy Training Colab](https://github.com/Jelosus2/Lora_Easy_Training_Colab)** - Original Colab notebook inspiration
+- **[Derrian-Distro's LoRA Easy Training Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** - Core training backend, forked LyCORIS, CAME/REX optimizers
+- **[HoloStrawberry](https://github.com/holostrawberry)** - Training techniques and foundational Colab notebooks
+- **[Kohya-ss SD Scripts](https://github.com/kohya-ss/sd-scripts)** - Foundational training scripts
+- **[Linaqruf](https://github.com/Linaqruf)** - Influential Colab notebooks and training methods
+- **AndroidXXL, Jelosus2** - Colab contributions for accessible LoRA training
+- **[ArcEnCiel](https://arcenciel.io/)** - Support, testing, and open source AI models
+- **[Civitai](https://civitai.com/)** - Platform for AI content
+- **[sd-webui-civbrowser](https://github.com/SignalFlagZ/sd-webui-civbrowser)** - Civitai API integration patterns
 - **[LyCORIS Team](https://github.com/67372a/LyCORIS)** - Advanced LoRA methods (DoRA, LoKr, etc.)
 
-Special thanks to these creators for making LoRA training accessible to everyone!
-
 ---
 
-## 🔒 Security
+## Security
 
-Found a security issue? Check our [Security Policy](SECURITY.md) for responsible disclosure guidelines.
+Found a security issue? See [Security Policy](SECURITY.md) for responsible disclosure guidelines.
 
-## 📄 License
+## License
 
-MIT License - Feel free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
+MIT License - See [LICENSE](LICENSE) for details.
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions! Check out our [Contributing Guide](CONTRIBUTING.md) for details on how to get involved. Feel free to open issues or submit pull requests on GitHub.
-
----
-
-Made with ❤️ by the community, for the community.
+Contributions welcome! See [Contributing Guide](CONTRIBUTING.md) for details.
