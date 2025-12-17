@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide provides solutions to the most common errors and issues you might encounter while using the LoRA Easy Training system.
+This guide provides solutions to the most common errors and issues you might encounter while using Ktiseos-Nyx-Trainer.
 
 ## Installation Issues
 
@@ -39,7 +39,7 @@ This guide provides solutions to the most common errors and issues you might enc
 **Error**: `RuntimeError: CUDA out of memory`
 - **Cause**: Training process trying to use more VRAM than available
 - **Solutions** (try in order):
-  1. **Reduce Batch Size**: Set to 1 in Training Widget
+  1. **Reduce Batch Size**: Set to 1 in training configuration
   2. **Lower Resolution**: Use 768x768 instead of 1024x1024
   3. **Reduce Network Dimension**: Try 4 or 6 instead of 8
   4. **Enable Advanced Options**: Use gradient checkpointing
@@ -85,7 +85,7 @@ This guide provides solutions to the most common errors and issues you might enc
 
 ### "No images found" in dataset
 
-**Error**: Widget reports empty dataset
+**Error**: Interface reports empty dataset
 - **Causes and Solutions**:
   1. **Wrong Path**: Check dataset path is correct
   2. **Unsupported Formats**: Only JPG, PNG, WebP supported
@@ -114,7 +114,7 @@ This guide provides solutions to the most common errors and issues you might enc
 
 **Issue**: Some images don't have trigger words in captions
 - **Solutions**:
-  1. **Bulk Add**: Use "Add Trigger Word" tool in dataset widget
+  1. **Bulk Add**: Use "Add Trigger Word" tool in dataset interface
   2. **Check Filters**: Ensure trigger word isn't in blacklist
   3. **Manual Check**: Verify a few files manually
   4. **Re-apply**: Run trigger word addition again
@@ -165,7 +165,7 @@ This guide provides solutions to the most common errors and issues you might enc
 2. **Mixed Precision**: Use fp16 or bf16 if supported
 3. **Smaller Networks**: Reduce LoRA dimension
 4. **CAME Optimizer**: Uses significantly less memory
-5. **Close Jupyter Tabs**: Reduce browser memory usage
+5. **Close Browser Tabs**: Reduce browser memory usage
 
 ## Model Quality Issues
 
@@ -267,7 +267,7 @@ du -sh * | sort -hr
 - ⚠️ **Triton/Bits and Bytes**: Docker/VastAI users may encounter issues with AdamW8bit optimizer.
 - ⚠️ **NO SUPPORT FOR LOCAL MACINTOSH ARM/M1-M4 MACHINES**
 - ⚠️ **Onnx/CuDNN**: Some Machines still may encounter cuDNN compatibility issues, may be fixed on the current testing branch.
-- 🐛 **FileUpload Widget Issues**: In some container environments, the file upload widget may not respond to file selection. **Workaround**: Use the manual upload buttons or direct file copying to dataset directories.
+- 🐛 **File Upload Issues**: In some container environments, file uploads may be slow or timeout. **Workaround**: Use smaller batch sizes, direct file copying to dataset directories, or upload via the file manager interface.
 ~~- 🔧 **CAME Optimizer Path Issues**: Due to container environment differences, you may need to manually edit the generated TOML config file. If training fails with "module 'LoraEasyCustomOptimizer' has no attribute 'CAME'", change `optimizer_type = "LoraEasyCustomOptimizer.CAME"` to `optimizer_type = "LoraEasyCustomOptimizer.came.CAME"` in your training config files.~~
 
 ## Support Guidelines & Boundaries

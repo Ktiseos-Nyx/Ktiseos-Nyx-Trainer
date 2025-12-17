@@ -1,8 +1,8 @@
 # Training Parameters Guide
 
-This guide explains the training parameters available in the current three-notebook widget system using the Derrian backend with Kohya integration.
+This guide explains the training parameters available in Ktiseos-Nyx-Trainer's web interface using the Derrian backend with Kohya integration.
 
-**Note**: While other training systems like OneTrainer or standalone Kohya_ss may have different parameter sets, this documentation focuses specifically on what's available in our widget-based notebook system.
+**Note**: While other training systems like OneTrainer or standalone Kohya_ss may have different parameter sets, this documentation focuses specifically on what's available in our web-based training interface.
 
 ## Core Training Parameters
 

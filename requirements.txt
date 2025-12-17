@@ -23,7 +23,7 @@ diffusers[torch]==0.32.1
 bitsandbytes==0.45.5 # CRITICAL: Verify this version's wheel is CUDA 12.1 compatible
 torch-fidelity==0.3.0
 einops==0.8.1
-lycoris-lora
+# lycoris-lora REMOVED - Using vendored version with editable install (installer.py handles this)
 pytorch-lightning==1.9.0
 
 # Optimizers & Schedulers
@@ -55,7 +55,7 @@ parameterized==0.9.0
 hpsv2==1.2.0
 narwhals==1.34.1
 matplotlib==3.10.1
-git+https://github.com/67372a/sd-scripts
+# git+https://github.com/67372a/sd-scripts REMOVED - Using vendored version (trainer/derrian_backend/sd_scripts)
 
 # Image/Data Handling
 Pillow>=10.3.0
@@ -73,9 +73,11 @@ watchdog>=4.0.0
 tensorboard
 
 # ONNX / Tagger Dependencies
+# NOTE: ONNX runtime CUDA 12 is installed via installer.py fix_onnx_runtime() method
+# This ensures correct version with proper index URL handling
 onnx>=1.16.1
-onnxruntime-gpu==1.17.1 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
-# protobuf==3.20.3
+# onnxruntime-gpu is handled by installer.py - do not install here
+# protobuf<4 is installed by installer.py along with onnxruntime-gpu
 
 # -- Essential Commented Dependencies (Now Active) --
 timm==0.6.12 # Required for BLIP captioning

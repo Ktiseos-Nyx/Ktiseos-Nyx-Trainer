@@ -25,6 +25,11 @@ if %errorlevel% neq 0 (
     pause
 ) else (
     echo.
-    echo ✅ Installation seems to have completed successfully.
-    echo    Run start_jupyter.bat to begin your session.
+    echo ✅ Installation completed successfully!
+    echo.
+    echo Next steps:
+    echo   - Local development: start_services_local.bat
+    echo   - VastAI deployment: Services auto-start via supervisor
+    echo.
+    pause
 )
