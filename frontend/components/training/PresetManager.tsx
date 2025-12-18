@@ -1,9 +1,4 @@
-/**
- * Preset Manager Component
- * Allows users to save, load, and manage training configuration presets
- * Huge UX improvement - no more reconfiguring everything from scratch!
- */
-
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -42,11 +37,8 @@ interface CustomPreset {
 }
 
 interface PresetManagerProps {
-  /** Current configuration */
   currentConfig: Partial<TrainingConfig>;
-  /** Callback when user loads a preset */
   onLoadPreset: (config: Partial<TrainingConfig>) => void;
-  /** Callback when user saves current config */
   onSavePreset?: (preset: CustomPreset) => void;
 }
 
@@ -55,19 +47,23 @@ export default function PresetManager({
   onLoadPreset,
   onSavePreset,
 }: PresetManagerProps) {
-  // Load custom presets from localStorage on mount
-  const [customPresets, setCustomPresets] = useState<CustomPreset[]>(() => {
-    const saved = localStorage.getItem('training-presets');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to load custom presets:', e);
-        return [];
+  // ✅ FIX: Initialize empty list first (Server Safe)
+  const [customPresets, setCustomPresets] = useState<CustomPreset[]>([]);
+
+  // ✅ FIX: Load from localStorage only in the browser
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('training-presets');
+      if (saved) {
+        try {
+          setCustomPresets(JSON.parse(saved));
+        } catch (e) {
+          console.error('Failed to load custom presets:', e);
+        }
       }
     }
-    return [];
-  });
+  }, []);
+
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [newPresetName, setNewPresetName] = useState('');
   const [newPresetDescription, setNewPresetDescription] = useState('');
@@ -75,14 +71,14 @@ export default function PresetManager({
 
   // Save custom presets to localStorage
   useEffect(() => {
-    if (customPresets.length > 0) {
+    // Only save if we have items (and ignore the initial empty state if possible)
+    // or if we explicitly want to persist changes.
+    // Checking window ensures we don't crash.
+    if (typeof window !== 'undefined' && customPresets.length > 0) {
       localStorage.setItem('training-presets', JSON.stringify(customPresets));
     }
   }, [customPresets]);
 
-  /**
-   * Save current configuration as a new preset
-   */
   const handleSavePreset = () => {
     if (!newPresetName.trim()) {
       alert('Please enter a preset name');
@@ -100,7 +96,6 @@ export default function PresetManager({
     setCustomPresets((prev) => [...prev, preset]);
     onSavePreset?.(preset);
 
-    // Reset dialog
     setNewPresetName('');
     setNewPresetDescription('');
     setSaveDialogOpen(false);
@@ -108,18 +103,13 @@ export default function PresetManager({
     alert(`✅ Preset "${newPresetName}" saved successfully!`);
   };
 
-  /**
-   * Load a built-in or custom preset
-   */
   const handleLoadPreset = (presetId: string) => {
-    // Check built-in presets first
     if (trainingPresets[presetId]) {
       onLoadPreset(trainingPresets[presetId].config);
       alert(`✅ Loaded preset: ${trainingPresets[presetId].name}`);
       return;
     }
 
-    // Check custom presets
     const customPreset = customPresets.find((p) => p.id === presetId);
     if (customPreset) {
       onLoadPreset(customPreset.config);
@@ -128,9 +118,6 @@ export default function PresetManager({
     }
   };
 
-  /**
-   * Delete a custom preset
-   */
   const handleDeletePreset = (presetId: string) => {
     if (!confirm('Are you sure you want to delete this preset?')) return;
 
@@ -142,9 +129,6 @@ export default function PresetManager({
     alert('✅ Preset deleted');
   };
 
-  /**
-   * Export all custom presets to JSON file
-   */
   const handleExportPresets = () => {
     const dataStr = JSON.stringify(customPresets, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -156,9 +140,6 @@ export default function PresetManager({
     URL.revokeObjectURL(url);
   };
 
-  /**
-   * Import presets from JSON file
-   */
   const handleImportPresets = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -197,7 +178,6 @@ export default function PresetManager({
                 <SelectValue placeholder="Choose a preset..." />
               </SelectTrigger>
               <SelectContent>
-                {/* Built-in Presets */}
                 <div className="px-2 py-1.5 text-xs font-semibold text-purple-400">
                   Built-in Presets
                 </div>
@@ -212,7 +192,6 @@ export default function PresetManager({
                   </SelectItem>
                 ))}
 
-                {/* Custom Presets */}
                 {customPresets.length > 0 && (
                   <>
                     <div className="px-2 py-1.5 text-xs font-semibold text-blue-400 mt-2">
@@ -243,7 +222,6 @@ export default function PresetManager({
             </Button>
           </div>
 
-          {/* Preset Description */}
           {selectedPreset && (
             <Alert className="bg-slate-800/50 border-slate-700">
               <AlertDescription>
@@ -300,7 +278,6 @@ export default function PresetManager({
             </DialogContent>
           </Dialog>
 
-          {/* Delete Custom Preset */}
           <Button
             variant="outline"
             onClick={() => selectedPreset && handleDeletePreset(selectedPreset)}
@@ -314,7 +291,6 @@ export default function PresetManager({
             Delete
           </Button>
 
-          {/* Export Presets */}
           <Button
             variant="outline"
             onClick={handleExportPresets}
@@ -325,7 +301,6 @@ export default function PresetManager({
             Export
           </Button>
 
-          {/* Import Presets */}
           <Button variant="outline" className="w-full relative" asChild>
             <label>
               <Upload className="h-4 w-4 mr-2" />
@@ -340,7 +315,6 @@ export default function PresetManager({
           </Button>
         </div>
 
-        {/* Preset Count */}
         <div className="text-xs text-gray-500 text-center">
           {customPresets.length === 0
             ? 'No custom presets saved yet'

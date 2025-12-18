@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { trainingAPI } from '@/lib/api';
-import { Play, Square, Activity, Clock, Zap, TrendingUp } from 'lucide-react';
+import { Activity, Clock, Zap, TrendingUp } from 'lucide-react';
 
 interface TrainingStatus {
   is_training: boolean;
@@ -20,12 +20,23 @@ export default function TrainingMonitor() {
   const [status, setStatus] = useState<TrainingStatus>({ is_training: false });
   const [logs, setLogs] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
-  // Try to restore job_id from localStorage
-  const [jobId, setJobId] = useState<string | null>(() => {
-    return localStorage.getItem('current_training_job_id');
-  });
+
+  // ✅ FIX 1: Initialize as null (safe for server)
+  const [jobId, setJobId] = useState<string | null>(null);
+
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // ✅ FIX 2: Load from localStorage only after component mounts (browser only)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedJobId = localStorage.getItem('current_training_job_id');
+      if (savedJobId) {
+        // eslint-disable-next-line
+        setJobId(savedJobId);
+      }
+    }
+  }, []);
 
   // Auto-scroll logs to bottom
   const scrollToBottom = () => {
@@ -38,6 +49,9 @@ export default function TrainingMonitor() {
 
   // Initial check on mount (for page refreshes during active training)
   useEffect(() => {
+    // Wait for jobId to be loaded
+    if (!jobId) return;
+
     const checkInitialStatus = async (currentJobId: string) => {
       try {
         const statusData = await trainingAPI.status(currentJobId);
@@ -48,23 +62,26 @@ export default function TrainingMonitor() {
       }
     };
 
-    if (jobId) {
-      checkInitialStatus(jobId);
-    }
+    checkInitialStatus(jobId);
 
     // Listen for training start event from TrainingConfig
     const handleTrainingStart = (event: any) => {
-      const newJobId = event.detail?.jobId || localStorage.getItem('current_training_job_id');
+      // Use event detail, fallback to localStorage if window exists
+      const newJobId = event.detail?.jobId || (typeof window !== 'undefined' ? localStorage.getItem('current_training_job_id') : null);
       if (newJobId) {
         setJobId(newJobId);
         checkInitialStatus(newJobId);
       }
     };
 
-    window.addEventListener('training-started', handleTrainingStart);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('training-started', handleTrainingStart);
+    }
 
     return () => {
-      window.removeEventListener('training-started', handleTrainingStart);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('training-started', handleTrainingStart);
+      }
     };
   }, [jobId]);
 
@@ -74,34 +91,36 @@ export default function TrainingMonitor() {
     if (!status.is_training || !jobId) return;
 
     const pollStatus = async () => {
-      // Don't poll if page is hidden
-      if (document.hidden) return;
+      if (typeof document !== 'undefined' && document.hidden) return;
 
       try {
         const statusData = await trainingAPI.status(jobId);
         setStatus(statusData);
       } catch (err: any) {
-        // Training ended or error - stop polling
         setStatus({ is_training: false });
-        localStorage.removeItem('current_training_job_id');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('current_training_job_id');
+        }
       }
     };
 
-    // Poll every 2 seconds while training
     const interval = setInterval(pollStatus, 2000);
 
-    // Pause polling when page is hidden, resume when visible
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        pollStatus(); // Poll immediately when page becomes visible
+      if (typeof document !== 'undefined' && !document.hidden) {
+        pollStatus();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     return () => {
       clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, [status.is_training, jobId]);
 
@@ -114,20 +133,17 @@ export default function TrainingMonitor() {
     const ws = trainingAPI.connectLogs(
       jobId,
       (data) => {
-        console.log('WebSocket message:', data);
-
         if (data.type === 'log') {
           setLogs((prev) => [...prev, data.message as string]);
         } else if (data.type === 'progress') {
           setStatus((prev) => ({
             ...prev,
-            progress: data.data,
+            progress: data.data as any,
           }));
         } else if (data.type === 'connected') {
           setConnected(true);
           setLogs((prev) => [...prev, '✓ Connected to training logs']);
         } else if (data.type === 'heartbeat') {
-          // Keep connection alive
           setConnected(true);
         }
       },
@@ -138,7 +154,6 @@ export default function TrainingMonitor() {
     );
 
     ws.onclose = () => {
-      console.log('WebSocket closed');
       setConnected(false);
     };
 
@@ -149,7 +164,6 @@ export default function TrainingMonitor() {
     };
   }, [status.is_training, jobId]);
 
-  // Calculate progress percentage
   const getProgress = () => {
     if (!status.progress) return 0;
     const { current_step, total_steps } = status.progress;
@@ -157,15 +171,13 @@ export default function TrainingMonitor() {
     return (current_step / total_steps) * 100;
   };
 
-  // Format time remaining (estimated)
   const getTimeRemaining = () => {
     if (!status.progress) return 'Calculating...';
     const { current_step, total_steps } = status.progress;
     if (!current_step || !total_steps) return 'Unknown';
 
-    // This is a placeholder - you'd calculate based on actual step timing
     const stepsRemaining = total_steps - current_step;
-    const estimatedMinutes = Math.ceil(stepsRemaining * 0.1); // Assume 0.1 min per step
+    const estimatedMinutes = Math.ceil(stepsRemaining * 0.1);
 
     if (estimatedMinutes < 60) return `~${estimatedMinutes}m`;
     const hours = Math.floor(estimatedMinutes / 60);
@@ -175,7 +187,6 @@ export default function TrainingMonitor() {
 
   return (
     <div className="rounded-xl border bg-card text-card-foreground shadow w-full">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Activity className={`w-6 h-6 ${status.is_training ? 'text-green-400 animate-pulse' : 'text-muted-foreground'}`} />
@@ -198,10 +209,8 @@ export default function TrainingMonitor() {
         </div>
       </div>
 
-      {/* Progress Section */}
       {status.is_training && status.progress && (
         <div className="mb-6 space-y-4">
-          {/* Progress Bar */}
           <div>
             <div className="flex justify-between text-sm mb-2">
               <span className="font-medium text-foreground">
@@ -221,9 +230,7 @@ export default function TrainingMonitor() {
             </div>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Epoch */}
             {status.progress.current_epoch !== undefined && (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-blue-400 mb-1">
@@ -235,8 +242,6 @@ export default function TrainingMonitor() {
                 </div>
               </div>
             )}
-
-            {/* Learning Rate */}
             {status.progress.lr !== undefined && (
               <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-purple-400 mb-1">
@@ -248,8 +253,6 @@ export default function TrainingMonitor() {
                 </div>
               </div>
             )}
-
-            {/* Loss */}
             {status.progress.loss !== undefined && (
               <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-green-400 mb-1">
@@ -261,8 +264,6 @@ export default function TrainingMonitor() {
                 </div>
               </div>
             )}
-
-            {/* Time Remaining */}
             <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3">
               <div className="flex items-center gap-2 text-orange-400 mb-1">
                 <Clock className="w-4 h-4" />
@@ -276,7 +277,6 @@ export default function TrainingMonitor() {
         </div>
       )}
 
-      {/* Logs Section */}
       <div className="border border-border rounded-lg overflow-hidden">
         <div className="bg-muted px-4 py-2 border-b border-border">
           <span className="text-sm font-medium text-foreground">
