@@ -5,26 +5,31 @@ import { Save, RotateCcw } from 'lucide-react'
 import { GradientCard } from '@/components/effects'
 
 export function TrainingDefaults() {
-  // Load settings from localStorage
-  const getStoredSettings = () => {
-    const stored = localStorage.getItem('ktiseos-nyx-settings')
-    return stored ? JSON.parse(stored) : {}
-  }
+  // ✅ FIX: Initialize with safe defaults first (Server Safe)
+  const [defaultEpochs, setDefaultEpochs] = useState(10)
+  const [defaultBatchSize, setDefaultBatchSize] = useState(1)
+  const [defaultLearningRate, setDefaultLearningRate] = useState(0.0001)
 
-  const [defaultEpochs, setDefaultEpochs] = useState(() => {
-    const settings = getStoredSettings()
-    return settings.defaultEpochs ?? 10
-  })
-  const [defaultBatchSize, setDefaultBatchSize] = useState(() => {
-    const settings = getStoredSettings()
-    return settings.defaultBatchSize ?? 1
-  })
-  const [defaultLearningRate, setDefaultLearningRate] = useState(() => {
-    const settings = getStoredSettings()
-    return settings.defaultLearningRate ?? 0.0001
-  })
+  // ✅ FIX: Load from localStorage only on the client side
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('ktiseos-nyx-settings')
+        if (stored) {
+          const settings = JSON.parse(stored)
+          // Only update if value exists in settings
+          if (settings.defaultEpochs !== undefined) setDefaultEpochs(settings.defaultEpochs)
+          if (settings.defaultBatchSize !== undefined) setDefaultBatchSize(settings.defaultBatchSize)
+          if (settings.defaultLearningRate !== undefined) setDefaultLearningRate(settings.defaultLearningRate)
+        }
+      } catch (e) {
+        console.error('Failed to load training defaults:', e)
+      }
+    }
+  }, [])
 
   const handleSave = () => {
+    // Safe to use localStorage here because it only runs on click
     const stored = localStorage.getItem('ktiseos-nyx-settings')
     const existingSettings = stored ? JSON.parse(stored) : {}
     const newSettings = {
@@ -42,11 +47,15 @@ export function TrainingDefaults() {
       setDefaultEpochs(10)
       setDefaultBatchSize(1)
       setDefaultLearningRate(0.0001)
+
       const stored = localStorage.getItem('ktiseos-nyx-settings')
       const existingSettings = stored ? JSON.parse(stored) : {}
+
+      // Remove specific keys but keep other settings
       delete existingSettings.defaultEpochs
       delete existingSettings.defaultBatchSize
       delete existingSettings.defaultLearningRate
+
       localStorage.setItem('ktiseos-nyx-settings', JSON.stringify(existingSettings))
     }
   }

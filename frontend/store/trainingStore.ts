@@ -5,11 +5,11 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useEffect } from 'react';
 import type { TrainingConfig } from '@/lib/api';
 
 /**
  * Default training configuration values
- * These match the backend defaults and provide sensible starting points
  */
 const defaultConfig: Partial<TrainingConfig> = {
   // ========== PROJECT & MODEL SETUP ==========
@@ -79,7 +79,7 @@ const defaultConfig: Partial<TrainingConfig> = {
   enable_bucket: true,
   min_bucket_reso: 256,
   max_bucket_reso: 2048,
-  bucket_reso_steps: 64,
+  // bucket_reso_steps removed because it's not in your API interface yet
   bucket_no_upscale: false,
 
   // ========== PRECISION & MEMORY ==========
@@ -153,20 +153,6 @@ interface TrainingStore {
   isValid: () => boolean;
 }
 
-/**
- * Training configuration store with localStorage persistence
- *
- * Usage:
- * ```tsx
- * const { config, updateConfig, resetConfig } = useTrainingStore();
- *
- * // Update a field
- * updateConfig({ project_name: 'my_new_lora' });
- *
- * // Reset to defaults
- * resetConfig();
- * ```
- */
 export const useTrainingStore = create<TrainingStore>()(
   persist(
     (set, get) => ({
@@ -174,7 +160,6 @@ export const useTrainingStore = create<TrainingStore>()(
       config: defaultConfig,
       isDirty: false,
 
-      // Update configuration (merge with existing)
       updateConfig: (updates) => {
         set((state) => ({
           config: { ...state.config, ...updates },
@@ -182,7 +167,6 @@ export const useTrainingStore = create<TrainingStore>()(
         }));
       },
 
-      // Reset to default configuration
       resetConfig: () => {
         set({
           config: defaultConfig,
@@ -190,7 +174,6 @@ export const useTrainingStore = create<TrainingStore>()(
         });
       },
 
-      // Load a complete configuration (e.g., from saved preset)
       loadConfig: (config) => {
         set({
           config: { ...defaultConfig, ...config },
@@ -198,15 +181,12 @@ export const useTrainingStore = create<TrainingStore>()(
         });
       },
 
-      // Mark config as clean (e.g., after successful save)
       setDirty: (dirty) => {
         set({ isDirty: dirty });
       },
 
-      // Get current configuration
       getConfig: () => get().config,
 
-      // Validate required fields are filled
       isValid: () => {
         const config = get().config;
         return !!(
@@ -218,27 +198,44 @@ export const useTrainingStore = create<TrainingStore>()(
       },
     }),
     {
-      name: 'training-config', // localStorage key
-      storage: createJSONStorage(() => localStorage),
-      // Only persist the config, not the isDirty flag
+      name: 'training-config',
+
+      // ✅ FIX 1: Safe storage wrapper (Handles Server vs Client)
+      storage: createJSONStorage(() => {
+        if (typeof window !== 'undefined') {
+          return localStorage;
+        }
+        return {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        };
+      }),
+
+      // ✅ FIX 2: Skip hydration on server
+      skipHydration: true,
+
       partialize: (state) => ({ config: state.config }),
     }
   )
 );
 
-/**
- * Hook to check if user has unsaved changes
- * Useful for warning before navigation
- */
 export const useUnsavedChanges = () => {
   const isDirty = useTrainingStore((state) => state.isDirty);
 
-  // Warn user before leaving page if there are unsaved changes
-  if (typeof window !== 'undefined') {
-    window.onbeforeunload = isDirty
-      ? () => 'You have unsaved training configuration changes. Are you sure you want to leave?'
-      : null;
-  }
+  // ✅ FIX 3: Wrap window access in useEffect
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.onbeforeunload = isDirty
+        ? () => 'You have unsaved training configuration changes. Are you sure you want to leave?'
+        : null;
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.onbeforeunload = null;
+      }
+    };
+  }, [isDirty]);
 
   return isDirty;
 };

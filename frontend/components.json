@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
   "style": "new-york",
-  "rsc": false,
+  "rsc": true,
   "tsx": true,
   "tailwind": {
     "config": "tailwind.config.ts",
@@ -19,23 +19,6 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
-    "@kokonutui": "https://kokonutui.com/r/{name}.json",
-    "@magicui": "https://magicui.design/r/{name}.json",
-    "@shadcn-editor": "https://shadcn-editor.vercel.app/r/{name}.json",
-    "@scrollxui": "https://www.scrollxui.dev/registry/{name}.json",
-    "@wigggle-ui": "https://wigggle-ui.vercel.app/r/{name}.json",
-    "@wandry-ui": "https://ui.wandry.com.ua/r/{name}.json",
-    "@reui": "https://reui.io/r/{name}.json",
-    "@coss": "https://coss.com/ui/r/{name}.json",
-    "@shadcndesign": "https://shadcndesign-free.vercel.app/r/{name}.json",
-    "@kibo-ui": "https://www.kibo-ui.com/r/{name}.json",
-    "@hextaui": "https://hextaui.com/r/{name}.json",
-    "@uitripled": "https://ui.tripled.work/r/{name}.json",
-    "@paceui-ui": "https://ui.paceui.com/r/{name}.json",
-    "@aevr": "https://ui.aevr.space/r/{name}.json",
-    "@intentui": "https://intentui.com/r/{name}",
-    "@hooks": "https://shadcn-hooks.vercel.app/r/{name}.json",
-    "@basecn": "https://basecn.dev/r/{name}.json"
+    "@hextaui": "https://hextaui.com/r/{name}.json"
   }
 }

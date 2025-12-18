@@ -29,25 +29,39 @@ export const getWsUrl = (path: string): string => {
 // Helper for handling API responses
 async function handleResponse(response: Response) {
   if (!response.ok) {
-    // Try to parse error as JSON, fallback to text if it's HTML
+    // 1. Read the body as text FIRST (safely consumes the stream once)
+    const text = await response.text();
+    let errorMsg = `HTTP ${response.status}`;
+
+    // 2. Try to parse that text as JSON to get a specific error message
     try {
-      const error = await response.json();
-      throw new Error(error.detail || `HTTP ${response.status}`);
-    } catch (jsonError) {
-      const text = await response.text();
-      throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+      const json = JSON.parse(text);
+      if (json.detail) {
+        errorMsg = json.detail; // Use backend error message if available
+      }
+    } catch {
+      // 3. If it wasn't JSON, append the raw text preview
+      if (text) {
+        errorMsg += `: ${text.substring(0, 100)}`;
+      }
     }
+
+    throw new Error(errorMsg);
   }
 
-  // Check content type before parsing
+  // Success handling
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
     return response.json();
   }
 
-  // Not JSON - return text or throw error
+  // Handle non-JSON success responses (rare but possible)
   const text = await response.text();
-  throw new Error(`Expected JSON response, got: ${text.substring(0, 100)}`);
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Expected JSON response, got: ${text.substring(0, 100)}`);
+  }
 }
 
 // ========== Type Definitions ==========
