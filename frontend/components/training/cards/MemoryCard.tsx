@@ -146,9 +146,9 @@ export function MemoryCard({ form }: MemoryCardProps) {
             form={form}
             name="vae_batch_size"
             label="VAE Batch Size"
-            description="0 = same as train batch size. Lower = less VRAM"
-            placeholder="0"
-            min={0}
+            description="Number of images processed by VAE per batch (min 1). Lower = less VRAM."
+            placeholder="1"
+            min={1}
             max={128}
           />
 

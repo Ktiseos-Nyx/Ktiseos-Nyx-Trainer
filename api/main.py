@@ -78,6 +78,12 @@ async def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/health")
+async def root_health_check():
+    """Root health check endpoint for load balancers"""
+    return {"status": "ok"}
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler"""
