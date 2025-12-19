@@ -24,7 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form } from '@/components/ui/form';
 import { useTrainingForm } from '@/hooks/useTrainingForm';
 import PresetManager from './PresetManager';
-import { trainingAPI, modelsAPI } from '@/lib/api';
+import { trainingAPI, modelsAPI, configAPI } from '@/lib/api';
 import {
   SetupTab,
   DatasetTab,
