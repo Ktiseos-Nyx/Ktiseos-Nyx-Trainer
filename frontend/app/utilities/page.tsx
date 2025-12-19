@@ -419,7 +419,7 @@ function ResizeLoRATab() {
                 value={inputFile}
                 onChange={(e) => setInputFile(e.target.value)}
                 className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                placeholder="/workspace/output/my_lora.safetensors"
+                placeholder="output/my_lora.safetensors"
               />
             )}
           </div>
@@ -467,7 +467,7 @@ function ResizeLoRATab() {
               value={outputPath}
               onChange={(e) => setOutputPath(e.target.value)}
               className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-              placeholder="/workspace/output/my_lora_dim32.safetensors"
+              placeholder="output/my_lora_dim32.safetensors"
             />
             <p className="text-xs text-muted-foreground mt-1">
               Auto-generated based on input file and dimension
@@ -811,7 +811,7 @@ function HuggingFaceTab() {
               value={datasetDirectory}
               onChange={(e) => setDatasetDirectory(e.target.value)}
               className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-              placeholder="/workspace/datasets/my-dataset"
+              placeholder="datasets/my-dataset"
             />
             <p className="text-xs text-muted-foreground mt-1">
               Specify the dataset folder to upload (will upload all contents)

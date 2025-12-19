@@ -334,7 +334,7 @@ export default function DatasetUploader() {
               disabled={uploading}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              📁 Files will be uploaded to: /workspace/datasets/{datasetName}
+              📁 Files will be uploaded to: datasets/{datasetName}
             </p>
           </div>
 

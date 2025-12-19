@@ -378,7 +378,15 @@ export function SliderFormField<T extends FieldValues>({
 }
 // --- PASTE THIS AT THE END OF FormFields.tsx ---
 
-import { Combobox } from '@/components/ui/combobox'; // Make sure this path is correct
+import {
+  Combobox,
+  ComboboxAnchor,
+  ComboboxInput,
+  ComboboxTrigger,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+} from '@/components/ui/combobox';
 
 /**
  * Combobox Field (for searchable dropdowns)
@@ -411,18 +419,26 @@ export function ComboboxFormField<T extends FieldValues>({
       render={({ field }) => (
         <FormItem>
           <FormLabel>{label}</FormLabel>
-          <FormControl>
-            <Combobox
-              options={options}
-              value={field.value}
-              onSelect={(currentValue) => {
-                // Allows selecting and de-selecting
-                form.setValue(name, currentValue === field.value ? "" : currentValue, { shouldValidate: true });
-              }}
-              placeholder={placeholder || 'Select a file...'}
-              disabled={disabled}
-            />
-          </FormControl>
+          <Combobox
+            value={field.value}
+            onValueChange={field.onChange}
+            disabled={disabled}
+          >
+            <ComboboxAnchor>
+              <FormControl>
+                <ComboboxInput placeholder={placeholder || 'Select a file...'} />
+              </FormControl>
+              <ComboboxTrigger />
+            </ComboboxAnchor>
+            <ComboboxContent>
+              <ComboboxEmpty>No results found.</ComboboxEmpty>
+              {options.map((option) => (
+                <ComboboxItem key={option.value} value={option.value}>
+                  {option.label}
+                </ComboboxItem>
+              ))}
+            </ComboboxContent>
+          </Combobox>
           {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />
         </FormItem>
