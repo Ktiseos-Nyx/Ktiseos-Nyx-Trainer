@@ -86,6 +86,7 @@ export function ProjectSetupCard({ form, models, vaes }: ProjectSetupCardProps) 
               description: 'Experimental architecture',
             },
           ]}
+
         />
 
         {/* --- REPLACEMENT FOR BASE MODEL PATH --- */}
