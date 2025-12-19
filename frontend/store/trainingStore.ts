@@ -119,6 +119,7 @@ const defaultConfig: TrainingConfig = {
 interface TrainingStore {
   config: TrainingConfig; // Strict!
   isDirty: boolean;
+  hasHydrated: boolean; // ✅ ADD THIS
   updateConfig: (updates: Partial<TrainingConfig>) => void; // Partial is okay here
   resetConfig: () => void;
   loadConfig: (config: TrainingConfig) => void; // Strict!
@@ -134,6 +135,11 @@ export const useTrainingStore = create<TrainingStore>()(
       // Initial state
       config: defaultConfig,
       isDirty: false,
+      hasHydrated: false,
+      setHasHydrated: (state) => set({ hasHydrated: state }),
+      onRehydrateStorage: () => (state) => {
+    state?.setHasHydrated(true);
+  },
 
       updateConfig: (updates) => {
         set((state) => ({
