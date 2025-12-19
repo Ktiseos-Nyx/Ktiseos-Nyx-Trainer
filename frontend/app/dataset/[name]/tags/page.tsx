@@ -108,6 +108,102 @@ export default function DatasetTagsPage() {
           </button>
         </div>
 
+        {/* Bulk Operations */}
+        <div className="mb-8 p-6 bg-card border border-border rounded-lg shadow-sm">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Database className="w-5 h-5 text-purple-500" />
+            Bulk Operations
+          </h2>
+          <div className="grid md:grid-cols-[auto_1fr_auto] gap-4 items-end">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Operation</label>
+              <select
+                className="w-full md:w-40 px-3 py-2 bg-input border border-border rounded-md"
+                id="bulk-op-select"
+              >
+                <option value="add">Add Tags</option>
+                <option value="remove">Remove Tags</option>
+                <option value="replace">Replace Tags</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2 flex-1">
+              <label className="text-sm font-medium">Tags (comma separated)</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  id="bulk-tags-input"
+                  placeholder="e.g. 1girl, solo"
+                  className="flex-1 px-3 py-2 bg-input border border-border rounded-md"
+                />
+                <input
+                  type="text"
+                  id="bulk-replace-input"
+                  placeholder="Replace with..."
+                  className="hidden flex-1 px-3 py-2 bg-input border border-border rounded-md"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                const opSelect = document.getElementById('bulk-op-select') as HTMLSelectElement;
+                const tagsInput = document.getElementById('bulk-tags-input') as HTMLInputElement;
+                const replaceInput = document.getElementById('bulk-replace-input') as HTMLInputElement;
+                
+                const operation = opSelect.value as 'add' | 'remove' | 'replace';
+                const tags = tagsInput.value.split(',').map(t => t.trim()).filter(t => t);
+                const replaceWith = replaceInput.value.trim();
+
+                if (tags.length === 0) {
+                  alert('Please enter at least one tag');
+                  return;
+                }
+
+                if (confirm(`Are you sure you want to ${operation} tags for ALL images? This cannot be undone.`)) {
+                  try {
+                    setLoading(true);
+                    const result = await datasetAPI.bulkTagOperation(
+                      datasetName, // Use path as name here, strictly speaking it depends on API
+                      operation,
+                      tags,
+                      replaceWith
+                    );
+                    
+                    if (result.success) {
+                      alert(`Successfully modified ${result.modified_count} files!`);
+                      // Reload
+                      window.location.reload();
+                    } else {
+                      alert('Operation failed');
+                    }
+                  } catch (e) {
+                    console.error(e);
+                    alert('Error performing bulk operation');
+                  } finally {
+                    setLoading(false);
+                  }
+                }
+              }}
+              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Apply to All
+            </button>
+          </div>
+          
+          <script dangerouslySetInnerHTML={{__html: `
+            document.getElementById('bulk-op-select').addEventListener('change', function(e) {
+              const val = e.target.value;
+              const replaceInput = document.getElementById('bulk-replace-input');
+              if (val === 'replace') {
+                replaceInput.classList.remove('hidden');
+              } else {
+                replaceInput.classList.add('hidden');
+              }
+            });
+          `}} />
+        </div>
+
         {/* Images with inline tag editors */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {localImages.map((img) => (

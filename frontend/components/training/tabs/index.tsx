@@ -20,16 +20,19 @@ import { AdvancedCard } from '../cards/AdvancedCard';
 
 interface TabProps {
   form: UseFormReturn<Partial<TrainingConfig>>;
+  models?: { value: string; label: string }[];
+  vaes?: { value: string; label: string }[];
+  datasets?: { value: string; label: string }[];
 }
 
 /**
  * Setup Tab
  * Project information and model selection
  */
-export function SetupTab({ form }: TabProps) {
+export function SetupTab({ form, models = [], vaes = [] }: TabProps) {
   return (
     <div className="space-y-6">
-      <ProjectSetupCard form={form} />
+      <ProjectSetupCard form={form} models={models} vaes={vaes} />
     </div>
   );
 }
@@ -38,10 +41,10 @@ export function SetupTab({ form }: TabProps) {
  * Dataset Tab
  * Data paths, augmentation, bucketing, captions
  */
-export function DatasetTab({ form }: TabProps) {
+export function DatasetTab({ form, datasets = [] }: TabProps) {
   return (
     <div className="space-y-6">
-      <DatasetCard form={form} />
+      <DatasetCard form={form} datasets={datasets} />
       <CaptionCard form={form} />
       <AugmentationCard form={form} />
     </div>

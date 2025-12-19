@@ -251,11 +251,11 @@ export default function TrainingConfigNew() {
                   </TabsList>
 
                   <TabsContent value="setup">
-                    <SetupTab form={form} />
+                    <SetupTab form={form} models={models} vaes={vaes} />
                   </TabsContent>
 
                   <TabsContent value="dataset">
-                    <DatasetTab form={form} />
+                    <DatasetTab form={form} datasets={datasets} />
                   </TabsContent>
 
                   <TabsContent value="lora">

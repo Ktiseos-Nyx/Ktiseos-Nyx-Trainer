@@ -12,7 +12,6 @@ export default function SettingsPage() {
   // API Configuration
   const apiUrl = API_BASE
   const [apiTimeout, setApiTimeout] = useState(30)
-  const [apiTimeout, setApiTimeout] = useState(30)
 
   // API Keys (stored on backend)
   const [huggingfaceToken, setHuggingfaceToken] = useState('')
