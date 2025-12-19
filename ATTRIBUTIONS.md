@@ -74,6 +74,12 @@ Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-
 
 ---
 
+## Icons
+<a href="https://www.flaticon.com/free-icons/computer-vision" title="computer vision icons">Computer vision icons created by Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/wellness" title="wellness icons">Wellness icons created by Freepik - Flaticon</a>
+
+---
+
 ## Additional Dependencies
 
 ### Backend

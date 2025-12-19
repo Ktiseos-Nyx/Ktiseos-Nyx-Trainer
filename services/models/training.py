@@ -23,7 +23,8 @@ class LoRAType(str, Enum):
     LORA = "LoRA"
     LOCON = "LoCon"
     LOHA = "LoHa"
-    LOKR = "LoKR"
+    LOKR = "LoKr"
+    DORA = "DoRA"
 
 
 class OptimizerType(str, Enum):
@@ -33,8 +34,16 @@ class OptimizerType(str, Enum):
     LION = "Lion"
     LION8BIT = "Lion8bit"
     ADAFACTOR = "Adafactor"
+    ADAFACTOR_CAMEL = "AdaFactor"
     DADAPTATION = "DAdaptation"
+    DADAPTADAM = "DAdaptAdam"
+    DADAPTADAGRAD = "DAdaptAdaGrad"
+    DADAPTADAN = "DAdaptAdan"
+    DADAPTSGD = "DAdaptSGD"
     PRODIGY = "Prodigy"
+    CAME = "CAME"
+    SGDNESTEROV = "SGDNesterov"
+    SGDNESTEROV8BIT = "SGDNesterov8bit"
 
 
 class LRScheduler(str, Enum):
