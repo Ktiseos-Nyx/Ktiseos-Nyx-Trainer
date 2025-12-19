@@ -17,14 +17,20 @@ export const getWsUrl = (path: string): string => {
     // Relative URL - construct from window.location
     if (typeof window !== 'undefined') {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      // Local dev fix: connect directly to backend on 8000 if on frontend 3000
+      if (window.location.hostname === 'localhost' && window.location.port === '3000') {
+        return `ws://${window.location.hostname}:8000${path}`;
+      }
       return `${protocol}//${window.location.host}${path}`;
     }
     // Server-side fallback
     return `ws://localhost:8000${path}`;
   }
   // Absolute URL - replace http with ws
-  return API_BASE.replace(/^http/, 'ws') + path.replace(/^\/api/, '');
+  return API_BASE.replace(/^http/, 'ws').replace(/\/api\/?$/, '') + path;
 };
+
+export const WS_BASE = getWsUrl('');
 
 // Helper for handling API responses
 async function handleResponse(response: Response) {

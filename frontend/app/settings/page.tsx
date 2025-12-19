@@ -6,10 +6,12 @@ import { useState, useEffect } from 'react'
 import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff } from 'lucide-react'
 import { GradientCard } from '@/components/effects'
 import Breadcrumbs from '@/components/Breadcrumbs'
+import { API_BASE } from '@/lib/api'
 
 export default function SettingsPage() {
   // API Configuration
-  const [apiUrl, setApiUrl] = useState('http://localhost:8000')
+  const apiUrl = API_BASE
+  const [apiTimeout, setApiTimeout] = useState(30)
   const [apiTimeout, setApiTimeout] = useState(30)
 
   // API Keys (stored on backend)
@@ -76,7 +78,7 @@ export default function SettingsPage() {
 
   const loadStorageInfo = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/settings/storage`)
+      const response = await fetch(`${API_BASE}/settings/storage`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
@@ -90,7 +92,7 @@ export default function SettingsPage() {
 
   const loadApiKeys = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/settings/user`)
+      const response = await fetch(`${API_BASE}/settings/user`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
@@ -119,7 +121,7 @@ export default function SettingsPage() {
         return true // Nothing to save
       }
 
-      const response = await fetch(`${apiUrl}/api/settings/user`, {
+      const response = await fetch(`${API_BASE}/settings/user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

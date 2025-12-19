@@ -35,21 +35,7 @@ import {
   SavingTab,
 } from './tabs';
 
-// --- Paths: VastAI vs Local ---
-const PATHS = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? {
-      models: './pretrained_model',
-      vaes: './vae',
-      datasets: './dataset',
-      outputs: './output'
-    }
-  : {
-      models: '/workspace/models/stable-diffusion',
-      vaes: '/workspace/models/vae',
-      datasets: '/workspace/dataset',
-      outputs: '/workspace/output'
-    };
-// ---------------------------------------------
+// --- Paths removed in favor of dynamic fetching ---
 
 export default function TrainingConfigNew() {
   const [isTraining, setIsTraining] = useState(false);
@@ -58,6 +44,7 @@ export default function TrainingConfigNew() {
   const [models, setModels] = useState<{ value: string; label: string }[]>([]);
   const [vaes, setVaes] = useState<{ value: string; label: string }[]>([]);
   const [datasets, setDatasets] = useState<{ value: string; label: string }[]>([]);
+  const [workspaceRoot, setWorkspaceRoot] = useState<string>('');
   // ---------------------------------------------------
 
   // Initialize the form with all the magic
@@ -81,10 +68,30 @@ export default function TrainingConfigNew() {
   useEffect(() => {
     const fetchOptions = async () => {
       try {
+        // 1. Get the workspace root path
+        const workspaceRes = await fetch('/api/files/default-workspace');
+        const workspaceData = workspaceRes.ok ? await workspaceRes.json() : { path: '' };
+        const root = workspaceData.path;
+        
+        if (!root) {
+          console.error("Failed to determine workspace root");
+          return;
+        }
+        
+        setWorkspaceRoot(root);
+
+        // 2. Construct paths dynamically
+        const paths = {
+          models: `${root}/pretrained_model`,
+          vaes: `${root}/vae`,
+          datasets: `${root}/datasets`,
+          outputs: `${root}/output`
+        };
+
         const [modelsRes, vaesRes, datasetsRes] = await Promise.all([
-          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.models)}`),
-          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.vaes)}`),
-          fetch(`/api/files/list?path=${encodeURIComponent(PATHS.datasets)}`)
+          fetch(`/api/files/list?path=${encodeURIComponent(paths.models)}`),
+          fetch(`/api/files/list?path=${encodeURIComponent(paths.vaes)}`),
+          fetch(`/api/files/list?path=${encodeURIComponent(paths.datasets)}`)
         ]);
 
         // Handle non-OK responses gracefully
@@ -93,24 +100,24 @@ export default function TrainingConfigNew() {
         const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
 
         setModels(
-          modelsData.files
+          (modelsData.files || [])
             .filter((f: any) => f.type === 'file' && (f.name.endsWith('.safetensors') || f.name.endsWith('.ckpt')))
             .map((file: any) => ({ value: file.path, label: file.name }))
         );
         setVaes(
-          vaesData.files
+          (vaesData.files || [])
             .filter((f: any) => f.type === 'file')
             .map((file: any) => ({ value: file.path, label: file.name }))
         );
         setDatasets(
-          datasetsData.files
+          (datasetsData.files || [])
             .filter((f: any) => f.type === 'dir')
             .map((dir: any) => ({ value: dir.path, label: dir.name }))
         );
 
         // Set sane defaults only if the form is empty for those fields
         if (!form.getValues('output_dir')) {
-            form.setValue('output_dir', PATHS.outputs);
+            form.setValue('output_dir', paths.outputs);
         }
         if (!form.getValues('pretrained_model_name_or_path') && modelsData.files?.length > 0) {
             const defaultModel = modelsData.files.find((f: any) => f.type === 'file');
