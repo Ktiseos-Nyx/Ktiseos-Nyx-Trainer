@@ -30,10 +30,10 @@ export interface UseTrainingFormOptions {
  * Return type for useTrainingForm hook
  */
 export interface UseTrainingFormReturn {
-  /** React Hook Form instance */
-  form: UseFormReturn<Partial<TrainingConfig>>;
-  /** Current configuration from Zustand */
-  config: Partial<TrainingConfig>;
+  /** React Hook Form instance - now strictly typed */
+  form: UseFormReturn<TrainingConfig>;
+  /** Current configuration from Zustand - guaranteed complete */
+  config: TrainingConfig;
   /** Check if form has unsaved changes */
   isDirty: boolean;
   /** Check if form is valid */
@@ -42,12 +42,16 @@ export interface UseTrainingFormReturn {
   saveConfig: () => void;
   /** Reset form to Zustand state */
   resetForm: () => void;
-  /** Load a preset configuration */
+  /**
+   * Load a preset configuration.
+   * We accept Partial here because old JSONs might be incomplete,
+   * but the hook will merge them into a full config.
+   */
   loadPreset: (preset: Partial<TrainingConfig>) => void;
   /** Get validation errors in user-friendly format */
   getValidationErrors: () => Array<{ field: string; message: string }>;
   /** Submit handler for training start */
-  onSubmit: (callback: (config: Partial<TrainingConfig>) => void) => (e?: React.BaseSyntheticEvent) => void;
+  onSubmit: (callback: (config: TrainingConfig) => void) => (e?: React.BaseSyntheticEvent) => void;
 }
 
 /**
@@ -79,94 +83,77 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
     autoSave = true,
     autoSaveDelay = 500,
     validateOnChange = true,
-    validateOnBlur = true,
   } = options;
 
-  // Get Zustand store state and actions
   const zustandConfig = useTrainingStore((state) => state.config);
   const updateZustandConfig = useTrainingStore((state) => state.updateConfig);
-  const resetZustandConfig = useTrainingStore((state) => state.resetConfig);
   const loadZustandConfig = useTrainingStore((state) => state.loadConfig);
   const setDirty = useTrainingStore((state) => state.setDirty);
   const zustandIsValid = useTrainingStore((state) => state.isValid);
 
-  // Initialize React Hook Form with Zod validation
-  const form = useForm<Partial<TrainingConfig>>({
-    resolver: zodResolver(PartialTrainingConfigSchema),
+  // ✅ FIX 1: Strict generic <TrainingConfig> and Full Schema
+  const form = useForm<TrainingConfig>({
+    resolver: zodResolver(TrainingConfigSchema), // Use the full one!
     mode: validateOnChange ? 'onChange' : 'onBlur',
     defaultValues: zustandConfig,
     reValidateMode: 'onChange',
+    shouldUnregister: false, // Essential for tabs
   });
 
-  // Watch all form values for auto-save
+  // eslint-disable-next-line
   const formValues = form.watch();
 
-  // Auto-save to Zustand store with debounce
+  // Auto-save logic
   useEffect(() => {
     if (!autoSave) return;
-
     const timeoutId = setTimeout(() => {
-      // Only save if form has changed
       if (form.formState.isDirty) {
         updateZustandConfig(formValues);
         setDirty(true);
       }
     }, autoSaveDelay);
-
     return () => clearTimeout(timeoutId);
   }, [formValues, autoSave, autoSaveDelay, form.formState.isDirty, updateZustandConfig, setDirty]);
 
-  // Sync Zustand changes back to form (e.g., when loading a preset)
+  // Sync Logic - Only sync if the user isn't currently typing
   useEffect(() => {
-    form.reset(zustandConfig, { keepDirty: false });
-  }, [zustandConfig]); // Only re-run if Zustand config changes
+    if (!form.formState.isDirty) {
+      form.reset(zustandConfig, { keepDirty: false });
+    }
+  }, [zustandConfig, form]);
 
-  /**
-   * Save current form values to Zustand store
-   */
   const saveConfig = useCallback(() => {
     const values = form.getValues();
     updateZustandConfig(values);
     setDirty(false);
-    form.reset(values, { keepDirty: false }); // Reset dirty state
+    form.reset(values, { keepDirty: false });
   }, [form, updateZustandConfig, setDirty]);
 
-  /**
-   * Reset form to last saved Zustand state
-   */
   const resetForm = useCallback(() => {
     form.reset(zustandConfig, { keepDirty: false });
     setDirty(false);
   }, [form, zustandConfig, setDirty]);
 
-  /**
-   * Load a preset configuration
-   */
+  // ✅ FIX 2: Safe Merge for Presets
   const loadPreset = useCallback((preset: Partial<TrainingConfig>) => {
-    loadZustandConfig(preset);
-    form.reset(preset, { keepDirty: false });
+    // Merge incoming partial data with current full config to prevent "undefined" holes
+    const fullConfig = { ...zustandConfig, ...preset } as TrainingConfig;
+    loadZustandConfig(fullConfig);
+    form.reset(fullConfig, { keepDirty: false });
     setDirty(false);
-  }, [form, loadZustandConfig, setDirty]);
+  }, [form, zustandConfig, loadZustandConfig, setDirty]);
 
-  /**
-   * Get validation errors in user-friendly format
-   */
   const getValidationErrors = useCallback(() => {
     const errors = form.formState.errors;
     return Object.entries(errors).map(([field, error]) => ({
       field,
-      // FIX: Cast error as 'any' so we can access .message
       message: (error as any)?.message || 'Invalid value',
     }));
   }, [form.formState.errors]);
 
-  /**
-   * Submit handler wrapper
-   */
   const onSubmit = useCallback(
-    (callback: (config: Partial<TrainingConfig>) => void) => {
+    (callback: (config: TrainingConfig) => void) => {
       return form.handleSubmit((data) => {
-        // Save to Zustand before submitting
         updateZustandConfig(data);
         setDirty(false);
         callback(data);

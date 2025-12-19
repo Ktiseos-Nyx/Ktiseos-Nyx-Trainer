@@ -449,15 +449,16 @@ export const captioningAPI = {
 export interface TrainingConfig {
   // ========== PROJECT & MODEL SETUP ==========
   project_name: string;
-  model_type: string;
+  // ✅ FIX: Match the Zod Enum exactly
+  model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
   pretrained_model_name_or_path: string;
-  vae_path: string;
+  vae_path?: string;
+  ae_path?: string;
   clip_l_path?: string;
   clip_g_path?: string;
   t5xxl_path?: string;
   continue_from_lora?: string;
-  // ✅ ADD THIS LINE:
-  ae_path: string;
+  wandb_key?: string;
 
   // ========== DATASET & BASIC TRAINING ==========
   train_data_dir: string;
@@ -476,14 +477,14 @@ export interface TrainingConfig {
   // ========== LEARNING RATES ==========
   unet_lr: number;
   text_encoder_lr: number;
-  lr_scheduler: string;
+  lr_scheduler: 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
   lr_scheduler_number: number;
   lr_warmup_ratio: number;
   lr_warmup_steps: number;
   lr_power: number;
 
   // ========== LORA STRUCTURE ==========
-  lora_type: string;
+  lora_type: 'LoRA' | 'LoCon' | 'LoHa' | 'LoKr' | 'DoRA';
   network_module: string;
   network_dim: number;
   network_alpha: number;
@@ -501,6 +502,7 @@ export interface TrainingConfig {
   weight_decay: number;
   gradient_accumulation_steps: number;
   max_grad_norm: number;
+  optimizer_args?: string;
 
   // ========== CAPTION & TOKEN CONTROL ==========
   keep_tokens: number;
@@ -516,63 +518,90 @@ export interface TrainingConfig {
 
   // ========== BUCKETING ==========
   enable_bucket: boolean;
+  sdxl_bucket_optimization?: boolean;
   min_bucket_reso: number;
   max_bucket_reso: number;
+  bucket_reso_steps?: number;
   bucket_no_upscale: boolean;
-  bucket_reso_steps?: number; // Added
 
-  // ========== PRECISION & MEMORY ==========
-  mixed_precision: string;
-  save_precision: string;
+  // ========== MEMORY & PERFORMANCE ==========
+  gradient_checkpointing?: boolean;
+  mixed_precision: 'no' | 'fp16' | 'bf16';
   full_fp16: boolean;
-  full_bf16?: boolean; // Added
+  full_bf16?: boolean;
   fp8_base: boolean;
+  vae_batch_size: number;
+  no_half_vae: boolean;
   cache_latents: boolean;
   cache_latents_to_disk: boolean;
   cache_text_encoder_outputs: boolean;
-  cache_text_encoder_outputs_to_disk?: boolean; // Added
-  no_half_vae: boolean;
-  lowram: boolean; // Added from your list
+  cache_text_encoder_outputs_to_disk?: boolean;
+  cross_attention?: string;
+  persistent_data_loader_workers: number;
+  no_token_padding?: boolean;
 
-  // ========== SAVING ==========
-  save_model_as: string;
+  // ========== SAVING & CHECKPOINTS ==========
   save_every_n_epochs: number;
   save_every_n_steps: number;
   save_last_n_epochs: number;
   save_last_n_epochs_state: number;
   save_state: boolean;
-  save_state_on_train_end?: boolean; // Added
-  resume_from_state: string;
+  save_state_on_train_end?: boolean;
+  save_last_n_steps_state?: number;
+  save_model_as: 'safetensors' | 'ckpt' | 'pt';
+  save_precision: string;
+  output_name?: string;
+  no_metadata?: boolean;
+  resume_from_state?: string;
 
-  // ========== SAMPLING (PREVIEW) ==========
+  // ========== SAMPLE GENERATION ==========
   sample_every_n_epochs: number;
   sample_every_n_steps: number;
-  sample_prompts: string;
+  sample_prompts?: string;
   sample_sampler: string;
 
   // ========== ADVANCED NOISE / SNR ==========
+  min_snr_gamma_enabled?: boolean;
   min_snr_gamma: number;
-  scale_v_pred_loss_like_noise_pred: boolean;
-  v_pred_like_loss: number;
-  debiased_estimation_loss: boolean;
+  ip_noise_gamma_enabled?: boolean;
+  ip_noise_gamma: number;
+  multinoise?: boolean;
+  multires_noise_discount: number;
   noise_offset: number;
   adaptive_noise_scale: number;
-  ip_noise_gamma: number;
-  ip_noise_gamma_random_strength: boolean;
-  multires_noise_iterations: number;
-  multires_noise_discount: number;
+  zero_terminal_snr?: boolean;
 
-  // ========== PERFORMANCE ==========
-  max_data_loader_n_workers: number;
-  persistent_data_loader_workers: number;
-  vae_batch_size: number;
-  min_timestep: number;
-  max_timestep: number;
+  // ========== ADDITIONAL ADVANCED ==========
+  scale_v_pred_loss_like_noise_pred?: boolean;
+  v_pred_like_loss?: number;
+  debiased_estimation_loss?: boolean;
+  lowram?: boolean;
+  max_data_loader_n_workers?: number;
+  min_timestep?: number;
+  max_timestep?: number;
+  multires_noise_iterations?: number;
+  ip_noise_gamma_random_strength?: boolean;
 
-  // ========== LOGGING (Cleaned up) ==========
-  logging_dir: string;
-  log_with: string;
-  log_prefix: string;
+  // ========== FLUX-SPECIFIC ==========
+  t5xxl_max_token_length?: number;
+  apply_t5_attn_mask?: boolean;
+  guidance_scale?: number; // ✅ FIXED: Now TypeScript knows this exists!
+  timestep_sampling?: string;
+  sigmoid_scale?: number;
+  model_prediction_type?: string;
+  blocks_to_swap?: number;
+
+  // ========== LUMINA-SPECIFIC ==========
+  gemma2?: string;
+  gemma2_max_token_length?: number;
+
+  // ========== LOGGING ==========
+  logging_dir?: string;
+  log_with?: string;
+  log_prefix?: string;
+  log_tracker_name?: string;
+  log_tracker_config?: string;
+  wandb_run_name?: string;
 }
 
 export interface ValidationError {
