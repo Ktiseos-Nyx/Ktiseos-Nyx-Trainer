@@ -74,13 +74,18 @@ class KohyaTrainer(BaseTrainer):
         except PathValidationError as e:
             errors.append(f"Invalid dataset path: {e}")
 
-        # Validate base model path (security + existence)
-        try:
-            model_path = validate_model_path(self.config.pretrained_model_name_or_path)
-            if not model_path.exists():
-                errors.append(f"Model not found: {model_path}")
-        except PathValidationError as e:
-            errors.append(f"Invalid model path: {e}")
+        # Validate base model path
+        model_path_str = self.config.pretrained_model_name_or_path
+        # If it's a HF repo like "OnomaAI/Illustrious", it contains / but doesn't start with /
+        is_hf_model = "/" in model_path_str and not model_path_str.startswith("/")
+
+        if not is_hf_model:
+            try:
+                model_path = validate_model_path(model_path_str)
+                if not model_path.exists():
+                    errors.append(f"Model not found: {model_path}")
+            except PathValidationError as e:
+                errors.append(f"Invalid model path: {e}")
 
         # Validate VAE path if specified (security + existence)
         if self.config.vae_path:
