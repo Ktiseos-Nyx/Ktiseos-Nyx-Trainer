@@ -4,80 +4,37 @@
  * Provides the ultimate UX-friendly form experience
  */
 
-import { useForm, UseFormReturn, FieldError } from 'react-hook-form';
+import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useCallback } from 'react';
 import { useTrainingStore } from '@/store/trainingStore';
-import { PartialTrainingConfigSchema, formatValidationErrors } from '@/lib/validation';
+import { TrainingConfigSchema } from '@/lib/validation';
 import type { TrainingConfig } from '@/lib/api';
-import { z } from 'zod';
 
 /**
  * Options for the training form hook
  */
 export interface UseTrainingFormOptions {
-  /** Auto-save to localStorage on every change */
   autoSave?: boolean;
-  /** Debounce time in ms for auto-save (default: 500ms) */
   autoSaveDelay?: number;
-  /** Validate on change (default: true) */
   validateOnChange?: boolean;
-  /** Validate on blur (default: true) */
-  validateOnBlur?: boolean;
 }
 
 /**
- * Return type for useTrainingForm hook
+ * Return type - Strict TrainingConfig, NO PARTIAL
  */
 export interface UseTrainingFormReturn {
-  /** React Hook Form instance - now strictly typed */
   form: UseFormReturn<TrainingConfig>;
-  /** Current configuration from Zustand - guaranteed complete */
   config: TrainingConfig;
-  /** Check if form has unsaved changes */
   isDirty: boolean;
-  /** Check if form is valid */
   isValid: boolean;
-  /** Save configuration to Zustand */
   saveConfig: () => void;
-  /** Reset form to Zustand state */
   resetForm: () => void;
-  /**
-   * Load a preset configuration.
-   * We accept Partial here because old JSONs might be incomplete,
-   * but the hook will merge them into a full config.
-   */
   loadPreset: (preset: Partial<TrainingConfig>) => void;
-  /** Get validation errors in user-friendly format */
   getValidationErrors: () => Array<{ field: string; message: string }>;
-  /** Submit handler for training start */
   onSubmit: (callback: (config: TrainingConfig) => void) => (e?: React.BaseSyntheticEvent) => void;
 }
 
-/**
- * Custom hook for training configuration form
- *
- * This hook combines:
- * - Zustand for state persistence (survives page refresh)
- * - React Hook Form for form state management
- * - Zod for schema validation
- *
- * Usage:
- * ```tsx
- * const { form, saveConfig, isValid, onSubmit } = useTrainingForm();
- *
- * // Register a field
- * <Input {...form.register('project_name')} />
- *
- * // Show validation errors
- * {form.formState.errors.project_name && (
- *   <span>{form.formState.errors.project_name.message}</span>
- * )}
- *
- * // Submit
- * <form onSubmit={onSubmit(startTraining)}>
- * ```
- */
 export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTrainingFormReturn {
   const {
     autoSave = true,
@@ -91,13 +48,13 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
   const setDirty = useTrainingStore((state) => state.setDirty);
   const zustandIsValid = useTrainingStore((state) => state.isValid);
 
-  // ✅ FIX 1: Strict generic <TrainingConfig> and Full Schema
+  // ✅ FIX 1: Strict generic and 'as any' resolver to handle Zod Transforms
   const form = useForm<TrainingConfig>({
-    resolver: zodResolver(TrainingConfigSchema), // Use the full one!
+    resolver: zodResolver(TrainingConfigSchema) as any,
     mode: validateOnChange ? 'onChange' : 'onBlur',
     defaultValues: zustandConfig,
     reValidateMode: 'onChange',
-    shouldUnregister: false, // Essential for tabs
+    shouldUnregister: false,
   });
 
   // eslint-disable-next-line
@@ -115,7 +72,7 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
     return () => clearTimeout(timeoutId);
   }, [formValues, autoSave, autoSaveDelay, form.formState.isDirty, updateZustandConfig, setDirty]);
 
-  // Sync Logic - Only sync if the user isn't currently typing
+  // Sync Logic
   useEffect(() => {
     if (!form.formState.isDirty) {
       form.reset(zustandConfig, { keepDirty: false });
@@ -134,9 +91,7 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
     setDirty(false);
   }, [form, zustandConfig, setDirty]);
 
-  // ✅ FIX 2: Safe Merge for Presets
   const loadPreset = useCallback((preset: Partial<TrainingConfig>) => {
-    // Merge incoming partial data with current full config to prevent "undefined" holes
     const fullConfig = { ...zustandConfig, ...preset } as TrainingConfig;
     loadZustandConfig(fullConfig);
     form.reset(fullConfig, { keepDirty: false });
@@ -153,7 +108,7 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
 
   const onSubmit = useCallback(
     (callback: (config: TrainingConfig) => void) => {
-      return form.handleSubmit((data) => {
+      return form.handleSubmit((data: TrainingConfig) => {
         updateZustandConfig(data);
         setDirty(false);
         callback(data);
@@ -163,7 +118,8 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
   );
 
   return {
-    form,
+    // ✅ FIX 2: Intermediary cast to unknown to satisfy TS protected types
+    form: form as unknown as UseFormReturn<TrainingConfig>,
     config: zustandConfig,
     isDirty: form.formState.isDirty,
     isValid: form.formState.isValid && zustandIsValid(),
@@ -173,23 +129,12 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
     getValidationErrors,
     onSubmit,
   };
-}
+} // 👈 THIS BRACE CLOSES THE HOOK.
 
-/**
- * Helper hook for form field registration with error display
- * Simplifies common pattern of registering field + showing errors
- *
- * Usage:
- * ```tsx
- * const { register, error } = useFormField('project_name', form);
- *
- * <Input {...register} />
- * {error && <span className="text-red-500">{error}</span>}
- * ```
- */
+// ✅ THESE MUST BE OUTSIDE THE BRACE ABOVE
 export function useFormField(
   name: keyof TrainingConfig,
-  form: UseFormReturn<Partial<TrainingConfig>>
+  form: UseFormReturn<TrainingConfig>
 ) {
   const register = form.register(name);
   const error = form.formState.errors[name]?.message;
@@ -201,13 +146,10 @@ export function useFormField(
   };
 }
 
-/**
- * Configuration presets for common training scenarios
- */
 export const trainingPresets: Record<string, { name: string; description: string; config: Partial<TrainingConfig> }> = {
   sdxl_character: {
     name: 'SDXL Character',
-    description: 'Optimized for training character LoRAs on SDXL',
+    description: 'Optimized for character training',
     config: {
       model_type: 'SDXL',
       resolution: 1024,
@@ -217,7 +159,7 @@ export const trainingPresets: Record<string, { name: string; description: string
       text_encoder_lr: 0.00005,
       lr_scheduler: 'cosine_with_restarts',
       lr_scheduler_number: 3,
-      optimizer_type: 'AdamW8bit',
+      optimizer_type: 'AdamW8bit' as any,
       max_train_epochs: 10,
       train_batch_size: 1,
       clip_skip: 2,
