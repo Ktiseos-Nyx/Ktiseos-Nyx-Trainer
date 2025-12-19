@@ -191,8 +191,13 @@ export function SelectFormField<T extends FieldValues>({
         <FormItem>
           <FormLabel>{label}</FormLabel>
           <Select
-            onValueChange={field.onChange}
-            defaultValue={field.value}
+            // ✅ FIX 1: Use 'value' instead of 'defaultValue' to keep UI in sync
+            value={field.value}
+            // ✅ FIX 2: Manually trigger the 'Dirty' state so Zustand saves
+            onValueChange={(val) => {
+              field.onChange(val); // Updates React Hook Form
+              form.setValue(name, val as any, { shouldDirty: true }); // Forces the save trigger
+            }}
             disabled={disabled}
           >
             <FormControl>
@@ -421,7 +426,11 @@ export function ComboboxFormField<T extends FieldValues>({
           <FormLabel>{label}</FormLabel>
           <Combobox
             value={field.value}
-            onValueChange={field.onChange}
+            // ✅ FIX: Manually update and trigger 'dirty' state
+            onValueChange={(val) => {
+              field.onChange(val); // Updates the form internally
+              form.setValue(name, val as any, { shouldDirty: true }); // Forces the auto-save trigger
+            }}
             disabled={disabled}
           >
             <ComboboxAnchor>

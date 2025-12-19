@@ -456,6 +456,8 @@ export interface TrainingConfig {
   clip_g_path?: string;
   t5xxl_path?: string;
   continue_from_lora?: string;
+  // ✅ ADD THIS LINE:
+  ae_path: string;
 
   // ========== DATASET & BASIC TRAINING ==========
   train_data_dir: string;
