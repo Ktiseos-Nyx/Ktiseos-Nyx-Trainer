@@ -497,7 +497,9 @@ async def bulk_tag_operation_endpoint(request: BulkTagOperationRequest):
 
                 # Apply operation
                 if request.operation == "add":
-                    current_tags.extend([t for t in request.tags if t not in current_tags])
+                    # Prepend tags (Activation Tag style) - filter duplicates first
+                    new_tags = [t for t in request.tags if t not in current_tags]
+                    current_tags = new_tags + current_tags
                 elif request.operation == "remove":
                     current_tags = [t for t in current_tags if t not in request.tags]
                 elif request.operation == "replace":

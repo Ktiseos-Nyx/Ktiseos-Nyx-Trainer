@@ -213,6 +213,7 @@ export default function PresetManager({
             </Select>
 
             <Button
+              type="button"
               onClick={() => selectedPreset && handleLoadPreset(selectedPreset)}
               disabled={!selectedPreset}
               className="bg-purple-600 hover:bg-purple-700"
@@ -237,7 +238,7 @@ export default function PresetManager({
           {/* Save Current Config */}
           <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" type="button">
                 <Save className="h-4 w-4 mr-2" />
                 Save Current
               </Button>
@@ -270,7 +271,7 @@ export default function PresetManager({
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleSavePreset} className="bg-green-600 hover:bg-green-700">
+                <Button onClick={handleSavePreset} className="bg-green-600 hover:bg-green-700" type="button">
                   <Save className="h-4 w-4 mr-2" />
                   Save Preset
                 </Button>
@@ -280,6 +281,7 @@ export default function PresetManager({
 
           <Button
             variant="outline"
+            type="button"
             onClick={() => selectedPreset && handleDeletePreset(selectedPreset)}
             disabled={
               !selectedPreset ||
@@ -293,6 +295,7 @@ export default function PresetManager({
 
           <Button
             variant="outline"
+            type="button"
             onClick={handleExportPresets}
             disabled={customPresets.length === 0}
             className="w-full"

@@ -24,7 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form } from '@/components/ui/form';
 import { useTrainingForm } from '@/hooks/useTrainingForm';
 import PresetManager from './PresetManager';
-import { trainingAPI } from '@/lib/api';
+import { trainingAPI, modelsAPI } from '@/lib/api';
 import {
   SetupTab,
   DatasetTab,
@@ -80,34 +80,29 @@ export default function TrainingConfigNew() {
         
         setWorkspaceRoot(root);
 
-        // 2. Construct paths dynamically
-        const paths = {
-          models: `${root}/pretrained_model`,
-          vaes: `${root}/vae`,
-          datasets: `${root}/datasets`,
-          outputs: `${root}/output`
-        };
+        // 2. Fetch Models and VAEs using dedicated API (more robust)
+        const modelsData = await modelsAPI.list();
 
-        const [modelsRes, vaesRes, datasetsRes] = await Promise.all([
-          fetch(`/api/files/list?path=${encodeURIComponent(paths.models)}`),
-          fetch(`/api/files/list?path=${encodeURIComponent(paths.vaes)}`),
-          fetch(`/api/files/list?path=${encodeURIComponent(paths.datasets)}`)
-        ]);
+        // 3. Fetch Datasets using file API
+        // Try 'datasets' (plural) first, as that's the standard
+        let datasetsPath = `${root}/datasets`;
+        let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
+        
+        // Fallback to 'dataset' (singular) if plural not found
+        if (!datasetsRes.ok) {
+             datasetsPath = `${root}/dataset`;
+             datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
+        }
 
-        // Handle non-OK responses gracefully
-        const modelsData = modelsRes.ok ? await modelsRes.json() : { files: [] };
-        const vaesData = vaesRes.ok ? await vaesRes.json() : { files: [] };
         const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
 
         setModels(
-          (modelsData.files || [])
-            .filter((f: any) => f.type === 'file' && (f.name.endsWith('.safetensors') || f.name.endsWith('.ckpt')))
-            .map((file: any) => ({ value: file.path, label: file.name }))
+          (modelsData.models || [])
+            .map((m: any) => ({ value: m.path, label: m.name }))
         );
         setVaes(
-          (vaesData.files || [])
-            .filter((f: any) => f.type === 'file')
-            .map((file: any) => ({ value: file.path, label: file.name }))
+          (modelsData.vaes || [])
+            .map((v: any) => ({ value: v.path, label: v.name }))
         );
         setDatasets(
           (datasetsData.files || [])
@@ -117,15 +112,14 @@ export default function TrainingConfigNew() {
 
         // Set sane defaults only if the form is empty for those fields
         if (!form.getValues('output_dir')) {
-            form.setValue('output_dir', paths.outputs);
+            form.setValue('output_dir', `${root}/output`);
         }
-        if (!form.getValues('pretrained_model_name_or_path') && modelsData.files?.length > 0) {
-            const defaultModel = modelsData.files.find((f: any) => f.type === 'file');
-            if (defaultModel) form.setValue('pretrained_model_name_or_path', defaultModel.path);
+        if (!form.getValues('pretrained_model_name_or_path') && modelsData.models?.length > 0) {
+            form.setValue('pretrained_model_name_or_path', modelsData.models[0].path);
         }
-        if (!form.getValues('vae') && vaesData.files?.length > 0) {
-            const defaultVae = vaesData.files.find((f: any) => f.type === 'file');
-            if (defaultVae) form.setValue('vae', defaultVae.path);
+        if (!form.getValues('vae') && modelsData.vaes?.length > 0) {
+            // Optional: don't auto-set VAE if you want user to choose
+            // form.setValue('vae', modelsData.vaes[0].path);
         }
         if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
             const defaultDataset = datasetsData.files.find((f: any) => f.type === 'dir');
@@ -158,7 +152,14 @@ export default function TrainingConfigNew() {
           window.location.href = `/training/monitor?job=${response.job_id}`;
         }
       } else {
-        alert(`❌ Training failed: ${response.message}`);
+        if (response.validation_errors && response.validation_errors.length > 0) {
+          const details = response.validation_errors
+            .map((e: any) => `• ${e.field}: ${e.message}`)
+            .join('\n');
+          alert(`❌ Validation Failed:\n${response.message}\n\n${details}`);
+        } else {
+          alert(`❌ Training failed: ${response.message}`);
+        }
       }
     } catch (error: any) {
       console.error('Training error:', error);

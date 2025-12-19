@@ -82,6 +82,9 @@ class TaggingService:
                 process=process
             )
 
+            # Step 6: Start background monitoring and post-processing
+            asyncio.create_task(self._monitor_and_postprocess(job_id, process, config))
+
             logger.info(f"Tagging started: {job_id} (model: {config.model.value})")
 
             return TaggingStartResponse(
@@ -105,6 +108,67 @@ class TaggingService:
                 message=f"Internal error: {e}",
                 validation_errors=[{"field": "system", "message": str(e), "severity": "error"}]
             )
+
+    async def _monitor_and_postprocess(self, job_id: str, process: asyncio.subprocess.Process, config: TaggingConfig):
+        """
+        Waits for the tagging process to finish and applies post-processing.
+        Specifically handles 'always_first_tags' injection (Activation Tags).
+        """
+        try:
+            # Wait for process to complete
+            await process.wait()
+
+            if process.returncode == 0:
+                logger.info(f"Tagging job {job_id} completed successfully. Checking for post-processing...")
+
+                # Apply Activation Tags (always_first_tags)
+                if config.always_first_tags:
+                    await self._apply_activation_tags(config)
+            else:
+                logger.warning(f"Tagging job {job_id} failed with exit code {process.returncode}. Skipping post-processing.")
+
+        except Exception as e:
+            logger.error(f"Error during tagging post-processing for job {job_id}: {e}", exc_info=True)
+
+    async def _apply_activation_tags(self, config: TaggingConfig):
+        """
+        Force-injects always_first_tags into all caption files.
+        This fixes the issue where the script only reorders existing tags.
+        """
+        try:
+            dataset_path = Path(config.dataset_dir)
+            activation_tags = [t.strip() for t in config.always_first_tags.split(',') if t.strip()]
+            
+            if not activation_tags:
+                return
+
+            logger.info(f"Injecting activation tags: {activation_tags}")
+            
+            # Find all caption files
+            count = 0
+            # Handle multiple extensions if needed, but config usually specifies one
+            for caption_file in dataset_path.rglob(f"*{config.caption_extension}"):
+                if not caption_file.is_file():
+                    continue
+
+                content = caption_file.read_text(encoding='utf-8').strip()
+                existing_tags = [t.strip() for t in content.split(config.caption_separator.strip()) if t.strip()]
+                
+                # Filter out activation tags from existing to prevent duplicates
+                clean_tags = [t for t in existing_tags if t not in activation_tags]
+                
+                # Prepend activation tags
+                new_tags = activation_tags + clean_tags
+                
+                # Write back
+                new_content = config.caption_separator.join(new_tags)
+                caption_file.write_text(new_content, encoding='utf-8')
+                count += 1
+
+            logger.info(f"Applied activation tags to {count} files.")
+
+        except Exception as e:
+            logger.error(f"Failed to apply activation tags: {e}", exc_info=True)
 
     async def get_status(self, job_id: str) -> Optional[JobStatus]:
         """Get current tagging status."""

@@ -43,7 +43,12 @@ async function handleResponse(response: Response) {
     try {
       const json = JSON.parse(text);
       if (json.detail) {
-        errorMsg = json.detail; // Use backend error message if available
+        // Handle Pydantic validation errors (array of objects)
+        if (typeof json.detail === 'object') {
+          errorMsg = JSON.stringify(json.detail, null, 2);
+        } else {
+          errorMsg = String(json.detail);
+        }
       }
     } catch {
       // 3. If it wasn't JSON, append the raw text preview
@@ -183,6 +188,7 @@ export interface ImageWithTags {
   image_name: string;
   tags: string[];
   has_tags: boolean;
+  url?: string;
 }
 
 export interface PaginatedDatasetsResponse {
