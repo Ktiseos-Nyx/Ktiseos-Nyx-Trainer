@@ -98,7 +98,7 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
         )
 
     # Flux-specific validation
-    if config.model_type.value == "Flux":
+    if config.model_type == "Flux":
         if not config.clip_l_path:
             errors.append(
                 ValidationError(
@@ -136,7 +136,7 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
             )
 
     # Lumina-specific validation
-    if config.model_type.value == "Lumina":
+    if config.model_type == "Lumina":
         if not config.gemma2:
             errors.append(
                 ValidationError(

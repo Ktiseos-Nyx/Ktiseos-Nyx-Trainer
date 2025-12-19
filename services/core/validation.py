@@ -42,6 +42,16 @@ def validate_dataset_path(dataset_name: str) -> Path:
         >>> str(path)
         '/path/to/datasets/my_character'
     """
+    # Check if absolute path provided
+    path_obj = Path(dataset_name)
+    if path_obj.is_absolute():
+        try:
+            resolved = path_obj.resolve()
+            if str(resolved).startswith(str(DATASETS_DIR)):
+                return resolved
+        except (ValueError, OSError):
+            pass  # Fall through to relative handling
+
     # Strip "datasets/" prefix if user included it (be forgiving!)
     if dataset_name.startswith("datasets/"):
         dataset_name = dataset_name[9:]  # Remove "datasets/"
@@ -81,6 +91,17 @@ def validate_model_path(model_name: str) -> Path:
     Raises:
         ValidationError: If path traversal detected or invalid name
     """
+    # Check if absolute path provided
+    path_obj = Path(model_name)
+    if path_obj.is_absolute():
+        try:
+            resolved = path_obj.resolve()
+            # Allow models in both MODELS_DIR and VAE_DIR (for flexible VAE selection)
+            if str(resolved).startswith(str(MODELS_DIR)) or str(resolved).startswith(str(VAE_DIR)):
+                return resolved
+        except (ValueError, OSError):
+            pass
+
     # Remove path traversal attempts
     clean_name = model_name.replace("..", "").replace("/", "").replace("\\", "").strip()
 
@@ -93,8 +114,16 @@ def validate_model_path(model_name: str) -> Path:
     # Ensure it resolves within models directory
     try:
         resolved = model_path.resolve()
-        if not str(resolved).startswith(str(MODELS_DIR)):
-            raise ValidationError(f"Invalid model path: {model_name}")
+        # Again, allow VAE directory as fallback for relative paths if needed, 
+        # but usually relative paths are for main models.
+        if not str(resolved).startswith(str(MODELS_DIR)) and not str(resolved).startswith(str(VAE_DIR)):
+             # One last check: maybe it IS in VAE dir but constructed with MODELS_DIR?
+             # Try reconstructing in VAE dir
+             vae_check = VAE_DIR / clean_name
+             if vae_check.resolve().exists() and str(vae_check.resolve()).startswith(str(VAE_DIR)):
+                 return vae_check.resolve()
+             
+             raise ValidationError(f"Invalid model path: {model_name}")
     except (ValueError, OSError) as e:
         raise ValidationError(f"Invalid model path: {e}")
 
@@ -179,6 +208,16 @@ def validate_output_path(filename: str) -> Path:
     Raises:
         ValidationError: If path traversal detected
     """
+    # Check if absolute path provided
+    path_obj = Path(filename)
+    if path_obj.is_absolute():
+        try:
+            resolved = path_obj.resolve()
+            if str(resolved).startswith(str(OUTPUT_DIR)):
+                return resolved
+        except (ValueError, OSError):
+            pass
+
     clean_name = filename.replace("..", "").replace("/", "").replace("\\", "").strip()
 
     if not clean_name:

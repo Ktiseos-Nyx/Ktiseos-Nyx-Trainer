@@ -27,13 +27,20 @@ export default function TrainingMonitor() {
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  // ✅ FIX 2: Load from localStorage only after component mounts (browser only)
+  // ✅ FIX 2: Load from URL query parameter, then localStorage after component mounts (browser only)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedJobId = localStorage.getItem('current_training_job_id');
-      if (savedJobId) {
-        // eslint-disable-next-line
-        setJobId(savedJobId);
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlJobId = urlParams.get('job');
+      
+      if (urlJobId) {
+        setJobId(urlJobId);
+        localStorage.setItem('current_training_job_id', urlJobId);
+      } else {
+        const savedJobId = localStorage.getItem('current_training_job_id');
+        if (savedJobId) {
+          setJobId(savedJobId);
+        }
       }
     }
   }, []);
