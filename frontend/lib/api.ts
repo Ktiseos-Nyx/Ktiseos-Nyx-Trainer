@@ -105,6 +105,12 @@ export interface DirectoryListing {
   files: FileInfo[];
 }
 
+// Add these helper types at the top of lib/api.ts
+export type ModelType = 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
+export type LoRAType = 'LoRA' | 'LoCon' | 'LoHa' | 'LoKr' | 'DoRA';
+export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME';
+export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
+
 export const fileAPI = {
   getDefaultWorkspace: async (): Promise<{ path: string; allowed_dirs: string[] }> => {
     const response = await fetch(`${API_BASE}/files/default-workspace`);
@@ -477,14 +483,14 @@ export interface TrainingConfig {
   // ========== LEARNING RATES ==========
   unet_lr: number;
   text_encoder_lr: number;
-  lr_scheduler: 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
+  lr_scheduler: SchedulerType; // ✅ Strict
   lr_scheduler_number: number;
   lr_warmup_ratio: number;
   lr_warmup_steps: number;
   lr_power: number;
 
   // ========== LORA STRUCTURE ==========
-  lora_type: 'LoRA' | 'LoCon' | 'LoHa' | 'LoKr' | 'DoRA';
+  lora_type: LoRAType; // ✅ Strict
   network_module: string;
   network_dim: number;
   network_alpha: number;
@@ -498,7 +504,7 @@ export interface TrainingConfig {
   module_dropout: number;
 
   // ========== OPTIMIZER ==========
-  optimizer_type: string;
+  optimizer_type: OptimizerType; // ✅ Strict (FIXES ERROR 2322)
   weight_decay: number;
   gradient_accumulation_steps: number;
   max_grad_norm: number;
