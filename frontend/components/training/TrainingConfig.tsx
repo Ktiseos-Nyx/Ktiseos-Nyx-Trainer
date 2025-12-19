@@ -72,12 +72,12 @@ export default function TrainingConfigNew() {
         const workspaceRes = await fetch('/api/files/default-workspace');
         const workspaceData = workspaceRes.ok ? await workspaceRes.json() : { path: '' };
         const root = workspaceData.path;
-        
+
         if (!root) {
           console.error("Failed to determine workspace root");
           return;
         }
-        
+
         setWorkspaceRoot(root);
 
         // 2. Fetch Models and VAEs using dedicated API (more robust)
@@ -87,7 +87,7 @@ export default function TrainingConfigNew() {
         // Try 'datasets' (plural) first, as that's the standard
         let datasetsPath = `${root}/datasets`;
         let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
-        
+
         // Fallback to 'dataset' (singular) if plural not found
         if (!datasetsRes.ok) {
              datasetsPath = `${root}/dataset`;
@@ -117,9 +117,9 @@ export default function TrainingConfigNew() {
         if (!form.getValues('pretrained_model_name_or_path') && modelsData.models?.length > 0) {
             form.setValue('pretrained_model_name_or_path', modelsData.models[0].path);
         }
-        if (!form.getValues('vae') && modelsData.vaes?.length > 0) {
-            // Optional: don't auto-set VAE if you want user to choose
-            // form.setValue('vae', modelsData.vaes[0].path);
+        // ✅ NEW (Fixed Property Name)
+        if (!form.getValues('vae_path') && modelsData.vaes?.length > 0) {
+        // form.setValue('vae_path', modelsData.vaes[0].path);
         }
         if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
             const defaultDataset = datasetsData.files.find((f: any) => f.type === 'dir');
@@ -170,6 +170,32 @@ export default function TrainingConfigNew() {
       setIsTraining(false);
     }
   };
+
+  // 1. Add this function inside your component
+const handleSaveToServer = async () => {
+  try {
+    // Trigger local save first
+    saveConfig();
+
+    // Get current values
+    const currentValues = form.getValues();
+
+    // Call the backend to write the file to the 'configs' folder
+    const result = await configAPI.save(
+      currentValues.project_name || 'untitled_config',
+      currentValues
+    );
+
+    if (result.success) {
+      alert("✅ Configuration saved to server!");
+    } else {
+      alert("❌ Server failed to save: " + result.message);
+    }
+  } catch (error: any) {
+    console.error("Save error:", error);
+    alert("❌ Error saving to server: " + error.message);
+  }
+};
 
   const validationErrors = getValidationErrors();
   const errorCount = validationErrors.length;
@@ -293,7 +319,7 @@ export default function TrainingConfigNew() {
                     {isTraining ? 'Starting Training...' : 'Start Training'}
                   </Button>
 
-                  <Button type="button" variant="outline" onClick={saveConfig}>
+                  <Button type="button" variant="outline" onClick={handleSaveToServer}>
                     <Save className="h-4 w-4 mr-2" />
                     Save Config
                   </Button>

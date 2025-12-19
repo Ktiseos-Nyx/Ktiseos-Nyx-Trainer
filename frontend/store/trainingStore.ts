@@ -11,14 +11,11 @@ import type { TrainingConfig } from '@/lib/api';
 /**
  * Default training configuration values
  */
-const defaultConfig: Partial<TrainingConfig> = {
-  // ========== PROJECT & MODEL SETUP ==========
+const defaultConfig: TrainingConfig = {
   project_name: 'my_lora',
   model_type: 'SDXL',
   pretrained_model_name_or_path: '',
   vae_path: '',
-
-  // ========== DATASET & BASIC TRAINING ==========
   train_data_dir: '',
   output_dir: '',
   resolution: 1024,
@@ -27,14 +24,10 @@ const defaultConfig: Partial<TrainingConfig> = {
   max_train_steps: 0,
   train_batch_size: 1,
   seed: 42,
-
-  // Data augmentation
   flip_aug: false,
   random_crop: false,
   color_aug: false,
   shuffle_caption: false,
-
-  // ========== LEARNING RATES ==========
   unet_lr: 0.0001,
   text_encoder_lr: 0.00001,
   lr_scheduler: 'cosine_with_restarts',
@@ -42,8 +35,6 @@ const defaultConfig: Partial<TrainingConfig> = {
   lr_warmup_ratio: 0.1,
   lr_warmup_steps: 0,
   lr_power: 1.0,
-
-  // ========== LORA STRUCTURE ==========
   lora_type: 'LoRA',
   network_module: 'networks.lora',
   network_dim: 32,
@@ -56,14 +47,10 @@ const defaultConfig: Partial<TrainingConfig> = {
   train_norm: false,
   rank_dropout: 0.0,
   module_dropout: 0.0,
-
-  // ========== OPTIMIZER ==========
   optimizer_type: 'AdamW8bit',
   weight_decay: 0.1,
   gradient_accumulation_steps: 1,
   max_grad_norm: 1.0,
-
-  // ========== CAPTION & TOKEN CONTROL ==========
   keep_tokens: 0,
   clip_skip: 2,
   max_token_length: 225,
@@ -74,15 +61,11 @@ const defaultConfig: Partial<TrainingConfig> = {
   secondary_separator: ';',
   enable_wildcard: false,
   weighted_captions: false,
-
-  // ========== BUCKETING ==========
   enable_bucket: true,
   min_bucket_reso: 256,
   max_bucket_reso: 2048,
-  // bucket_reso_steps removed because it's not in your API interface yet
   bucket_no_upscale: false,
-
-  // ========== PRECISION & MEMORY ==========
+  bucket_reso_steps: 64,
   mixed_precision: 'fp16',
   save_precision: 'fp16',
   full_fp16: false,
@@ -93,8 +76,6 @@ const defaultConfig: Partial<TrainingConfig> = {
   cache_text_encoder_outputs: false,
   cache_text_encoder_outputs_to_disk: false,
   no_half_vae: false,
-
-  // ========== SAVING ==========
   save_model_as: 'safetensors',
   save_every_n_epochs: 1,
   save_every_n_steps: 0,
@@ -103,22 +84,13 @@ const defaultConfig: Partial<TrainingConfig> = {
   save_state: false,
   save_state_on_train_end: false,
   resume_from_state: '',
-
-  // ========== VALIDATION & LOGGING ==========
   logging_dir: '',
   log_with: '',
   log_prefix: '',
-  log_tracker_name: '',
-  log_tracker_config: '',
-  wandb_run_name: '',
-
-  // ========== SAMPLING (PREVIEW) ==========
   sample_every_n_epochs: 0,
   sample_every_n_steps: 0,
   sample_prompts: '',
   sample_sampler: 'euler_a',
-
-  // ========== ADVANCED ==========
   min_snr_gamma: 0,
   scale_v_pred_loss_like_noise_pred: false,
   v_pred_like_loss: 0,
@@ -138,20 +110,16 @@ const defaultConfig: Partial<TrainingConfig> = {
 };
 
 interface TrainingStore {
-  // State
-  config: Partial<TrainingConfig>;
-  isDirty: boolean; // Track if user has made changes
-
-  // Actions
-  updateConfig: (updates: Partial<TrainingConfig>) => void;
+  config: TrainingConfig; // Strict!
+  isDirty: boolean;
+  updateConfig: (updates: Partial<TrainingConfig>) => void; // Partial is okay here
   resetConfig: () => void;
-  loadConfig: (config: Partial<TrainingConfig>) => void;
+  loadConfig: (config: TrainingConfig) => void; // Strict!
   setDirty: (dirty: boolean) => void;
-
-  // Computed getters
-  getConfig: () => Partial<TrainingConfig>;
+  getConfig: () => TrainingConfig;
   isValid: () => boolean;
 }
+
 
 export const useTrainingStore = create<TrainingStore>()(
   persist(
