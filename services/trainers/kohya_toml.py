@@ -138,10 +138,10 @@ class KohyaTOMLGenerator:
             "optimizer_arguments": {
                 "learning_rate": self.config.unet_lr,
                 "text_encoder_lr": self.config.text_encoder_lr,
-                "lr_scheduler": self.config.lr_scheduler.value,
+                "lr_scheduler": self.config.lr_scheduler,  # Removed .value
                 "lr_scheduler_num_cycles": self.config.lr_scheduler_number,
                 "lr_warmup_ratio": self.config.lr_warmup_ratio,
-                "optimizer_type": self.config.optimizer_type.value,
+                "optimizer_type": self.config.optimizer_type,  # Removed .value
                 "max_grad_norm": self.config.max_grad_norm,
                 "weight_decay": self.config.weight_decay,
             },
@@ -156,7 +156,7 @@ class KohyaTOMLGenerator:
 
     def _get_network_config(self) -> Dict[str, Any]:
         """Get network configuration based on LoRA type."""
-        lora_type = self.config.lora_type.value
+        lora_type = self.config.lora_type  # Removed .value
 
         if lora_type == "LoRA":
             return {
@@ -171,10 +171,23 @@ class KohyaTOMLGenerator:
                 "network_module": "lycoris.kohya",
                 "network_args": [f"algo=loha"]
             }
-        elif lora_type == "LoKR":
+        elif lora_type == "LoKR":  # Changed to match uppercase LOKR enum value just in case, but string compare is case sensitive.
+            # Wait, my fix to enum made it "LoKr" (mixed case).
+            # If config.lora_type is "LoKr", this check fails if it expects "LoKR"?
+            # Let's match against the string value.
             return {
                 "network_module": "lycoris.kohya",
                 "network_args": [f"algo=lokr"]
+            }
+        elif lora_type == "LoKr": # Handle the new mixed case
+             return {
+                "network_module": "lycoris.kohya",
+                "network_args": [f"algo=lokr"]
+            }
+        elif lora_type == "DoRA":
+             return {
+                "network_module": "lycoris.kohya",
+                "network_args": [f"algo=dora"]
             }
         else:
             return {
@@ -206,7 +219,7 @@ class KohyaTOMLGenerator:
             "no_token_padding": self.config.no_token_padding,
 
             # Save format
-            "save_model_as": self.config.save_model_as.value,
+            "save_model_as": self.config.save_model_as,  # Removed .value
             "save_precision": self.config.save_precision,
             "no_metadata": self.config.no_metadata,
 
@@ -224,7 +237,7 @@ class KohyaTOMLGenerator:
             "sample_sampler": self.config.sample_sampler,
 
             # Performance & Memory
-            "mixed_precision": self.config.mixed_precision.value,
+            "mixed_precision": self.config.mixed_precision,  # Removed .value
             "gradient_checkpointing": self.config.gradient_checkpointing,
             "gradient_accumulation_steps": self.config.gradient_accumulation_steps,
             "cache_latents": self.config.cache_latents,
@@ -238,8 +251,8 @@ class KohyaTOMLGenerator:
             "lowram": self.config.lowram,
 
             # Cross attention
-            "xformers": self.config.cross_attention.value == "xformers",
-            "sdpa": self.config.cross_attention.value == "sdpa",
+            "xformers": self.config.cross_attention == "xformers",  # Removed .value
+            "sdpa": self.config.cross_attention == "sdpa",  # Removed .value
 
             # Model settings
             "v2": self.config.v2,

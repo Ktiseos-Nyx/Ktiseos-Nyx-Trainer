@@ -147,10 +147,12 @@ export default function TrainingConfigNew() {
         setTrainingJobId(response.job_id || null);
         alert(`✅ Training started! Job ID: ${response.job_id}`);
 
-        // Redirect to monitor page
-        if (response.job_id) {
-          window.location.href = `/training/monitor?job=${response.job_id}`;
-        }
+        // Instead of redirecting, rely on TrainingMonitor to pick up job_id from URL if needed
+        // Or pass it via state to a sibling component.
+        // For now, simply removing the redirect.
+        // if (response.job_id) {
+        //   window.location.href = `/training/monitor?job=${response.job_id}`;
+        // }
       } else {
         if (response.validation_errors && response.validation_errors.length > 0) {
           const details = response.validation_errors
