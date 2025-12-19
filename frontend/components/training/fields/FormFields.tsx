@@ -32,10 +32,16 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
+import {
+  Combobox,
+  ComboboxAnchor,
+  ComboboxInput,
+  ComboboxTrigger,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+} from '@/components/ui/combobox';
 
-/**
- * Base props for all form fields
- */
 interface BaseFieldProps<T extends FieldValues> {
   form: UseFormReturn<T>;
   name: Path<T>;
@@ -43,22 +49,11 @@ interface BaseFieldProps<T extends FieldValues> {
   description?: string;
   placeholder?: string;
   disabled?: boolean;
-  readOnly?: boolean; // <--- ADD THIS LINE
+  readOnly?: boolean;
 }
 
 /**
  * Text Input Field
- *
- * Usage:
- * ```tsx
- * <TextFormField
- *   form={form}
- *   name="project_name"
- *   label="Project Name"
- *   description="Alphanumeric characters, underscores, and hyphens only"
- *   placeholder="my_awesome_lora"
- * />
- * ```
  */
 export function TextFormField<T extends FieldValues>({
   form,
@@ -67,7 +62,7 @@ export function TextFormField<T extends FieldValues>({
   description,
   placeholder,
   disabled,
-  readOnly, // <--- ACCEPT THE NEW PROP
+  readOnly,
 }: BaseFieldProps<T>) {
   return (
     <FormField
@@ -80,9 +75,14 @@ export function TextFormField<T extends FieldValues>({
             <Input
               placeholder={placeholder}
               disabled={disabled}
-              readOnly={readOnly} // <--- PASS IT TO THE INPUT
+              readOnly={readOnly}
               {...field}
               value={field.value ?? ''}
+              // ✅ FORCE SYNC ON CHANGE
+              onChange={(e) => {
+                field.onChange(e);
+                form.setValue(name, e.target.value as any, { shouldDirty: true });
+              }}
             />
           </FormControl>
           {description && <FormDescription>{description}</FormDescription>}
@@ -95,18 +95,6 @@ export function TextFormField<T extends FieldValues>({
 
 /**
  * Number Input Field
- *
- * Usage:
- * ```tsx
- * <NumberFormField
- *   form={form}
- *   name="network_dim"
- *   label="Network Dimension"
- *   description="Higher = more detail but larger file size"
- *   min={1}
- *   max={1024}
- * />
- * ```
  */
 export function NumberFormField<T extends FieldValues>({
   form,
@@ -141,8 +129,10 @@ export function NumberFormField<T extends FieldValues>({
               {...field}
               value={field.value ?? ''}
               onChange={(e) => {
-                const value = e.target.value;
-                field.onChange(value === '' ? undefined : Number(value));
+                const val = e.target.value === '' ? undefined : Number(e.target.value);
+                field.onChange(val);
+                // ✅ FORCE SYNC ON CHANGE
+                form.setValue(name, val as any, { shouldDirty: true });
               }}
             />
           </FormControl>
@@ -156,21 +146,6 @@ export function NumberFormField<T extends FieldValues>({
 
 /**
  * Select Dropdown Field
- *
- * Usage:
- * ```tsx
- * <SelectFormField
- *   form={form}
- *   name="model_type"
- *   label="Model Type"
- *   description="Choose the model architecture"
- *   options={[
- *     { value: 'SDXL', label: 'SDXL' },
- *     { value: 'SD1.5', label: 'SD 1.5' },
- *     { value: 'Flux', label: 'Flux' },
- *   ]}
- * />
- * ```
  */
 export function SelectFormField<T extends FieldValues>({
   form,
@@ -191,12 +166,11 @@ export function SelectFormField<T extends FieldValues>({
         <FormItem>
           <FormLabel>{label}</FormLabel>
           <Select
-            // ✅ FIX 1: Use 'value' instead of 'defaultValue' to keep UI in sync
             value={field.value}
-            // ✅ FIX 2: Manually trigger the 'Dirty' state so Zustand saves
             onValueChange={(val) => {
-              field.onChange(val); // Updates React Hook Form
-              form.setValue(name, val as any, { shouldDirty: true }); // Forces the save trigger
+              field.onChange(val);
+              // ✅ FORCE SYNC ON CHANGE
+              form.setValue(name, val as any, { shouldDirty: true });
             }}
             disabled={disabled}
           >
@@ -230,16 +204,6 @@ export function SelectFormField<T extends FieldValues>({
 
 /**
  * Checkbox Field
- *
- * Usage:
- * ```tsx
- * <CheckboxFormField
- *   form={form}
- *   name="flip_aug"
- *   label="Horizontal Flip Augmentation"
- *   description="Randomly flip images horizontally during training"
- * />
- * ```
  */
 export function CheckboxFormField<T extends FieldValues>({
   form,
@@ -257,7 +221,11 @@ export function CheckboxFormField<T extends FieldValues>({
           <FormControl>
             <Checkbox
               checked={field.value}
-              onCheckedChange={field.onChange}
+              onCheckedChange={(checked) => {
+                field.onChange(checked);
+                // ✅ FORCE SYNC ON CHANGE
+                form.setValue(name, checked as any, { shouldDirty: true });
+              }}
               disabled={disabled}
             />
           </FormControl>
@@ -273,19 +241,7 @@ export function CheckboxFormField<T extends FieldValues>({
 }
 
 /**
- * Textarea Field (for long text)
- *
- * Usage:
- * ```tsx
- * <TextareaFormField
- *   form={form}
- *   name="sample_prompts"
- *   label="Sample Prompts"
- *   description="One prompt per line"
- *   placeholder="1girl, solo, smiling"
- *   rows={5}
- * />
- * ```
+ * Textarea Field
  */
 export function TextareaFormField<T extends FieldValues>({
   form,
@@ -312,6 +268,11 @@ export function TextareaFormField<T extends FieldValues>({
               rows={rows}
               {...field}
               value={field.value ?? ''}
+              onChange={(e) => {
+                field.onChange(e);
+                // ✅ FORCE SYNC ON CHANGE
+                form.setValue(name, e.target.value as any, { shouldDirty: true });
+              }}
             />
           </FormControl>
           {description && <FormDescription>{description}</FormDescription>}
@@ -323,20 +284,7 @@ export function TextareaFormField<T extends FieldValues>({
 }
 
 /**
- * Slider Field (for visual range selection)
- *
- * Usage:
- * ```tsx
- * <SliderFormField
- *   form={form}
- *   name="caption_dropout_rate"
- *   label="Caption Dropout Rate"
- *   description="Probability of dropping captions (0-1)"
- *   min={0}
- *   max={1}
- *   step={0.01}
- * />
- * ```
+ * Slider Field
  */
 export function SliderFormField<T extends FieldValues>({
   form,
@@ -370,7 +318,11 @@ export function SliderFormField<T extends FieldValues>({
               max={max}
               step={step}
               value={[field.value ?? min]}
-              onValueChange={(value) => field.onChange(value[0])}
+              onValueChange={(value) => {
+                field.onChange(value[0]);
+                // ✅ FORCE SYNC ON CHANGE
+                form.setValue(name, value[0] as any, { shouldDirty: true });
+              }}
               disabled={disabled}
             />
           </FormControl>
@@ -381,30 +333,9 @@ export function SliderFormField<T extends FieldValues>({
     />
   );
 }
-// --- PASTE THIS AT THE END OF FormFields.tsx ---
-
-import {
-  Combobox,
-  ComboboxAnchor,
-  ComboboxInput,
-  ComboboxTrigger,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxItem,
-} from '@/components/ui/combobox';
 
 /**
- * Combobox Field (for searchable dropdowns)
- *
- * Usage:
- * ```tsx
- * <ComboboxFormField
- *   form={form}
- *   name="pretrained_model_name_or_path"
- *   label="Base Model"
- *   options={[{ value: '/path/model.safetensors', label: 'model.safetensors' }]}
- * />
- * ```
+ * Combobox Field
  */
 export function ComboboxFormField<T extends FieldValues>({
   form,
@@ -426,10 +357,10 @@ export function ComboboxFormField<T extends FieldValues>({
           <FormLabel>{label}</FormLabel>
           <Combobox
             value={field.value}
-            // ✅ FIX: Manually update and trigger 'dirty' state
             onValueChange={(val) => {
-              field.onChange(val); // Updates the form internally
-              form.setValue(name, val as any, { shouldDirty: true }); // Forces the auto-save trigger
+              field.onChange(val);
+              // ✅ FORCE SYNC ON CHANGE
+              form.setValue(name, val as any, { shouldDirty: true });
             }}
             disabled={disabled}
           >

@@ -38,7 +38,7 @@ export interface UseTrainingFormReturn {
 export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTrainingFormReturn {
   const {
     autoSave = true,
-    autoSaveDelay = 500,
+    autoSaveDelay = 300, // Reduced delay for snappier feel
     validateOnChange = true,
   } = options;
 
@@ -48,7 +48,6 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
   const setDirty = useTrainingStore((state) => state.setDirty);
   const zustandIsValid = useTrainingStore((state) => state.isValid);
 
-  // ✅ FIX 1: Strict generic and 'as any' resolver to handle Zod Transforms
   const form = useForm<TrainingConfig>({
     resolver: zodResolver(TrainingConfigSchema) as any,
     mode: validateOnChange ? 'onChange' : 'onBlur',
@@ -57,32 +56,47 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
     shouldUnregister: false,
   });
 
-  // eslint-disable-next-line
+  // Watch values
   const formValues = form.watch();
 
-  // Auto-save logic
+  // ✅ FIX 1: Stable Auto-Save
+  // We remove the 'isDirty' dependency from the array to prevent loops,
+  // but we check it inside the function.
   useEffect(() => {
     if (!autoSave) return;
+
     const timeoutId = setTimeout(() => {
+      // Only push to Zustand if the form has actually changed
       if (form.formState.isDirty) {
+        console.log("💾 Auto-saving to Zustand...", formValues.project_name);
         updateZustandConfig(formValues);
-        setDirty(true);
+        // Note: updateZustandConfig in your store sets state.isDirty to true
       }
     }, autoSaveDelay);
-    return () => clearTimeout(timeoutId);
-  }, [formValues, autoSave, autoSaveDelay, form.formState.isDirty, updateZustandConfig, setDirty]);
 
-  // Sync Logic
+    return () => clearTimeout(timeoutId);
+  }, [formValues, autoSave, autoSaveDelay, updateZustandConfig]);
+
+  // ✅ FIX 2: Guarded Sync
+  // We ONLY want to reset the form from Zustand in two cases:
+  // 1. Initial load (handled by defaultValues)
+  // 2. When a Preset is loaded (handled by loadPreset)
+  // We DO NOT want to sync on every render because it wipes out unsaved tab data.
+  // So we remove the 'form.reset' useEffect entirely or make it extremely specific.
+
+  // Only sync if the project_name in store changes (meaning a preset was loaded)
+  // and we aren't currently editing.
   useEffect(() => {
-    if (!form.formState.isDirty) {
-      form.reset(zustandConfig, { keepDirty: false });
+    if (!form.formState.isDirty && zustandConfig.project_name !== form.getValues('project_name')) {
+        form.reset(zustandConfig, { keepDirty: false });
     }
-  }, [zustandConfig, form]);
+  }, [zustandConfig.project_name]);
 
   const saveConfig = useCallback(() => {
     const values = form.getValues();
     updateZustandConfig(values);
     setDirty(false);
+    // Reset dirty state so the sync effect doesn't get confused
     form.reset(values, { keepDirty: false });
   }, [form, updateZustandConfig, setDirty]);
 
@@ -108,7 +122,7 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
 
   const onSubmit = useCallback(
     (callback: (config: TrainingConfig) => void) => {
-      return form.handleSubmit((data: TrainingConfig) => {
+      return form.handleSubmit((data) => {
         updateZustandConfig(data);
         setDirty(false);
         callback(data);
@@ -118,10 +132,10 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
   );
 
   return {
-    // ✅ FIX 2: Intermediary cast to unknown to satisfy TS protected types
     form: form as unknown as UseFormReturn<TrainingConfig>,
     config: zustandConfig,
-    isDirty: form.formState.isDirty,
+    // If the form is dirty OR the store says we have unsaved changes
+    isDirty: form.formState.isDirty || useTrainingStore.getState().isDirty,
     isValid: form.formState.isValid && zustandIsValid(),
     saveConfig,
     resetForm,
@@ -129,7 +143,7 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
     getValidationErrors,
     onSubmit,
   };
-} // 👈 THIS BRACE CLOSES THE HOOK.
+}
 
 // ✅ THESE MUST BE OUTSIDE THE BRACE ABOVE
 export function useFormField(
