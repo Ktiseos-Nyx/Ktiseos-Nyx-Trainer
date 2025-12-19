@@ -121,7 +121,7 @@ export default function DatasetTagsPage() {
                 className="w-full md:w-40 px-3 py-2 bg-input border border-border rounded-md"
                 id="bulk-op-select"
               >
-                <option value="add">Add Tags</option>
+                <option value="add">Add Activation Tag (Prepend)</option>
                 <option value="remove">Remove Tags</option>
                 <option value="replace">Replace Tags</option>
               </select>
@@ -210,7 +210,7 @@ export default function DatasetTagsPage() {
             <div key={img.image_path} className="border rounded-lg overflow-hidden bg-card">
               <div className="aspect-square bg-muted flex items-center justify-center p-2">
                 <img
-                  src={`/api/files/image/${datasetName}/${img.image_name}`}
+                  src={img.url || `/api/files/image/${datasetName}/${img.image_name}`}
                   alt={img.image_name}
                   className="w-full h-full object-contain"
                   onError={(e) => (e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect width="200" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif"%3ENo Image%3C/text%3E%3C/svg%3E')}

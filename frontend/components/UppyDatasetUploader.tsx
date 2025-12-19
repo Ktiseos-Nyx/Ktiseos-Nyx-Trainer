@@ -4,13 +4,12 @@ import { useState, useEffect } from 'react';
 import Uppy from '@uppy/core';
 import { Dashboard } from '@uppy/react';
 import XHRUpload from '@uppy/xhr-upload';
+import { API_BASE } from '@/lib/api';
 
 // Uppy styles
 import '@uppy/core/dist/style.css';
 import '@uppy/dashboard/dist/style.css';
 import '@/styles/uppy-custom.css';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 export default function UppyDatasetUploader() {
   const [datasetName, setDatasetName] = useState('');
