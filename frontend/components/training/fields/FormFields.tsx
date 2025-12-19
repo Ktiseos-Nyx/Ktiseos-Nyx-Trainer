@@ -148,16 +148,8 @@ export function NumberFormField<T extends FieldValues>({
  * Select Dropdown Field
  */
 export function SelectFormField<T extends FieldValues>({
-  form,
-  name,
-  label,
-  description,
-  placeholder = 'Select an option...',
-  disabled,
-  options,
-}: BaseFieldProps<T> & {
-  options: Array<{ value: string; label: string; description?: string }>;
-}) {
+  form, name, label, description, options
+}: any) {
   return (
     <FormField
       control={form.control}
@@ -167,30 +159,12 @@ export function SelectFormField<T extends FieldValues>({
           <FormLabel>{label}</FormLabel>
           <Select
             value={field.value}
-            onValueChange={(val) => {
-              field.onChange(val);
-              // ✅ FORCE SYNC ON CHANGE
-              form.setValue(name, val as any, { shouldDirty: true });
-            }}
-            disabled={disabled}
+            onValueChange={field.onChange} // RHF handles the rest
           >
-            <FormControl>
-              <SelectTrigger>
-                <SelectValue placeholder={placeholder} />
-              </SelectTrigger>
-            </FormControl>
+            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex flex-col">
-                    <span>{option.label}</span>
-                    {option.description && (
-                      <span className="text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
-                    )}
-                  </div>
-                </SelectItem>
+              {options.map((opt: any) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -338,16 +312,8 @@ export function SliderFormField<T extends FieldValues>({
  * Combobox Field
  */
 export function ComboboxFormField<T extends FieldValues>({
-  form,
-  name,
-  label,
-  description,
-  placeholder,
-  disabled,
-  options,
-}: BaseFieldProps<T> & {
-  options: Array<{ value: string; label: string }>;
-}) {
+  form, name, label, options, placeholder
+}: any) {
   return (
     <FormField
       control={form.control}
@@ -357,29 +323,18 @@ export function ComboboxFormField<T extends FieldValues>({
           <FormLabel>{label}</FormLabel>
           <Combobox
             value={field.value}
-            onValueChange={(val) => {
-              field.onChange(val);
-              // ✅ FORCE SYNC ON CHANGE
-              form.setValue(name, val as any, { shouldDirty: true });
-            }}
-            disabled={disabled}
+            onValueChange={field.onChange} // Let RHF handle the state
           >
             <ComboboxAnchor>
-              <FormControl>
-                <ComboboxInput placeholder={placeholder || 'Select a file...'} />
-              </FormControl>
+              <FormControl><ComboboxInput placeholder={placeholder} /></FormControl>
               <ComboboxTrigger />
             </ComboboxAnchor>
             <ComboboxContent>
-              <ComboboxEmpty>No results found.</ComboboxEmpty>
-              {options.map((option) => (
-                <ComboboxItem key={option.value} value={option.value}>
-                  {option.label}
-                </ComboboxItem>
+              {options.map((opt: any) => (
+                <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
               ))}
             </ComboboxContent>
           </Combobox>
-          {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}

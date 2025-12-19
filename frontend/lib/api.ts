@@ -13,21 +13,21 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 // For relative URLs, construct WebSocket URL from current page location
 // For absolute URLs, converts http:// -> ws:// and https:// -> wss://
 export const getWsUrl = (path: string): string => {
-  if (API_BASE.startsWith('/')) {
-    // Relative URL - construct from window.location
-    if (typeof window !== 'undefined') {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // Local dev fix: connect directly to backend on 8000 if on frontend 3000
-      if (window.location.hostname === 'localhost' && window.location.port === '3000') {
-        return `ws://${window.location.hostname}:8000${path}`;
-      }
-      return `${protocol}//${window.location.host}${path}`;
-    }
-    // Server-side fallback
-    return `ws://localhost:8000${path}`;
+  if (typeof window === 'undefined') return `ws://127.0.0.1:8000${path}`;
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  let host = window.location.host;
+
+  // ✅ CASE 1: Standard Localhost or Vast Direct Mapping (3000 -> 8000)
+  if (host.includes(':3000')) {
+    host = host.replace(':3000', ':8000');
   }
-  // Absolute URL - replace http with ws
-  return API_BASE.replace(/^http/, 'ws').replace(/\/api\/?$/, '') + path;
+  // ✅ CASE 2: Your Specific Vast Proxy Template (13000 -> 18000)
+  else if (host.includes(':13000')) {
+    host = host.replace(':13000', ':18000');
+  }
+
+  return `${protocol}//${host}${path}`;
 };
 
 export const WS_BASE = getWsUrl('');

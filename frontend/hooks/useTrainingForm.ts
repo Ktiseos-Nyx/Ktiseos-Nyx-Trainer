@@ -11,114 +11,59 @@ import { useTrainingStore } from '@/store/trainingStore';
 import { TrainingConfigSchema } from '@/lib/validation';
 import type { TrainingConfig } from '@/lib/api';
 
-/**
- * Options for the training form hook
- */
-export interface UseTrainingFormOptions {
-  autoSave?: boolean;
-  autoSaveDelay?: number;
-  validateOnChange?: boolean;
-}
-
-/**
- * Return type - Strict TrainingConfig, NO PARTIAL
- */
-export interface UseTrainingFormReturn {
-  form: UseFormReturn<TrainingConfig>;
-  config: TrainingConfig;
-  isDirty: boolean;
-  isValid: boolean;
-  saveConfig: () => void;
-  resetForm: () => void;
-  loadPreset: (preset: Partial<TrainingConfig>) => void;
-  getValidationErrors: () => Array<{ field: string; message: string }>;
-  onSubmit: (callback: (config: TrainingConfig) => void) => (e?: React.BaseSyntheticEvent) => void;
-}
-
-export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTrainingFormReturn {
-  const {
-    autoSave = true,
-    autoSaveDelay = 300, // Reduced delay for snappier feel
-    validateOnChange = true,
-  } = options;
+export function useTrainingForm(options: any = {}) {
+  const { autoSave = true, autoSaveDelay = 500 } = options;
 
   const zustandConfig = useTrainingStore((state) => state.config);
   const updateZustandConfig = useTrainingStore((state) => state.updateConfig);
   const loadZustandConfig = useTrainingStore((state) => state.loadConfig);
   const setDirty = useTrainingStore((state) => state.setDirty);
-  const zustandIsValid = useTrainingStore((state) => state.isValid);
 
   const form = useForm<TrainingConfig>({
     resolver: zodResolver(TrainingConfigSchema) as any,
-    mode: validateOnChange ? 'onChange' : 'onBlur',
     defaultValues: zustandConfig,
-    reValidateMode: 'onChange',
+    // ✅ Keep data when tabs unmount
     shouldUnregister: false,
   });
 
-  // Watch values
-  const formValues = form.watch();
+  // ✅ FIX: Using 'eslint-disable-line' at the end of the line is often cleaner
+  // We need watch() for auto-save, even if the compiler thinks it's "incompatible"
+  const formValues = form.watch(); // eslint-disable-line react-hooks/incompatible-library
 
-  // ✅ FIX 1: Stable Auto-Save
-  // We remove the 'isDirty' dependency from the array to prevent loops,
-  // but we check it inside the function.
+  // ✅ AUTO-SAVE FIX:
   useEffect(() => {
     if (!autoSave) return;
 
     const timeoutId = setTimeout(() => {
-      // Only push to Zustand if the form has actually changed
+      // Use getValues() instead of the watched formValues to get the absolute latest data
       if (form.formState.isDirty) {
-        console.log("💾 Auto-saving to Zustand...", formValues.project_name);
-        updateZustandConfig(formValues);
-        // Note: updateZustandConfig in your store sets state.isDirty to true
+        const latestData = form.getValues();
+        console.log("💾 Persistent Sync:", latestData.project_name);
+        updateZustandConfig(latestData);
+
+        // We reset the "dirty" state locally so we don't spam the store,
+        // but we keep the current values.
+        form.reset(latestData, { keepValues: true, keepDirty: false });
       }
     }, autoSaveDelay);
 
     return () => clearTimeout(timeoutId);
-  }, [formValues, autoSave, autoSaveDelay, updateZustandConfig]);
+  }, [formValues, autoSave, autoSaveDelay, updateZustandConfig, form]);
 
-  // ✅ FIX 2: Guarded Sync
-  // We ONLY want to reset the form from Zustand in two cases:
-  // 1. Initial load (handled by defaultValues)
-  // 2. When a Preset is loaded (handled by loadPreset)
-  // We DO NOT want to sync on every render because it wipes out unsaved tab data.
-  // So we remove the 'form.reset' useEffect entirely or make it extremely specific.
-
-  // Only sync if the project_name in store changes (meaning a preset was loaded)
-  // and we aren't currently editing.
-  useEffect(() => {
-    if (!form.formState.isDirty && zustandConfig.project_name !== form.getValues('project_name')) {
-        form.reset(zustandConfig, { keepDirty: false });
-    }
-  }, [zustandConfig.project_name]);
-
-  const saveConfig = useCallback(() => {
-    const values = form.getValues();
-    updateZustandConfig(values);
-    setDirty(false);
-    // Reset dirty state so the sync effect doesn't get confused
-    form.reset(values, { keepDirty: false });
-  }, [form, updateZustandConfig, setDirty]);
-
-  const resetForm = useCallback(() => {
-    form.reset(zustandConfig, { keepDirty: false });
-    setDirty(false);
-  }, [form, zustandConfig, setDirty]);
-
+  // ✅ Preset Loader
   const loadPreset = useCallback((preset: Partial<TrainingConfig>) => {
     const fullConfig = { ...zustandConfig, ...preset } as TrainingConfig;
     loadZustandConfig(fullConfig);
     form.reset(fullConfig, { keepDirty: false });
     setDirty(false);
-  }, [form, zustandConfig, loadZustandConfig, setDirty]);
+  }, [zustandConfig, loadZustandConfig, form, setDirty]);
 
-  const getValidationErrors = useCallback(() => {
-    const errors = form.formState.errors;
-    return Object.entries(errors).map(([field, error]) => ({
-      field,
-      message: (error as any)?.message || 'Invalid value',
-    }));
-  }, [form.formState.errors]);
+  const saveConfig = useCallback(() => {
+    const values = form.getValues();
+    updateZustandConfig(values);
+    setDirty(false);
+    form.reset(values, { keepDirty: false });
+  }, [form, updateZustandConfig, setDirty]);
 
   const onSubmit = useCallback(
     (callback: (config: TrainingConfig) => void) => {
@@ -134,14 +79,16 @@ export function useTrainingForm(options: UseTrainingFormOptions = {}): UseTraini
   return {
     form: form as unknown as UseFormReturn<TrainingConfig>,
     config: zustandConfig,
-    // If the form is dirty OR the store says we have unsaved changes
-    isDirty: form.formState.isDirty || useTrainingStore.getState().isDirty,
-    isValid: form.formState.isValid && zustandIsValid(),
+    isDirty: form.formState.isDirty,
+    isValid: form.formState.isValid,
     saveConfig,
-    resetForm,
     loadPreset,
-    getValidationErrors,
     onSubmit,
+    resetForm: () => form.reset(zustandConfig),
+    getValidationErrors: () => Object.entries(form.formState.errors).map(([f, e]) => ({
+      field: f,
+      message: (e as any)?.message || 'Invalid value'
+    })),
   };
 }
 
