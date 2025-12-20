@@ -2,15 +2,15 @@
 FastAPI Main Application
 Provides REST API and WebSocket endpoints for the Next.js frontend.
 """
+import logging
 import sys
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import logging
 
-from api.routes import training, dataset, files, config, utilities, models, settings, civitai
+from api.routes import civitai, config, dataset, files, models, settings, training, utilities
 from services import websocket
 
 # Add project root to Python path

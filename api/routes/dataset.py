@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, File, UploadFile
+from fastapi import APIRouter, HTTPException, File, UploadFile, Form
 from pydantic import BaseModel
 
 # Import new services
@@ -524,7 +524,7 @@ async def bulk_tag_operation_endpoint(request: BulkTagOperationRequest):
 @router.post("/upload-batch")
 async def upload_batch(
     files: list[UploadFile] = File(...),
-    dataset_name: str = "my_dataset"
+    dataset_name: str = Form("my_dataset")
 ):
     """
     Upload multiple files to a dataset.
@@ -561,7 +561,7 @@ async def upload_batch(
 @router.post("/upload-zip")
 async def upload_zip(
     file: UploadFile = File(...),
-    dataset_name: str = "my_dataset"
+    dataset_name: str = Form("my_dataset")
 ):
     """
     Upload and extract a ZIP file to a dataset.
