@@ -95,8 +95,27 @@ Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-
 - **Tailwind CSS** - MIT License
 - **Radix UI** - MIT License
 - **Lucide Icons** - ISC License
+- **Shadcn UI**
 
 ---
+
+## Other Attributions & Inspirations
+
+- **Jelosus2** - Google Colab Edition of Derrian Distro that inspired our original project.
+- **AndroidXXL** - Google Colab Forks and Rewrites that were included with Jeolsus2's colab project.
+- **Linaqruf** - Early development of some of the first Google Colab and Training Scripts.
+- **LastBen** - FastAPI and Training scripts from various sources for Jupyter and Google Colab.
+- **Everdream2Trainer** - Original Ipython interface used in later Jupyter and Colab notebooks for Huggingface.
+- **Ostris** - AiToolkit.
+- **SimpleTrainer** While not directly an inspiration, they are indeed another training toolkit, and have NextJS frontend capabilities.
+- **Nerogar** - One Trainer, another trainer that inspired us to keep moving.
+- **Holostrawberry** - Colab, Tagging Scripts.
+- **Naoki Yoshida** - Father of the FFXIV Community, his produced game has kept Duskfallcrew sane through this project.
+- **Masayoshi Soken** - Composer, Amazing Nerd. FFXIV music that keeps some of us going.
+- **Anthropic** - Vibe Coding Capabilities using Claude.
+- **Google** - Vibe Coding via Gemini.
+- **Qwen** - Vibe coding via Qwen code, Qwen web.
+
 
 ## Modifications
 
