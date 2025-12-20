@@ -1,4 +1,4 @@
-import argparse
+import argparse  # noqa: I001
 import csv
 import os
 from pathlib import Path
@@ -6,18 +6,18 @@ import shutil
 import subprocess
 import sys
 
-import cv2
+import cv2 # pyright: ignore[reportMissingImports]
 import numpy as np
-import torch
-from huggingface_hub import hf_hub_download
+import torch # pyright: ignore[reportMissingImports]
+from huggingface_hub import hf_hub_download # pyright: ignore[reportMissingImports]
 from PIL import Image, ImageFile
 from tqdm import tqdm
 
 # Fix for truncated JPEG images - allows PIL to handle corrupted/truncated files gracefully
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-import logging
 import glob
+import logging
 import warnings
 
 # Suppress diffusers FutureWarning about deprecated PyTorch function
@@ -25,8 +25,9 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="diffusers")
 
 # Simple logging setup (replaces library.utils.setup_logging)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
 
 def get_safe_gpu_memory_limit():
     """
@@ -35,11 +36,14 @@ def get_safe_gpu_memory_limit():
     """
     try:
         import torch
+
         if torch.cuda.is_available():
             # Get total VRAM and leave 20% buffer for other processes
             total_vram = torch.cuda.get_device_properties(0).total_memory
             safe_limit = int(total_vram * 0.8)  # Use 80% of available VRAM
-            logger.info(f"🔍 Detected {total_vram/1024**3:.1f}GB VRAM, setting ONNX limit to {safe_limit/1024**3:.1f}GB")
+            logger.info(
+                f"🔍 Detected {total_vram / 1024**3:.1f}GB VRAM, setting ONNX limit to {safe_limit / 1024**3:.1f}GB"
+            )
             return safe_limit
         else:
             logger.info("🔍 No CUDA available, skipping GPU memory limit")
@@ -48,27 +52,37 @@ def get_safe_gpu_memory_limit():
         logger.warning(f"GPU memory detection failed: {e}")
         return 2 * 1024 * 1024 * 1024  # Fallback to 2GB for safety
 
+
 def robust_download_fallback(repo_id, filename, local_path):
     """
     Robust download fallback system: hf_hub_download → aria2c → wget → Python requests
     """
     logger.info(f"Attempting robust download fallback for {filename}")
-    
+
     # Construct HuggingFace URL
     hf_url = f"https://huggingface.co/{repo_id}/resolve/main/{filename}"
-    
+
     # Method 1: Try aria2c
     if shutil.which("aria2c"):
         logger.info("🚀 Attempting download with aria2c...")
         try:
             command = [
-                "aria2c", hf_url,
+                "aria2c",
+                hf_url,
                 "--console-log-level=warn",
-                "-c", "-s", "16", "-x", "16", "-k", "10M",
-                "-d", os.path.dirname(local_path),
-                "-o", os.path.basename(local_path)
+                "-c",
+                "-s",
+                "16",
+                "-x",
+                "16",
+                "-k",
+                "10M",
+                "-d",
+                os.path.dirname(local_path),
+                "-o",
+                os.path.basename(local_path),
             ]
-            
+
             result = subprocess.run(command, capture_output=True, text=True)
             if result.returncode == 0 and os.path.exists(local_path):
                 logger.info(f"✅ Download complete with aria2c: {local_path}")
@@ -86,7 +100,7 @@ def robust_download_fallback(repo_id, filename, local_path):
         try:
             command = ["wget", "-O", local_path, hf_url]
             result = subprocess.run(command, capture_output=True, text=True)
-            
+
             if result.returncode == 0 and os.path.exists(local_path):
                 logger.info(f"✅ Download complete with wget: {local_path}")
                 return local_path
@@ -101,14 +115,14 @@ def robust_download_fallback(repo_id, filename, local_path):
     logger.info("🚀 Attempting download with Python requests...")
     try:
         import requests
-        
+
         response = requests.get(hf_url, stream=True)
         response.raise_for_status()
-        
-        total_size = int(response.headers.get('content-length', 0))
+
+        total_size = int(response.headers.get("content-length", 0))
         downloaded = 0
-        
-        with open(local_path, 'wb') as f:
+
+        with open(local_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
@@ -117,18 +131,19 @@ def robust_download_fallback(repo_id, filename, local_path):
                         percent = (downloaded / total_size) * 100
                         if downloaded % (1024 * 1024) == 0:  # Log every MB
                             logger.info(f"Progress: {percent:.1f}% ({downloaded}/{total_size} bytes)")
-        
+
         if os.path.exists(local_path):
             logger.info(f"✅ Download complete with Python requests: {local_path}")
             return local_path
         else:
             logger.error("❌ Python requests download failed")
-            
+
     except Exception as e:
         logger.error(f"❌ Error with Python requests: {e}")
 
     logger.error("💥 All download methods failed!")
     return None
+
 
 # from wd14 tagger
 IMAGE_SIZE = 448
@@ -144,6 +159,7 @@ SUB_DIR = "variables"
 SUB_DIR_FILES = ["variables.data-00000-of-00001", "variables.index"]
 CSV_FILE = FILES[-1]
 
+
 def preprocess_image(image):
     image = np.array(image)
     image = image[:, :, ::-1]  # RGB->BGR
@@ -154,7 +170,9 @@ def preprocess_image(image):
     pad_y = size - image.shape[0]
     pad_l = pad_x // 2
     pad_t = pad_y // 2
-    image = np.pad(image, ((pad_t, pad_y - pad_t), (pad_l, pad_x - pad_l), (0, 0)), mode="constant", constant_values=255)
+    image = np.pad(
+        image, ((pad_t, pad_y - pad_t), (pad_l, pad_x - pad_l), (0, 0)), mode="constant", constant_values=255
+    )
 
     # Simple resize for inference (448x448 for WD14 models)
     image = cv2.resize(image, (IMAGE_SIZE, IMAGE_SIZE), interpolation=cv2.INTER_LANCZOS4)
@@ -217,7 +235,7 @@ def main(args):
                 subdir_path = os.path.join(model_location, SUB_DIR)
                 os.makedirs(subdir_path, exist_ok=True)
                 local_file_path = os.path.join(subdir_path, file)
-                
+
                 try:
                     logger.info(f"Attempting HuggingFace Hub download for subfolder file {file}")
                     hf_hub_download(
@@ -232,7 +250,7 @@ def main(args):
                 except Exception as e:
                     logger.warning(f"❌ HF Hub subfolder download failed for {file}: {e}")
                     logger.info("Attempting robust download fallback for subfolder file...")
-                    
+
                     # Use robust fallback download for subfolder files
                     subfolder_file = f"{SUB_DIR}/{file}" if SUB_DIR else file
                     result_path = robust_download_fallback(args.repo_id, subfolder_file, local_file_path)
@@ -243,7 +261,7 @@ def main(args):
             local_file_path = os.path.join(model_location, file)
             # Create subdirectories if the file is in a subdirectory
             os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-            
+
             # Try hf_hub_download first, fallback to robust download if it fails
             download_success = False
             try:
@@ -256,7 +274,7 @@ def main(args):
             except Exception as e:
                 logger.warning(f"❌ HF Hub download failed for {file}: {e}")
                 logger.info("Attempting robust download fallback...")
-                
+
                 # Use robust fallback download
                 result_path = robust_download_fallback(args.repo_id, file, local_file_path)
                 if result_path and os.path.exists(result_path):
@@ -264,7 +282,7 @@ def main(args):
                     download_success = True
                 else:
                     logger.error(f"💥 All download methods failed for {file}")
-            
+
             # Verify file was downloaded successfully
             if download_success and os.path.exists(local_file_path) and os.path.getsize(local_file_path) > 0:
                 logger.info(f"✅ File verified: {local_file_path} ({os.path.getsize(local_file_path)} bytes)")
@@ -311,78 +329,76 @@ def main(args):
             ort_sess = ort.InferenceSession(
                 onnx_path,
                 providers=(["OpenVINOExecutionProvider"]),
-                provider_options=[{'device_type' : "GPU_FP32"}],
+                provider_options=[{"device_type": "GPU_FP32"}],
             )
         else:
             # Try to create session with GPU first, but gracefully fall back to optimized CPU
             try:
                 available_providers = ort.get_available_providers()
                 logger.info(f"Available ONNX providers: {available_providers}")
-                
+
                 if "CUDAExecutionProvider" in available_providers:
                     logger.info("Attempting CUDA execution provider with enhanced configuration...")
-                    
+
                     # Dynamic CUDA provider options for cross-platform compatibility
-                    cuda_provider_options = {'device_id': 0}
-                    
+                    cuda_provider_options = {"device_id": 0}
+
                     # Add dynamic GPU memory limit based on available VRAM
                     safe_memory_limit = get_safe_gpu_memory_limit()
                     if safe_memory_limit:
-                        cuda_provider_options['gpu_mem_limit'] = safe_memory_limit
+                        cuda_provider_options["gpu_mem_limit"] = safe_memory_limit
                     # Removed aggressive cuDNN options that cause CUDA library conflicts
-                    
+
                     # Basic session options for maximum compatibility
                     sess_options = ort.SessionOptions()
                     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
                     # Removed aggressive options that may conflict with different ONNX/CUDA versions
-                    
+
                     # Try creating session with comprehensive error handling
                     try:
                         ort_sess = ort.InferenceSession(
-                            onnx_path, 
+                            onnx_path,
                             providers=[("CUDAExecutionProvider", cuda_provider_options)],
-                            sess_options=sess_options
+                            sess_options=sess_options,
                         )
                         logger.info("✅ CUDA execution provider initialized successfully")
                     except Exception as cuda_error:
                         logger.warning(f"CUDA provider with options failed: {str(cuda_error)[:100]}...")
                         logger.info("Trying CUDA provider with minimal options...")
-                        
+
                         # Fallback: try minimal CUDA configuration
                         try:
-                            minimal_cuda_options = {'device_id': 0}
+                            minimal_cuda_options = {"device_id": 0}
                             ort_sess = ort.InferenceSession(
-                                onnx_path, 
+                                onnx_path,
                                 providers=[("CUDAExecutionProvider", minimal_cuda_options)],
-                                sess_options=ort.SessionOptions()
+                                sess_options=ort.SessionOptions(),
                             )
                             logger.info("✅ CUDA execution provider with minimal config successful")
                         except Exception as minimal_cuda_error:
                             logger.warning(f"Minimal CUDA config also failed: {str(minimal_cuda_error)[:100]}...")
                             raise Exception("All CUDA configurations failed, falling back to CPU")
-                        
+
                 elif "ROCMExecutionProvider" in available_providers:
-                    logger.info("Attempting ROCm execution provider") 
+                    logger.info("Attempting ROCm execution provider")
                     ort_sess = ort.InferenceSession(onnx_path, providers=["ROCMExecutionProvider"])
                     logger.info("✅ ROCm execution provider initialized successfully")
                 else:
                     raise Exception("No GPU providers available, using CPU")
-                    
+
             except Exception as e:
                 logger.warning(f"All GPU execution providers failed: {str(e)[:100]}...")
                 logger.info("Falling back to optimized CPU execution")
-                
+
                 # Enhanced CPU execution with all available optimizations
                 cpu_sess_options = ort.SessionOptions()
                 cpu_sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
                 cpu_sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
                 cpu_sess_options.intra_op_num_threads = 0  # Use all available cores
                 cpu_sess_options.inter_op_num_threads = 0  # Use all available cores
-                
+
                 ort_sess = ort.InferenceSession(
-                    onnx_path, 
-                    providers=["CPUExecutionProvider"],
-                    sess_options=cpu_sess_options
+                    onnx_path, providers=["CPUExecutionProvider"], sess_options=cpu_sess_options
                 )
                 logger.info("✅ Optimized CPU execution provider initialized successfully")
     else:
@@ -392,24 +408,24 @@ def main(args):
         model_path = f"{model_location}"
         logger.info("Running wd14 tagger with TensorFlow/Keras")
         logger.info(f"loading keras model: {model_path}")
-        
+
         # Try GPU first, gracefully fall back to CPU if GPU fails
         try:
             # Check if GPU is available and try GPU inference
-            if tf.config.list_physical_devices('GPU'):
+            if tf.config.list_physical_devices("GPU"):
                 logger.info("GPU detected, attempting GPU inference...")
-                with tf.device('/GPU:0'):
+                with tf.device("/GPU:0"):
                     model = load_model(model_path)
                 logger.info("✅ TensorFlow GPU model loaded successfully")
             else:
                 logger.info("No GPU detected, using CPU inference...")
-                with tf.device('/CPU:0'):
+                with tf.device("/CPU:0"):
                     model = load_model(model_path)
                 logger.info("✅ TensorFlow CPU model loaded successfully")
         except Exception as e:
             logger.warning(f"❌ GPU inference failed ({str(e)[:50]}...), falling back to CPU")
             try:
-                with tf.device('/CPU:0'):
+                with tf.device("/CPU:0"):
                     model = load_model(model_path)
                 logger.info("✅ TensorFlow CPU fallback successful")
             except Exception as cpu_error:
@@ -454,7 +470,9 @@ def main(args):
         tag_replacements = escaped_tag_replacements.split(";")
         for tag_replacement in tag_replacements:
             tags = tag_replacement.split(",")  # source, target
-            assert len(tags) == 2, f"tag replacement must be in the format of `source,target` / タグの置換は `置換元,置換先` の形式で指定してください: {args.tag_replacement}"
+            assert len(tags) == 2, (
+                f"tag replacement must be in the format of `source,target` / タグの置換は `置換元,置換先` の形式で指定してください: {args.tag_replacement}"
+            )
 
             source, target = [tag.replace("@@@@", ",").replace("####", ";") for tag in tags]
             logger.info(f"replacing tag: {source} -> {target}")
@@ -470,9 +488,9 @@ def main(args):
 
     # Find image files (replaces train_util.glob_images_pathlib)
     train_data_dir_path = Path(args.train_data_dir)
-    image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff']
+    image_extensions = [".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff"]
     image_paths = []
-    
+
     if args.recursive:
         for ext in image_extensions:
             image_paths.extend(train_data_dir_path.rglob(f"*{ext}"))
@@ -481,7 +499,7 @@ def main(args):
         for ext in image_extensions:
             image_paths.extend(train_data_dir_path.glob(f"*{ext}"))
             image_paths.extend(train_data_dir_path.glob(f"*{ext.upper()}"))
-    
+
     image_paths = sorted(list(set(image_paths)))  # Remove duplicates and sort
     logger.info(f"found {len(image_paths)} images.")
 
@@ -494,7 +512,9 @@ def main(args):
 
     always_first_tags = None
     if args.always_first_tags is not None:
-        always_first_tags = [tag for tag in args.always_first_tags.split(stripped_caption_separator) if tag.strip() != ""]
+        always_first_tags = [
+            tag for tag in args.always_first_tags.split(stripped_caption_separator) if tag.strip() != ""
+        ]
 
     def run_batch(path_imgs):
         imgs = np.array([im for _, im in path_imgs])
@@ -514,7 +534,8 @@ def main(args):
                 logger.warning(f"TensorFlow GPU inference failed ({str(e)[:50]}...), retrying with CPU")
                 try:
                     import tensorflow as tf
-                    with tf.device('/CPU:0'):
+
+                    with tf.device("/CPU:0"):
                         probs = model(imgs, training=False)
                         probs = probs.numpy()
                     logger.info("✅ TensorFlow CPU inference successful")
@@ -544,7 +565,7 @@ def main(args):
                     if tag_name not in undesired_tags:
                         tag_freq[tag_name] = tag_freq.get(tag_name, 0) + 1
                         character_tag_text += caption_separator + tag_name
-                        if args.character_tags_first: # insert to the beginning
+                        if args.character_tags_first:  # insert to the beginning
                             combined_tags.insert(0, tag_name)
                         else:
                             combined_tags.append(tag_name)
@@ -560,7 +581,7 @@ def main(args):
                     tag_freq[found_rating] = tag_freq.get(found_rating, 0) + 1
                     rating_tag_text = found_rating
                     if args.use_rating_tags:
-                        combined_tags.insert(0, found_rating) # insert to the beginning
+                        combined_tags.insert(0, found_rating)  # insert to the beginning
                     else:
                         combined_tags.append(found_rating)
 
@@ -590,7 +611,9 @@ def main(args):
                         existing_content = f.read().strip("\n")  # Remove newlines
 
                     # Split the content into tags and store them in a list
-                    existing_tags = [tag.strip() for tag in existing_content.split(stripped_caption_separator) if tag.strip()]
+                    existing_tags = [
+                        tag.strip() for tag in existing_content.split(stripped_caption_separator) if tag.strip()
+                    ]
 
                     # Check and remove repeating tags in tag_text
                     new_tags = [tag for tag in combined_tags if tag not in existing_tags]
@@ -630,7 +653,7 @@ def main(args):
             image, image_path = data
             if image is not None:
                 # Handle both PyTorch tensors and numpy arrays
-                if hasattr(image, 'detach'):
+                if hasattr(image, "detach"):
                     image = image.detach().numpy()
                 # If it's already numpy, leave it as is
             else:
@@ -678,7 +701,9 @@ def setup_parser() -> argparse.ArgumentParser:
         help="directory to store wd14 tagger model / wd14 taggerのモデルを格納するディレクトリ",
     )
     parser.add_argument(
-        "--force_download", action="store_true", help="force downloading wd14 tagger models / wd14 taggerのモデルを再ダウンロードします"
+        "--force_download",
+        action="store_true",
+        help="force downloading wd14 tagger models / wd14 taggerのモデルを再ダウンロードします",
     )
     parser.add_argument("--batch_size", type=int, default=1, help="batch size in inference / 推論時のバッチサイズ")
     parser.add_argument(
@@ -693,8 +718,15 @@ def setup_parser() -> argparse.ArgumentParser:
         default=None,
         help="extension of caption file (for backward compatibility) / 出力されるキャプションファイルの拡張子（スペルミスしていたのを残してあります）",
     )
-    parser.add_argument("--caption_extension", type=str, default=".txt", help="extension of caption file / 出力されるキャプションファイルの拡張子")
-    parser.add_argument("--thresh", type=float, default=0.35, help="threshold of confidence to add a tag / タグを追加するか判定する閾値")
+    parser.add_argument(
+        "--caption_extension",
+        type=str,
+        default=".txt",
+        help="extension of caption file / 出力されるキャプションファイルの拡張子",
+    )
+    parser.add_argument(
+        "--thresh", type=float, default=0.35, help="threshold of confidence to add a tag / タグを追加するか判定する閾値"
+    )
     parser.add_argument(
         "--general_threshold",
         type=float,
@@ -707,7 +739,11 @@ def setup_parser() -> argparse.ArgumentParser:
         default=None,
         help="threshold of confidence to add a tag for character category, same as --thres if omitted / characterカテゴリのタグを追加するための確信度の閾値、省略時は --thresh と同じ",
     )
-    parser.add_argument("--recursive", action="store_true", help="search for images in subfolders recursively / サブフォルダを再帰的に検索する")
+    parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="search for images in subfolders recursively / サブフォルダを再帰的に検索する",
+    )
     parser.add_argument(
         "--remove_underscore",
         action="store_true",
@@ -720,17 +756,31 @@ def setup_parser() -> argparse.ArgumentParser:
         default="",
         help="comma-separated list of undesired tags to remove from the output / 出力から除外したいタグのカンマ区切りのリスト",
     )
-    parser.add_argument("--frequency_tags", action="store_true", help="Show frequency of tags for images / 画像ごとのタグの出現頻度を表示する")
+    parser.add_argument(
+        "--frequency_tags",
+        action="store_true",
+        help="Show frequency of tags for images / 画像ごとのタグの出現頻度を表示する",
+    )
     parser.add_argument("--onnx", action="store_true", help="use onnx model for inference / onnxモデルを推論に使用する")
-    parser.add_argument("--append_tags", action="store_true", help="Append captions instead of overwriting / 上書きではなくキャプションを追記する")
     parser.add_argument(
-        "--use_rating_tags", action="store_true", help="Adds rating tags as the first tag / レーティングタグを最初のタグとして追加する",
+        "--append_tags",
+        action="store_true",
+        help="Append captions instead of overwriting / 上書きではなくキャプションを追記する",
     )
     parser.add_argument(
-        "--use_rating_tags_as_last_tag", action="store_true", help="Adds rating tags as the last tag / レーティングタグを最後のタグとして追加する",
+        "--use_rating_tags",
+        action="store_true",
+        help="Adds rating tags as the first tag / レーティングタグを最初のタグとして追加する",
     )
     parser.add_argument(
-        "--character_tags_first", action="store_true", help="Always inserts character tags before the general tags / characterタグを常にgeneralタグの前に出力する",
+        "--use_rating_tags_as_last_tag",
+        action="store_true",
+        help="Adds rating tags as the last tag / レーティングタグを最後のタグとして追加する",
+    )
+    parser.add_argument(
+        "--character_tags_first",
+        action="store_true",
+        help="Always inserts character tags before the general tags / characterタグを常にgeneralタグの前に出力する",
     )
     parser.add_argument(
         "--always_first_tags",
@@ -750,7 +800,7 @@ def setup_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="tag replacement in the format of `source1,target1;source2,target2; ...`. Escape `,` and `;` with `\`. e.g. `tag1,tag2;tag3,tag4`"
-        + " / タグの置換を `置換元1,置換先1;置換元2,置換先2; ...`で指定する。`\` で `,` と `;` をエスケープできる。例: `tag1,tag2;tag3,tag4`",
+        + r" / タグの置換を `置換元1,置換先1;置換元2,置換先2; ...`で指定する。`\` で `,` と `;` をエスケープできる。例: `tag1,tag2;tag3,tag4`",
     )
     parser.add_argument(
         "--character_tag_expand",
