@@ -14,6 +14,15 @@ import shutil
 import subprocess
 import sys
 
+# At the very top of installer.py, after imports
+if sys.platform == "win32":
+    try:
+        import colorama
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "colorama"])
+        import colorama
+        colorama.init(autoreset=True)
+
 
 def get_python_command():
     """Detects the best available Python command."""
@@ -31,6 +40,7 @@ def get_python_command():
 
 
 class UnifiedInstaller:
+    '''Unified Installer for Ktiseos-Nyx-Trainer Backend Dependencies'''
     def __init__(self, verbose=False, skip_install=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
@@ -39,7 +49,8 @@ class UnifiedInstaller:
         # Setup logging
         self.setup_logging()
 
-        # Always use current Python executable for environment-agnostic execution
+        # Always use current Python executable
+        # for environment-agnostic execution
         # This follows CLAUDE.md requirement: NEVER hardcode paths
         self.python_cmd = sys.executable
 
@@ -103,6 +114,22 @@ class UnifiedInstaller:
     def get_install_command(self, *args):
         """Get package installation command with current package manager"""
         return self.package_manager["install_cmd"] + list(args)
+
+    def ensure_pytorch_installed(self):
+        """Install PyTorch + CUDA if not already present (for local dev)"""
+        try:
+            import torch  # pyright: ignore[reportMissingImports]
+            self.logger.info("✅ PyTorch already installed: %s", torch.__version__)
+            return
+        except ImportError:
+            self.logger.info("🔍 PyTorch not found. Installing with CUDA auto-detect...")
+            # Use standard CUDA 12.1 (most compatible)
+            cmd = [
+                self.python_cmd, "-m", "pip", "install",
+                "torch==2.4.0", "torchvision==0.19.0",
+                "--index-url", "https://download.pytorch.org/whl/cu121"
+            ]
+            self.run_command(cmd, "Installing PyTorch with CUDA 12.1")
 
     def print_banner(self):
         banner_lines = [
@@ -190,7 +217,7 @@ class UnifiedInstaller:
             )
             return True
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             error_msg = f"❌ Unexpected error during {description}: {e}"
             self.logger.error(error_msg)
             print(error_msg)
@@ -436,7 +463,7 @@ class UnifiedInstaller:
                     error_msg = "bitsandbytes directory not found in site-packages. Cannot apply fix."
                     self.logger.warning(error_msg)
                     print(f"     ⚠️ {error_msg}")
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 error_msg = f"Error applying bitsandbytes fix: {e}"
                 self.logger.error(error_msg)
                 print(f"     ❌ {error_msg}")
@@ -467,7 +494,7 @@ class UnifiedInstaller:
             warning_msg = "Could not import PyTorch. Skipping version patch check."
             self.logger.warning(warning_msg)
             print(f"   - ⚠️  {warning_msg}")
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             error_msg = f"Error applying PyTorch patch: {e}"
             self.logger.error(error_msg)
             print(f"   - ❌ {error_msg}")
@@ -525,7 +552,7 @@ class UnifiedInstaller:
                     print(f"     ❌ Failed to download {bin_file}")
 
             return True
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Download failed: %s", e)
             print(f"     ❌ Download failed: {e}")
             print("     💡 Please manually add CUDA 12.1 .so files to bitsandbytes/")
@@ -612,7 +639,7 @@ class UnifiedInstaller:
                 print("   - All symlinks already exist or no symlinks needed")
                 return True
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             error_msg = f"Error fixing CUDA symlinks: {e}"
             self.logger.error(error_msg)
             print(f"   ❌ {error_msg}")
@@ -652,7 +679,7 @@ class UnifiedInstaller:
             except PermissionError:
                 print(f"   ⚠️ Permission denied creating symlink: {target}")
                 continue
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 print(f"   ⚠️ Failed to create symlink {target}: {e}")
                 continue
 
@@ -661,6 +688,9 @@ class UnifiedInstaller:
     def run_installation(self):
         """Run the complete installation process"""
         self.print_banner()
+
+        # NEW: Ensure PyTorch is installed (for local dev)
+        self.ensure_pytorch_installed()
 
         start_time = datetime.datetime.now()
         self.logger.info("Installation started")
@@ -719,7 +749,7 @@ class UnifiedInstaller:
 
             return True
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             error_msg = f"Unexpected error during installation: {e}"
             self.logger.error(error_msg)
             print(f"❌ {error_msg}")
@@ -771,7 +801,7 @@ Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
     except KeyboardInterrupt:
         print("\n⚠️ Installation interrupted by user")
         sys.exit(1)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Critical error: {e}")
         sys.exit(1)
 
