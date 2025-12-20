@@ -12,20 +12,29 @@ import type { TrainingConfig } from '@/lib/api';
 import { Zap } from 'lucide-react';
 
 interface OptimizerCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 NEW
 }
 
-export function OptimizerCard({ form }: OptimizerCardProps) {
+export function OptimizerCard({ form, onSave }: OptimizerCardProps) {
   return (
     <Card className="border-yellow-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-yellow-400" />
-          Optimizer Settings
-        </CardTitle>
-        <CardDescription>
-          Optimization algorithm and training stability
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-400" />
+            Optimizer Settings
+          </CardTitle>
+          <CardDescription>
+            Optimization algorithm and training stability
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save Optimizer
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Optimizer Type */}

@@ -15,9 +15,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // --- THIS IS NEW: Define the props this component accepts ---
 interface DatasetCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
   datasets: { value: string; label: string }[];
+  onSave?: () => void; // 👈 NEW
 }
+
 
 // --- DELETED THE ROGUE TextFormFieldProps INTERFACE ---
 
@@ -31,15 +33,23 @@ export function DatasetCard({ form, datasets }: DatasetCardProps) {
 
   return (
     <Card className="border-blue-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Database className="h-5 w-5 text-blue-400" />
-          Dataset Configuration
-        </CardTitle>
-        <CardDescription>
-          Training data paths and basic training parameters
-        </CardDescription>
-      </CardHeader>
+<CardHeader className="flex flex-row items-center justify-between">
+  <div>
+    <CardTitle className="flex items-center gap-2">
+      <Database className="h-5 w-5 text-blue-400" />
+      Dataset Configuration
+    </CardTitle>
+    <CardDescription>
+      Training data paths and basic training parameters
+    </CardDescription>
+  </div>
+  {onSave && (
+    <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+      <Save className="h-3 w-3" />
+      Save Dataset
+    </Button>
+  )}
+</CardHeader>
       <CardContent className="space-y-4">
         {/* REPLACEMENT FOR TRAINING DATA DIRECTORY */}
         <ComboboxFormField

@@ -6,70 +6,80 @@
 
 import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useTrainingStore } from '@/store/trainingStore';
 import { TrainingConfigSchema } from '@/lib/validation';
 import type { TrainingConfig } from '@/lib/api';
 
 export function useTrainingForm(options: any = {}) {
-  const { autoSave = true, autoSaveDelay = 500 } = options;
-
   const zustandConfig = useTrainingStore((state) => state.config);
-  const hasHydrated = useTrainingStore((state) => state.hasHydrated);
-  const updateZustandConfig = useTrainingStore((state) => state.updateConfig);
+  const updateZustandStore = useTrainingStore((state) => state.updateConfig);
   const loadZustandConfig = useTrainingStore((state) => state.loadConfig);
 
   const form = useForm<TrainingConfig>({
     resolver: zodResolver(TrainingConfigSchema) as any,
-    // We only use the store data ONCE on initialization
+    // ✅ Use values ONLY for initialization.
+    // We do NOT use a useEffect to reset the form anymore.
     defaultValues: zustandConfig,
-    shouldUnregister: false,
+    shouldUnregister: false, // ✅ Keeps data alive when you switch tabs
   });
 
-  // ✅ AUTO-SAVE: ONLY pushes to store. NEVER pulls from store.
-  useEffect(() => {
-    if (!autoSave || !hasHydrated) return;
+  // ✅ INTENTIONAL SYNC: Call this to push current form data to Zustand
+  const syncToStore = useCallback(() => {
+    const values = form.getValues();
+    updateZustandStore(values);
+    console.log("🛰️ Form synced to Zustand for project:", values.project_name);
+  }, [form, updateZustandStore]);
 
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const subscription = form.watch((value) => {
-      // Small debounce
-      const timeoutId = setTimeout(() => {
-      updateZustandConfig(value as any);
-      }, autoSaveDelay);
-      return () => clearTimeout(timeoutId);
-    });
+  const loadPreset = useCallback((preset: Partial<TrainingConfig>) => {
+    const fullConfig = { ...zustandConfig, ...preset } as TrainingConfig;
+    loadZustandConfig(fullConfig);
+    form.reset(fullConfig, { keepDirty: false });
+  }, [zustandConfig, loadZustandConfig, form]);
 
-    return () => subscription.unsubscribe();
-  }, [form, autoSave, hasHydrated, autoSaveDelay, updateZustandConfig]);
+    // ✅ 2. Added this function back in so the UI can show the error list
+  const getValidationErrors = useCallback(() => {
+    const errors = form.formState.errors;
+    return Object.entries(errors).map(([field, error]) => ({
+      field,
+      message: (error as any)?.message || 'Invalid value',
+    }));
+  }, [form.formState.errors]);
 
-  // REMOVED: The useEffect that called form.reset() - THIS WAS THE BUG.
-
-  const loadPreset = useCallback((preset: any) => {
-    const full = { ...zustandConfig, ...preset };
-    loadZustandConfig(full);
-    form.reset(full);
-  }, [form, loadZustandConfig, zustandConfig]);
+  const onSubmit = useCallback(
+    (callback: (config: TrainingConfig) => void) => {
+      return form.handleSubmit((data) => {
+        updateZustandStore(data); // Final sync before training
+        callback(data);
+      });
+    },
+    [form, updateZustandStore]
+  );
 
   return {
-    form: form as any,
+    form: form as unknown as UseFormReturn<TrainingConfig>,
     config: zustandConfig,
     isDirty: form.formState.isDirty,
     isValid: form.formState.isValid,
-    saveConfig: () => updateZustandConfig(form.getValues()),
+    syncToStore, // ✅ Give the UI the ability to save manually
     loadPreset,
-    onSubmit: (cb: any) => form.handleSubmit(cb),
+    onSubmit,
+    getValidationErrors, // 👈 ADD THIS LINE
     resetForm: () => form.reset(zustandConfig),
-    getValidationErrors: () => [], // Simplified for now
   };
 }
 
-// ✅ THESE MUST BE OUTSIDE THE BRACE ABOVE
+/**
+ * Helper hook for form field registration with error display
+ * Simplifies common pattern of registering field + showing errors
+ */
 export function useFormField(
   name: keyof TrainingConfig,
   form: UseFormReturn<TrainingConfig>
 ) {
   const register = form.register(name);
-  const error = form.formState.errors[name]?.message;
+  // Get error message if it exists
+  const error = (form.formState.errors as any)[name]?.message;
 
   return {
     register,
@@ -78,10 +88,18 @@ export function useFormField(
   };
 }
 
-export const trainingPresets: Record<string, { name: string; description: string; config: Partial<TrainingConfig> }> = {
+/**
+ * Configuration presets for common training scenarios
+ * We use Partial here because presets don't need project names or paths
+ */
+export const trainingPresets: Record<string, {
+  name: string;
+  description: string;
+  config: Partial<TrainingConfig>
+}> = {
   sdxl_character: {
     name: 'SDXL Character',
-    description: 'Optimized for character training',
+    description: 'Optimized for training character LoRAs on SDXL',
     config: {
       model_type: 'SDXL',
       resolution: 1024,
@@ -108,7 +126,7 @@ export const trainingPresets: Record<string, { name: string; description: string
       unet_lr: 0.0002,
       text_encoder_lr: 0.0001,
       lr_scheduler: 'cosine',
-      optimizer_type: 'Prodigy',
+      optimizer_type: 'Prodigy' as any,
       max_train_epochs: 15,
       train_batch_size: 2,
       clip_skip: 2,
@@ -126,7 +144,7 @@ export const trainingPresets: Record<string, { name: string; description: string
       text_encoder_lr: 0.00005,
       lr_scheduler: 'cosine_with_restarts',
       lr_scheduler_number: 3,
-      optimizer_type: 'AdamW8bit',
+      optimizer_type: 'AdamW8bit' as any,
       max_train_epochs: 10,
       train_batch_size: 4,
       clip_skip: 1,
@@ -143,7 +161,7 @@ export const trainingPresets: Record<string, { name: string; description: string
       unet_lr: 0.0001,
       text_encoder_lr: 0,
       lr_scheduler: 'constant',
-      optimizer_type: 'AdamW8bit',
+      optimizer_type: 'AdamW8bit' as any,
       max_train_epochs: 5,
       train_batch_size: 1,
       guidance_scale: 3.5,

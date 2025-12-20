@@ -112,8 +112,8 @@ const defaultConfig: TrainingConfig = {
   vae_batch_size: 0,
   min_timestep: 0,
   max_timestep: 1000,
-  // ✅ ADD THIS LINE:
   ae_path: '',
+  v_parameterization: false,  // for v-prediction models
 };
 
 interface TrainingStore {

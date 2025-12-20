@@ -12,22 +12,31 @@ import type { TrainingConfig } from '@/lib/api';
 import { Shuffle } from 'lucide-react';
 
 interface AugmentationCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 NEW
 }
 
-export function AugmentationCard({ form }: AugmentationCardProps) {
+export function AugmentationCard({ form, onSave }: AugmentationCardProps) {
   const enableBucket = form.watch('enable_bucket');
 
   return (
     <Card className="border-green-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Shuffle className="h-5 w-5 text-green-400" />
-          Data Augmentation & Bucketing
-        </CardTitle>
-        <CardDescription>
-          Improve training variety and handle multiple resolutions
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Shuffle className="h-5 w-5 text-green-400" />
+            Data Augmentation & Bucketing
+          </CardTitle>
+          <CardDescription>
+            Improve training variety and handle multiple resolutions
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save Augmentation
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Augmentation Options */}

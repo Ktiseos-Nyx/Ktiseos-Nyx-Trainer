@@ -466,6 +466,10 @@ export interface TrainingConfig {
   continue_from_lora?: string;
   wandb_key?: string;
 
+  // ========== SD 1.5 / SD2 FLAGS ==========
+  v2?: boolean;                    // for Stable Diffusion 2.x
+  v_parameterization?: boolean;    // for v-prediction models
+
   // ========== DATASET & BASIC TRAINING ==========
   train_data_dir: string;
   output_dir: string;
