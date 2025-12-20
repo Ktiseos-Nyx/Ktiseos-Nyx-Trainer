@@ -12,23 +12,32 @@ import type { TrainingConfig } from '@/lib/api';
 import { Cpu } from 'lucide-react';
 
 interface MemoryCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 NEW
 }
 
-export function MemoryCard({ form }: MemoryCardProps) {
+export function MemoryCard({ form, onSave }: MemoryCardProps) {
   const cacheLatents = form.watch('cache_latents');
   const cacheText = form.watch('cache_text_encoder_outputs');
 
   return (
     <Card className="border-cyan-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Cpu className="h-5 w-5 text-cyan-400" />
-          Memory & Performance
-        </CardTitle>
-        <CardDescription>
-          Precision settings and memory optimizations
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Cpu className="h-5 w-5 text-cyan-400" />
+            Memory & Performance
+          </CardTitle>
+          <CardDescription>
+            Precision settings and memory optimizations
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save Memory
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Mixed Precision */}

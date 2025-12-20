@@ -6,6 +6,7 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
+import { Form } from '@/components/ui/form';
 import type { TrainingConfig } from '@/lib/api';
 import { ProjectSetupCard } from '../cards/ProjectSetupCard';
 import { DatasetCard } from '../cards/DatasetCard';
@@ -18,11 +19,13 @@ import { SavingCard } from '../cards/SavingCard';
 import { CaptionCard } from '../cards/CaptionCard';
 import { AdvancedCard } from '../cards/AdvancedCard';
 
+// ✅ NEW:
 interface TabProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // Remove Partial here
   models?: { value: string; label: string }[];
   vaes?: { value: string; label: string }[];
   datasets?: { value: string; label: string }[];
+	onSave?: () => void; // 👈 ADD THIS
 }
 
 /**

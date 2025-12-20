@@ -12,8 +12,8 @@ echo "=========================================="
 # Step 0: Clean up any existing processes using the ports
 # --------------------------------------------------------------------
 echo "🧹 Cleaning up any existing processes on ports 8000 and 3000..."
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+lsof -ti:8000 2>/dev/null | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
 
 # Also kill any existing uvicorn or next processes to prevent conflicts
 pkill -f "uvicorn.*api.main" 2>/dev/null || true
@@ -23,14 +23,15 @@ sleep 3  # Give time for processes to terminate
 
 # --------------------------------------------------------------------
 # Step 1: Ensure environment is set up via installer.py
-# The installer.py will verify and install missing components.
 # --------------------------------------------------------------------
 echo "⚙️ Running unified installer.py to set up environment..."
-python installer.py
+if ! python installer.py; then
+    echo "❌ Installer failed! Please check the errors above."
+    exit 1
+fi
 
 # --------------------------------------------------------------------
 # Step 2: Start Services
-# Assuming script is run from project root, or paths are relative.
 # --------------------------------------------------------------------
 
 # Start FastAPI backend (if api directory exists)
@@ -53,7 +54,9 @@ if [ -d "frontend" ]; then
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     cd frontend
-    npm start -- -p 3000 &
+
+    # ✅ FIX: Use PORT env var (Next.js standard)
+    PORT=3000 npm run start &
     FRONTEND_PID=$!
     echo "   Frontend PID: $FRONTEND_PID"
     cd ..
@@ -80,5 +83,5 @@ echo "   pkill -f uvicorn"
 echo "   pkill -f 'node.*next'"
 echo ""
 
-# Keep script running (important for containers or background processes)
+# Keep script running
 wait

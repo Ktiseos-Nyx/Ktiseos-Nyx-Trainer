@@ -13,23 +13,32 @@ import { Save } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface SavingCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 NEW
 }
 
-export function SavingCard({ form }: SavingCardProps) {
+export function SavingCard({ form, onSave }: SavingCardProps) {
   const saveEveryNEpochs = form.watch('save_every_n_epochs');
   const saveEveryNSteps = form.watch('save_every_n_steps');
 
   return (
     <Card className="border-green-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Save className="h-5 w-5 text-green-400" />
-          Saving & Checkpoints
-        </CardTitle>
-        <CardDescription>
-          When and how to save LoRA checkpoints
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Save className="h-5 w-5 text-green-400" />
+            Saving & Checkpoints
+          </CardTitle>
+          <CardDescription>
+            When and how to save LoRA checkpoints
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save Saving
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Save Format */}

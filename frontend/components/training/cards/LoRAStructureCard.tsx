@@ -13,10 +13,11 @@ import { Network } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface LoRAStructureCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 NEW
 }
 
-export function LoRAStructureCard({ form }: LoRAStructureCardProps) {
+export function LoRAStructureCard({ form, onSave }: LoRAStructureCardProps) {
   const loraType = form.watch('lora_type');
   const networkDim = form.watch('network_dim');
   const networkAlpha = form.watch('network_alpha');
@@ -25,14 +26,22 @@ export function LoRAStructureCard({ form }: LoRAStructureCardProps) {
 
   return (
     <Card className="border-purple-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Network className="h-5 w-5 text-purple-400" />
-          LoRA Structure
-        </CardTitle>
-        <CardDescription>
-          Network architecture and size settings
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Network className="h-5 w-5 text-purple-400" />
+            LoRA Structure
+          </CardTitle>
+          <CardDescription>
+            Network architecture and size settings
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save LoRA
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* LoRA Type */}

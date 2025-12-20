@@ -4,9 +4,10 @@ Pydantic models for LoRA training configuration.
 Matches frontend TrainingConfig interface from api.ts.
 """
 
-from typing import Optional
-from pydantic import BaseModel, Field, validator
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class ModelType(str, Enum):
@@ -252,22 +253,37 @@ class TrainingConfig(BaseModel):
     gemma2: Optional[str] = Field(None, description="Path to Gemma2 model")
     gemma2_max_token_length: Optional[int] = Field(256, ge=75, description="Gemma2 max tokens")
 
-    @validator('model_type', pre=True)
+    @field_validator('model_type', mode='before')
+    @classmethod
     def normalize_model_type(cls, v):
-        """Allow flexible model type input."""
+        """Allow flexible model type input with better error handling."""
+        # If already a ModelType enum, return as-is
+        if isinstance(v, ModelType):
+            return v
+
+        # Handle string inputs
         if isinstance(v, str):
             # Normalize common variations
-            v_upper = v.upper()
-            if v_upper in {"SD1.5", "SD15", "SD_1.5"}:
-                return ModelType.SD15
-            elif v_upper in {"SDXL", "SD_XL"}:
-                return ModelType.SDXL
-            elif v_upper in {"FLUX", "FLUX.1"}:
-                return ModelType.FLUX
-            elif v_upper in {"SD3", "SD3.5", "SD_3"}:
-                return ModelType.SD3
-            elif v_upper in {"LUMINA"}:
-                return ModelType.LUMINA
+            v_upper = v.upper().strip()
+
+            # SD1.5 variations
+            if v_upper in {"SD1.5", "SD15", "SD_1.5", "SD-1.5", "SD 1.5"}:
+                return "SD1.5"  # Return the actual enum value
+            # SDXL variations
+            elif v_upper in {"SDXL", "SD_XL", "SD-XL", "SD XL"}:
+                return "SDXL"
+            # FLUX variations
+            elif v_upper in {"FLUX", "FLUX.1", "FLUX-1"}:
+                return "Flux"
+            # SD3 variations
+            elif v_upper in {"SD3", "SD3.5", "SD_3", "SD-3", "SD 3"}:
+                return "SD3"
+            # LUMINA variations
+            elif v_upper == "LUMINA":
+                return "Lumina"
+
+        # If we can't normalize, return the original value
+        # Pydantic will handle validation errors appropriately
         return v
 
     class Config:

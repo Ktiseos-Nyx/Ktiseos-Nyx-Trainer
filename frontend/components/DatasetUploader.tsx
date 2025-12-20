@@ -67,58 +67,59 @@ export default function DatasetUploader() {
     multiple: true,
   });
 
-  // Upload images
   const handleUpload = async () => {
-    if (files.length === 0) {
-      alert('No files to upload!');
-      return;
-    }
+  if (files.length === 0) {
+    alert('No files to upload!');
+    return;
+  }
 
-    if (!datasetName.trim()) {
-      alert('Please enter a dataset name!');
-      return;
-    }
+  if (!datasetName.trim()) {
+    alert('Please enter a dataset name!');
+    return;
+  }
 
-    setUploading(true);
+  setUploading(true);
 
-    try {
-      setFiles((prev) =>
-        prev.map((f) => ({ ...f, status: 'uploading' as const }))
+  try {
+    const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
+
+    for (const fileObj of imageFiles) {
+      // Mark this file as uploading (using file identity, not index!)
+      setFiles(prev =>
+        prev.map(f =>
+          f.file === fileObj.file ? { ...f, status: 'uploading' } : f
+        )
       );
 
-      const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
+      try {
+        // Upload ONE file using existing batch API
+        await datasetAPI.uploadBatch([fileObj.file], datasetName);
 
-      if (imageFiles.length > 0) {
-        // Upload all at once - chunking adds overhead on slow networks
-        const filesToUpload = imageFiles.map(f => f.file);
-        console.log(`📤 Uploading ${filesToUpload.length} images...`);
-        await datasetAPI.uploadBatch(filesToUpload, datasetName);
+        // Mark as success
+        setFiles(prev =>
+          prev.map(f =>
+            f.file === fileObj.file ? { ...f, status: 'success', progress: 100 } : f
+          )
+        );
+      } catch (err) {
+        // Mark as error
+        setFiles(prev =>
+          prev.map(f =>
+            f.file === fileObj.file ? { ...f, status: 'error', error: String(err) } : f
+          )
+        );
+        throw err; // Stop the queue
       }
-
-      // Mark any remaining files as success
-      setFiles((prev) =>
-        prev.map((f) => ({
-          ...f,
-          status: 'success' as const,
-          progress: 100,
-        }))
-      );
-
-      alert('✅ Upload complete!');
-    } catch (err) {
-      console.error('Upload failed:', err);
-      setFiles((prev) =>
-        prev.map((f) => ({
-          ...f,
-          status: 'error' as const,
-          error: String(err),
-        }))
-      );
-      alert(`❌ Upload failed: ${err}`);
-    } finally {
-      setUploading(false);
     }
-  };
+
+    alert('✅ Upload complete!');
+  } catch (err) {
+    console.error('Upload failed:', err);
+    alert(`❌ Upload failed: ${err}`);
+  } finally {
+    setUploading(false);
+  }
+};
 
   // Upload and extract ZIP
   const handleUploadZip = async () => {

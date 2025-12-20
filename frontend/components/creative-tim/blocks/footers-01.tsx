@@ -10,7 +10,7 @@ export default function Footers01() {
   return (
     <footer className="pt-16 pb-8">
       <div className="container mx-auto">
-        <div className="flex flex-row flex-wrap items-center !justify-center gap-x-10 gap-y-2 md:!justify-between">
+        <div className="flex flex-row flex-wrap items-center justify-center! gap-x-10 gap-y-2 md:justify-between!">
           <p className="text-foreground text-center text-sm font-medium">
             All rights reserved. Copyright &copy; {YEAR} Creative Tim.
           </p>

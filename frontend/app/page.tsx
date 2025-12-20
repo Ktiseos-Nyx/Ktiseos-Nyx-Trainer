@@ -6,9 +6,9 @@ import { Sparkles, Settings } from 'lucide-react';
 export default function Home() {
   return (
     <HeroAnimated
-      title="KNX TRAINER"
-      subtitle="LoRA Training Made Simple"
-      description="A powerful, web-based training environment for creating LoRA models. Upload datasets, configure training parameters, and monitor progress—all in one beautiful interface."
+      title="Ktiseos Nyx TRAINER"
+      subtitle="Model Training Made Beautiful"
+      description="A powerful, web-based training ecosystem for creating AI models. Upload datasets, configure training parameters, and monitor progress—all in one beautiful interface."
       features={[
         { icon: '🎯', label: 'Easy Dataset Management' },
         { icon: '⚡', label: 'Fast Training' },
@@ -29,7 +29,7 @@ export default function Home() {
           icon: Settings,
         },
       ]}
-      helperText="Optimized for VastAI containers and local development"
+      helperText="Optimized for VastAI & Remote containers and local development"
       theme="purple-blue"
     />
   );

@@ -13,25 +13,34 @@ import { TrendingUp } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface LearningRateCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 ADD THIS
 }
 
-export function LearningRateCard({ form }: LearningRateCardProps) {
+export function LearningRateCard({ form, onSave }: LearningRateCardProps) {
   const scheduler = form.watch('lr_scheduler');
   const unetLR = form.watch('unet_lr');
   const teLR = form.watch('text_encoder_lr');
 
   return (
     <Card className="border-orange-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-orange-400" />
-          Learning Rates
-        </CardTitle>
-        <CardDescription>
-          Control how fast the model learns
-        </CardDescription>
-      </CardHeader>
+     <CardHeader className="flex flex-row items-center justify-between">
+  <div>
+    <CardTitle className="flex items-center gap-2">
+      <TrendingUp className="h-5 w-5 text-orange-400" />
+      Learning Rates
+    </CardTitle>
+    <CardDescription>
+      Control how fast the model learns
+    </CardDescription>
+  </div>
+  {onSave && (
+    <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+      <Save className="h-3 w-3" />
+      Save Learning
+    </Button>
+  )}
+</CardHeader>
       <CardContent className="space-y-4">
         {/* UNet Learning Rate */}
         <NumberFormField

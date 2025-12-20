@@ -63,7 +63,8 @@ if exist "frontend\" (
         exit /b 1
     )
 
-    start "Ktiseos Frontend" /MIN cmd /c "npm start -- -p 3000"
+    REM FIX: Use PORT env var (Next.js standard)
+    start "Ktiseos Frontend" /MIN cmd /c "set PORT=3000 && npm run start"
     echo    Frontend started in background window
     cd ..
 ) else (

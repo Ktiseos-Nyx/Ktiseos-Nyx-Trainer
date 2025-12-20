@@ -12,20 +12,29 @@ import type { TrainingConfig } from '@/lib/api';
 import { FileText } from 'lucide-react';
 
 interface CaptionCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 NEW
 }
 
-export function CaptionCard({ form }: CaptionCardProps) {
+export function CaptionCard({ form, onSave }: CaptionCardProps) {
   return (
     <Card className="border-pink-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-pink-400" />
-          Caption & Token Control
-        </CardTitle>
-        <CardDescription>
-          Text processing and caption dropout settings
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-pink-400" />
+            Caption & Token Control
+          </CardTitle>
+          <CardDescription>
+            Text processing and caption dropout settings
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save Caption
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Token Settings */}

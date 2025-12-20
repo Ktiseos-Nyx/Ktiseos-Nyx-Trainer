@@ -12,10 +12,11 @@ import type { TrainingConfig } from '@/lib/api';
 import { Settings2 } from 'lucide-react';
 
 interface AdvancedCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  onSave?: () => void; // 👈 NEW
 }
 
-export function AdvancedCard({ form }: AdvancedCardProps) {
+export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
   const modelType = form.watch('model_type');
   const isFlux = modelType === 'Flux';
   const isLumina = modelType === 'Lumina';
@@ -23,14 +24,22 @@ export function AdvancedCard({ form }: AdvancedCardProps) {
 
   return (
     <Card className="border-red-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Settings2 className="h-5 w-5 text-red-400" />
-          Advanced Settings
-        </CardTitle>
-        <CardDescription>
-          Noise, loss functions, timesteps, and model-specific options
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Settings2 className="h-5 w-5 text-red-400" />
+            Advanced Settings
+          </CardTitle>
+          <CardDescription>
+            Noise, loss functions, timesteps, and model-specific options
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save Advanced
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* SNR & Noise */}

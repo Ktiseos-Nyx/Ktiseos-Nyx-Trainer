@@ -16,27 +16,36 @@ import { Folder, Sparkles } from 'lucide-react';
 
 // --- Define the props the Card now accepts ---
 interface ProjectSetupCardProps {
-  form: UseFormReturn<Partial<TrainingConfig>>;
+  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
   models: { value: string; label: string }[];
   vaes: { value: string; label: string }[];
+  onSave?: () => void; // 👈 NEW
 }
 
 // --- Update the function signature ---
-export function ProjectSetupCard({ form, models, vaes }: ProjectSetupCardProps) {
+export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
   const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
 
 
   return (
     <Card className="border-purple-500/30">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-purple-400" />
-          Project Setup
-        </CardTitle>
-        <CardDescription>
-          Basic project information and model selection
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-purple-400" />
+            Project Setup
+          </CardTitle>
+          <CardDescription>
+            Basic project information and model selection
+          </CardDescription>
+        </div>
+        {onSave && (
+          <Button type="button" size="sm" variant="outline" onClick={onSave} className="gap-1">
+            <Save className="h-3 w-3" />
+            Save Project
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Project Name */}

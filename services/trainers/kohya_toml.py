@@ -4,13 +4,15 @@ TOML configuration file generation for Kohya training scripts.
 Extracts working TOML generation logic from old manager without copying the class structure.
 """
 
-import os
 import logging
+import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 import toml
-from services.models.training import TrainingConfig, ModelType
+import tomlkit
+
+from services.models.training import ModelType, TrainingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -36,84 +38,43 @@ class KohyaTOMLGenerator:
         self.sd_scripts_dir = sd_scripts_dir
 
     def generate_dataset_toml(self, output_path: Path) -> None:
-        """
-        Generate dataset.toml for Kohya training.
+        doc = tomlkit.document()
 
-        Args:
-            output_path: Where to write the TOML file
-        """
-        # Build dataset configuration sections
-        datasets_section = {}
-        subsets_section = {}
-        general_section = {}
+        # [general]
+        general = tomlkit.table()
+        general["resolution"] = self.config.resolution
+        general["shuffle_caption"] = self.config.shuffle_caption
+        # ... add all general settings
+        doc["general"] = general
 
-        # Dataset-level settings
+        # [[datasets]]
+        datasets = tomlkit.aot()  # Array of Tables
+        dataset = tomlkit.table()
+
         if self.config.keep_tokens > 0:
-            datasets_section['keep_tokens'] = self.config.keep_tokens
+            dataset["keep_tokens"] = self.config.keep_tokens
+        dataset["resolution"] = self.config.resolution
+        dataset["batch_size"] = self.config.train_batch_size
 
-        # Subset configuration
-        subsets_section['num_repeats'] = self.config.num_repeats
+        # [[datasets.subsets]]
+        subsets_aot = tomlkit.aot()
+        subset = tomlkit.table()
 
-        # ✅ FIX: Convert dataset path to ABSOLUTE path instead of relative.
-        # This fixes the "../../../" bug on Vast.ai/Linux.
-        dataset_abs_path = Path(self.config.train_data_dir)
+        dataset_abs_path = Path(self.config.train_data_dir).resolve()
         if not dataset_abs_path.is_absolute():
             dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
-        else:
-            dataset_abs_path = dataset_abs_path.resolve()
+        subset["image_dir"] = str(dataset_abs_path)
+        subset["num_repeats"] = self.config.num_repeats
 
-        subsets_section['image_dir'] = str(dataset_abs_path)
+        subsets_aot.append(subset)
+        dataset["subsets"] = subsets_aot
+        datasets.append(dataset)
 
-        # General settings
-        general_section['resolution'] = self.config.resolution
-        general_section['shuffle_caption'] = self.config.shuffle_caption
-        general_section['flip_aug'] = self.config.flip_aug
-        general_section['caption_extension'] = '.txt'
+        doc["datasets"] = datasets
 
-        # Bucketing
-        general_section['enable_bucket'] = self.config.enable_bucket
-        general_section['bucket_no_upscale'] = self.config.bucket_no_upscale
-        general_section['min_bucket_reso'] = self.config.min_bucket_reso
-        general_section['max_bucket_reso'] = self.config.max_bucket_reso
-
-        # Bucket resolution steps (SDXL optimization)
-        if self.config.sdxl_bucket_optimization:
-            general_section['bucket_reso_steps'] = 32
-        else:
-            general_section['bucket_reso_steps'] = 64
-
-        # Caption handling
-        general_section['caption_dropout_rate'] = self.config.caption_dropout_rate
-        general_section['caption_tag_dropout_rate'] = self.config.caption_tag_dropout_rate
-        if self.config.caption_dropout_every_n_epochs > 0:
-            general_section['caption_dropout_every_n_epochs'] = self.config.caption_dropout_every_n_epochs
-        if self.config.keep_tokens_separator:
-            general_section['keep_tokens_separator'] = self.config.keep_tokens_separator
-        if self.config.secondary_separator:
-            general_section['secondary_separator'] = self.config.secondary_separator
-        general_section['enable_wildcard'] = self.config.enable_wildcard
-
-        # Data augmentation
-        general_section['color_aug'] = self.config.color_aug
-        general_section['random_crop'] = self.config.random_crop
-
-        # Build final structure
-        dataset_config = {
-            "datasets": [datasets_section] if datasets_section else [{}],
-            "general": general_section
-        }
-
-        # Add subsets
-        if subsets_section:
-            dataset_config["datasets"][0]["subsets"] = [subsets_section]
-
-        # ✅ FIX W1514: Added encoding="utf-8"
         os.makedirs(output_path.parent, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as f:
-            toml.dump(dataset_config, f)
-
-        # ✅ FIX W1203: Use lazy formatting
-        logger.info("Generated dataset TOML: %s", output_path)
+            f.write(tomlkit.dumps(doc))
 
     def generate_config_toml(self, output_path: Path) -> None:
         """
@@ -168,17 +129,17 @@ class KohyaTOMLGenerator:
         elif lora_type == "LoHa":
             return {
                 "network_module": "lycoris.kohya",
-                "network_args": ["algo=loha"] # ✅ FIX F541: Removed unused f-string prefix
+                "network_args": ["algo=loha"]  # ✅ FIX F541: Removed unused f-string prefix
             }
         elif lora_type in ["LoKR", "LoKr"]:
             return {
                 "network_module": "lycoris.kohya",
-                "network_args": ["algo=lokr"] # ✅ FIX F541: Removed unused f-string prefix
+                "network_args": ["algo=lokr"]  # ✅ FIX F541: Removed unused f-string prefix
             }
         elif lora_type == "DoRA":
             return {
                 "network_module": "lycoris.kohya",
-                "network_args": ["algo=dora"] # ✅ FIX F541: Removed unused f-string prefix
+                "network_args": ["algo=dora"]  # ✅ FIX F541: Removed unused f-string prefix
             }
         else:
             return {"network_module": "networks.lora"}

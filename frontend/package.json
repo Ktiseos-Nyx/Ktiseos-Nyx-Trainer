@@ -81,7 +81,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwind-variants": "^3.2.2",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.1.13",
+    "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
   "overrides": {
