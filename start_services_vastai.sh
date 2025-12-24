@@ -22,12 +22,17 @@ pkill -f "node.*next" 2>/dev/null || true
 sleep 3  # Give time for processes to terminate
 
 # --------------------------------------------------------------------
-# Step 1: Ensure environment is set up via installer.py
+# Step 1: Ensure environment is set up via installer_remote.py
 # Note: VastAI PyTorch template might already have venv activated.
-# The installer.py will verify and install missing components.
+# The installer_remote.py will verify and install missing components.
 # --------------------------------------------------------------------
-echo "⚙️ Running unified installer.py to set up environment..."
-python installer.py
+echo "⚙️ Running remote installer..."
+if [ -f "installer_remote.py" ]; then
+    python installer_remote.py --skip-install  # or without flag if full install needed
+else
+    echo "⚠️ Falling back to installer_remote.py (not recommended)"
+    python installer_remote.py
+fi
 
 # --------------------------------------------------------------------
 # Step 2: Start Services

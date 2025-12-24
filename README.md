@@ -1,32 +1,55 @@
 # Ktiseos Nyx LoRA Trainer
 
-> ⚠️ **BETA - IN ACTIVE DEVELOPMENT**: Features may not work as expected. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues)
-
 LoRA training system built on Kohya SS with a web UI (Next.js + FastAPI). Supports local and cloud deployment on VastAI, RunPod, and similar platforms.
 
 | Python | License | Deploy | Discord | Twitch | Support |
 |---|---|---|---|---|---|
 | ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Deploy on VastAI](https://img.shields.io/badge/Deploy-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer) | [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) | <a href="https://ko-fi.com/duskfallcrew"><img src="https://img.shields.io/badge/Ko--Fi-Support-FF5E5B?style=for-the-badge&logo=kofi" alt="Ko-fi"></a> |
 
+> ⚠️ **ALPHA STAGES - IN ACTIVE DEVELOPMENT**: Features may not work as expected. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues)
+> ⚠️ ***PLEASE NOTE:***
+THE DATASET UPLOADER ON REMOTE CONTAINERS (VAST AI) IS NOT ENTIRELY WORKING - PLEASE USE VASTAI'S INBUILT JUPYTER UNTIL A SOLUTION IS IN.
+
 ## Table of Contents
 
-- [Installation](#installation)
-  - [Requirements](#requirements)
-  - [Local Installation](#local-installation)
-  - [VastAI Deployment](#vastai-deployment)
-  - [RunPod Deployment](#runpod-deployment)
-- [Overview](#overview)
-- [Troubleshooting](#troubleshooting--support)
-- [Credits](#credits--acknowledgements)
-- [Security](#security)
-- [License](#license)
-- [Contributing](#contributing)
+- [Ktiseos Nyx LoRA Trainer](#ktiseos-nyx-lora-trainer)
+      - [PLEASE NOTE: THE DATASET UPLOADER ON REMOTE CONTAINERS (VAST AI) IS NOT ENTIRELY WORKING - PLEASE USE VASTAI'S INBUILT JUPYTER UNTIL A SOLUTION IS IN.](#please-note-the-dataset-uploader-on-remote-containers-vast-ai-is-not-entirely-working---please-use-vastais-inbuilt-jupyter-until-a-solution-is-in)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+    - [OS Support Overview](#os-support-overview)
+    - [Requirements](#requirements)
+    - [Local Installation](#local-installation)
+      - [Choose your platform:](#choose-your-platform)
+    - [VastAI Deployment](#vastai-deployment)
+    - [RunPod Deployment](#runpod-deployment)
+  - [Overview](#overview)
+    - [Architecture](#architecture)
+    - [Core Features](#core-features)
+    - [Development Status](#development-status)
+  - [Troubleshooting \& Support](#troubleshooting--support)
+    - [Support Requirements](#support-requirements)
+    - [Getting Help](#getting-help)
+  - [Credits \& Acknowledgements](#credits--acknowledgements)
+  - [Security](#security)
+  - [License](#license)
+  - [Contributing](#contributing)
 
 ## Installation
 
+### OS Support Overview
+
+| Platform        | Training Supported | Installer Script              | Start Script                 | Notes                                  |
+|-----------------|--------------------|-------------------------------|------------------------------|----------------------------------------|
+| **Windows**     | ✅ (CUDA 11.8)     | `install.bat`                 | `start_services_local.bat`   | Requires NVIDIA GPU; uses `.dll` files |
+| **Linux (NVIDIA)** | ✅ (CUDA 12.1)  | `installer_local_linux.py`    | `start_services_local.sh`    | Full GPU training; matches Vast.ai     |
+| **macOS**       | ❌ (CPU-only UI)   | Manual `pip install`          | `start_services_local.sh`    | No training (Kohya SS lacks MPS support) |
+| **Vast.ai**     | ✅ (CUDA 12.1)     | Auto via `vastai_setup.sh`    | Auto via Supervisor          | Uses `installer_remote.py` internally  |
+| **RunPod**      | ⚠️ (Untested)      | Use Linux local scripts       | Use Linux local scripts      | May work; not officially supported yet |
+
 ### Requirements
 
-- **GPU**: Nvidia (CUDA 12.1+) or AMD (ROCm)
+- **GPU**: NVIDIA (CUDA 12.1+) **required for training**
+  *(AMD ROCm and Apple Silicon are not currently supported for training due to Kohya SS limitations)*
 - **Python**: 3.10 or 3.11
 - **Node.js**: 18+ (for web UI)
 - **Platform**: Windows, Linux, or macOS
@@ -47,28 +70,48 @@ Install prerequisites if needed:
 # 1. Clone repository
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
-
-# 2. Run installer (downloads ~10-15GB of dependencies)
-python installer.py
-
-# Optional: Verbose output for troubleshooting
-python installer.py --verbose
-
-# 3. Start services
-# Linux/Mac:
-./start_services_local.sh
-
-# Windows:
-start_services_local.bat
-
-# 4. Quick restart (skips reinstall - much faster)
-./restart.sh  # or restart.bat on Windows
 ```
+
+#### Choose your platform:
+
+- **Windows**:
+  ```bat
+  install.bat
+  start_services_local.bat
+  ```
+
+- **Linux (with NVIDIA GPU)**:
+  ```bash
+  python installer_local_linux.py
+  ./start_services_local.sh
+  ```
+
+- **macOS or CPU-only Linux**:
+  > ⚠️ **Training is not supported** (Kohya SS requires CUDA).
+  > You can still run the **web UI + API** for development:
+  ```bash
+  pip install -r requirements.txt
+  ./start_services_local.sh
+  ```
+
+> 💡 **Tip**: Use `--verbose` for detailed logs:
+> ```bash
+> python installer_local_linux.py --verbose
+> ```
 
 **Access URLs:**
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
+
+**Quick Restart** (skip reinstall):
+```bash
+# Linux/Mac:
+./restart.sh
+
+# Windows:
+restart.bat
+```
 
 **Manual Service Startup** (alternative):
 ```bash
@@ -87,6 +130,7 @@ See [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions.
 ### VastAI Deployment
 
 Use the template via the deploy button in the badge table above.
+The system auto-runs `vastai_setup.sh` and configures supervisor for auto-restart.
 
 ### RunPod Deployment
 
@@ -135,13 +179,14 @@ RunPod deployment instructions are not yet available. If RunPod doesn't have a p
 
 ### Development Status
 
-> **BETA**: Active development. Features may not work as expected.
+> **ALPHA STAGES**: Active development. Features may not work as expected.
 >
 > **Experimental Features** (available in Kohya backend, testing status varies):
 > - Flux training
 > - SD3/SD3.5 training
 > - Lumina2 training
 > - Chroma training (basic support)
+> - Some features may not work with the UI once it runs, please check SD-scripts for documentation.
 >
 > These features use the underlying Kohya scripts but haven't been thoroughly tested in this setup. Report issues on GitHub.
 
@@ -149,7 +194,7 @@ RunPod deployment instructions are not yet available. If RunPod doesn't have a p
 
 ## Troubleshooting & Support
 
-See [Troubleshooting Guide](docs/guides/troubleshooting.md) for comprehensive help.
+See [Troubleshooting Guide](docs/guides/troubleshooting.md) for comprehensive help. You can in turn, also use the frontend WebUI documentation system once you have it up and running.
 
 ### Support Requirements
 

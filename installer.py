@@ -14,33 +14,23 @@ import shutil
 import subprocess
 import sys
 
-# At the very top of installer.py, after imports
-if sys.platform == "win32":
-    try:
-        import colorama
-    except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "colorama"])
-        import colorama
-        colorama.init(autoreset=True)
-
 
 def get_python_command():
     """Detects the best available Python command."""
     for cmd in ["python3", "python"]:
         if shutil.which(cmd):
             try:
-                result = subprocess.run(
-                    [cmd, "--version"], capture_output=True, text=True, check=True
-                )
+                result = subprocess.run([cmd, "--version"], capture_output=True, text=True, check=True)
                 if result.returncode == 0 and "Python 3" in result.stdout:
                     return cmd
             except (subprocess.CalledProcessError, FileNotFoundError):
                 continue
-    raise RuntimeError("❌ Python 3.10+ not found. Please install Python 3.10+")
+    raise RuntimeError("Python 3.10+ not found. Please install Python 3.10+")
 
 
-class UnifiedInstaller:
-    '''Unified Installer for Ktiseos-Nyx-Trainer Backend Dependencies'''
+class RemoteInstaller:
+    """Unified Installer for Ktiseos-Nyx-Trainer Backend Dependencies"""
+
     def __init__(self, verbose=False, skip_install=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
@@ -76,9 +66,7 @@ class UnifiedInstaller:
         log_level = logging.DEBUG if self.verbose else logging.INFO
 
         # Create formatter
-        formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-        )
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
         # Setup file handler
         file_handler = logging.FileHandler(log_file)
@@ -100,62 +88,64 @@ class UnifiedInstaller:
         self.log_file = log_file
 
         self.logger.info("Installer logging started - Log file: %s", log_file)
-        self.logger.info("Verbose mode: %s", 'Enabled' if self.verbose else 'Disabled')
+        self.logger.info("Verbose mode: %s", "Enabled" if self.verbose else "Disabled")
 
     def detect_package_manager(self):
         """Use pip for package installation"""
-        self.logger.info("📦 Using pip for package installation")
-        return {
-            "name": "pip",
-            "install_cmd": [self.python_cmd, "-m", "pip", "install"],
-            "available": True
-        }
+        self.logger.info("Using pip for package installation")
+        return {"name": "pip", "install_cmd": [self.python_cmd, "-m", "pip", "install"], "available": True}
 
     def get_install_command(self, *args):
         """Get package installation command with current package manager"""
         return self.package_manager["install_cmd"] + list(args)
 
     def ensure_pytorch_installed(self):
-        """Install PyTorch + CUDA if not already present (for local dev)"""
+        """Install PyTorch with CUDA 12.1 (for remote GPU containers)"""
         try:
             import torch  # pyright: ignore[reportMissingImports]
-            self.logger.info("✅ PyTorch already installed: %s", torch.__version__)
+
+            self.logger.info("PyTorch already installed: %s", torch.__version__)
             return
         except ImportError:
-            self.logger.info("🔍 PyTorch not found. Installing with CUDA auto-detect...")
+            self.logger.info("PyTorch not found. Installing with CUDA 12.1...")
             # Use standard CUDA 12.1 (most compatible)
             cmd = [
-                self.python_cmd, "-m", "pip", "install",
-                "torch==2.4.0", "torchvision==0.19.0",
-                "--index-url", "https://download.pytorch.org/whl/cu121"
+                self.python_cmd,
+                "-m",
+                "pip",
+                "install",
+                "torch==2.4.0",
+                "torchvision==0.19.0",
+                "--index-url",
+                "https://download.pytorch.org/whl/cu121",
             ]
             self.run_command(cmd, "Installing PyTorch with CUDA 12.1")
 
     def print_banner(self):
         banner_lines = [
             "=" * 70,
-            "🚀 Ktiseos-Nyx-Trainer - Backend Dependency Installer",
+            "Ktiseos-Nyx-Trainer - Remote Dependency Installer",
             "   Installing training backend (Kohya SS, LyCORIS, ONNX)",
             "=" * 70,
-            f"🐍 Using Python: {self.python_cmd}",
-            f"📦 Package Manager: {self.package_manager['name']}",
-            f"🔧 Project Root: {self.project_root}",
-            f"📝 Log File: {self.log_file}",
+            f"Python: {self.python_cmd}",
+            f"Package Manager: {self.package_manager['name']}",
+            f"Project Root: {self.project_root}",
+            f"Log File: {self.log_file}",
             "",
         ]
 
         for line in banner_lines:
             print(line)
-            self.logger.info(line.replace("📝 Log File: ", ""))
+            self.logger.info(line.replace("Log File: ", ""))
 
     def run_command(self, command, description, cwd=None, allow_failure=False):
         """Enhanced command runner with comprehensive logging"""
-        self.logger.info("🔄 %s...", description)
-        self.logger.debug("Command: %s", ' '.join(command))
-        self.logger.debug("Working directory: %s", cwd or 'current')
+        self.logger.info(" %s...", description)
+        self.logger.debug("Command: %s", " ".join(command))
+        self.logger.debug("Working directory: %s", cwd or "current")
 
         if not self.verbose:
-            print(f"🔄 {description}...")
+            print(f" {description}...")
 
         try:
             # Run command with real-time output if verbose
@@ -183,19 +173,19 @@ class UnifiedInstaller:
                 result = subprocess.run(command, check=True, capture_output=True, text=True, cwd=cwd)
                 output = result.stdout
 
-            self.logger.info("✅ %s successful.", description)
+            self.logger.info(" %s successful.", description)
             self.logger.debug("Command output: %s", output)
 
             if not self.verbose:
-                print(f"✅ {description} successful.")
+                print(" %s successful." % description)
 
             return True
 
         except subprocess.CalledProcessError as e:
-            error_msg = f"❌ {description} failed."
+            error_msg = " %s failed." % description
             self.logger.error(error_msg)
             self.logger.error("Exit code: %s", e.returncode)
-            self.logger.error("Command: %s", ' '.join(command))
+            self.logger.error("Command: %s", " ".join(command))
 
             if hasattr(e, "stdout") and e.stdout:
                 self.logger.error("Stdout: %s", e.stdout)
@@ -212,26 +202,24 @@ class UnifiedInstaller:
 
             if not allow_failure:
                 return False
-            self.logger.warning(
-                "Command failed but continuing due to %s", "allow_failure=True"
-            )
+            self.logger.warning("Command failed but continuing due to %s", "allow_failure=True")
             return True
 
         except Exception as e:  # pylint: disable=broad-exception-caught
-            error_msg = f"❌ Unexpected error during {description}: {e}"
+            error_msg = f" Unexpected error during %s: {e}" % description
             self.logger.error(error_msg)
             print(error_msg)
             return False
 
     def verify_vendored_backend(self):
         """Verify vendored backend directory exists and has required components"""
-        print("🔍 Verifying vendored backend...")
+        print("Verifying vendored backend...")
         self.logger.info("Checking vendored derrian_backend directory")
 
         # Check if derrian_backend directory exists
         if not os.path.exists(self.derrian_dir):
             error_msg = (
-                f"❌ CRITICAL: Vendored backend not found at {self.derrian_dir}\n"
+                f"CRITICAL: Vendored backend not found at {self.derrian_dir}\n"
                 "   This repository should include trainer/derrian_backend in the clone.\n"
                 "   If you cloned this repo, the vendored backend should already be present."
             )
@@ -247,52 +235,35 @@ class UnifiedInstaller:
 
         for name, path in required_dirs.items():
             if not os.path.exists(path):
-                error_msg = "❌ Required directory '%s' not found at %s" % (name, path)
+                error_msg = "Required directory '%s' not found at %s" % (name, path)
                 self.logger.error(error_msg)
                 print(error_msg)
                 return False
-            self.logger.info("   ✓ Found %s at %s", name, path)
-            print(f"   ✓ {name} directory verified")
+            self.logger.info("   Found %s at %s", name, path)
+            print(f"   {name} directory verified")
 
-        print("✅ Vendored backend verified successfully")
+        print("Vendored backend verified successfully")
         self.logger.info("Vendored backend verification complete")
         return True
 
     def install_dependencies(self):
         """Install dependencies with uv → pip fallback"""
         if self.skip_install:
-            print("⏩ Skipping dependency installation (--skip-install flag)")
+            print("Skipping dependency installation (--skip-install flag)")
             self.logger.info("Skipping dependency installation due to --skip-install flag")
             return True
 
         requirements_file = os.path.join(self.project_root, "requirements.txt")
         if not os.path.exists(requirements_file):
-            error_msg = "❌ CRITICAL: requirements.txt not found!"
+            error_msg = "CRITICAL: requirements.txt not found!"
             self.logger.error(error_msg)
             print(error_msg)
             return False
 
         self.logger.info("Installing dependencies from: %s", requirements_file)
 
-        # Try with current package manager first
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
-
-        # If uv failed, fallback to pip
-        if not success and self.package_manager["name"] == "uv":
-            self.logger.warning("uv installation failed, falling back to pip")
-            print("⚠️ uv installation failed, falling back to pip...")
-
-            # Update package manager to pip
-            self.package_manager = {
-                "name": "pip",
-                "install_cmd": [self.python_cmd, "-m", "pip", "install"],
-                "available": True,
-            }
-
-            # Retry with pip
-            install_cmd = self.get_install_command("-r", requirements_file)
-            success = self.run_command(install_cmd, "Installing Python packages with pip (fallback)")
 
         # Post-installation: Force correct CUDA 12 ONNX runtime
         if success:
@@ -302,18 +273,15 @@ class UnifiedInstaller:
 
     def fix_onnx_runtime(self):
         """Force install correct CUDA 12 ONNX runtime to prevent version conflicts"""
-        self.logger.info("🔧 Ensuring correct CUDA 12 ONNX runtime installation...")
-        print("🔧 Ensuring correct CUDA 12 ONNX runtime installation...")
+        self.logger.info("Ensuring correct CUDA 12 ONNX runtime installation...")
+        print("Ensuring correct CUDA 12 ONNX runtime installation...")
 
         # Uninstall any existing onnxruntime packages to prevent conflicts
         uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "onnxruntime", "onnxruntime-gpu"]
         self.run_command(uninstall_cmd, "Removing existing ONNX runtime packages")
 
         # Install correct CUDA 12 version
-        onnx_cmd = [
-            self.python_cmd, "-m", "pip", "install",
-            "onnx==1.16.1", "protobuf<4"
-        ]
+        onnx_cmd = [self.python_cmd, "-m", "pip", "install", "onnx==1.16.1", "protobuf<4"]
 
         cuda12_cmd = [
             self.python_cmd,
@@ -330,15 +298,15 @@ class UnifiedInstaller:
             success = self.run_command(cuda12_cmd, "Installing ONNX Runtime GPU with CUDA 12 support")
 
         if success:
-            self.logger.info("✅ ONNX runtime CUDA 12 installation completed successfully")
-            print("✅ ONNX runtime CUDA 12 installation completed successfully")
+            self.logger.info("ONNX runtime CUDA 12 installation completed successfully")
+            print("ONNX runtime CUDA 12 installation completed successfully")
         else:
-            self.logger.warning("⚠️ ONNX runtime installation encountered issues - will fallback to CPU")
-            print("⚠️ ONNX runtime installation encountered issues - will fallback to CPU")
+            self.logger.warning("ONNX runtime installation encountered issues - will fallback to CPU")
+            print("ONNX runtime installation encountered issues - will fallback to CPU")
 
     def check_system_dependencies(self):
         """Check and attempt to install required system packages like aria2c"""
-        self.logger.info("🔧 Checking system dependencies...")
+        self.logger.info("Checking system dependencies...")
 
         # Check for aria2c
         if not shutil.which("aria2c"):
@@ -366,12 +334,12 @@ class UnifiedInstaller:
                         subprocess.run(pm_cmd, capture_output=True, check=True)
                         pm_name = pm_cmd[0]
                         self.logger.info("Found package manager: %s", pm_name)
-                        print(f"     ✅ Installing with {pm_name}...")
+                        print(f"     Installing with {pm_name}...")
 
                         result = subprocess.run(install_cmd, shell=True, capture_output=True, text=True, check=True)
                         if result.returncode == 0:
                             self.logger.info("Successfully installed aria2c with %s", pm_name)
-                            print("     ✅ Successfully installed aria2c")
+                            print("     Successfully installed aria2c")
                             break
                         else:
                             self.logger.warning("Failed to install with %s: %s", pm_name, result.stderr)
@@ -380,7 +348,7 @@ class UnifiedInstaller:
                 else:
                     warning_msg = "Could not auto-install aria2c. Please install manually:"
                     self.logger.warning(warning_msg)
-                    print(f"     ⚠️  {warning_msg}")
+                    print(f"     {warning_msg}")
                     if is_root:
                         print("        Ubuntu/Debian: apt update && apt install -y aria2")
                         print("        CentOS/RHEL: yum install -y aria2")
@@ -389,23 +357,24 @@ class UnifiedInstaller:
                         print("        CentOS/RHEL: sudo yum install -y aria2")
 
             elif system == "darwin":
-                # macOS uses the same approach as Linux for aria2c
                 warning_msg = "macOS: Please install aria2c manually: brew install aria2"
                 self.logger.warning(warning_msg)
-                print(f"     ⚠️  {warning_msg}")
+                print(f"     {warning_msg}")
 
-            elif system == "windows":
-                warning_msg = "Windows: Please install aria2c manually or use package manager"
+            else:
+                warning_msg = (
+                    f"System {system} not officially supported for aria2c auto-install. Please install manually."
+                )
                 self.logger.warning(warning_msg)
-                print(f"     ⚠️  {warning_msg}")
+                print(f"     {warning_msg}")
         else:
             self.logger.info("aria2c: Found")
-            print("   - aria2c: ✅ Found")
+            print("   - aria2c: Found")
 
         return True
 
     def apply_special_fixes_and_installs(self):
-        self.logger.info("🔧 Applying special fixes and performing editable installs...")
+        self.logger.info("Applying special fixes and performing editable installs...")
 
         # --- Editable Installs ---
         editable_installs = {
@@ -423,50 +392,11 @@ class UnifiedInstaller:
                 if not success:
                     warning_msg = "Could not install %s in editable mode. Training might still work." % name
                     self.logger.warning(warning_msg)
-                    print(f"   - ⚠️  {warning_msg}")
+                    print(f"    - {warning_msg}")
             else:
                 self.logger.debug("No setup.py found for %s at %s, skipping editable install", name, path)
 
         # --- Platform-Specific Fixes ---
-        if platform.system() == "Windows":
-            self.logger.info("Applying Windows-specific fix for bitsandbytes...")
-            print("   - Applying Windows-specific fix for bitsandbytes...")
-            try:
-                bnb_src_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes_windows")
-                result = subprocess.run(
-                    [self.python_cmd, "-c", "import site; print(site.getsitepackages()[0])"],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                site_packages = result.stdout.strip()
-                bnb_dest_dir = os.path.join(site_packages, "bitsandbytes")
-
-                self.logger.debug("Bitsandbytes source: %s", bnb_src_dir)
-                self.logger.debug("Bitsandbytes destination: %s", bnb_dest_dir)
-
-                if os.path.exists(bnb_dest_dir):
-                    # This can be improved with logic to select the correct CUDA version DLL
-                    dll_to_copy = "libbitsandbytes_cuda118.dll"
-                    src_file = os.path.join(bnb_src_dir, dll_to_copy)
-                    dest_file = os.path.join(bnb_dest_dir, "libbitsandbytes_cudaall.dll")
-                    if os.path.exists(src_file):
-                        shutil.copy2(src_file, dest_file)
-                        success_msg = f"Copied {dll_to_copy} to {dest_file}"
-                        self.logger.info(success_msg)
-                        print(f"     ✅ {success_msg}")
-                    else:
-                        error_msg = f"Could not find source DLL: {src_file}"
-                        self.logger.warning(error_msg)
-                        print(f"     ⚠️ {error_msg}")
-                else:
-                    error_msg = "bitsandbytes directory not found in site-packages. Cannot apply fix."
-                    self.logger.warning(error_msg)
-                    print(f"     ⚠️ {error_msg}")
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                error_msg = f"Error applying bitsandbytes fix: {e}"
-                self.logger.error(error_msg)
-                print(f"     ❌ {error_msg}")
 
         # --- Linux bitsandbytes binaries fix ---
         self.ensure_linux_bitsandbytes_binaries()
@@ -493,11 +423,11 @@ class UnifiedInstaller:
         except ImportError:
             warning_msg = "Could not import PyTorch. Skipping version patch check."
             self.logger.warning(warning_msg)
-            print(f"   - ⚠️  {warning_msg}")
+            print(f"   - {warning_msg}")
         except Exception as e:  # pylint: disable=broad-exception-caught
             error_msg = f"Error applying PyTorch patch: {e}"
             self.logger.error(error_msg)
-            print(f"   - ❌ {error_msg}")
+            print(f"   -  {error_msg}")
 
         return True
 
@@ -506,7 +436,7 @@ class UnifiedInstaller:
         if platform.system() != "Linux":
             return True
 
-        self.logger.info("🔍 Checking Linux bitsandbytes binaries...")
+        self.logger.info("Checking Linux bitsandbytes binaries...")
         print("   - Checking Linux bitsandbytes binaries...")
 
         bits_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
@@ -514,10 +444,7 @@ class UnifiedInstaller:
             self.logger.warning("bitsandbytes directory not found")
             return False
 
-        required_files = [
-            "libbitsandbytes_cuda121.so",
-            "libbitsandbytes_cuda121_nocublaslt.so"
-        ]
+        required_files = ["libbitsandbytes_cuda121.so", "libbitsandbytes_cuda121_nocublaslt.so"]
 
         missing = []
         for f in required_files:
@@ -525,43 +452,44 @@ class UnifiedInstaller:
                 missing.append(f)
 
         if not missing:
-            self.logger.info("✅ All CUDA 12.1 .so files present")
-            print("     ✅ All CUDA 12.1 .so files present")
+            self.logger.info("All CUDA 12.1 .so files present")
+            print("      All CUDA 12.1 .so files present")
             return True
 
         # Try to download from GitHub Releases
         self.logger.warning("Missing .so files: %s", missing)
-        print(f"     ⚠️ Missing .so files: {', '.join(missing)}")
+        print(f"      Missing .so files: {', '.join(missing)}")
 
         try:
             import requests
+
             for bin_file in missing:
                 # Point to your GitHub Releases
                 url = f"https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/releases/download/v0.1.0-bitsandbytes-binaries/{bin_file}"
                 self.logger.info("Downloading %s from %s", bin_file, url)
-                print(f"     📥 Downloading {bin_file}...")
+                print(f"    Downloading {bin_file}...")
 
                 resp = requests.get(url, timeout=30)
                 if resp.status_code == 200:
-                    with open(os.path.join(bits_dir, bin_file), 'wb') as f:
+                    with open(os.path.join(bits_dir, bin_file), "wb") as f:
                         f.write(resp.content)
-                    self.logger.info("✅ Downloaded %s", bin_file)
-                    print(f"     ✅ Downloaded {bin_file}")
+                    self.logger.info("Downloaded %s", bin_file)
+                    print(f"     Downloaded {bin_file}")
                 else:
                     self.logger.error("Failed to download %s: %s", bin_file, resp.status_code)
-                    print(f"     ❌ Failed to download {bin_file}")
+                    print(f"      Failed to download {bin_file}")
 
             return True
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Download failed: %s", e)
-            print(f"     ❌ Download failed: {e}")
-            print("     💡 Please manually add CUDA 12.1 .so files to bitsandbytes/")
+            print(f"     Download failed: {e}")
+            print("     Please manually add CUDA 12.1 .so files to bitsandbytes/")
             return False
 
     def fix_cuda_symlinks(self):
         """Auto-fix ONNX CUDA library symlink issues"""
         self.logger.info("Checking for ONNX CUDA library symlink issues...")
-        print("🔗 Checking for ONNX CUDA library symlink issues...")
+        print(" Checking for ONNX CUDA library symlink issues...")
 
         try:
             # Check multiple possible CUDA library locations
@@ -584,7 +512,7 @@ class UnifiedInstaller:
                 print("   - No CUDA installation detected. Skipping.")
                 return True
 
-            print(f"   📁 Using CUDA library directory: {cuda_lib_dir}")
+            print(f"   Using CUDA library directory: {cuda_lib_dir}")
 
             # Find available CUDA libraries - check for both libcublas and libcublasLt
             import glob
@@ -633,7 +561,7 @@ class UnifiedInstaller:
 
             if created_links:
                 self.logger.info("Created %d CUDA symlinks for ONNX compatibility", len(created_links))
-                print(f"   🎉 Created {len(created_links)} CUDA symlinks for ONNX compatibility")
+                print(f"    Created {len(created_links)} CUDA symlinks for ONNX compatibility")
                 return True
             else:
                 print("   - All symlinks already exist or no symlinks needed")
@@ -642,7 +570,7 @@ class UnifiedInstaller:
         except Exception as e:  # pylint: disable=broad-exception-caught
             error_msg = f"Error fixing CUDA symlinks: {e}"
             self.logger.error(error_msg)
-            print(f"   ❌ {error_msg}")
+            print(f"   {error_msg}")
             return False
 
     def _create_cuda_symlinks(self, source_lib, target_list):
@@ -654,7 +582,7 @@ class UnifiedInstaller:
                 # Skip if symlink already exists and points correctly
                 if os.path.islink(target):
                     if os.readlink(target) == source_lib:
-                        print(f"   ✅ Symlink already exists: {target} -> {source_lib}")
+                        print(f"   Symlink already exists: {target} -> {source_lib}")
                         continue
                     else:
                         # Remove bad symlink
@@ -674,13 +602,13 @@ class UnifiedInstaller:
                 # Create symlink
                 os.symlink(source_lib, target)
                 created_links.append(target)
-                print(f"   ✅ Created symlink: {target} -> {source_lib}")
+                print(f"   Created symlink: {target} -> {source_lib}")
 
             except PermissionError:
-                print(f"   ⚠️ Permission denied creating symlink: {target}")
+                print(f"   Permission denied creating symlink: {target}")
                 continue
             except Exception as e:  # pylint: disable=broad-exception-caught
-                print(f"   ⚠️ Failed to create symlink {target}: {e}")
+                print(f"   Failed to create symlink {target}: {e}")
                 continue
 
         return created_links
@@ -689,7 +617,7 @@ class UnifiedInstaller:
         """Run the complete installation process"""
         self.print_banner()
 
-        # NEW: Ensure PyTorch is installed (for local dev)
+        # Install PyTorch with CUDA 12.1 (for remote GPU containers)
         self.ensure_pytorch_installed()
 
         start_time = datetime.datetime.now()
@@ -699,43 +627,43 @@ class UnifiedInstaller:
             if not self.verify_vendored_backend():
                 error_msg = "Halting installation due to vendored backend verification failure."
                 self.logger.error(error_msg)
-                print(f"❌ {error_msg}")
+                print(f"{error_msg}")
                 return False
 
             if not self.check_system_dependencies():
                 error_msg = "System dependency check failed."
                 self.logger.error(error_msg)
-                print(f"❌ {error_msg}")
+                print(f"{error_msg}")
                 return False
 
             if not self.install_dependencies():
                 error_msg = "Halting installation due to dependency installation failure."
                 self.logger.error(error_msg)
-                print(f"❌ {error_msg}")
+                print(f"{error_msg}")
                 return False
 
             if not self.apply_special_fixes_and_installs():
                 warning_msg = "Some special fixes or editable installs failed."
                 self.logger.warning(warning_msg)
-                print(f"⚠️ {warning_msg}")
+                print(f"{warning_msg}")
 
             # Auto-fix ONNX CUDA symlink issues
             if not self.fix_cuda_symlinks():
                 warning_msg = "CUDA symlink fixes failed (non-critical)."
                 self.logger.warning(warning_msg)
-                print(f"⚠️ {warning_msg}")
+                print(f"{warning_msg}")
 
             end_time = datetime.datetime.now()
             duration = end_time - start_time
 
             completion_lines = [
                 "\n" + "=" * 70,
-                "✅ Installation complete!",
-                f"⏱️ Total time: {duration}",
-                f"📦 Package manager used: {self.package_manager['name']}",
-                f"📝 Full log available at: {self.log_file}",
+                "Installation complete!",
+                f"Total time: {duration}",
+                f"Package manager used: {self.package_manager['name']}",
+                f"Full log available at: {self.log_file}",
                 "",
-                "🚀 Backend dependencies installed successfully!",
+                "Backend dependencies installed successfully!",
                 "   Next steps:",
                 "   - VastAI: Services will auto-start via supervisor",
                 "   - Local: Run ./start_services_local.sh to start the web UI",
@@ -752,8 +680,8 @@ class UnifiedInstaller:
         except Exception as e:  # pylint: disable=broad-exception-caught
             error_msg = f"Unexpected error during installation: {e}"
             self.logger.error(error_msg)
-            print(f"❌ {error_msg}")
-            print(f"📝 Check log file for details: {self.log_file}")
+            print(f"{error_msg}")
+            print(f"Check log file for details: {self.log_file}")
             return False
 
 
@@ -795,14 +723,14 @@ Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
     args = parser.parse_args()
 
     try:
-        installer = UnifiedInstaller(verbose=args.verbose, skip_install=args.skip_install)
+        installer = RemoteInstaller(verbose=args.verbose, skip_install=args.skip_install)
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        print("\n⚠️ Installation interrupted by user")
+        print("\nInstallation interrupted by user")
         sys.exit(1)
     except Exception as e:  # pylint: disable=broad-exception-caught
-        print(f"❌ Critical error: {e}")
+        print(f"Critical error: {e}")
         sys.exit(1)
 
 
