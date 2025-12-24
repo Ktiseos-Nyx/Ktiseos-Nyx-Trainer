@@ -13,13 +13,12 @@ THE DATASET UPLOADER ON REMOTE CONTAINERS (VAST AI) IS NOT ENTIRELY WORKING - PL
 ## Table of Contents
 
 - [Ktiseos Nyx LoRA Trainer](#ktiseos-nyx-lora-trainer)
-      - [PLEASE NOTE: THE DATASET UPLOADER ON REMOTE CONTAINERS (VAST AI) IS NOT ENTIRELY WORKING - PLEASE USE VASTAI'S INBUILT JUPYTER UNTIL A SOLUTION IS IN.](#please-note-the-dataset-uploader-on-remote-containers-vast-ai-is-not-entirely-working---please-use-vastais-inbuilt-jupyter-until-a-solution-is-in)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
     - [OS Support Overview](#os-support-overview)
     - [Requirements](#requirements)
     - [Local Installation](#local-installation)
-      - [Choose your platform:](#choose-your-platform)
+      - [Choose your platform](#choose-your-platform)
     - [VastAI Deployment](#vastai-deployment)
     - [RunPod Deployment](#runpod-deployment)
   - [Overview](#overview)
@@ -57,6 +56,7 @@ THE DATASET UPLOADER ON REMOTE CONTAINERS (VAST AI) IS NOT ENTIRELY WORKING - PL
 - **Disk**: 50GB+ free space
 
 Install prerequisites if needed:
+
 - **Python**: Download from [python.org](https://www.python.org/downloads/) (3.10.6+ recommended)
 - **Git**:
   - Windows: [git-scm.com](https://git-scm.com/download/win)
@@ -72,15 +72,17 @@ git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
 ```
 
-#### Choose your platform:
+#### Choose your platform
 
 - **Windows**:
+
   ```bat
   install.bat
   start_services_local.bat
   ```
 
 - **Linux (with NVIDIA GPU)**:
+
   ```bash
   python installer_local_linux.py
   ./start_services_local.sh
@@ -89,22 +91,26 @@ cd Ktiseos-Nyx-Trainer
 - **macOS or CPU-only Linux**:
   > ⚠️ **Training is not supported** (Kohya SS requires CUDA).
   > You can still run the **web UI + API** for development:
+
   ```bash
   pip install -r requirements.txt
   ./start_services_local.sh
   ```
 
 > 💡 **Tip**: Use `--verbose` for detailed logs:
+>
 > ```bash
 > python installer_local_linux.py --verbose
 > ```
 
 **Access URLs:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+
+- Frontend: <http://localhost:3000>
+- Backend API: <http://localhost:8000>
+- API Docs: <http://localhost:8000/docs>
 
 **Quick Restart** (skip reinstall):
+
 ```bash
 # Linux/Mac:
 ./restart.sh
@@ -114,6 +120,7 @@ restart.bat
 ```
 
 **Manual Service Startup** (alternative):
+
 ```bash
 # Terminal 1 - Backend
 uvicorn api.main:app --host 127.0.0.1 --port 8000
@@ -150,12 +157,14 @@ RunPod deployment instructions are not yet available. If RunPod doesn't have a p
 ### Core Features
 
 **Dataset Preparation:**
+
 - Upload and extract datasets via web UI
 - WD14 auto-tagging (supports v3 taggers with ONNX)
 - Caption editor with batch operations
 - Image gallery with filtering
 
 **Training Configuration:**
+
 - 132 training parameters across 7 organized tabs
 - Support for SDXL, SD1.5, Flux, SD3/SD3.5, Lumina, Chroma
 - Multiple LoRA types: Standard, LoCon, LoHa, LoKr, DoRA
@@ -164,16 +173,19 @@ RunPod deployment instructions are not yet available. If RunPod doesn't have a p
 - Persistent state with Zustand
 
 **Training Execution:**
+
 - TOML-based configuration generation
 - Real-time progress monitoring via WebSocket
 - Training calculator for automatic step/epoch calculations
 
 **Utilities:**
+
 - LoRA resizing and extraction
 - HuggingFace dataset and model upload
 - Metadata editing
 
 **Platform Support:**
+
 - Cross-platform: Windows, Linux, macOS
 - Cloud-ready: VastAI, RunPod templates
 
@@ -182,6 +194,7 @@ RunPod deployment instructions are not yet available. If RunPod doesn't have a p
 > **ALPHA STAGES**: Active development. Features may not work as expected.
 >
 > **Experimental Features** (available in Kohya backend, testing status varies):
+>
 > - Flux training
 > - SD3/SD3.5 training
 > - Lumina2 training
