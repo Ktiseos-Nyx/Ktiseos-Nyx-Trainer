@@ -1,96 +1,100 @@
 #!/bin/bash
-# Service Startup Script for Ktiseos-Nyx-Trainer
+# Service Startup Script for Ktiseos-Nyx-Trainer (Production-Style Local)
 # --------------------------------------------------------------------
-# FIX: "Homing Pigeon" Logic
-# This ensures the script works no matter where you call it from.
+# "Homing Pigeon" Logic + UTF-8 Safety for Git Bash / WSL
 # --------------------------------------------------------------------
 
-# Get the directory where THIS script is actually located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Ensure UTF-8 for emoji and console compatibility (critical for Git Bash on Windows)
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 
-# Move to that directory (Assuming this script is in the ROOT of your project)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
-
-# (Optional: If you move this script into a /scripts folder later, use this line instead:)
-# cd "$SCRIPT_DIR/.."
 
 echo "=========================================="
 echo "🚀 Starting Ktiseos-Nyx-Trainer (Production Mode)..."
 echo "📂 Working Directory: $(pwd)"
 echo "=========================================="
 
-set -e
-
 # --------------------------------------------------------------------
-# Step 0: Clean up any existing processes using the ports
+# Dependency Check
 # --------------------------------------------------------------------
-echo "🧹 Cleaning up any existing processes on ports 8000 and 3000..."
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+echo "🔍 Verifying dependencies..."
 
-# Also kill any existing uvicorn or next processes to prevent conflicts
-pkill -f "uvicorn.*api.main" 2>/dev/null || true
-pkill -f "node.*next" 2>/dev/null || true
+if ! command -v python &> /dev/null; then
+    echo "❌ Python not found. Install Python 3.10+ and try again."
+    exit 1
+fi
 
-sleep 3  # Give time for processes to terminate
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js not found. Install Node.js 18+ and try again."
+    exit 1
+fi
 
-# --------------------------------------------------------------------
-# Step 1: Python / Backend
-# --------------------------------------------------------------------
-if [ -d "api" ]; then
-    echo "🐍 Starting FastAPI backend..."
-    # Note: Removed --reload because you said 'Production Build'.
-    # Reload is for dev. If you want dev, add --reload back.
-    python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
-    BACKEND_PID=$!
-    echo "   Backend PID: $BACKEND_PID"
-else
-    echo "❌ CRITICAL: 'api' directory not found in $(pwd)"
+if ! python -c "import uvicorn, fastapi" 2>/dev/null; then
+    echo "❌ Python dependencies missing."
+    echo "   → Run installer first (e.g., installer_local_linux.py)"
     exit 1
 fi
 
 # --------------------------------------------------------------------
-# Step 2: Next.js / Frontend
+# Cleanup
+# --------------------------------------------------------------------
+echo "🧹 Cleaning up ports 8000 and 3000..."
+lsof -ti:8000 2>/dev/null | xargs kill -9 2>/dev/null || true
+lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
+pkill -f "uvicorn.*api.main" 2>/dev/null || true
+pkill -f "node.*next" 2>/dev/null || true
+sleep 3
+
+# --------------------------------------------------------------------
+# Backend
+# --------------------------------------------------------------------
+if [ -d "api" ]; then
+    echo "🐍 Starting FastAPI backend on 0.0.0.0:8000..."
+    python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &
+    BACKEND_PID=$!
+    echo "   Backend PID: $BACKEND_PID"
+else
+    echo "❌ CRITICAL: 'api' directory missing"
+    exit 1
+fi
+
+# --------------------------------------------------------------------
+# Frontend
 # --------------------------------------------------------------------
 if [ -d "frontend" ]; then
-    echo "🎨 Preparing Frontend..."
+    echo "🎨 Starting Next.js frontend..."
 
-    # Load NVM if it exists (Standard safety check)
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     cd frontend
 
-    # CRITICAL CHECK FOR PRODUCTION
-    # npm start fails if you haven't built it first.
     if [ ! -d ".next" ]; then
-        echo "⚠️  No build found! Running 'npm run build' first..."
-        echo "    (This might take a minute, grab a drink)"
+        echo "⚠️  Building frontend (first run)..."
         npm run build
     fi
 
-    echo "🚀 Starting Next.js Production Server..."
-    npm start -- -p 3000 &
+    echo "🚀 Starting Next.js production server..."
+    PORT=3000 npm start &
     FRONTEND_PID=$!
     echo "   Frontend PID: $FRONTEND_PID"
-
-    # Go back to root just to be safe
     cd ..
 else
-    echo "❌ CRITICAL: 'frontend' directory not found in $(pwd)"
+    echo "❌ CRITICAL: 'frontend' directory missing"
     exit 1
 fi
 
 echo ""
 echo "=========================================="
-echo "✅ Services Running!"
+echo "✅ Production Services Running!"
 echo "=========================================="
-echo "   Frontend: http://localhost:3000"
-echo "   Backend:  http://localhost:8000"
+echo "   Backend:  http://0.0.0.0:8000"
+echo "   Frontend: http://0.0.0.0:3000"
 echo ""
-echo "🛑 Press CTRL+C to stop both services"
+echo "🛑 Press CTRL+C to stop"
 
-# This magic wait command allows you to kill the script with Ctrl+C
-# and it will shut down the background processes cleanly.
-trap "kill $BACKEND_PID $FRONTEND_PID; exit" INT
+# Graceful shutdown on Ctrl+C
+trap "echo -e '\n🛑 Shutting down...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT
 wait

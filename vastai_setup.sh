@@ -16,6 +16,7 @@ provisioning_start() {
 
     # Activate virtual environment (VastAI PyTorch base image has this)
     if [ -f "/venv/main/bin/activate" ]; then
+        # shellcheck disable=SC1091
         source /venv/main/bin/activate
         echo "✅ Virtual environment activated"
     fi
@@ -41,16 +42,20 @@ provisioning_start() {
     # If not using Docker (bare provisioning), clone from GitHub
     if [ -d "/opt/workspace-internal/Ktiseos-Nyx-Trainer" ]; then
         echo "📂 Using pre-installed code from Docker image..."
+        # shellcheck disable=SC2164
         cd /opt/workspace-internal/Ktiseos-Nyx-Trainer
     elif [ -d "/workspace/Ktiseos-Nyx-Trainer" ]; then
         echo "📂 Repository exists in /workspace, pulling latest changes..."
+        # shellcheck disable=SC2164
         cd /workspace/Ktiseos-Nyx-Trainer
         git config --file $GIT_CONFIG_GLOBAL --add safe.directory "$(pwd)"
         git pull || echo "⚠️ Git pull failed, continuing with existing code"
     else
         echo "📥 Cloning repository (fallback for bare provisioning)..."
+        # shellcheck disable=SC2164
         cd /workspace
         git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+        # shellcheck disable=SC2164
         cd Ktiseos-Nyx-Trainer
     fi
 
@@ -102,12 +107,11 @@ provisioning_start() {
     fi
 
     # Run unified installer (handles all backend dependencies and setup)
-    echo "🔧 Running unified installer..."
-    if [ -f "installer.py" ]; then
-        $PYTHON_CMD installer.py
+    echo "🔧 Running Remote installer..."
+    if [ -f "installer_remote.py" ]; then
+        $PYTHON_CMD installer_remote.py
     else
-        echo "⚠️  installer.py not found - falling back to manual dependency installation"
-
+        echo "⚠️  installer_remote.py not found - falling back to manual dependency installation"
         # Fallback: Install dependencies manually
         echo "🐍 Installing all dependencies..."
         $PYTHON_CMD -m pip install --upgrade pip -v
@@ -123,10 +127,12 @@ provisioning_start() {
     if [ -d "frontend" ] && [ "$SKIP_FRONTEND" != true ]; then
         if command -v node &> /dev/null && command -v npm &> /dev/null; then
             echo "🎨 Setting up Next.js frontend..."
+            # shellcheck disable=SC2164
             cd frontend
 
             # Ensure Node.js is available
             export NVM_DIR="$HOME/.nvm"
+            # shellcheck disable=SC1091
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             # Check node version and install dependencies
@@ -144,6 +150,7 @@ provisioning_start() {
                 echo "⚠️  Frontend build failed, services may not work correctly"
             }
 
+            # shellcheck disable=SC2103
             cd ..
         else
             echo "⚠️  Node.js/npm not available - skipping frontend setup"
@@ -164,6 +171,7 @@ provisioning_start() {
     fi
 
     # Configure git for root usage
+    # shellcheck disable=SC2046
     git config --global --add safe.directory $(pwd)
 
     # Create log directory

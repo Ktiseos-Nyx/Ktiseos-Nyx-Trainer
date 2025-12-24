@@ -98,7 +98,7 @@ async def global_exception_handler(request, exc):
 
 
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  # pyright: ignore[reportMissingImports]
     uvicorn.run(
         "api.main:app",
         host="0.0.0.0",

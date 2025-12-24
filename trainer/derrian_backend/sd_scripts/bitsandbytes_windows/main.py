@@ -18,7 +18,7 @@ evaluation:
 
 import ctypes
 
-from .paths import determine_cuda_runtime_lib_path
+from .paths import determine_cuda_runtime_lib_path # pyright: ignore[reportMissingImports]
 
 
 def check_cuda_result(cuda, result_val):
@@ -116,7 +116,7 @@ def evaluate_cuda_setup():
     print('For effortless bug reporting copy-paste your error into this form: https://docs.google.com/forms/d/e/1FAIpQLScPB8emS3Thkp66nvqwmjTEgxp8Y9ufuWTzFyr9kJ5AoI47dQ/viewform?usp=sf_link')
     print('='*80)
     return "libbitsandbytes_cuda116.dll"            # $$$
-    
+
     binary_name = "libbitsandbytes_cpu.so"
     #if not torch.cuda.is_available():
         #print('No GPU detected. Loading CPU library...')
