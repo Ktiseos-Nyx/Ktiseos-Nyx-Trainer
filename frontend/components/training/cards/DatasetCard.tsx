@@ -12,6 +12,8 @@ import { TextFormField, NumberFormField, ComboboxFormField } from '../fields/For
 import type { TrainingConfig } from '@/lib/api';
 import { Database, Image } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 // --- THIS IS NEW: Define the props this component accepts ---
 interface DatasetCardProps {

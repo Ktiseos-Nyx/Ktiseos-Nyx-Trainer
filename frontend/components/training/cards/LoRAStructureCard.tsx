@@ -11,6 +11,8 @@ import { NumberFormField, SelectFormField, CheckboxFormField } from '../fields/F
 import type { TrainingConfig } from '@/lib/api';
 import { Network } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 interface LoRAStructureCardProps {
   form: UseFormReturn<TrainingConfig>; // 👈 NO Partial

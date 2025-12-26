@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { trainingAPI } from '@/lib/api';
-import { Activity, Clock, Zap, TrendingUp } from 'lucide-react';
+import { Activity, Save, Clock, Zap, TrendingUp } from 'lucide-react';
 
 interface TrainingStatus {
   is_training: boolean;
@@ -32,7 +32,7 @@ export default function TrainingMonitor() {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const urlJobId = urlParams.get('job');
-      
+
       if (urlJobId) {
         setJobId(urlJobId);
         localStorage.setItem('current_training_job_id', urlJobId);

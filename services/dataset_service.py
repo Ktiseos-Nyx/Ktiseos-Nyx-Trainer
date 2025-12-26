@@ -8,26 +8,26 @@ Handles:
 - Dataset metadata
 """
 
+import logging
 import os
 import shutil
-import logging
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
 
-from services.models.dataset import (
-    DatasetInfo,
-    FileInfo,
-    CreateDatasetRequest,
-    DatasetListResponse,
-    DatasetFilesResponse
-)
-from services.core.exceptions import ValidationError, NotFoundError
+from services.core.exceptions import NotFoundError, ValidationError
 from services.core.validation import (
+    ALLOWED_IMAGE_EXTENSIONS,
+    DATASETS_DIR,
     validate_dataset_path,
     validate_image_filename,
-    DATASETS_DIR,
-    ALLOWED_IMAGE_EXTENSIONS
+)
+from services.models.dataset import (
+    CreateDatasetRequest,
+    DatasetFilesResponse,
+    DatasetInfo,
+    DatasetListResponse,
+    FileInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -389,16 +389,11 @@ class DatasetService:
     async def download_from_url(self, url: str, dataset_name: str):
         """
         Download dataset from URL (HuggingFace, direct link, etc).
-
-        Args:
-            url: URL to download from
-            dataset_name: Name of dataset to save to
-
-        Returns:
-            dict with downloaded files and status
         """
         import aiohttp
         import tempfile
+
+        # import aiofiles # You might need to add aiofiles to requirements if not present
         from services.core.validation import validate_dataset_path
 
         # Validate dataset path
@@ -409,37 +404,45 @@ class DatasetService:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=3600)) as response:
                     if response.status != 200:
-                        return {
-                            "success": False,
-                            "error": f"Failed to download: HTTP {response.status}"
-                        }
+                        return {"success": False, "error": f"Failed to download: HTTP {response.status}"}
 
-                    # Get filename from URL or Content-Disposition
-                    filename = url.split('/')[-1]
-                    content_disp = response.headers.get('Content-Disposition', '')
-                    if 'filename=' in content_disp:
-                        filename = content_disp.split('filename=')[-1].strip('"\'')
+                    # ... (Filename parsing logic remains the same) ...
+                    filename = url.split("/")[-1]
+                    content_disp = response.headers.get("Content-Disposition", "")
+                    if "filename=" in content_disp:
+                        filename = content_disp.split("filename=")[-1].strip("\"'")
 
-                    # Determine if it's a ZIP
-                    is_zip = filename.lower().endswith('.zip') or response.headers.get('Content-Type', '').endswith('zip')
+                    is_zip = filename.lower().endswith(".zip") or response.headers.get("Content-Type", "").endswith(
+                        "zip"
+                    )
 
-                    # Download file
+                    # Download to temp file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip" if is_zip else ".tmp") as tmp:
+                        async for chunk in response.content.iter_chunked(1024 * 1024):
+                            tmp.write(chunk)
+                        tmp_path = tmp.name
+
                     if is_zip:
-                        # Download to temp file then extract
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
-                            async for chunk in response.content.iter_chunked(1024 * 1024):
-                                tmp.write(chunk)
-                            tmp_path = tmp.name
-
-                        # Create a fake UploadFile object for upload_zip
+                        # ✅ FIXED: Correct FakeUploadFile implementation
                         class FakeUploadFile:
                             def __init__(self, path):
-                                self.path = path
-                            async def read(self):
-                                return Path(self.path).read_bytes()
+                                self.f = open(path, "rb")
+                                self.filename = Path(path).name
+
+                            async def read(self, size=-1):
+                                # Run blocking I/O in thread pool to keep async loop happy
+                                import asyncio
+
+                                return await asyncio.to_thread(self.f.read, size)
+
+                            def close(self):
+                                self.f.close()
 
                         fake_file = FakeUploadFile(tmp_path)
-                        result = await self.upload_zip(fake_file, dataset_name)
+                        try:
+                            result = await self.upload_zip(fake_file, dataset_name)
+                        finally:
+                            fake_file.close()  # Close handle so we can delete it
 
                         # Clean up
                         Path(tmp_path).unlink()
@@ -447,31 +450,19 @@ class DatasetService:
                         return {
                             "success": True,
                             "extracted_files": result["extracted_files"],
-                            "errors": result["errors"]
+                            "errors": result["errors"],
                         }
                     else:
-                        # Direct image download with streaming
+                        # Direct image download logic (Move from temp to destination)
                         destination = dataset_path / filename
-                        with open(destination, 'wb') as f:
-                            async for chunk in response.content.iter_chunked(1024 * 1024):
-                                f.write(chunk)
+                        shutil.move(tmp_path, destination)
 
-                        return {
-                            "success": True,
-                            "downloaded_files": [str(destination)],
-                            "errors": []
-                        }
+                        return {"success": True, "downloaded_files": [str(destination)], "errors": []}
 
-        except aiohttp.ClientError as e:
-            return {
-                "success": False,
-                "error": f"Download failed: {str(e)}"
-            }
         except Exception as e:
-            return {
-                "success": False,
-                "error": f"Unexpected error: {str(e)}"
-            }
+            if "tmp_path" in locals() and Path(tmp_path).exists():
+                Path(tmp_path).unlink()
+            return {"success": False, "error": f"Download failed: {str(e)}"}
 
 
 # Global service instance

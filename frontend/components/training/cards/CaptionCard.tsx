@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { NumberFormField, CheckboxFormField, TextFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 interface CaptionCardProps {
   form: UseFormReturn<TrainingConfig>; // 👈 NO Partial

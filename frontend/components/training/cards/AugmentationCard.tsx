@@ -8,6 +8,8 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckboxFormField, NumberFormField } from '../fields/FormFields';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 import type { TrainingConfig } from '@/lib/api';
 import { Shuffle } from 'lucide-react';
 

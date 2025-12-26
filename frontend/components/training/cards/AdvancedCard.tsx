@@ -7,7 +7,9 @@
 
 import { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { NumberFormField, SelectFormField, CheckboxFormField, TextFormField } from '../fields/FormFields';
+import { Save } from 'lucide-react';
 import type { TrainingConfig } from '@/lib/api';
 import { Settings2 } from 'lucide-react';
 

@@ -4,16 +4,19 @@ Kohya-ss training backend implementation.
 Implements BaseTrainer for Kohya's sd-scripts training framework.
 """
 
-import sys
-import os
-from pathlib import Path
-from typing import Optional, Dict, List
+import asyncio
 import logging
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional
 
+from services.core.exceptions import ConfigError, ValidationError
+from services.models.training import ModelType, TrainingConfig
 from services.trainers.base import BaseTrainer
 from services.trainers.kohya_toml import KohyaTOMLGenerator
-from services.models.training import TrainingConfig, ModelType
-from services.core.exceptions import ValidationError, ConfigError
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +48,69 @@ class KohyaTrainer(BaseTrainer):
 
         # TOML generator
         self.toml_generator = KohyaTOMLGenerator(
-            config=config,
-            project_root=self.project_root,
-            sd_scripts_dir=self.sd_scripts_dir
+            config=config, project_root=self.project_root, sd_scripts_dir=self.sd_scripts_dir
         )
+
+    async def start_training(self):
+        """
+        Launch Kohya training using AsyncIO (Required for JobManager compatibility).
+        """
+        # 1. Prepare Environment
+        await self.prepare_environment()
+
+        # 2. Validate Config
+        is_valid, errors = await self.validate_config()
+        if not is_valid:
+            raise ValidationError("; ".join(errors))
+
+        # 3. Generate the TWO Runtime TOMLs
+        dataset_toml_runtime = self.config_dir / f"{self.config.project_name}_dataset.toml"
+        self.toml_generator.generate_dataset_toml(dataset_toml_runtime)
+
+        config_toml_runtime = self.config_dir / f"{self.config.project_name}_config.toml"
+        self.toml_generator.generate_config_toml(config_toml_runtime)
+
+        # 4. Copy to User Config Folder
+        user_config_dir = Path("config")
+        user_config_dir.mkdir(exist_ok=True)
+
+        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
+        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
+
+        shutil.copy(dataset_toml_runtime, dataset_toml_user)
+        shutil.copy(config_toml_runtime, config_toml_user)
+
+        # 5. Build Command List
+        cmd = [
+            sys.executable,
+            str(self.get_script_path()),
+            "--config_file",
+            str(config_toml_user.resolve()),
+            "--dataset_config",
+            str(dataset_toml_user.resolve()),
+            "--output_dir",
+            str(Path(self.config.output_dir).resolve()),
+            "--output_name",
+            self.config.project_name,
+        ]
+
+        logger.info(f"🚀 Launching Kohya Command: {' '.join(cmd)}")
+
+        # 6. Execute Async Process (The Fix)
+        try:
+            process = await asyncio.create_subprocess_exec(
+                cmd[0],  # Program (python)
+                *cmd[1:],  # Arguments
+                cwd=self.sd_scripts_dir,
+                stdout=asyncio.subprocess.PIPE,  # Capture stdout
+                stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout (Critical so errors show in logs)
+                env=os.environ.copy(),
+            )
+            return process  # Now returns an asyncio Process compatible with JobManager
+
+        except Exception as e:
+            logger.error(f"Failed to launch subprocess: {e}")
+            raise e
 
     async def validate_config(self) -> tuple[bool, list[str]]:
         """
@@ -57,16 +119,12 @@ class KohyaTrainer(BaseTrainer):
         Returns:
             (is_valid, error_messages)
         """
-        from services.core.validation import (
-            validate_dataset_path,
-            validate_model_path,
-            validate_output_path,
-            ValidationError as PathValidationError
-        )
+        from services.core.validation import ValidationError as PathValidationError
+        from services.core.validation import validate_dataset_path, validate_model_path, validate_output_path
 
         errors = []
 
-        # Validate dataset path (security + existence)
+        # Validate dataset path
         try:
             dataset_path = validate_dataset_path(self.config.train_data_dir)
             if not dataset_path.exists():
@@ -76,7 +134,6 @@ class KohyaTrainer(BaseTrainer):
 
         # Validate base model path
         model_path_str = self.config.pretrained_model_name_or_path
-        # If it's a HF repo like "OnomaAI/Illustrious", it contains / but doesn't start with /
         is_hf_model = "/" in model_path_str and not model_path_str.startswith("/")
 
         if not is_hf_model:
@@ -87,7 +144,7 @@ class KohyaTrainer(BaseTrainer):
             except PathValidationError as e:
                 errors.append(f"Invalid model path: {e}")
 
-        # Validate VAE path if specified (security + existence)
+        # Validate VAE path
         if self.config.vae_path:
             try:
                 vae_path = validate_model_path(self.config.vae_path)
@@ -96,10 +153,9 @@ class KohyaTrainer(BaseTrainer):
             except PathValidationError as e:
                 errors.append(f"Invalid VAE path: {e}")
 
-        # Validate output directory (security - will be created if doesn't exist)
+        # Validate output directory
         try:
-            output_path = validate_output_path(self.config.output_name)
-            # Output dir will be created during training, so we don't check existence
+            validate_output_path(self.config.output_name)
         except PathValidationError as e:
             errors.append(f"Invalid output path: {e}")
 
@@ -114,21 +170,12 @@ class KohyaTrainer(BaseTrainer):
         if not self.sd_scripts_dir.exists():
             errors.append(f"Kohya sd_scripts not found at: {self.sd_scripts_dir}")
 
-        # Check training script exists
-        try:
-            script_path = self.get_script_path()
-            if not script_path.exists():
-                errors.append(f"Training script not found: {script_path}")
-        except Exception as e:
-            errors.append(f"Cannot determine training script: {e}")
-
         return (len(errors) == 0, errors)
 
     async def prepare_environment(self) -> None:
         """
         Prepare Kohya training environment.
-
-        Creates necessary directories and verifies paths.
+        Creates necessary directories.
         """
         # Create output directory
         output_path = Path(self.config.output_dir)
@@ -147,50 +194,6 @@ class KohyaTrainer(BaseTrainer):
             log_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Environment prepared for {self.config.model_type} training")
-
-    async def generate_config_files(self) -> Dict[str, Path]:
-        """
-        Generate Kohya TOML configuration files.
-
-        Returns:
-            Dict with 'dataset' and 'config' paths
-        """
-        # Generate file paths
-        dataset_toml = self.config_dir / f"{self.config.output_name}_dataset.toml"
-        config_toml = self.config_dir / f"{self.config.output_name}_config.toml"
-
-        # Generate TOML files
-        self.toml_generator.generate_dataset_toml(dataset_toml)
-        self.toml_generator.generate_config_toml(config_toml)
-
-        logger.info(f"Generated TOML configs: {dataset_toml.name}, {config_toml.name}")
-
-        return {
-            "dataset": dataset_toml,
-            "config": config_toml
-        }
-
-    def build_command(self) -> list[str]:
-        """
-        Build Kohya training command.
-
-        Returns:
-            Command as list of arguments
-        """
-        script_path = self.get_script_path()
-        config_toml = self.config_dir / f"{self.config.output_name}_config.toml"
-        dataset_toml = self.config_dir / f"{self.config.output_name}_dataset.toml"
-
-        # Base command
-        command = [
-            sys.executable,  # Use same Python interpreter
-            str(script_path),
-            f"--config_file={config_toml}",
-            f"--dataset_config={dataset_toml}",
-        ]
-
-        logger.info(f"Built command for {self.get_model_type_name()} training")
-        return command
 
     def get_script_path(self) -> Path:
         """
@@ -219,7 +222,7 @@ class KohyaTrainer(BaseTrainer):
                 ModelType.SDXL: "sdxl_train_network.py",
                 ModelType.FLUX: "flux_train_network.py",
                 ModelType.SD3: "sd3_train_network.py",
-                ModelType.LUMINA: "flux_train_network.py",  # Lumina uses same script
+                ModelType.LUMINA: "flux_train_network.py",
             }
             default_script = "train_network.py"
 
