@@ -1,7 +1,7 @@
 """
 TOML configuration file generation for Kohya training scripts.
 
-Extracts working TOML generation logic from old manager without copying the class structure.
+Generates FLAT toml files compatible with sd-scripts train_network.py variants.
 """
 
 import logging
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import toml
-import tomlkit
+import tomlkit  # Ensure tomlkit is installed (pip install tomlkit)
 
 from services.models.training import ModelType, TrainingConfig
 
@@ -21,141 +21,141 @@ class KohyaTOMLGenerator:
     """
     Generate Kohya-compatible TOML configuration files.
 
-    Handles both dataset.toml and config.toml generation for SD1.5, SDXL, Flux, SD3.
+    Produces:
+    1. dataset.toml (Images, folders, resolution)
+    2. config.toml (Training args + Network args combined)
     """
 
     def __init__(self, config: TrainingConfig, project_root: Path, sd_scripts_dir: Path):
-        """
-        Initialize TOML generator.
-
-        Args:
-            config: Validated training configuration
-            project_root: Absolute path to project root
-            sd_scripts_dir: Absolute path to Kohya sd_scripts directory
-        """
         self.config = config
         self.project_root = project_root
         self.sd_scripts_dir = sd_scripts_dir
 
     def generate_dataset_toml(self, output_path: Path) -> None:
+        """
+        Generate dataset.toml.
+        This handles the [general] and [[datasets]] formatting required by Kohya.
+        """
         doc = tomlkit.document()
 
-        # [general]
+        # [general] section
         general = tomlkit.table()
         general["resolution"] = self.config.resolution
         general["shuffle_caption"] = self.config.shuffle_caption
-        # ... add all general settings
+        # general["enable_bucket"] = True # Usually implied, but good to ensure
         doc["general"] = general
 
-        # [[datasets]]
-        datasets = tomlkit.aot()  # Array of Tables
+        # [[datasets]] list
+        datasets = tomlkit.aot()
         dataset = tomlkit.table()
 
         if self.config.keep_tokens > 0:
             dataset["keep_tokens"] = self.config.keep_tokens
+
         dataset["resolution"] = self.config.resolution
         dataset["batch_size"] = self.config.train_batch_size
+        dataset["enable_bucket"] = True # Force bucketing enabled
 
-        # [[datasets.subsets]]
+        # [[datasets.subsets]] list
         subsets_aot = tomlkit.aot()
         subset = tomlkit.table()
 
         dataset_abs_path = Path(self.config.train_data_dir).resolve()
         if not dataset_abs_path.is_absolute():
             dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
+
         subset["image_dir"] = str(dataset_abs_path)
         subset["num_repeats"] = self.config.num_repeats
+
+        # Add metadata path if you use it, otherwise SD-Scripts scans the folder
+        # subset["metadata_file"] = ...
 
         subsets_aot.append(subset)
         dataset["subsets"] = subsets_aot
         datasets.append(dataset)
-
         doc["datasets"] = datasets
 
         os.makedirs(output_path.parent, exist_ok=True)
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(tomlkit.dumps(doc))
+
+        logger.info("Generated dataset TOML: %s", output_path)
 
     def generate_config_toml(self, output_path: Path) -> None:
         """
-        Generate config.toml for Kohya training.
-
-        Args:
-            output_path: Where to write the TOML file
+        Generate the MAIN config file.
+        Combines Training Arguments AND Network Arguments into one flat TOML.
         """
+        # 1. Get Base Training Args
+        args = self._get_training_arguments()
+
+        # 2. Add Network Args (LoRA settings) directly into the same dict
         network_config = self._get_network_config()
+        args.update(network_config)
 
-        network_args = {
-            "network_dim": self.config.network_dim,
-            "network_alpha": self.config.network_alpha,
-            "conv_dim": self.config.conv_dim,
-            "conv_alpha": self.config.conv_alpha,
-            **network_config
-        }
+        # Add manual network params
+        args["network_dim"] = self.config.network_dim
+        args["network_alpha"] = self.config.network_alpha
 
+        if self.config.conv_dim > 0:
+            args["conv_dim"] = self.config.conv_dim
+        if self.config.conv_alpha > 0:
+            args["conv_alpha"] = self.config.conv_alpha
+
+        if self.config.network_dropout > 0:
+            args["network_dropout"] = self.config.network_dropout
+        if self.config.rank_dropout > 0:
+            args["rank_dropout"] = self.config.rank_dropout
+        if self.config.module_dropout > 0:
+            args["module_dropout"] = self.config.module_dropout
+        if self.config.train_norm:
+            args["train_norm"] = True
+
+        # LoKR specific
         if self.config.lora_type == "LoKR" and self.config.factor != -1:
-            network_args["factor"] = self.config.factor
+            args["factor"] = self.config.factor
 
-        toml_config = {
-            "network_arguments": network_args,
-            "optimizer_arguments": {
-                "learning_rate": self.config.unet_lr,
-                "text_encoder_lr": self.config.text_encoder_lr,
-                "lr_scheduler": self.config.lr_scheduler,
-                "lr_scheduler_num_cycles": self.config.lr_scheduler_number,
-                "lr_warmup_ratio": self.config.lr_warmup_ratio,
-                "optimizer_type": self.config.optimizer_type,
-                "max_grad_norm": self.config.max_grad_norm,
-                "weight_decay": self.config.weight_decay,
-            },
-            "training_arguments": self._get_training_arguments(),
-        }
+        # 3. Dump to file
+        os.makedirs(output_path.parent, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            toml.dump(args, f)
 
-        # ✅ FIX W1514: Added encoding="utf-8"
-        with open(output_path, 'w', encoding='utf-8') as f:
-            toml.dump(toml_config, f)
-
-        # ✅ FIX W1203: Use lazy formatting
-        logger.info("Generated config TOML: %s", output_path)
+        logger.info("Generated main config TOML: %s", output_path)
 
     def _get_network_config(self) -> Dict[str, Any]:
-        """Get network configuration based on LoRA type."""
+        """Helper to determine module string based on LoRA type"""
         lora_type = self.config.lora_type
-
         if lora_type == "LoRA":
             return {"network_module": "networks.lora"}
         elif lora_type == "LoCon":
             return {"network_module": "lycoris.kohya"}
         elif lora_type == "LoHa":
-            return {
-                "network_module": "lycoris.kohya",
-                "network_args": ["algo=loha"]  # ✅ FIX F541: Removed unused f-string prefix
-            }
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=loha"]}
         elif lora_type in ["LoKR", "LoKr"]:
-            return {
-                "network_module": "lycoris.kohya",
-                "network_args": ["algo=lokr"]  # ✅ FIX F541: Removed unused f-string prefix
-            }
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=lokr"]}
         elif lora_type == "DoRA":
-            return {
-                "network_module": "lycoris.kohya",
-                "network_args": ["algo=dora"]  # ✅ FIX F541: Removed unused f-string prefix
-            }
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=dora"]}
         else:
             return {"network_module": "networks.lora"}
 
     def _get_training_arguments(self) -> Dict[str, Any]:
-        """Build complete training arguments section."""
-        # ✅ FIX: All paths are already using .resolve() below, which is perfect for absolute paths.
+        """Map internal TrainingConfig keys to Kohya CLI argument keys"""
         args = {
             "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve()),
             "max_train_epochs": self.config.max_train_epochs,
-            "train_batch_size": self.config.train_batch_size,
+            # "train_batch_size": self.config.train_batch_size, # Often handled in dataset.toml, but safe to keep here too
             "output_dir": str(Path(self.config.output_dir).resolve()),
             "output_name": self.config.output_name,
             "seed": self.config.seed,
+            "unet_lr": self.config.unet_lr,
+            "text_encoder_lr": self.config.text_encoder_lr,
+            "lr_scheduler": self.config.lr_scheduler,
+            "lr_scheduler_num_cycles": self.config.lr_scheduler_number,
+            "lr_warmup_ratio": self.config.lr_warmup_ratio,
             "lr_warmup_steps": self.config.lr_warmup_steps,
             "lr_power": self.config.lr_power,
+            "optimizer_type": self.config.optimizer_type,
+            "max_grad_norm": self.config.max_grad_norm,
             "weight_decay": self.config.weight_decay,
             "max_token_length": self.config.max_token_length,
             "clip_skip": self.config.clip_skip,
@@ -195,6 +195,7 @@ class KohyaTOMLGenerator:
             "prior_loss_weight": self.config.prior_loss_weight,
         }
 
+        # Optional Paths
         if self.config.vae_path:
             args["vae"] = str(Path(self.config.vae_path).resolve())
         if self.config.continue_from_lora:
@@ -209,8 +210,12 @@ class KohyaTOMLGenerator:
             args["log_prefix"] = self.config.log_prefix
         if self.config.optimizer_args:
             args["optimizer_args"] = self.config.optimizer_args
+
+        # Steps vs Epochs handling
         if self.config.max_train_steps > 0:
             args["max_train_steps"] = self.config.max_train_steps
+
+        # Noise Settings
         if self.config.min_snr_gamma_enabled:
             args["min_snr_gamma"] = self.config.min_snr_gamma
         if self.config.ip_noise_gamma_enabled:
@@ -220,16 +225,6 @@ class KohyaTOMLGenerator:
             args["multires_noise_discount"] = self.config.multires_noise_discount
         if self.config.adaptive_noise_scale > 0:
             args["adaptive_noise_scale"] = self.config.adaptive_noise_scale
-        if self.config.network_dropout > 0:
-            args["network_dropout"] = self.config.network_dropout
-        if self.config.dim_from_weights:
-            args["dim_from_weights"] = True
-        if self.config.train_norm:
-            args["train_norm"] = True
-        if self.config.rank_dropout > 0:
-            args["rank_dropout"] = self.config.rank_dropout
-        if self.config.module_dropout > 0:
-            args["module_dropout"] = self.config.module_dropout
 
         # Block-wise LR
         if self.config.down_lr_weight:
@@ -249,7 +244,7 @@ class KohyaTOMLGenerator:
         if self.config.conv_block_alphas:
             args["conv_block_alphas"] = self.config.conv_block_alphas
 
-        # Flux-specific
+        # Flux/SD3/Lumina Specifics
         if self.config.model_type == ModelType.FLUX:
             if self.config.ae_path:
                 args["ae"] = str(Path(self.config.ae_path).resolve())
@@ -269,7 +264,6 @@ class KohyaTOMLGenerator:
             if self.config.blocks_to_swap:
                 args["blocks_to_swap"] = self.config.blocks_to_swap
 
-        # SD3-specific
         if self.config.model_type == ModelType.SD3:
             if self.config.clip_l_path:
                 args["clip_l"] = str(Path(self.config.clip_l_path).resolve())
@@ -278,7 +272,6 @@ class KohyaTOMLGenerator:
             if self.config.t5xxl_path:
                 args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve())
 
-        # Lumina-specific
         if self.config.model_type == ModelType.LUMINA:
             if self.config.gemma2:
                 args["gemma2"] = str(Path(self.config.gemma2).resolve())

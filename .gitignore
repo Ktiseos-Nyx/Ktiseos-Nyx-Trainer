@@ -112,8 +112,8 @@ dataset/
 datasets/
 logs/
 *.log
-training_configs/
-*.toml
+user_configs/
+
 
 # Model files
 *.safetensors

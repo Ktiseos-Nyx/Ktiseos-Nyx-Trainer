@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { NumberFormField, SelectFormField, CheckboxFormField, TextFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { Save } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface SavingCardProps {

@@ -1,0 +1,73 @@
+# pyproject.toml
+# Python project configuration for Ktiseos-Nyx Trainer
+
+[project]
+name = "ktiseos-nyx-trainer"
+version = "0.1.0"
+description = "Modern web-based AI training interface for cross platform models."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+[project.urls]
+Homepage = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer"
+Documentation = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/blob/main/docs"
+Repository = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer"
+Issues = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues"
+
+# ========== RUFF CONFIGURATION ==========
+[tool.ruff]
+line-length = 120  # More reasonable for modern screens and long error messages
+target-version = "py310"
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.egg-info",
+    "build",
+    "dist",
+    "node_modules",
+    "frontend",
+    ".next",
+    "trainer/derrian_backend",  # External submodule
+]
+
+[tool.ruff.lint]
+# Enable Pyflakes (F) and pycodestyle (E)
+select = [
+    "E",  # pycodestyle errors
+    "F",  # Pyflakes
+    "W",  # pycodestyle warnings
+    "I",  # isort (import sorting)
+]
+
+# Ignore specific rules
+ignore = [
+    "E402",  # Module level import not at top (needed for Kohya imports)
+    "E501",  # Line too long (error messages should be readable)
+    "E722",  # Bare except (some legacy code uses this)
+    "F401",  # Unused imports (some are for conditional imports)
+    "F403",  # Star imports (used for Derrian utils)
+    "F405",  # May be undefined (star import side effect)
+    "F811",  # Redefinition (some methods have multiple implementations)
+    "F841",  # Unused variable (sometimes needed for unpacking)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow star imports in specific files
+"core/kohya_training_manager.py" = ["F403", "F405"]
+# Allow unused imports in __init__.py files
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+# Indent with 4 spaces
+indent-style = "space"
+# Respect magic trailing comma
+skip-magic-trailing-comma = false
+# Format docstrings
+docstring-code-format = true

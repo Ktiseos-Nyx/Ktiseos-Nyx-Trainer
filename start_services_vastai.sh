@@ -71,6 +71,7 @@ if [ -d "frontend" ]; then
 
         # Load NVM (if available, for local setup consistency)
         export NVM_DIR="$HOME/.nvm"
+        # shellcheck disable=SC1091
         [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
         cd frontend

@@ -13,6 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ComboboxFormField, TextFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { Folder, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 // --- Define the props the Card now accepts ---
 interface ProjectSetupCardProps {

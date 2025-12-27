@@ -11,7 +11,8 @@ import { NumberFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { TrendingUp } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 interface LearningRateCardProps {
   form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
   onSave?: () => void; // 👈 ADD THIS

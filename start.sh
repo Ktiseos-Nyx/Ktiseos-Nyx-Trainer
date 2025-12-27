@@ -9,6 +9,7 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC2164
 cd "$SCRIPT_DIR"
 
 echo "=========================================="
@@ -67,8 +68,10 @@ if [ -d "frontend" ]; then
     echo "🎨 Starting Next.js frontend..."
 
     export NVM_DIR="$HOME/.nvm"
+    # shellcheck disable=SC1091
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
+    # shellcheck disable=SC2164
     cd frontend
 
     if [ ! -d ".next" ]; then
@@ -80,6 +83,7 @@ if [ -d "frontend" ]; then
     PORT=3000 npm start &
     FRONTEND_PID=$!
     echo "   Frontend PID: $FRONTEND_PID"
+    # shellcheck disable=SC2103
     cd ..
 else
     echo "❌ CRITICAL: 'frontend' directory missing"
@@ -96,5 +100,6 @@ echo ""
 echo "🛑 Press CTRL+C to stop"
 
 # Graceful shutdown on Ctrl+C
+# shellcheck disable=SC2064
 trap "echo -e '\n🛑 Shutting down...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT
 wait

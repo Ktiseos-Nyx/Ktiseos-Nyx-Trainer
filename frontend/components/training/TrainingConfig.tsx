@@ -21,6 +21,7 @@ import {
   SavingTab,
 } from './tabs';
 
+
 export default function TrainingConfigNew() {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingJobId, setTrainingJobId] = useState<string | null>(null);

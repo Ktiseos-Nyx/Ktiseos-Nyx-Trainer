@@ -3,11 +3,11 @@ API routes for user settings management.
 """
 
 import json
+import logging
 import os
 import shutil
-import logging
-
 from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Settings file location
-SETTINGS_DIR = os.path.join(os.getcwd(), "config")
+SETTINGS_DIR = os.path.join(os.getcwd(), "user_config")
 SETTINGS_FILE = os.path.join(SETTINGS_DIR, "user_settings.json")
 
 

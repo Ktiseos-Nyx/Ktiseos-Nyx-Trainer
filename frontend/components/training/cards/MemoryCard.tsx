@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { NumberFormField, SelectFormField, CheckboxFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { Cpu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 interface MemoryCardProps {
   form: UseFormReturn<TrainingConfig>; // 👈 NO Partial

@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { NumberFormField, SelectFormField, TextFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 interface OptimizerCardProps {
   form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
