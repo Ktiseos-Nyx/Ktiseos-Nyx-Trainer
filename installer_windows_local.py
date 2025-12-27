@@ -3,6 +3,11 @@
 Ktiseos-Nyx-Trainer - Local Windows Dependency Installer
 Installs training dependencies for local Windows users.
 No GPU auto-install. User must manually install PyTorch with CUDA 11.8.
+
+✅ NOW INCLUDES FRONTEND PROVISIONING:
+   - Installs npm dependencies if node_modules/ missing
+   - Builds Next.js app if .next/ missing
+   - Ensures `start_services_local.bat` works reliably
 """
 
 import argparse
@@ -25,7 +30,7 @@ if sys.platform == "win32":
 
 
 class LocalWindowsInstaller:
-    """Local Windows Installer for Ktiseos-Nyx-Trainer Backend Dependencies"""
+    """Local Windows Installer for Ktiseos-Nyx-Trainer Backend + Frontend Dependencies"""
 
     def __init__(self, verbose=False, skip_install=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
@@ -265,7 +270,7 @@ class LocalWindowsInstaller:
         if not shutil.which("aria2c"):
             warning_msg = (
                 "Windows: aria2c not found. Please install manually:\n"
-                "   https://aria2.github.io/ or use 'choco install aria2' / 'scoop install aria2'"
+                "   https://aria2.github.io/   or use 'choco install aria2' / 'scoop install aria2'"
             )
             self.logger.warning(warning_msg)
             print(f"   {warning_msg}")
@@ -288,9 +293,56 @@ class LocalWindowsInstaller:
         except ImportError:
             self.logger.warning(" PyTorch not found.")
             print(" PyTorch not found.")
-            print("   → Please install PyTorch with CUDA 11.8 from https://pytorch.org/get-started/locally/")
+            print("   → Please install PyTorch with CUDA 11.8 from https://pytorch.org/get-started/locally/  ")
             print("   → Select 'Windows', 'pip', 'CUDA 11.8'")
         return True
+
+    # =============== NEW FRONTEND METHODS ===============
+    def install_frontend_deps(self):
+        """Install frontend dependencies if node_modules is missing."""
+        frontend_dir = os.path.join(self.project_root, "frontend")
+        if not os.path.exists(frontend_dir):
+            self.logger.info("Frontend directory not found. Skipping.")
+            return True
+
+        if not shutil.which("npm"):
+            self.logger.warning("npm not found. Is Node.js installed?")
+            print(" ⚠️  npm not found! Please install Node.js 18+ from https://nodejs.org/")
+            return False
+
+        node_modules = os.path.join(frontend_dir, "node_modules")
+        if not os.path.exists(node_modules):
+            self.logger.info("Installing frontend dependencies...")
+            print(" 📦 Installing frontend (Next.js) dependencies...")
+            success = self.run_command(["npm", "install"], "Installing npm packages", cwd=frontend_dir)
+            return success
+        else:
+            self.logger.info("Frontend dependencies already installed.")
+            print(" ✅ Frontend dependencies already installed.")
+            return True
+
+    def build_frontend(self):
+        """Build Next.js app if .next/ is missing."""
+        frontend_dir = os.path.join(self.project_root, "frontend")
+        if not os.path.exists(frontend_dir):
+            self.logger.info("Frontend directory not found. Skipping build.")
+            return True
+
+        build_dir = os.path.join(frontend_dir, ".next")
+        if not os.path.exists(build_dir):
+            self.logger.info("Building Next.js production frontend...")
+            print(" 🏗️  Building Next.js production frontend...")
+            success = self.run_command(["npm", "run", "build"], "Building Next.js app", cwd=frontend_dir)
+            if not success:
+                self.logger.warning("Frontend build failed.")
+                print(" ⚠️  Frontend build failed. Backend will still work.")
+            return success
+        else:
+            self.logger.info("Frontend already built.")
+            print(" ✅ Frontend already built.")
+            return True
+
+    # ====================================================
 
     def apply_special_fixes_and_installs(self):
         self.logger.info(" Applying special fixes and editable installs (Windows)...")
@@ -367,6 +419,14 @@ class LocalWindowsInstaller:
                 warning_msg = "Some special fixes or editable installs failed."
                 self.logger.warning(warning_msg)
                 print(f" {warning_msg}")
+
+            # =============== NEW: FRONTEND SETUP ===============
+            # Always ensure frontend is ready, even with --skip-install
+            if not self.install_frontend_deps():
+                self.logger.warning("Frontend dependency installation failed.")
+            if not self.build_frontend():
+                self.logger.warning("Frontend build failed.")
+            # ===================================================
 
             end_time = datetime.datetime.now()
             duration = end_time - start_time

@@ -3,6 +3,11 @@
 Ktiseos-Nyx-Trainer - Local Linux Installer
 For local development on Ubuntu/Debian/Fedora with NVIDIA GPU.
 Installs CUDA 12.1 dependencies. Does NOT assume root or cloud environment.
+
+✅ NOW INCLUDES FRONTEND PROVISIONING:
+   - Installs npm dependencies if node_modules/ missing
+   - Builds Next.js app if .next/ missing
+   - Ensures ./start_services_local.sh works reliably
 """
 
 import argparse
@@ -24,7 +29,7 @@ class LocalLinuxInstaller:
         self.package_manager = {
             "name": "pip",
             "install_cmd": [self.python_cmd, "-m", "pip", "install"],
-            "available": True
+            "available": True,
         }
         self.trainer_dir = os.path.join(self.project_root, "trainer")
         self.derrian_dir = os.path.join(self.trainer_dir, "derrian_backend")
@@ -38,7 +43,7 @@ class LocalLinuxInstaller:
         log_file = os.path.join(logs_dir, f"installer_local_linux_{timestamp}.log")
         log_level = logging.DEBUG if self.verbose else logging.INFO
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         console_handler = logging.StreamHandler()
@@ -87,6 +92,7 @@ class LocalLinuxInstaller:
             return True
         try:
             import torch
+
             return torch.cuda.is_available()
         except ImportError:
             return False
@@ -117,9 +123,14 @@ class LocalLinuxInstaller:
         if self.has_nvidia_gpu():
             print(" 📦 Installing PyTorch with CUDA 12.1...")
             cmd = [
-                self.python_cmd, "-m", "pip", "install",
-                "torch==2.4.0", "torchvision==0.19.0",
-                "--index-url", "https://download.pytorch.org/whl/cu121"
+                self.python_cmd,
+                "-m",
+                "pip",
+                "install",
+                "torch==2.4.0",
+                "torchvision==0.19.0",
+                "--index-url",
+                "https://download.pytorch.org/whl/cu121",
             ]
             return self.run_command(cmd, "Installing PyTorch CUDA 12.1")
         else:
@@ -157,6 +168,48 @@ class LocalLinuxInstaller:
                 cmd = [self.python_cmd, "-m", "pip", "install", "-e", "."]
                 self.run_command(cmd, f"Editable install: {name}", cwd=path, allow_failure=True)
 
+    # =============== NEW FRONTEND METHODS ===============
+    def install_frontend_deps(self):
+        """Install frontend dependencies if node_modules is missing."""
+        frontend_dir = os.path.join(self.project_root, "frontend")
+        if not os.path.exists(frontend_dir):
+            self.logger.info("Frontend directory not found. Skipping.")
+            return True
+
+        if not shutil.which("npm"):
+            print(" ⚠️ npm not found. Please install Node.js 18+ (e.g., via nvm or system package).")
+            self.logger.warning("npm not found. Frontend setup skipped.")
+            return False
+
+        node_modules = os.path.join(frontend_dir, "node_modules")
+        if not os.path.exists(node_modules):
+            print(" 📦 Installing frontend (Next.js) dependencies...")
+            success = self.run_command(["npm", "install"], "Installing frontend dependencies", cwd=frontend_dir)
+            return success
+        else:
+            print(" ✅ Frontend dependencies already installed.")
+            return True
+
+    def build_frontend(self):
+        """Build Next.js app if .next/ is missing."""
+        frontend_dir = os.path.join(self.project_root, "frontend")
+        if not os.path.exists(frontend_dir):
+            self.logger.info("Frontend directory not found. Skipping build.")
+            return True
+
+        build_dir = os.path.join(frontend_dir, ".next")
+        if not os.path.exists(build_dir):
+            print(" 🏗️ Building Next.js production frontend...")
+            success = self.run_command(["npm", "run", "build"], "Building Next.js app", cwd=frontend_dir)
+            if not success:
+                print(" ⚠️ Frontend build failed. Backend will still work.")
+            return success
+        else:
+            print(" ✅ Frontend already built.")
+            return True
+
+    # ====================================================
+
     def run_installation(self):
         self.print_banner()
         if not self.verify_vendored_backend():
@@ -168,6 +221,15 @@ class LocalLinuxInstaller:
         if not self.ensure_bitsandbytes_binaries():
             return False
         self.apply_editable_installs()
+
+        # =============== NEW: FRONTEND SETUP ===============
+        # Always ensure frontend is ready, even with --skip-install
+        if not self.install_frontend_deps():
+            self.logger.warning("Frontend dependency installation failed.")
+        if not self.build_frontend():
+            self.logger.warning("Frontend build failed.")
+        # ===================================================
+
         print("\n" + "=" * 70)
         print(" ✅ Local Linux Installation Complete!")
         print(f"    Log: {self.log_file}")
