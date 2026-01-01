@@ -54,6 +54,7 @@ THE DATASET UPLOADER ON REMOTE CONTAINERS (VAST AI) IS NOT ENTIRELY WORKING - PL
 - **Platform**: Windows, Linux, or macOS
 - **VRAM**: 12GB minimum, 24GB recommended for SDXL
 - **Disk**: 50GB+ free space
+- **RAM**: 8GB+ (16GB recommended for Windows dev environments - see [Development Environments](docs/DEVELOPMENT_ENVIRONMENTS.md))
 
 Install prerequisites if needed:
 
