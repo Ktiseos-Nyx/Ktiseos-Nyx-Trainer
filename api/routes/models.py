@@ -95,7 +95,7 @@ async def list_models_and_vaes():
                 "success": True,
                 "models": [m.dict() for m in result.models],
                 "vaes": [v.dict() for v in result.vaes],
-                "loras": [l.dict() for l in result.loras],
+                "loras": [lora.dict() for lora in result.loras],
                 "model_dir": result.model_dir,
                 "vae_dir": result.vae_dir,
                 "lora_dir": result.lora_dir
@@ -163,8 +163,6 @@ async def cancel_downloads():
     Kills aria2c, wget, and hf-transfer processes.
     """
     try:
-        import subprocess
-        import signal
         import psutil
 
         killed = []

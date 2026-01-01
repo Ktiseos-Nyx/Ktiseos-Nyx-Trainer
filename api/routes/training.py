@@ -13,7 +13,6 @@ from pydantic import BaseModel
 # Import new service layer
 from services import training_service
 from services.models.training import TrainingConfig
-from services.models.job import JobStatus
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

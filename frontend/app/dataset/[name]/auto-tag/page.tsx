@@ -1059,7 +1059,7 @@ export default function AutoTagPage() {
                   <button
                     onClick={handleStartTagging}
                     disabled={tagging || !selectedDataset || datasets.length === 0}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-lg font-semibold shadow-lg flex items-center justify-center gap-2"
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 disabled:bg-muted disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-white rounded-lg font-semibold shadow-lg flex items-center justify-center gap-2"
                   >
                     <Play className="w-5 h-5" />
                     {tagging ? 'Tagging...' : 'Start'}
