@@ -13,7 +13,7 @@ from pydantic import BaseModel
 # Import new services
 from services import dataset_service, tagging_service, caption_service
 from services.models.dataset import CreateDatasetRequest
-from services.models.tagging import TaggingConfig, TaggerModel
+from services.models.tagging import TaggingConfig
 from services.models.caption import (
     AddTriggerWordRequest,
     RemoveTagsRequest,

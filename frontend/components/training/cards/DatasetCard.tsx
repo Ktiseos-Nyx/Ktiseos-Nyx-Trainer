@@ -25,7 +25,7 @@ interface DatasetCardProps {
 
 // --- DELETED THE ROGUE TextFormFieldProps INTERFACE ---
 
-export function DatasetCard({ form, datasets }: DatasetCardProps) {
+export function DatasetCard({ form, datasets, onSave }: DatasetCardProps) {
   const resolution = form.watch('resolution');
   const batchSize = form.watch('train_batch_size');
   const maxEpochs = form.watch('max_train_epochs');

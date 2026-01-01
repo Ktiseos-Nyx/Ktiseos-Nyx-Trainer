@@ -181,14 +181,13 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} /></TabsContent>
-                  <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} /></TabsContent>
-                  <TabsContent value="lora"><LoRATab form={form as any} /></TabsContent>
-                  <TabsContent value="learning"><LearningTab form={form as any} /></TabsContent>
-                  <TabsContent value="performance"><PerformanceTab form={form as any} /></TabsContent>
-                  <TabsContent value="advanced"><AdvancedTab form={form as any} /></TabsContent>
-                  <TabsContent value="saving"><SavingTab form={form as any} /></TabsContent>
-                  <TabsContent value="learning"><LearningTab form={form} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="lora"><LoRATab form={form as any} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="learning"><LearningTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="performance"><PerformanceTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="advanced"><AdvancedTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="saving"><SavingTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">

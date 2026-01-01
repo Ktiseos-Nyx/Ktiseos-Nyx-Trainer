@@ -19,15 +19,15 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000 ^| findstr LISTENING') 
 timeout /t 3 /nobreak >nul
 
 REM --------------------------------------------------------------------
-REM Step 1: Ensure environment is set up via installer.py
+REM Step 1: Ensure environment is set up via Windows installer
 REM --------------------------------------------------------------------
-echo ⚙️ Running unified installer.py to set up environment...
+echo ⚙️ Running Windows local installer to set up environment...
 
 REM Find the best available python command
 set "PYTHON_CMD=python"
 where python3 >nul 2>nul && set "PYTHON_CMD=python3"
 
-"%PYTHON_CMD%" installer.py
+"%PYTHON_CMD%" installer_windows_local.py
 if %errorlevel% neq 0 (
     echo ❌ Installer failed! Please check the errors above.
     pause

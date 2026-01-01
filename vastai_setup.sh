@@ -223,10 +223,10 @@ BACKEND_PID=$!
 # Give backend a moment to start
 sleep 2
 
-# Start frontend
-echo "[$(date)] Starting Next.js frontend on port 3000..." | tee -a /workspace/logs/supervisor.log
+# Start frontend (using custom server with WebSocket proxy)
+echo "[$(date)] Starting Next.js frontend on port 3000 (custom server)..." | tee -a /workspace/logs/supervisor.log
 cd frontend || exit 1
-npm run start 2>&1 | tee -a /workspace/logs/frontend.log &
+NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
 FRONTEND_PID=$!
 
 # Wait for both processes

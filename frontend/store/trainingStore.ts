@@ -119,7 +119,8 @@ const defaultConfig: TrainingConfig = {
 interface TrainingStore {
   config: TrainingConfig; // Strict!
   isDirty: boolean;
-  hasHydrated: boolean; // ✅ ADD THIS
+  hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   updateConfig: (updates: Partial<TrainingConfig>) => void; // Partial is okay here
   resetConfig: () => void;
   loadConfig: (config: TrainingConfig) => void; // Strict!

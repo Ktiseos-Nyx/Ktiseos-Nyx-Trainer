@@ -11,7 +11,7 @@ from typing import List, Optional
 
 import aiofiles
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
