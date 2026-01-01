@@ -17,6 +17,63 @@ interface ChangelogEntry {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: '0.1.0-dev',
+    date: 'January 1, 2026',
+    type: 'minor',
+    commitHash: '64f4aaa',
+    changes: [
+      {
+        category: 'feature',
+        items: [
+          'Turbopack enabled by default for Next.js dev server (50% RAM reduction on Windows)',
+          'Complete migration to shadcn/ui components - removed all raw HTML form elements',
+          'Auto-Tag page UX redesign with unified model selector (#93)',
+          'Tag Editor redesigned with modern pill interface (#80)',
+          'WebSocket proxy implementation for real-time log streaming',
+          'Development environment documentation with platform-specific RAM usage details',
+        ],
+      },
+      {
+        category: 'improvement',
+        items: [
+          'Windows-specific platform fixes (UTF encoding, installer improvements)',
+          'Dataset uploader stability with queued one-by-one image uploads (d8a4740)',
+          'VastAI deployment configuration improvements',
+          'Cross-platform path validation and security hardening',
+          'Comprehensive linting and code quality cleanup',
+        ],
+      },
+      {
+        category: 'bugfix',
+        items: [
+          'Training logs now properly streaming to WebSocket (#92)',
+          'Light mode button visibility fixed across all pages (d277248)',
+          'Fixed DatasetCard missing onSave prop destructuring',
+          'API routing and backend integration fixes (be23a7b)',
+          'Removed dangerouslySetInnerHTML and vanilla JS DOM manipulation',
+          'Fixed TOML generation and absolute path handling (e4954f1)',
+        ],
+      },
+      {
+        category: 'breaking',
+        items: [
+          'Completely removed Jupyter notebook dependencies (ipython, ipywidgets)',
+          'Migrated to full web UI architecture (FastAPI + Next.js)',
+          'Windows now primary development platform (macOS training not supported)',
+        ],
+      },
+      {
+        category: 'docs',
+        items: [
+          'Added DEVELOPMENT_ENVIRONMENTS.md with RAM usage analysis',
+          'Updated README with RAM requirements and platform support matrix',
+          'Security notices for file manager path validation',
+          'VastAI one-click deployment documentation',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.0.9-dev',
     date: 'December 17, 2025',
     type: 'minor',
