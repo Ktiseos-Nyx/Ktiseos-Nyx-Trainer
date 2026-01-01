@@ -12,6 +12,7 @@ import {
   TagsInputInput,
   TagsInputItem,
 } from '@/components/ui/tags-input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function DatasetTagsPage() {
   const params = useParams();
@@ -22,6 +23,8 @@ export default function DatasetTagsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [bulkOperation, setBulkOperation] = useState<'add' | 'remove' | 'replace'>('add');
+  const [bulkReplaceWith, setBulkReplaceWith] = useState('');
 
   useEffect(() => {
     const loadImages = async () => {
@@ -194,14 +197,16 @@ export default function DatasetTagsPage() {
           <div className="grid md:grid-cols-[auto_1fr_auto] gap-4 items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium">Operation</label>
-              <select
-                className="w-full md:w-40 px-3 py-2 bg-input border border-border rounded-md"
-                id="bulk-op-select"
-              >
-                <option value="add">Add Activation Tag (Prepend)</option>
-                <option value="remove">Remove Tags</option>
-                <option value="replace">Replace Tags</option>
-              </select>
+              <Select value={bulkOperation} onValueChange={(value: 'add' | 'remove' | 'replace') => setBulkOperation(value)}>
+                <SelectTrigger className="w-full md:w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="add">Add Activation Tag (Prepend)</SelectItem>
+                  <SelectItem value="remove">Remove Tags</SelectItem>
+                  <SelectItem value="replace">Replace Tags</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2 flex-1">
@@ -218,25 +223,26 @@ export default function DatasetTagsPage() {
                     setSelectedTags(new Set(tags));
                   }}
                   placeholder="Select from library above or type tags here"
-                  className="flex-1 px-3 py-2 bg-input border border-border rounded-md"
+                  className="flex-1 px-3 py-2 bg-input text-foreground border border-border rounded-md"
                 />
-                <input
-                  type="text"
-                  id="bulk-replace-input"
-                  placeholder="Replace with..."
-                  className="hidden flex-1 px-3 py-2 bg-input border border-border rounded-md"
-                />
+                {bulkOperation === 'replace' && (
+                  <input
+                    type="text"
+                    id="bulk-replace-input"
+                    placeholder="Replace with..."
+                    value={bulkReplaceWith}
+                    onChange={(e) => setBulkReplaceWith(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-input text-foreground border border-border rounded-md"
+                  />
+                )}
               </div>
             </div>
 
             <button
               onClick={async () => {
-                const opSelect = document.getElementById('bulk-op-select') as HTMLSelectElement;
-                const replaceInput = document.getElementById('bulk-replace-input') as HTMLInputElement;
-
-                const operation = opSelect.value as 'add' | 'remove' | 'replace';
+                const operation = bulkOperation;
                 const tags = Array.from(selectedTags);
-                const replaceWith = replaceInput.value.trim();
+                const replaceWith = bulkReplaceWith.trim();
 
                 if (tags.length === 0) {
                   alert('Please select at least one tag from the library or type tags in the input');
@@ -273,18 +279,6 @@ export default function DatasetTagsPage() {
               Apply to All
             </button>
           </div>
-          
-          <script dangerouslySetInnerHTML={{__html: `
-            document.getElementById('bulk-op-select').addEventListener('change', function(e) {
-              const val = e.target.value;
-              const replaceInput = document.getElementById('bulk-replace-input');
-              if (val === 'replace') {
-                replaceInput.classList.remove('hidden');
-              } else {
-                replaceInput.classList.add('hidden');
-              }
-            });
-          `}} />
         </div>
 
         {/* Images with inline tag editors */}

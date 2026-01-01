@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 
 // Unified model definitions
 type ModelType = 'wd14' | 'blip' | 'git';
@@ -376,50 +376,55 @@ export default function AutoTagPage() {
                       No datasets. <Link href="/dataset" className="text-pink-600 hover:underline">Upload images</Link>
                     </div>
                   ) : (
-                    <select
-                      value={selectedDataset}
-                      onChange={(e) => setSelectedDataset(e.target.value)}
-                      disabled={tagging}
-                      className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
-                    >
-                      {datasets.map(ds => (
-                        <option key={ds.path} value={ds.path}>{ds.name} ({ds.image_count} images)</option>
-                      ))}
-                    </select>
+                    <Select value={selectedDataset} onValueChange={setSelectedDataset} disabled={tagging}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select dataset..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {datasets.map(ds => (
+                          <SelectItem key={ds.path} value={ds.path}>
+                            {ds.name} ({ds.image_count} images)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
 
                 {/* Unified Model Selector */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Model</label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    disabled={tagging}
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
-                  >
-                    <optgroup label="WD14 Tagger (Anime Tags)">
-                      {AVAILABLE_MODELS.filter(m => m.type === 'wd14').map(model => (
-                        <option key={model.id} value={model.id}>
-                          {model.name} {model.description && `- ${model.description}`}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="BLIP (Natural Language)">
-                      {AVAILABLE_MODELS.filter(m => m.type === 'blip').map(model => (
-                        <option key={model.id} value={model.id}>
-                          {model.name} {model.description && `- ${model.description}`}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="GIT (Photo Captions)">
-                      {AVAILABLE_MODELS.filter(m => m.type === 'git').map(model => (
-                        <option key={model.id} value={model.id}>
-                          {model.name} {model.description && `- ${model.description}`}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
+                  <Select value={selectedModel} onValueChange={setSelectedModel} disabled={tagging}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select model..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>WD14 Tagger (Anime Tags)</SelectLabel>
+                        {AVAILABLE_MODELS.filter(m => m.type === 'wd14').map(model => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.name} {model.description && `- ${model.description}`}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>BLIP (Natural Language)</SelectLabel>
+                        {AVAILABLE_MODELS.filter(m => m.type === 'blip').map(model => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.name} {model.description && `- ${model.description}`}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>GIT (Photo Captions)</SelectLabel>
+                        {AVAILABLE_MODELS.filter(m => m.type === 'git').map(model => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.name} {model.description && `- ${model.description}`}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground mt-2">
                     {currentModelType === 'wd14' && 'Generates booru-style tags (girl, blue_eyes, smile)'}
                     {currentModelType === 'blip' && 'Generates natural language captions'}
@@ -430,29 +435,29 @@ export default function AutoTagPage() {
                 {/* Caption Extension */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Caption Extension</label>
-                  <select
-                    value={captionExtension}
-                    onChange={(e) => setCaptionExtension(e.target.value)}
-                    disabled={tagging}
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
-                  >
-                    <option value=".txt">.txt (Kohya standard)</option>
-                    <option value=".caption">.caption</option>
-                    <option value=".cap">.cap</option>
-                  </select>
+                  <Select value={captionExtension} onValueChange={setCaptionExtension} disabled={tagging}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select extension..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value=".txt">.txt (Kohya standard)</SelectItem>
+                      <SelectItem value=".caption">.caption</SelectItem>
+                      <SelectItem value=".cap">.cap</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Separator (WD14 only) */}
                 {currentModelType === 'wd14' && (
                   <div>
                     <label className="block text-sm font-medium mb-2">Tag Separator</label>
-                    <input
+                    <Input
                       type="text"
                       value={captionSeparator}
                       onChange={(e) => setCaptionSeparator(e.target.value)}
                       disabled={tagging}
                       placeholder=", "
-                      className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
+                      className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
                     />
                   </div>
                 )}
@@ -511,7 +516,7 @@ export default function AutoTagPage() {
                   <label className="block text-sm font-medium mb-2">
                     Overall Threshold: {threshold.toFixed(2)}
                   </label>
-                  <input
+                  <Input
                     type="range"
                     min="0.1"
                     max="0.9"
@@ -530,7 +535,7 @@ export default function AutoTagPage() {
                 {/* General Threshold */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <input
+                    <Input
                       type="checkbox"
                       id="use-general"
                       checked={useGeneralThreshold}
@@ -542,7 +547,7 @@ export default function AutoTagPage() {
                       Custom General Threshold: {generalThreshold.toFixed(2)}
                     </label>
                   </div>
-                  <input
+                  <Input
                     type="range"
                     min="0.1"
                     max="0.9"
@@ -557,7 +562,7 @@ export default function AutoTagPage() {
                 {/* Character Threshold */}
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <input
+                    <Input
                       type="checkbox"
                       id="use-character"
                       checked={useCharacterThreshold}
@@ -569,7 +574,7 @@ export default function AutoTagPage() {
                       Custom Character Threshold: {characterThreshold.toFixed(2)}
                     </label>
                   </div>
-                  <input
+                  <Input
                     type="range"
                     min="0.1"
                     max="0.9"
@@ -605,7 +610,7 @@ export default function AutoTagPage() {
                     <label className="block text-sm font-medium mb-2">Sampling Method</label>
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input
+                        <Input
                           type="radio"
                           checked={!blipBeamSearch}
                           onChange={() => setBlipBeamSearch(false)}
@@ -615,7 +620,7 @@ export default function AutoTagPage() {
                         <span className="text-sm">Nucleus (faster)</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input
+                        <Input
                           type="radio"
                           checked={blipBeamSearch}
                           onChange={() => setBlipBeamSearch(true)}
@@ -631,7 +636,7 @@ export default function AutoTagPage() {
                   {blipBeamSearch && (
                     <div>
                       <label className="block text-sm font-medium mb-2">Number of Beams: {blipNumBeams}</label>
-                      <input
+                      <Input
                         type="range"
                         min="1"
                         max="10"
@@ -648,7 +653,7 @@ export default function AutoTagPage() {
                   {!blipBeamSearch && (
                     <div>
                       <label className="block text-sm font-medium mb-2">Top-P (Nucleus): {blipTopP.toFixed(2)}</label>
-                      <input
+                      <Input
                         type="range"
                         min="0.5"
                         max="1.0"
@@ -664,7 +669,7 @@ export default function AutoTagPage() {
                   {/* Length */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Max Length: {blipMaxLength}</label>
-                    <input
+                    <Input
                       type="range"
                       min="20"
                       max="150"
@@ -678,7 +683,7 @@ export default function AutoTagPage() {
 
                   <div>
                     <label className="block text-sm font-medium mb-2">Min Length: {blipMinLength}</label>
-                    <input
+                    <Input
                       type="range"
                       min="1"
                       max="20"
@@ -705,7 +710,7 @@ export default function AutoTagPage() {
                   {/* Max Length */}
                   <div>
                     <label className="block text-sm font-medium mb-2">Max Caption Length: {gitMaxLength}</label>
-                    <input
+                    <Input
                       type="range"
                       min="20"
                       max="100"
@@ -719,7 +724,7 @@ export default function AutoTagPage() {
 
                   {/* Remove Words */}
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="git-remove-words"
                       checked={gitRemoveWords}
@@ -754,13 +759,13 @@ export default function AutoTagPage() {
                 {/* Prefix Tags */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Prefix Tags (Optional)</label>
-                  <input
+                  <Input
                     type="text"
                     value={alwaysFirstTags}
                     onChange={(e) => setAlwaysFirstTags(e.target.value)}
                     disabled={tagging}
                     placeholder="e.g., 1girl, solo"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+                    className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
                     Tags to always put first
@@ -770,13 +775,13 @@ export default function AutoTagPage() {
                 {/* Blacklist */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Undesired Tags (Optional)</label>
-                  <input
+                  <Input
                     type="text"
                     value={undesiredTags}
                     onChange={(e) => setUndesiredTags(e.target.value)}
                     disabled={tagging}
                     placeholder="e.g., watermark, logo, text"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+                    className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
                     Comma-separated tags to exclude
@@ -786,13 +791,13 @@ export default function AutoTagPage() {
                 {/* Tag Replacement */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Tag Replacement (Optional)</label>
-                  <input
+                  <Input
                     type="text"
                     value={tagReplacement}
                     onChange={(e) => setTagReplacement(e.target.value)}
                     disabled={tagging}
                     placeholder="old1,new1;old2,new2"
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+                    className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
                     Format: source,target;source,target
@@ -804,7 +809,7 @@ export default function AutoTagPage() {
                   <label className="block text-sm font-medium mb-2">Rating Tags</label>
                   <div className="flex gap-4">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
+                      <Input
                         type="radio"
                         name="rating"
                         value="none"
@@ -816,7 +821,7 @@ export default function AutoTagPage() {
                       <span className="text-sm">None</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
+                      <Input
                         type="radio"
                         name="rating"
                         value="first"
@@ -828,7 +833,7 @@ export default function AutoTagPage() {
                       <span className="text-sm">First</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input
+                      <Input
                         type="radio"
                         name="rating"
                         value="last"
@@ -845,7 +850,7 @@ export default function AutoTagPage() {
                 {/* Flags */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="char-first"
                       checked={characterTagsFirst}
@@ -858,7 +863,7 @@ export default function AutoTagPage() {
                     </label>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="rm-underscore"
                       checked={removeUnderscore}
@@ -871,7 +876,7 @@ export default function AutoTagPage() {
                     </label>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="char-expand"
                       checked={characterTagExpand}
@@ -905,7 +910,7 @@ export default function AutoTagPage() {
                   <label className="block text-sm font-medium mb-2">
                     Batch Size: {batchSize}
                   </label>
-                  <input
+                  <Input
                     type="range"
                     min="1"
                     max="16"
@@ -925,7 +930,7 @@ export default function AutoTagPage() {
                   <label className="block text-sm font-medium mb-2">
                     Data Loader Workers: {maxWorkers}
                   </label>
-                  <input
+                  <Input
                     type="range"
                     min="1"
                     max="8"
@@ -940,7 +945,7 @@ export default function AutoTagPage() {
                 {/* Flags */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="onnx"
                       checked={useOnnx}
@@ -953,7 +958,7 @@ export default function AutoTagPage() {
                     </label>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="append"
                       checked={appendTags}
@@ -966,7 +971,7 @@ export default function AutoTagPage() {
                     </label>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="recursive"
                       checked={recursive}
@@ -979,7 +984,7 @@ export default function AutoTagPage() {
                     </label>
                   </div>
                   <div className="flex items-center gap-3">
-                    <input
+                    <Input
                       type="checkbox"
                       id="freq"
                       checked={frequencyTags}
@@ -1005,7 +1010,7 @@ export default function AutoTagPage() {
                 {showAdvanced && (
                   <div className="space-y-2 pt-2 border-t border-border">
                     <div className="flex items-center gap-3">
-                      <input
+                      <Input
                         type="checkbox"
                         id="force-dl"
                         checked={forceDownload}
@@ -1018,7 +1023,7 @@ export default function AutoTagPage() {
                       </label>
                     </div>
                     <div className="flex items-center gap-3">
-                      <input
+                      <Input
                         type="checkbox"
                         id="debug"
                         checked={debug}
@@ -1042,7 +1047,11 @@ export default function AutoTagPage() {
                   <button
                     onClick={handleStartTagging}
                     disabled={tagging || !selectedDataset || datasets.length === 0}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 disabled:bg-muted disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-white rounded-lg font-semibold shadow-lg flex items-center justify-center gap-2"
+                    className={`flex-1 px-6 py-3 ${
+                      tagging || !selectedDataset || datasets.length === 0
+                        ? 'bg-muted !text-muted-foreground cursor-not-allowed opacity-60 border-2 border-border'
+                        : 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 !text-white shadow-lg'
+                    } rounded-lg font-semibold flex items-center justify-center gap-2`}
                   >
                     <Play className="w-5 h-5" />
                     {tagging ? 'Tagging...' : 'Start'}
