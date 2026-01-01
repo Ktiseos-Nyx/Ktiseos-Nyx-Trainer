@@ -32,10 +32,10 @@ interface TabProps {
  * Setup Tab
  * Project information and model selection
  */
-export function SetupTab({ form, models = [], vaes = [] }: TabProps) {
+export function SetupTab({ form, models = [], vaes = [], onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <ProjectSetupCard form={form} models={models} vaes={vaes} />
+      <ProjectSetupCard form={form} models={models} vaes={vaes} onSave={onSave} />
     </div>
   );
 }
@@ -44,12 +44,12 @@ export function SetupTab({ form, models = [], vaes = [] }: TabProps) {
  * Dataset Tab
  * Data paths, augmentation, bucketing, captions
  */
-export function DatasetTab({ form, datasets = [] }: TabProps) {
+export function DatasetTab({ form, datasets = [], onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <DatasetCard form={form} datasets={datasets} />
-      <CaptionCard form={form} />
-      <AugmentationCard form={form} />
+      <DatasetCard form={form} datasets={datasets} onSave={onSave} />
+      <CaptionCard form={form} onSave={onSave} />
+      <AugmentationCard form={form} onSave={onSave} />
     </div>
   );
 }
@@ -58,10 +58,10 @@ export function DatasetTab({ form, datasets = [] }: TabProps) {
  * LoRA Tab
  * Network architecture and structure
  */
-export function LoRATab({ form }: TabProps) {
+export function LoRATab({ form, onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <LoRAStructureCard form={form} />
+      <LoRAStructureCard form={form} onSave={onSave} />
     </div>
   );
 }
@@ -70,11 +70,11 @@ export function LoRATab({ form }: TabProps) {
  * Learning Tab
  * Learning rates and optimizer
  */
-export function LearningTab({ form }: TabProps) {
+export function LearningTab({ form, onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <LearningRateCard form={form} />
-      <OptimizerCard form={form} />
+      <LearningRateCard form={form} onSave={onSave} />
+      <OptimizerCard form={form} onSave={onSave} />
     </div>
   );
 }
@@ -83,10 +83,10 @@ export function LearningTab({ form }: TabProps) {
  * Performance Tab
  * Memory optimization and performance settings
  */
-export function PerformanceTab({ form }: TabProps) {
+export function PerformanceTab({ form, onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <MemoryCard form={form} />
+      <MemoryCard form={form} onSave={onSave} />
     </div>
   );
 }
@@ -95,10 +95,10 @@ export function PerformanceTab({ form }: TabProps) {
  * Advanced Tab
  * Advanced training techniques (noise, SNR, loss functions)
  */
-export function AdvancedTab({ form }: TabProps) {
+export function AdvancedTab({ form, onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <AdvancedCard form={form} />
+      <AdvancedCard form={form} onSave={onSave} />
     </div>
   );
 }
@@ -107,10 +107,10 @@ export function AdvancedTab({ form }: TabProps) {
  * Saving Tab
  * Checkpoint saving and sample generation
  */
-export function SavingTab({ form }: TabProps) {
+export function SavingTab({ form, onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <SavingCard form={form} />
+      <SavingCard form={form} onSave={onSave} />
     </div>
   );
 }

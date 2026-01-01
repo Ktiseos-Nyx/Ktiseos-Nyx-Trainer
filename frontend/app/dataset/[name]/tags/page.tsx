@@ -208,11 +208,11 @@ export default function DatasetTagsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {localImages.map((img) => (
             <div key={img.image_path} className="border rounded-lg overflow-hidden bg-card">
-              <div className="aspect-square bg-muted flex items-center justify-center p-2">
+              <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
                 <img
                   src={img.url || `/api/files/image/${datasetName}/${img.image_name}`}
                   alt={img.image_name}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover"
                   onError={(e) => (e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect width="200" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif"%3ENo Image%3C/text%3E%3C/svg%3E')}
                 />
               </div>

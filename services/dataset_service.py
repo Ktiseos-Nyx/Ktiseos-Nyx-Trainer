@@ -326,6 +326,7 @@ class DatasetService:
 
         extracted_files = []
         errors = []
+        tmp_path = None
 
         try:
             # Save ZIP to temp file with streaming (1MB chunks)
@@ -372,13 +373,17 @@ class DatasetService:
                     except Exception as e:
                         errors.append(f"{zip_file}: {str(e)}")
 
-            # Clean up temp file
-            Path(tmp_path).unlink()
-
         except zipfile.BadZipFile:
             errors.append("Invalid ZIP file")
         except Exception as e:
             errors.append(f"Failed to extract ZIP: {str(e)}")
+        finally:
+            # Always clean up temp file
+            if tmp_path and Path(tmp_path).exists():
+                try:
+                    Path(tmp_path).unlink()
+                except Exception as e:
+                    errors.append(f"Failed to delete temp file: {str(e)}")
 
         return {
             "extracted_files": extracted_files,
