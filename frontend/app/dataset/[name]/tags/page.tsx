@@ -6,6 +6,12 @@ import { useParams } from 'next/navigation';
 import { datasetAPI, ImageWithTags } from '@/lib/api';
 import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import {
+  TagsInput,
+  TagsInputList,
+  TagsInputInput,
+  TagsInputItem,
+} from '@/components/ui/tags-input';
 
 export default function DatasetTagsPage() {
   const params = useParams();
@@ -15,6 +21,7 @@ export default function DatasetTagsPage() {
   const [localImages, setLocalImages] = useState<ImageWithTags[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadImages = async () => {
@@ -35,19 +42,41 @@ export default function DatasetTagsPage() {
     loadImages();
   }, [datasetName]);
 
-  const updateTags = (imagePath: string, newTags: string) => {
-    const tags = newTags
-      .split(',')
-      .map(t => t.trim())
-      .filter(t => t);
-
+  const updateTags = (imagePath: string, newTags: string[]) => {
     setLocalImages(prev =>
       prev.map(img =>
         img.image_path === imagePath
-          ? { ...img, tags, has_tags: tags.length > 0 }
+          ? { ...img, tags: newTags, has_tags: newTags.length > 0 }
           : img
       )
     );
+  };
+
+  // Get all unique tags from dataset
+  const getAllUniqueTags = (): { tag: string; count: number }[] => {
+    const tagCounts = new Map<string, number>();
+
+    localImages.forEach(img => {
+      img.tags.forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+    });
+
+    return Array.from(tagCounts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count); // Sort by frequency
+  };
+
+  const toggleTagSelection = (tag: string) => {
+    setSelectedTags(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tag)) {
+        newSet.delete(tag);
+      } else {
+        newSet.add(tag);
+      }
+      return newSet;
+    });
   };
 
   const handleSaveAll = async () => {
@@ -108,6 +137,54 @@ export default function DatasetTagsPage() {
           </button>
         </div>
 
+        {/* Tag Library - Select Tags for Bulk Operations */}
+        <div className="mb-8 p-6 bg-card border border-border rounded-lg shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Tag className="w-5 h-5 text-cyan-500" />
+              Tag Library
+            </h2>
+            {selectedTags.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {selectedTags.size} selected
+                </span>
+                <button
+                  onClick={() => setSelectedTags(new Set())}
+                  className="text-sm text-cyan-500 hover:text-cyan-400"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Click tags to select them for bulk operations below
+          </p>
+          <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2 bg-background/50 rounded-md">
+            {getAllUniqueTags().map(({ tag, count }) => (
+              <button
+                key={tag}
+                onClick={() => toggleTagSelection(tag)}
+                className={`
+                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium
+                  transition-colors border-2
+                  ${selectedTags.has(tag)
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
+                    : 'bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:border-muted-foreground/30'
+                  }
+                `}
+              >
+                {tag}
+                <span className="text-xs opacity-70">({count})</span>
+              </button>
+            ))}
+            {getAllUniqueTags().length === 0 && (
+              <p className="text-sm text-muted-foreground italic">No tags in dataset yet</p>
+            )}
+          </div>
+        </div>
+
         {/* Bulk Operations */}
         <div className="mb-8 p-6 bg-card border border-border rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -128,12 +205,19 @@ export default function DatasetTagsPage() {
             </div>
             
             <div className="space-y-2 flex-1">
-              <label className="text-sm font-medium">Tags (comma separated)</label>
+              <label className="text-sm font-medium">
+                Tags {selectedTags.size > 0 && <span className="text-cyan-500">({selectedTags.size} selected from library)</span>}
+              </label>
               <div className="flex gap-2">
                 <input
                   type="text"
                   id="bulk-tags-input"
-                  placeholder="e.g. 1girl, solo"
+                  value={Array.from(selectedTags).join(', ')}
+                  onChange={(e) => {
+                    const tags = e.target.value.split(',').map(t => t.trim()).filter(t => t);
+                    setSelectedTags(new Set(tags));
+                  }}
+                  placeholder="Select from library above or type tags here"
                   className="flex-1 px-3 py-2 bg-input border border-border rounded-md"
                 />
                 <input
@@ -148,15 +232,14 @@ export default function DatasetTagsPage() {
             <button
               onClick={async () => {
                 const opSelect = document.getElementById('bulk-op-select') as HTMLSelectElement;
-                const tagsInput = document.getElementById('bulk-tags-input') as HTMLInputElement;
                 const replaceInput = document.getElementById('bulk-replace-input') as HTMLInputElement;
-                
+
                 const operation = opSelect.value as 'add' | 'remove' | 'replace';
-                const tags = tagsInput.value.split(',').map(t => t.trim()).filter(t => t);
+                const tags = Array.from(selectedTags);
                 const replaceWith = replaceInput.value.trim();
 
                 if (tags.length === 0) {
-                  alert('Please enter at least one tag');
+                  alert('Please select at least one tag from the library or type tags in the input');
                   return;
                 }
 
@@ -220,17 +303,26 @@ export default function DatasetTagsPage() {
                 <div className="text-xs text-muted-foreground mb-2 truncate">
                   {img.image_name}
                 </div>
-                <textarea
-                  value={img.tags.join(', ')}
-                  onChange={(e) => updateTags(img.image_path, e.target.value)}
-                  placeholder="Enter tags, comma separated..."
-                  className="w-full text-sm p-2 border rounded bg-background font-mono"
-                  rows={2}
-                />
+                <TagsInput
+                  value={img.tags}
+                  onValueChange={(newTags) => updateTags(img.image_path, newTags)}
+                  addOnPaste
+                  addOnBlur
+                  className="w-full"
+                >
+                  <TagsInputList>
+                    {img.tags.map((tag) => (
+                      <TagsInputItem key={tag} value={tag}>
+                        {tag}
+                      </TagsInputItem>
+                    ))}
+                    <TagsInputInput placeholder="Add tags..." className="text-sm" />
+                  </TagsInputList>
+                </TagsInput>
                 {img.has_tags && (
                   <div className="mt-1 flex items-center text-green-500 text-xs">
                     <CheckCircle className="w-3 h-3 mr-1" />
-                    Tagged
+                    {img.tags.length} {img.tags.length === 1 ? 'tag' : 'tags'}
                   </div>
                 )}
               </div>
