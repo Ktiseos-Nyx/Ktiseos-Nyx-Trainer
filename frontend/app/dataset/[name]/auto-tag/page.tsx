@@ -15,18 +15,45 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// Unified model definitions
+type ModelType = 'wd14' | 'blip' | 'git';
+
+interface ModelOption {
+  id: string;
+  name: string;
+  type: ModelType;
+  description?: string;
+}
+
+const AVAILABLE_MODELS: ModelOption[] = [
+  // WD14 Models
+  { id: 'SmilingWolf/wd-vit-large-tagger-v3', name: 'WD14 ViT Large v3', type: 'wd14', description: '⭐ Recommended' },
+  { id: 'SmilingWolf/wd-vit-tagger-v3', name: 'WD14 ViT v3', type: 'wd14' },
+  { id: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2', name: 'WD14 SwinV2 v2', type: 'wd14' },
+  { id: 'SmilingWolf/wd-v1-4-convnext-tagger-v2', name: 'WD14 ConvNext v2', type: 'wd14' },
+  { id: 'SmilingWolf/wd-v1-4-vit-tagger-v2', name: 'WD14 ViT v2', type: 'wd14' },
+  // BLIP Models
+  { id: 'blip-base', name: 'BLIP Base', type: 'blip', description: 'Natural language captions' },
+  // GIT Models
+  { id: 'microsoft/git-large-textcaps', name: 'GIT Large (TextCaps)', type: 'git', description: '⭐ Recommended' },
+  { id: 'microsoft/git-large', name: 'GIT Large', type: 'git' },
+  { id: 'microsoft/git-base', name: 'GIT Base', type: 'git', description: 'Faster' },
+];
+
 type CaptioningMethod = 'wd14' | 'blip' | 'git';
 
 export default function AutoTagPage() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Method selection
-  const [method, setMethod] = useState<CaptioningMethod>('wd14');
+  // Unified model selection (replaces method + taggerModel)
+  const [selectedModel, setSelectedModel] = useState<string>('SmilingWolf/wd-vit-large-tagger-v3');
+
+  // Derive model type from selected model
+  const currentModelType = AVAILABLE_MODELS.find(m => m.id === selectedModel)?.type || 'wd14';
 
   // Basic settings
   const [selectedDataset, setSelectedDataset] = useState<string>('');
-  const [taggerModel, setTaggerModel] = useState('SmilingWolf/wd-vit-large-tagger-v3');
   const [captionExtension, setCaptionExtension] = useState('.txt');
   const [captionSeparator, setCaptionSeparator] = useState(', ');
 
@@ -38,7 +65,6 @@ export default function AutoTagPage() {
   const [blipMinLength, setBlipMinLength] = useState(5);
 
   // GIT settings
-  const [gitModel, setGitModel] = useState('microsoft/git-large-textcaps');
   const [gitMaxLength, setGitMaxLength] = useState(50);
   const [gitRemoveWords, setGitRemoveWords] = useState(true);
 
@@ -96,10 +122,10 @@ export default function AutoTagPage() {
 
   // Auto-enable ONNX for v3 models (smart UX!)
   useEffect(() => {
-    if (taggerModel.includes('-v3')) {
+    if (selectedModel.includes('-v3')) {
       setUseOnnx(true);
     }
-  }, [taggerModel]);
+  }, [selectedModel]);
 
   // Load datasets
   const loadDatasets = async () => {
@@ -190,14 +216,14 @@ export default function AutoTagPage() {
     setCurrentImage(null);
     setTotalImages(null);
 
-    const methodLabel = method === 'wd14' ? 'WD14 Tagging' : method === 'blip' ? 'BLIP Captioning' : 'GIT Captioning';
+    const methodLabel = currentModelType === 'wd14' ? 'WD14 Tagging' : currentModelType === 'blip' ? 'BLIP Captioning' : 'GIT Captioning';
     addLog(`🚀 Starting ${methodLabel}...`);
     addLog(`📁 Dataset: ${selectedDataset}`);
 
     try {
       let response;
 
-      if (method === 'blip') {
+      if (currentModelType === 'blip') {
         addLog(`🤖 Model: BLIP (${blipBeamSearch ? 'beam search' : 'nucleus sampling'})`);
         const config: BLIPConfig = {
           dataset_dir: selectedDataset,
@@ -213,12 +239,12 @@ export default function AutoTagPage() {
           debug,
         };
         response = await captioningAPI.startBLIP(config);
-      } else if (method === 'git') {
-        addLog(`🤖 Model: ${gitModel}`);
+      } else if (currentModelType === 'git') {
+        addLog(`🤖 Model: ${selectedModel}`);
         const config: GITConfig = {
           dataset_dir: selectedDataset,
           caption_extension: captionExtension,
-          model_id: gitModel,
+          model_id: selectedModel,
           batch_size: batchSize,
           max_workers: maxWorkers,
           max_length: gitMaxLength,
@@ -229,11 +255,11 @@ export default function AutoTagPage() {
         response = await captioningAPI.startGIT(config);
       } else {
         // WD14 Tagging
-        addLog(`🤖 Model: ${taggerModel}`);
+        addLog(`🤖 Model: ${selectedModel}`);
         addLog(`🎯 Thresholds: Overall=${threshold}, General=${useGeneralThreshold ? generalThreshold : 'default'}, Character=${useCharacterThreshold ? characterThreshold : 'default'}`);
         response = await datasetAPI.tag({
         datasetDir: selectedDataset,
-        model: taggerModel,
+        model: selectedModel,
         forceDownload,
         threshold,
         generalThreshold: useGeneralThreshold ? generalThreshold : null,
@@ -264,7 +290,7 @@ export default function AutoTagPage() {
         addLog(`✅ Job started! ID: ${response.job_id}`);
 
         // Connect logs and status polling
-        if (method === 'wd14') {
+        if (currentModelType === 'wd14') {
           connectLogs(response.job_id);
         } else {
           // BLIP/GIT use same WebSocket endpoint
@@ -324,56 +350,8 @@ export default function AutoTagPage() {
             Auto-Tagging & Captioning
           </h1>
           <p className="text-xl text-muted-foreground mt-4">
-            Generate tags or captions for your dataset
+            Generate tags or captions for your dataset using AI models
           </p>
-
-          {/* Method Selector */}
-          <div className="mt-6 grid grid-cols-3 gap-4 max-w-3xl">
-            <button
-              onClick={() => setMethod('wd14')}
-              disabled={tagging}
-              className={`p-6 rounded-xl border-2 transition-all ${
-                method === 'wd14'
-                  ? 'border-pink-500 bg-pink-500/10'
-                  : 'border-border hover:border-pink-300'
-              } disabled:opacity-50`}
-            >
-              <Tag className={`w-8 h-8 mx-auto mb-2 ${method === 'wd14' ? 'text-pink-500' : 'text-muted-foreground'}`} />
-              <div className="font-bold text-lg">WD14 Tags</div>
-              <div className="text-sm text-muted-foreground mt-1">Anime-style booru tags</div>
-              <div className="text-xs text-muted-foreground mt-2">girl, blue_eyes, smile</div>
-            </button>
-
-            <button
-              onClick={() => setMethod('blip')}
-              disabled={tagging}
-              className={`p-6 rounded-xl border-2 transition-all ${
-                method === 'blip'
-                  ? 'border-cyan-500 bg-cyan-500/10'
-                  : 'border-border hover:border-cyan-300'
-              } disabled:opacity-50`}
-            >
-              <Sparkles className={`w-8 h-8 mx-auto mb-2 ${method === 'blip' ? 'text-cyan-500' : 'text-muted-foreground'}`} />
-              <div className="font-bold text-lg">BLIP</div>
-              <div className="text-sm text-muted-foreground mt-1">Natural language</div>
-              <div className="text-xs text-muted-foreground mt-2">a girl with blue eyes smiling</div>
-            </button>
-
-            <button
-              onClick={() => setMethod('git')}
-              disabled={tagging}
-              className={`p-6 rounded-xl border-2 transition-all ${
-                method === 'git'
-                  ? 'border-purple-500 bg-purple-500/10'
-                  : 'border-border hover:border-purple-300'
-              } disabled:opacity-50`}
-            >
-              <Camera className={`w-8 h-8 mx-auto mb-2 ${method === 'git' ? 'text-purple-500' : 'text-muted-foreground'}`} />
-              <div className="font-bold text-lg">GIT</div>
-              <div className="text-sm text-muted-foreground mt-1">Photo captions</div>
-              <div className="text-xs text-muted-foreground mt-2">a portrait of a girl with blue eyes</div>
-            </button>
-          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -411,23 +389,41 @@ export default function AutoTagPage() {
                   )}
                 </div>
 
-                {/* Model */}
+                {/* Unified Model Selector */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Tagger Model</label>
+                  <label className="block text-sm font-medium mb-2">Model</label>
                   <select
-                    value={taggerModel}
-                    onChange={(e) => setTaggerModel(e.target.value)}
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
                     disabled={tagging}
                     className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
                   >
-                    <option value="SmilingWolf/wd-vit-large-tagger-v3">WD14 ViT Large v3 ⭐</option>
-                    <option value="SmilingWolf/wd-vit-tagger-v3">WD14 ViT v3</option>
-                    <option value="SmilingWolf/wd-v1-4-swinv2-tagger-v2">WD14 SwinV2 v2</option>
-                    <option value="SmilingWolf/wd-v1-4-convnext-tagger-v2">WD14 ConvNext v2</option>
-                    <option value="SmilingWolf/wd-v1-4-vit-tagger-v2">WD14 ViT v2</option>
+                    <optgroup label="WD14 Tagger (Anime Tags)">
+                      {AVAILABLE_MODELS.filter(m => m.type === 'wd14').map(model => (
+                        <option key={model.id} value={model.id}>
+                          {model.name} {model.description && `- ${model.description}`}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="BLIP (Natural Language)">
+                      {AVAILABLE_MODELS.filter(m => m.type === 'blip').map(model => (
+                        <option key={model.id} value={model.id}>
+                          {model.name} {model.description && `- ${model.description}`}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="GIT (Photo Captions)">
+                      {AVAILABLE_MODELS.filter(m => m.type === 'git').map(model => (
+                        <option key={model.id} value={model.id}>
+                          {model.name} {model.description && `- ${model.description}`}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                   <p className="text-xs text-muted-foreground mt-2">
-                    v3 models auto-enable ONNX for best performance
+                    {currentModelType === 'wd14' && 'Generates booru-style tags (girl, blue_eyes, smile)'}
+                    {currentModelType === 'blip' && 'Generates natural language captions'}
+                    {currentModelType === 'git' && 'Generates photo-style descriptions'}
                   </p>
                 </div>
 
@@ -446,18 +442,20 @@ export default function AutoTagPage() {
                   </select>
                 </div>
 
-                {/* Caption Separator */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Tag Separator</label>
-                  <input
-                    type="text"
-                    value={captionSeparator}
-                    onChange={(e) => setCaptionSeparator(e.target.value)}
-                    disabled={tagging}
-                    placeholder=", "
-                    className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
-                  />
-                </div>
+                {/* Separator (WD14 only) */}
+                {currentModelType === 'wd14' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Tag Separator</label>
+                    <input
+                      type="text"
+                      value={captionSeparator}
+                      onChange={(e) => setCaptionSeparator(e.target.value)}
+                      disabled={tagging}
+                      placeholder=", "
+                      className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -496,9 +494,9 @@ export default function AutoTagPage() {
             )}
           </div>
 
-          {/* Middle Column: Method-Specific Settings */}
+          {/* Middle Column: Model-Specific Settings */}
           <div className="space-y-6">
-            {method === 'wd14' && (
+            {currentModelType === 'wd14' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -592,7 +590,7 @@ export default function AutoTagPage() {
             </Card>
             )}
 
-            {method === 'blip' && (
+            {currentModelType === 'blip' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -694,7 +692,7 @@ export default function AutoTagPage() {
               </Card>
             )}
 
-            {method === 'git' && (
+            {currentModelType === 'git' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -703,21 +701,6 @@ export default function AutoTagPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-
-                  {/* Model */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Model</label>
-                    <select
-                      value={gitModel}
-                      onChange={(e) => setGitModel(e.target.value)}
-                      disabled={tagging}
-                      className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
-                    >
-                      <option value="microsoft/git-large-textcaps">GIT Large TextCaps (best)</option>
-                      <option value="microsoft/git-large">GIT Large</option>
-                      <option value="microsoft/git-base">GIT Base (faster)</option>
-                    </select>
-                  </div>
 
                   {/* Max Length */}
                   <div>
@@ -758,7 +741,7 @@ export default function AutoTagPage() {
               </Card>
             )}
 
-            {method === 'wd14' && (
+            {currentModelType === 'wd14' && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
