@@ -52,12 +52,28 @@ async def stream_job_logs(websocket: WebSocket, job_id: str):
 
         logger.info(f"WebSocket connected for job {job_id}")
 
+        # Send connection confirmation
+        await websocket.send_json({
+            "type": "connected",
+            "job_id": job_id
+        })
+
         # Stream logs to client
         async for log_line in job_manager.stream_logs(job_id):
-            await websocket.send_text(log_line)
+            # Handle heartbeat
+            if log_line == "__HEARTBEAT__":
+                await websocket.send_json({
+                    "type": "heartbeat"
+                })
+            else:
+                await websocket.send_json({
+                    "type": "log",
+                    "message": log_line
+                })
 
         # Send completion signal
         await websocket.send_json({
+            "type": "complete",
             "status": "complete",
             "job_id": job_id
         })

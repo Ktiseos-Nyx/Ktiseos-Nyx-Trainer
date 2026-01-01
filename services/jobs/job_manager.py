@@ -224,7 +224,7 @@ class JobManager:
 
         Example:
             async for log_line in job_manager.stream_logs(job_id):
-                await websocket.send_text(log_line)
+                await websocket.send_json({"type": "log", "message": log_line})
         """
         job = self.store.get(job_id)
         if not job:
@@ -237,9 +237,16 @@ class JobManager:
 
         # Then stream new logs as they arrive
         last_line = len(job.logs)
+        heartbeat_counter = 0
 
         while not job.is_complete:
             await asyncio.sleep(0.1)  # Check every 100ms
+            heartbeat_counter += 1
+
+            # Send heartbeat every 50 iterations (5 seconds)
+            if heartbeat_counter >= 50:
+                yield "__HEARTBEAT__"
+                heartbeat_counter = 0
 
             # Yield new lines
             new_logs = job.get_logs(last_line)
