@@ -699,6 +699,22 @@ export const configAPI = {
     return handleResponse(response);
   },
 
+  /**
+   * Save training configuration as TWO TOML files (dataset.toml + config.toml).
+   * This generates the same files that sd-scripts expects for training.
+   *
+   * @param config - Full training configuration
+   * @returns Success response with file paths
+   */
+  saveTraining: async (config: TrainingConfig) => {
+    const response = await fetch(`${API_BASE}/config/save-training`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return handleResponse(response);
+  },
+
   defaults: async () => {
     const response = await fetch(`${API_BASE}/config/defaults`);
     return handleResponse(response);
