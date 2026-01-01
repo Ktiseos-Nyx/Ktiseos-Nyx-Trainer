@@ -107,7 +107,18 @@ export interface DirectoryListing {
 
 // Add these helper types at the top of lib/api.ts
 export type ModelType = 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
-export type LoRAType = 'LoRA' | 'LoCon' | 'LoHa' | 'LoKr' | 'DoRA';
+export type LoRAType =
+  | 'LoRA'      // Standard LoRA
+  | 'LoCon'     // LoRA with convolutions
+  | 'LoHa'      // Low-Rank Hadamard Product
+  | 'LoKr'      // Low-Rank Kronecker Product
+  | 'DoRA'      // LoRA with weight decomposition
+  | 'Full'      // Native fine-tuning (DreamBooth)
+  | 'IA3'       // (IA)^3
+  | 'DyLoRA'    // Dynamic LoRA
+  | 'GLoRA'     // Generalized LoRA
+  | 'Diag-OFT'  // Diagonal Orthogonal Finetuning
+  | 'BOFT';     // Butterfly OFT
 export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME';
 export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
 

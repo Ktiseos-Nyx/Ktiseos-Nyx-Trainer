@@ -20,12 +20,21 @@ class ModelType(str, Enum):
 
 
 class LoRAType(str, Enum):
-    """LoRA network types."""
+    """LoRA network types (LyCORIS algorithms)."""
+    # Standard LoRA variants
     LORA = "LoRA"
     LOCON = "LoCon"
     LOHA = "LoHa"
     LOKR = "LoKr"
-    DORA = "DoRA"
+    DORA = "DoRA"  # LoRA with weight decomposition
+
+    # Advanced LyCORIS algorithms
+    FULL = "Full"  # Native fine-tuning (DreamBooth)
+    IA3 = "IA3"  # (IA)^3 - Infused Adapter by Inhibiting and Amplifying Inner Activations
+    DYLORA = "DyLoRA"  # Dynamic LoRA with resizable rank
+    GLORA = "GLoRA"  # Generalized LoRA
+    DIAG_OFT = "Diag-OFT"  # Diagonal Orthogonal Finetuning
+    BOFT = "BOFT"  # Butterfly OFT
 
 
 class OptimizerType(str, Enum):
