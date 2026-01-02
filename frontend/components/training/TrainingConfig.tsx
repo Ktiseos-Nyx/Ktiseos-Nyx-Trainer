@@ -110,28 +110,38 @@ export default function TrainingConfigNew() {
 
   const handleSaveToServer = async () => {
     try {
-      syncToStore(); // Use the sync function from the hook
+      syncToStore(); // Sync to Zustand first
       const currentValues = form.getValues();
-      const result = await configAPI.save(
-        currentValues.project_name || 'untitled_config',
-        currentValues as any
-      );
+
+      // Use new endpoint that generates both dataset.toml and config.toml
+      const result = await configAPI.saveTraining(currentValues);
 
       if (result.success) {
-        alert("✅ Configuration saved to server!");
+        alert(`✅ Training configs saved!\n\nFiles created:\n- ${result.files.dataset}\n- ${result.files.config}`);
       }
     } catch (error: any) {
-      alert("❌ Error saving to server: " + error.message);
+      alert("❌ Error saving configs: " + error.message);
     }
   };
 
   const validationErrors = getValidationErrors();
   const errorCount = validationErrors.length;
 
-  const handleSaveDataset = () => {
-  syncToStore();
-  // Optional: show toast
-  // toast.success("Dataset settings saved!");
+  // Handler for individual card save buttons
+  const handleCardSave = async () => {
+    try {
+      syncToStore(); // Update Zustand
+      const currentValues = form.getValues();
+
+      // Also save configs to disk (generates both dataset.toml and config.toml)
+      await configAPI.saveTraining(currentValues);
+
+      // Optional: You can add toast notification here instead of alert
+      console.log("✅ Config saved to disk");
+    } catch (error: any) {
+      console.error("❌ Error saving config:", error.message);
+      // Optionally show error to user
+    }
   };
 
   return (
@@ -181,13 +191,13 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} onSave={() => syncToStore()} /></TabsContent>
-                  <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} onSave={() => syncToStore()} /></TabsContent>
-                  <TabsContent value="lora"><LoRATab form={form as any} onSave={() => syncToStore()} /></TabsContent>
-                  <TabsContent value="learning"><LearningTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
-                  <TabsContent value="performance"><PerformanceTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
-                  <TabsContent value="advanced"><AdvancedTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
-                  <TabsContent value="saving"><SavingTab form={form as any} onSave={() => syncToStore()} /></TabsContent>
+                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="lora"><LoRATab form={form as any} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="learning"><LearningTab form={form as any} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="performance"><PerformanceTab form={form as any} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="advanced"><AdvancedTab form={form as any} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="saving"><SavingTab form={form as any} onSave={handleCardSave} /></TabsContent>
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">

@@ -123,18 +123,52 @@ class KohyaTOMLGenerator:
         logger.info("Generated main config TOML: %s", output_path)
 
     def _get_network_config(self) -> Dict[str, Any]:
-        """Helper to determine module string based on LoRA type"""
+        """
+        Helper to determine module string based on LoRA type.
+
+        Maps UI-friendly LoRA types to LyCORIS algorithm names.
+        See: https://github.com/KohakuBlueleaf/LyCORIS/blob/main/docs/Algo-List.md
+        """
         lora_type = self.config.lora_type
+
+        # Standard LoRA variants
         if lora_type == "LoRA":
             return {"network_module": "networks.lora"}
         elif lora_type == "LoCon":
-            return {"network_module": "lycoris.kohya"}
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=locon"]}
         elif lora_type == "LoHa":
             return {"network_module": "lycoris.kohya", "network_args": ["algo=loha"]}
         elif lora_type in ["LoKR", "LoKr"]:
             return {"network_module": "lycoris.kohya", "network_args": ["algo=lokr"]}
         elif lora_type == "DoRA":
-            return {"network_module": "lycoris.kohya", "network_args": ["algo=dora"]}
+            # DoRA = LoRA with weight decomposition
+            # See: https://arxiv.org/abs/2402.09353
+            return {
+                "network_module": "lycoris.kohya",
+                "network_args": ["algo=lora", "weight_decompose=True"]
+            }
+
+        # Advanced LyCORIS algorithms
+        elif lora_type == "Full":
+            # Native fine-tuning (DreamBooth)
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=full"]}
+        elif lora_type == "IA3":
+            # (IA)^3 - requires higher learning rates (5e-3 to 1e-2)
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=ia3"]}
+        elif lora_type == "DyLoRA":
+            # Dynamic LoRA - recommend high dim with alpha=dim/4 to dim
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=dylora"]}
+        elif lora_type == "GLoRA":
+            # Generalized LoRA
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=glora"]}
+        elif lora_type == "Diag-OFT":
+            # Diagonal Orthogonal Finetuning
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=diag-oft"]}
+        elif lora_type == "BOFT":
+            # Butterfly OFT
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=boft"]}
+
+        # Default fallback
         else:
             return {"network_module": "networks.lora"}
 

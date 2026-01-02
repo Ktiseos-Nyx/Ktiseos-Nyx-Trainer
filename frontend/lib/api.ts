@@ -107,7 +107,18 @@ export interface DirectoryListing {
 
 // Add these helper types at the top of lib/api.ts
 export type ModelType = 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
-export type LoRAType = 'LoRA' | 'LoCon' | 'LoHa' | 'LoKr' | 'DoRA';
+export type LoRAType =
+  | 'LoRA'      // Standard LoRA
+  | 'LoCon'     // LoRA with convolutions
+  | 'LoHa'      // Low-Rank Hadamard Product
+  | 'LoKr'      // Low-Rank Kronecker Product
+  | 'DoRA'      // LoRA with weight decomposition
+  | 'Full'      // Native fine-tuning (DreamBooth)
+  | 'IA3'       // (IA)^3
+  | 'DyLoRA'    // Dynamic LoRA
+  | 'GLoRA'     // Generalized LoRA
+  | 'Diag-OFT'  // Diagonal Orthogonal Finetuning
+  | 'BOFT';     // Butterfly OFT
 export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME';
 export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
 
@@ -695,6 +706,22 @@ export const configAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, config }),
+    });
+    return handleResponse(response);
+  },
+
+  /**
+   * Save training configuration as TWO TOML files (dataset.toml + config.toml).
+   * This generates the same files that sd-scripts expects for training.
+   *
+   * @param config - Full training configuration
+   * @returns Success response with file paths
+   */
+  saveTraining: async (config: TrainingConfig) => {
+    const response = await fetch(`${API_BASE}/config/save-training`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
     });
     return handleResponse(response);
   },
