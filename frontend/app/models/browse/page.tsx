@@ -343,29 +343,29 @@ export default function CivitaiBrowsePage() {
           ]}
         />
 
-        {/* API Key Warning Banner (Dismissible) */}
+        {/* API Key Info Banner (Optional - Dismissible) */}
         {!hasApiKey && showApiKeyWarning && (
-          <div className="mt-6 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 relative">
+          <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 relative">
             <button
               onClick={() => setShowApiKeyWarning(false)}
               className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
-              aria-label="Dismiss warning"
+              aria-label="Dismiss"
             >
               <X className="w-4 h-4" />
             </button>
             <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <Key className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground mb-1">Civitai API Key Recommended</h3>
+                <h3 className="font-semibold text-foreground mb-1">Civitai API Key (Optional)</h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Without an API key, you'll have limited rate limits and may experience slower browsing.
-                  Add your free API key for better performance and NSFW access.
+                  <strong>Browsing works without an API key!</strong> Adding one is optional but gives you:
+                  higher rate limits, faster browsing, and access to NSFW-rated content.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link href="/settings">
                     <button className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md text-sm font-medium transition-colors">
                       <Key className="w-4 h-4" />
-                      Add API Key in Settings
+                      Add API Key (Optional)
                     </button>
                   </Link>
                   <a

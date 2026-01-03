@@ -79,17 +79,51 @@ export default function PresetManager({
     }
   }, [customPresets]);
 
+  // Filter out project-specific fields when saving presets
+  // Only save reusable training hyperparameters (like Bmaltais's JSON presets)
+  const filterPresetConfig = (config: Partial<TrainingConfig>): Partial<TrainingConfig> => {
+    const {
+      // Exclude project/file-specific fields
+      project_name,
+      pretrained_model_name_or_path,
+      vae_path,
+      ae_path,
+      clip_l_path,
+      clip_g_path,
+      t5xxl_path,
+      continue_from_lora,
+      wandb_key,
+      train_data_dir,
+      output_dir,
+      output_name,
+      resume_from_state,
+      sample_prompts,
+      logging_dir,
+      log_tracker_name,
+      log_tracker_config,
+      wandb_run_name,
+      gemma2,
+      // Keep everything else (reusable hyperparameters)
+      ...reusableConfig
+    } = config;
+
+    return reusableConfig;
+  };
+
   const handleSavePreset = () => {
     if (!newPresetName.trim()) {
       alert('Please enter a preset name');
       return;
     }
 
+    // Filter config to only include reusable hyperparameters
+    const filteredConfig = filterPresetConfig(currentConfig);
+
     const preset: CustomPreset = {
       id: `custom_${Date.now()}`,
       name: newPresetName,
       description: newPresetDescription || 'Custom preset',
-      config: currentConfig,
+      config: filteredConfig,
       createdAt: Date.now(),
     };
 
@@ -100,20 +134,20 @@ export default function PresetManager({
     setNewPresetDescription('');
     setSaveDialogOpen(false);
 
-    alert(`✅ Preset "${newPresetName}" saved successfully!`);
+    alert(`✅ Preset "${newPresetName}" saved successfully!\n\nNote: Project-specific details (dataset paths, model paths, project name) are not included in presets.`);
   };
 
   const handleLoadPreset = (presetId: string) => {
     if (trainingPresets[presetId]) {
       onLoadPreset(trainingPresets[presetId].config);
-      alert(`✅ Loaded preset: ${trainingPresets[presetId].name}`);
+      alert(`✅ Loaded preset: ${trainingPresets[presetId].name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
       return;
     }
 
     const customPreset = customPresets.find((p) => p.id === presetId);
     if (customPreset) {
       onLoadPreset(customPreset.config);
-      alert(`✅ Loaded preset: ${customPreset.name}`);
+      alert(`✅ Loaded preset: ${customPreset.name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
       return;
     }
   };
@@ -158,7 +192,7 @@ export default function PresetManager({
   };
 
   return (
-    <Card className="border-purple-500/30 bg-card">
+    <Card className="border-purple-500/30 bg-gradient-to-br from-purple-500/5 via-card to-card dark:from-purple-500/10 dark:via-card dark:to-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-purple-400" />
@@ -318,7 +352,7 @@ export default function PresetManager({
           </Button>
         </div>
 
-        <div className="text-xs text-gray-500 text-center">
+        <div className="text-xs text-muted-foreground text-center">
           {customPresets.length === 0
             ? 'No custom presets saved yet'
             : `${customPresets.length} custom preset${customPresets.length !== 1 ? 's' : ''} saved`}
