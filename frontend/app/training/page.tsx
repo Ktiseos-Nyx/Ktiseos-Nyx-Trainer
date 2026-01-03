@@ -1,7 +1,38 @@
-import TrainingConfig from '@/components/training/TrainingConfig';
-import TrainingMonitor from '@/components/training/TrainingMonitor';
+'use client';
+
+import dynamic from 'next/dynamic';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { Home, Settings } from 'lucide-react';
+import { Home, Settings, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+
+// 🚀 OPTIMIZATION: Lazy load heavy training components
+const TrainingConfig = dynamic(() => import('@/components/training/TrainingConfig'), {
+  loading: () => (
+    <Card>
+      <CardContent className="p-12 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading training configuration...</p>
+        </div>
+      </CardContent>
+    </Card>
+  ),
+  ssr: false,
+});
+
+const TrainingMonitor = dynamic(() => import('@/components/training/TrainingMonitor'), {
+  loading: () => (
+    <Card>
+      <CardContent className="p-12 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading training monitor...</p>
+        </div>
+      </CardContent>
+    </Card>
+  ),
+  ssr: false,
+});
 
 export default function TrainingPage() {
   return (

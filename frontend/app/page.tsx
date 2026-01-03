@@ -1,7 +1,20 @@
 'use client';
 
-import { HeroAnimated } from '@/components/blocks/hero/hero-animated';
+import dynamic from 'next/dynamic';
 import { Sparkles, Settings } from 'lucide-react';
+
+// 🚀 OPTIMIZATION: Lazy load hero animation (saves 6.4MB GSAP bundle)
+const HeroAnimated = dynamic(() => import('@/components/blocks/hero/hero-animated').then(mod => ({ default: mod.HeroAnimated })), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-background/80">
+      <div className="text-center space-y-4">
+        <div className="animate-pulse text-6xl">✨</div>
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  ),
+});
 
 export default function Home() {
   return (

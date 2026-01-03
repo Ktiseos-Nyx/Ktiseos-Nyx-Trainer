@@ -2,13 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Home, Database } from 'lucide-react';
-import DatasetUploader from '@/components/DatasetUploader';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { datasetAPI, DatasetInfo } from '@/lib/api';
-import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Edit, Zap, Info } from 'lucide-react';
+import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Edit, Zap, Info, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+// 🚀 OPTIMIZATION: Lazy load DatasetUploader (642 lines)
+const DatasetUploader = dynamic(() => import('@/components/DatasetUploader'), {
+  loading: () => (
+    <Card>
+      <CardContent className="p-12 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading uploader...</p>
+        </div>
+      </CardContent>
+    </Card>
+  ),
+  ssr: false,
+});
 
 export default function DatasetPage() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);

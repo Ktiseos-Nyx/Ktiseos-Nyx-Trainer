@@ -158,7 +158,7 @@ export default function PresetManager({
   };
 
   return (
-    <Card className="border-purple-500/30 bg-slate-900/50">
+    <Card className="border-purple-500/30 bg-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-purple-400" />
@@ -224,7 +224,7 @@ export default function PresetManager({
           </div>
 
           {selectedPreset && (
-            <Alert className="bg-slate-800/50 border-slate-700">
+            <Alert className="bg-accent/50 border-border">
               <AlertDescription>
                 {trainingPresets[selectedPreset]?.description ||
                   customPresets.find((p) => p.id === selectedPreset)?.description}

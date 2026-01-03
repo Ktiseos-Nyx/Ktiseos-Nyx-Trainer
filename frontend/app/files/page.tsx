@@ -1,7 +1,24 @@
-import FileManager from '@/components/FileManager';
+'use client';
+
+import dynamic from 'next/dynamic';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { File, Folder, Tree } from "@/components/ui/file-tree"
-import { Home, FolderOpen } from 'lucide-react';
+import { Home, FolderOpen, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+
+// 🚀 OPTIMIZATION: Lazy load FileManager (tree view is heavy)
+const FileManager = dynamic(() => import('@/components/FileManager'), {
+  loading: () => (
+    <Card>
+      <CardContent className="p-12 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading file manager...</p>
+        </div>
+      </CardContent>
+    </Card>
+  ),
+  ssr: false,
+});
 
 export default function FilesPage() {
   return (
