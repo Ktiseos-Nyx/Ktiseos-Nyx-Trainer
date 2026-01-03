@@ -251,3 +251,5 @@ cache/
 /.ruff_cache
 .vscode
 /.vscode
+FEATURE_CREEP.md
+nul

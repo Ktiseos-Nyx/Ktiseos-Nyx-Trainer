@@ -24,18 +24,14 @@ sleep 3  # Give time for processes to terminate
 # --------------------------------------------------------------------
 if [ -f "installer_local_linux.py" ]; then
     echo "⚙️ Running local Linux installer (verification only)..."
-    if ! python installer_local_linux.py --skip-install; then
+    if ! python3 installer_local_linux.py --skip-install; then
         echo "❌ Installer verification failed! Please run installer manually first."
         exit 1
     fi
-elif [ -f "installer_windows_local.py" ]; then
-    echo "⚠️ Windows installer detected — this script is for Linux/macOS only."
-    echo "   Please use start_services_local.bat on Windows."
-    exit 1
 else
     echo "ℹ️ No local installer found — assuming environment is already set up."
     echo "   To install dependencies, run:"
-    echo "      Linux (GPU): python installer_local_linux.py"
+    echo "      Linux/WSL: python installer_local_linux.py"
     echo ""
 fi
 
@@ -46,7 +42,7 @@ fi
 # Start FastAPI backend (if api directory exists)
 if [ -d "api" ]; then
     echo "🐍 Starting FastAPI backend on port 8000 (bind 127.0.0.1)..."
-    python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload &
+    python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload &
     BACKEND_PID=$!
     echo "   Backend PID: $BACKEND_PID"
 else
@@ -56,7 +52,7 @@ fi
 
 # Start Next.js frontend (if frontend directory exists)
 if [ -d "frontend" ]; then
-    echo "🎨 Starting Next.js frontend on port 3000..."
+    echo "🎨 Preparing Next.js frontend..."
 
     # Load NVM (if available)
     export NVM_DIR="$HOME/.nvm"
@@ -66,8 +62,23 @@ if [ -d "frontend" ]; then
     # shellcheck disable=SC2164
     cd frontend
 
-    # Use PORT env var (Next.js standard)
-    PORT=3000 npm run start &
+    # Check if production build exists
+    if [ ! -d ".next" ]; then
+        echo "📦 No production build found - building Next.js app..."
+        npm run build
+        if [ $? -ne 0 ]; then
+            echo "❌ Build failed! Please fix errors and try again."
+            cd ..
+            exit 1
+        fi
+        echo "✅ Build complete!"
+    else
+        echo "📦 Using existing production build (run 'npm run build' to rebuild)"
+    fi
+
+    # Start production server
+    echo "🚀 Starting Next.js production server on port 3000..."
+    NODE_ENV=production PORT=3000 npm run start &
     FRONTEND_PID=$!
     echo "   Frontend PID: $FRONTEND_PID"
     # shellcheck disable=SC2103
