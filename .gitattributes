@@ -1,0 +1,23 @@
+# Auto-detect text files and normalize line endings to LF on checkin
+* text=auto eol=lf
+
+# Explicitly declare text files
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Windows batch files need CRLF
+*.bat text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.dll binary
+*.safetensors binary
