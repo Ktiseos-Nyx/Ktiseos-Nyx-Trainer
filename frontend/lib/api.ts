@@ -468,6 +468,7 @@ export interface TrainingConfig {
   project_name: string;
   // ✅ FIX: Match the Zod Enum exactly
   model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
+  training_mode?: 'lora' | 'checkpoint'; // Training mode: LoRA adapters (default) or full checkpoint
   pretrained_model_name_or_path: string;
   vae_path?: string;
   ae_path?: string;
