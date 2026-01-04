@@ -859,6 +859,31 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  mergeCheckpoint: async (
+    checkpointInputs: Array<{ path: string; ratio: number }>,
+    outputPath: string,
+    unetOnly: boolean = false,
+    device: string = 'cpu',
+    savePrecision: string = 'fp16',
+    precision: string = 'float',
+    showSkipped: boolean = false
+  ) => {
+    const response = await fetch(`${API_BASE}/utilities/checkpoint/merge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        checkpoint_inputs: checkpointInputs,
+        output_path: outputPath,
+        unet_only: unetOnly,
+        device,
+        save_precision: savePrecision,
+        precision,
+        show_skipped: showSkipped,
+      }),
+    });
+    return handleResponse(response);
+  },
+
   // HuggingFace
   uploadToHuggingFace: async (request: HuggingFaceUploadRequest) => {
     const response = await fetch(`${API_BASE}/utilities/hf/upload`, {
