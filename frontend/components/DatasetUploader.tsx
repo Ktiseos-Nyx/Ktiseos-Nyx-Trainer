@@ -50,6 +50,10 @@ export default function DatasetUploader() {
   const [folderRepeats, setFolderRepeats] = useState(10);
   const [creatingFolder, setCreatingFolder] = useState(false);
 
+  // Check states for other tabs
+  const [projectExists, setProjectExists] = useState(false);
+  const [folderExists, setFolderExists] = useState(false);
+
   // Load existing datasets on mount
   useEffect(() => {
     const loadExistingDatasets = async () => {
@@ -67,6 +71,17 @@ export default function DatasetUploader() {
   useEffect(() => {
     setDatasetExists(existingDatasets.includes(datasetName.trim()));
   }, [datasetName, existingDatasets]);
+
+  // Check if project name exists (URL/ZIP tab)
+  useEffect(() => {
+    setProjectExists(existingDatasets.includes(projectName.trim()));
+  }, [projectName, existingDatasets]);
+
+  // Check if folder name exists (Create Folder tab)
+  useEffect(() => {
+    const kohyaFolderName = folderName.trim() ? `${folderRepeats}_${folderName.trim()}` : '';
+    setFolderExists(kohyaFolderName ? existingDatasets.includes(kohyaFolderName) : false);
+  }, [folderName, folderRepeats, existingDatasets]);
 
   // ========== Direct Upload Handlers ==========
 
@@ -143,6 +158,14 @@ export default function DatasetUploader() {
     }
 
     alert('✅ Upload complete!');
+
+    // Reload existing datasets list
+    try {
+      const data = await datasetAPI.list();
+      setExistingDatasets((data.datasets || []).map(d => d.name));
+    } catch (err) {
+      console.error('Failed to reload datasets:', err);
+    }
   } catch (err) {
     console.error('Upload failed:', err);
     alert(`❌ Upload failed: ${err}`);
@@ -221,6 +244,14 @@ export default function DatasetUploader() {
         console.log(`✅ Extracted ${result.extracted} images`);
         alert(`✅ ZIP uploaded! Extracted ${result.extracted} images.\n${result.errors.length > 0 ? `Errors:\n${result.errors.join('\n')}` : ''}`);
         setFiles([]);
+
+        // Reload existing datasets list
+        try {
+          const data = await datasetAPI.list();
+          setExistingDatasets((data.datasets || []).map(d => d.name));
+        } catch (err) {
+          console.error('Failed to reload datasets:', err);
+        }
       } else {
         console.error('❌ No files extracted');
         throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
@@ -261,6 +292,13 @@ export default function DatasetUploader() {
       return;
     }
 
+    // Check if dataset exists and confirm
+    if (projectExists) {
+      if (!confirm(`⚠️ Dataset "${projectName}" already exists!\n\nDownloaded files will be added to the existing dataset. Continue?`)) {
+        return;
+      }
+    }
+
     setDownloading(true);
 
     try {
@@ -286,6 +324,14 @@ export default function DatasetUploader() {
         const fileCount = result.files.length;
         alert(`✅ Downloaded ${fileCount} file(s) to: datasets/${projectName}\n${result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : ''}`);
         setDatasetUrl('');
+
+        // Reload existing datasets list
+        try {
+          const data = await datasetAPI.list();
+          setExistingDatasets((data.datasets || []).map(d => d.name));
+        } catch (err) {
+          console.error('Failed to reload datasets:', err);
+        }
       } else {
         throw new Error('Download failed');
       }
@@ -306,12 +352,26 @@ export default function DatasetUploader() {
 
     const kohyaFolderName = `${folderRepeats}_${folderName}`;
 
+    // Check if folder already exists
+    if (folderExists) {
+      alert(`⚠️ Dataset folder "${kohyaFolderName}" already exists!\n\nPlease choose a different name or modify it in the Direct Upload tab.`);
+      return;
+    }
+
     setCreatingFolder(true);
 
     try {
       await datasetAPI.create(kohyaFolderName);
       setDatasetName(kohyaFolderName);
       alert(`✅ Created dataset folder: ${kohyaFolderName}`);
+
+      // Reload existing datasets list
+      try {
+        const data = await datasetAPI.list();
+        setExistingDatasets((data.datasets || []).map(d => d.name));
+      } catch (err) {
+        console.error('Failed to reload datasets:', err);
+      }
 
       // Switch to direct upload tab
       setActiveTab('direct');
@@ -587,10 +647,24 @@ export default function DatasetUploader() {
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white focus:ring-2 focus:border-transparent ${
+                projectExists
+                  ? 'border-yellow-500 focus:ring-yellow-500'
+                  : 'border-slate-600 focus:ring-purple-500'
+              }`}
               placeholder="my_awesome_character (no spaces or special chars)"
               disabled={downloading}
             />
+            {projectExists ? (
+              <p className="text-xs text-yellow-500 mt-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                ⚠️ Dataset exists - downloaded files will be added to existing dataset
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                📁 Files will be downloaded to: datasets/{projectName}
+              </p>
+            )}
           </div>
 
           {/* Dataset URL */}
@@ -639,10 +713,20 @@ export default function DatasetUploader() {
               type="text"
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white focus:ring-2 focus:border-transparent ${
+                folderExists
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-slate-600 focus:ring-green-500'
+              }`}
               placeholder="character_name"
               disabled={creatingFolder}
             />
+            {folderExists && folderName.trim() && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                ⚠️ Folder "{folderRepeats}_{folderName}" already exists - please choose a different name
+              </p>
+            )}
           </div>
 
           {/* Repeat Count */}
