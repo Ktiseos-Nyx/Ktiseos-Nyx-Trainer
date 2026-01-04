@@ -26,7 +26,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { trainingPresets } from '@/hooks/useTrainingForm';
-import type { TrainingConfig } from '@/lib/api';
+import { presetsAPI, type TrainingConfig, type PresetMetadata } from '@/lib/api';
 
 interface CustomPreset {
   id: string;

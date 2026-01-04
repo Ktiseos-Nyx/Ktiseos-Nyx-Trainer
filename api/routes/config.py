@@ -1,7 +1,8 @@
 """
 Configuration API Routes
-Handles training config templates, loading, and saving.
+Handles training config templates, loading, saving, and presets.
 """
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -18,6 +19,7 @@ router = APIRouter()
 
 # Project root detection
 PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
+PRESETS_DIR = PROJECT_ROOT / "presets"
 
 
 class ConfigTemplate(BaseModel):
@@ -42,6 +44,23 @@ class ValidationResponse(BaseModel):
     """Validation response"""
     valid: bool
     errors: List[str] = []
+
+
+class PresetModel(BaseModel):
+    """Training preset model"""
+    name: str
+    description: str
+    model_type: Optional[str] = None
+    config: Dict[str, Any]
+    created_at: Optional[int] = None
+
+
+class SavePresetRequest(BaseModel):
+    """Save preset request"""
+    name: str
+    description: str = ""
+    model_type: Optional[str] = None
+    config: Dict[str, Any]
 
 
 @router.get("/templates")
@@ -276,3 +295,169 @@ async def get_default_config():
         "lr_scheduler": "cosine",
         "lr_warmup_steps": 100
     }
+
+
+# ========================================
+# Preset Management Endpoints
+# ========================================
+
+@router.get("/presets")
+async def list_presets():
+    """
+    List all available presets (both built-in and user-created)
+
+    Returns a list of preset metadata (name, description, model_type)
+    """
+    try:
+        PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+
+        presets = []
+
+        # Load all JSON preset files
+        for preset_file in PRESETS_DIR.glob("*.json"):
+            try:
+                with open(preset_file, 'r', encoding='utf-8') as f:
+                    preset_data = json.load(f)
+                    presets.append({
+                        "id": preset_file.stem,
+                        "name": preset_data.get("name", preset_file.stem),
+                        "description": preset_data.get("description", ""),
+                        "model_type": preset_data.get("model_type"),
+                        "created_at": preset_data.get("created_at"),
+                        "is_builtin": preset_data.get("is_builtin", False)
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to load preset {preset_file}: {e}")
+
+        # Sort: built-in first, then by name
+        presets.sort(key=lambda p: (not p.get("is_builtin", False), p["name"]))
+
+        return {"presets": presets}
+
+    except Exception as e:
+        logger.error(f"Failed to list presets: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/presets/{preset_id}")
+async def get_preset(preset_id: str):
+    """
+    Get a specific preset's full configuration
+
+    Args:
+        preset_id: The preset filename (without .json extension)
+    """
+    try:
+        preset_path = PRESETS_DIR / f"{preset_id}.json"
+
+        if not preset_path.exists():
+            raise HTTPException(status_code=404, detail=f"Preset '{preset_id}' not found")
+
+        with open(preset_path, 'r', encoding='utf-8') as f:
+            preset_data = json.load(f)
+
+        return preset_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get preset {preset_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/presets")
+async def save_preset(request: SavePresetRequest):
+    """
+    Save a new preset or update an existing one
+
+    Preset name is sanitized to create a valid filename
+    """
+    try:
+        PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Sanitize filename (remove special chars, replace spaces with underscores)
+        safe_name = "".join(c if c.isalnum() or c in (' ', '-', '_') else '' for c in request.name)
+        safe_name = safe_name.replace(' ', '_').lower()
+
+        if not safe_name:
+            raise HTTPException(status_code=400, detail="Invalid preset name")
+
+        preset_path = PRESETS_DIR / f"{safe_name}.json"
+
+        # Check if it's a built-in preset
+        if preset_path.exists():
+            with open(preset_path, 'r', encoding='utf-8') as f:
+                existing = json.load(f)
+                if existing.get("is_builtin", False):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Cannot overwrite built-in presets"
+                    )
+
+        # Create preset data
+        import time
+        preset_data = {
+            "name": request.name,
+            "description": request.description,
+            "model_type": request.model_type,
+            "config": request.config,
+            "created_at": int(time.time() * 1000),  # milliseconds timestamp
+            "is_builtin": False
+        }
+
+        # Save to file
+        with open(preset_path, 'w', encoding='utf-8') as f:
+            json.dump(preset_data, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Saved preset: {preset_path}")
+
+        return {
+            "success": True,
+            "id": safe_name,
+            "message": f"Preset '{request.name}' saved successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to save preset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/presets/{preset_id}")
+async def delete_preset(preset_id: str):
+    """
+    Delete a user preset
+
+    Built-in presets cannot be deleted
+    """
+    try:
+        preset_path = PRESETS_DIR / f"{preset_id}.json"
+
+        if not preset_path.exists():
+            raise HTTPException(status_code=404, detail=f"Preset '{preset_id}' not found")
+
+        # Check if it's a built-in preset
+        with open(preset_path, 'r', encoding='utf-8') as f:
+            preset_data = json.load(f)
+            if preset_data.get("is_builtin", False):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cannot delete built-in presets"
+                )
+
+        # Delete the file
+        preset_path.unlink()
+
+        logger.info(f"Deleted preset: {preset_path}")
+
+        return {
+            "success": True,
+            "message": f"Preset '{preset_id}' deleted successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete preset: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
