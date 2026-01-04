@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { datasetAPI, ImageWithTags } from '@/lib/api';
-import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon } from 'lucide-react';
+import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon, Grid3x3, Grid2x2, LayoutGrid } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import {
   TagsInput,
@@ -13,6 +13,9 @@ import {
   TagsInputItem,
 } from '@/components/ui/tags-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 export default function DatasetTagsPage() {
   const params = useParams();
@@ -26,13 +29,48 @@ export default function DatasetTagsPage() {
   const [bulkOperation, setBulkOperation] = useState<'add' | 'remove' | 'replace'>('add');
   const [bulkReplaceWith, setBulkReplaceWith] = useState('');
 
+  // Card size preference (stored in localStorage)
+  const [cardSize, setCardSize] = useState<'small' | 'medium' | 'large'>('medium');
+
+  // Load card size preference from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('tag-editor-card-size');
+    if (saved && (saved === 'small' || saved === 'medium' || saved === 'large')) {
+      setCardSize(saved);
+    }
+  }, []);
+
+  // Save card size preference to localStorage
+  const handleCardSizeChange = (size: 'small' | 'medium' | 'large') => {
+    setCardSize(size);
+    localStorage.setItem('tag-editor-card-size', size);
+  };
+
   useEffect(() => {
     const loadImages = async () => {
       try {
         setLoading(true);
         const data = await datasetAPI.getImagesWithTags(datasetName);
-        setImages(data.images || []);
-        setLocalImages((data.images || []).map(img => ({ ...img })));
+
+        // Deduplicate images by image_path and ensure tags are unique
+        const seen = new Set<string>();
+        const imagesWithTags = (data.images || [])
+          .filter(img => {
+            if (seen.has(img.image_path)) {
+              return false; // Skip duplicate
+            }
+            seen.add(img.image_path);
+            return true;
+          })
+          .map(img => ({
+            ...img,
+            // Deduplicate tags within each image
+            tags: Array.from(new Set(img.tags || [])),
+            has_tags: img.tags && img.tags.length > 0
+          }));
+
+        setImages(imagesWithTags);
+        setLocalImages(imagesWithTags.map(img => ({ ...img })));
       } catch (err) {
         console.error('Failed to load images:', err);
         setImages([]);
@@ -46,10 +84,12 @@ export default function DatasetTagsPage() {
   }, [datasetName]);
 
   const updateTags = (imagePath: string, newTags: string[]) => {
+    // Deduplicate tags to prevent duplicates
+    const uniqueTags = Array.from(new Set(newTags.filter(tag => tag.trim())));
     setLocalImages(prev =>
       prev.map(img =>
         img.image_path === imagePath
-          ? { ...img, tags: newTags, has_tags: newTags.length > 0 }
+          ? { ...img, tags: uniqueTags, has_tags: uniqueTags.length > 0 }
           : img
       )
     );
@@ -125,19 +165,52 @@ export default function DatasetTagsPage() {
         />
 
         {/* Header */}
-        <div className="mb-6 flex justify-between items-center">
+        <div className="mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
             <h1 className="text-4xl font-bold text-foreground">Tag Editor: {datasetName}</h1>
             <p className="text-muted-foreground">{images.length} images</p>
           </div>
-          <button
-            onClick={handleSaveAll}
-            disabled={saving}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg flex items-center gap-2"
-          >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-            {saved ? 'Saved!' : 'Save All'}
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Card Size Selector */}
+            <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1">
+              <Button
+                variant={cardSize === 'large' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => handleCardSizeChange('large')}
+                className="h-8 px-3"
+                title="Large cards (2 columns)"
+              >
+                <Grid2x2 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={cardSize === 'medium' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => handleCardSizeChange('medium')}
+                className="h-8 px-3"
+                title="Medium cards (3 columns)"
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={cardSize === 'small' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => handleCardSizeChange('small')}
+                className="h-8 px-3"
+                title="Small cards (4-5 columns)"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <Button
+              onClick={handleSaveAll}
+              disabled={saving}
+              className="bg-cyan-600 hover:bg-cyan-700"
+            >
+              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {saved ? 'Saved!' : 'Save All'}
+            </Button>
+          </div>
         </div>
 
         {/* Tag Library - Select Tags for Bulk Operations */}
@@ -152,12 +225,14 @@ export default function DatasetTagsPage() {
                 <span className="text-sm text-muted-foreground">
                   {selectedTags.size} selected
                 </span>
-                <button
+                <Button
                   onClick={() => setSelectedTags(new Set())}
-                  className="text-sm text-cyan-500 hover:text-cyan-400"
+                  variant="ghost"
+                  size="sm"
+                  className="text-cyan-500 hover:text-cyan-400"
                 >
                   Clear
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -166,21 +241,21 @@ export default function DatasetTagsPage() {
           </p>
           <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto p-2 bg-background/50 rounded-md">
             {getAllUniqueTags().map(({ tag, count }) => (
-              <button
+              <Badge
                 key={tag}
                 onClick={() => toggleTagSelection(tag)}
+                variant={selectedTags.has(tag) ? "default" : "outline"}
                 className={`
-                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium
-                  transition-colors border-2
+                  cursor-pointer transition-colors
                   ${selectedTags.has(tag)
-                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
-                    : 'bg-muted border-border text-muted-foreground hover:bg-muted/80 hover:border-muted-foreground/30'
+                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400 hover:bg-cyan-500/30'
+                    : 'hover:bg-muted/80 hover:border-muted-foreground/30'
                   }
                 `}
               >
                 {tag}
-                <span className="text-xs opacity-70">({count})</span>
-              </button>
+                <span className="ml-1.5 text-xs opacity-70">({count})</span>
+              </Badge>
             ))}
             {getAllUniqueTags().length === 0 && (
               <p className="text-sm text-muted-foreground italic">No tags in dataset yet</p>
@@ -214,7 +289,7 @@ export default function DatasetTagsPage() {
                 Tags {selectedTags.size > 0 && <span className="text-cyan-500">({selectedTags.size} selected from library)</span>}
               </label>
               <div className="flex gap-2">
-                <input
+                <Input
                   type="text"
                   id="bulk-tags-input"
                   value={Array.from(selectedTags).join(', ')}
@@ -223,22 +298,22 @@ export default function DatasetTagsPage() {
                     setSelectedTags(new Set(tags));
                   }}
                   placeholder="Select from library above or type tags here"
-                  className="flex-1 px-3 py-2 bg-input text-foreground border border-border rounded-md"
+                  className="flex-1"
                 />
                 {bulkOperation === 'replace' && (
-                  <input
+                  <Input
                     type="text"
                     id="bulk-replace-input"
                     placeholder="Replace with..."
                     value={bulkReplaceWith}
                     onChange={(e) => setBulkReplaceWith(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-input text-foreground border border-border rounded-md"
+                    className="flex-1"
                   />
                 )}
               </div>
             </div>
 
-            <button
+            <Button
               onClick={async () => {
                 const operation = bulkOperation;
                 const tags = Array.from(selectedTags);
@@ -258,7 +333,7 @@ export default function DatasetTagsPage() {
                       tags,
                       replaceWith
                     );
-                    
+
                     if (result.success) {
                       alert(`Successfully modified ${result.modified_count} files!`);
                       // Reload
@@ -274,15 +349,21 @@ export default function DatasetTagsPage() {
                   }
                 }
               }}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+              className="bg-purple-600 hover:bg-purple-700"
             >
               Apply to All
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Images with inline tag editors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={`grid gap-6 ${
+          cardSize === 'small'
+            ? 'grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+            : cardSize === 'large'
+            ? 'grid-cols-1 md:grid-cols-2'
+            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+        }`}>
           {localImages.map((img) => (
             <div key={img.image_path} className="border rounded-lg overflow-hidden bg-card">
               <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
@@ -305,8 +386,8 @@ export default function DatasetTagsPage() {
                   className="w-full"
                 >
                   <TagsInputList>
-                    {img.tags.map((tag) => (
-                      <TagsInputItem key={tag} value={tag}>
+                    {img.tags.map((tag, index) => (
+                      <TagsInputItem key={`${img.image_path}-${tag}-${index}`} value={tag}>
                         {tag}
                       </TagsInputItem>
                     ))}

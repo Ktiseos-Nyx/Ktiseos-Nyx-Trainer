@@ -468,6 +468,7 @@ export interface TrainingConfig {
   project_name: string;
   // ✅ FIX: Match the Zod Enum exactly
   model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
+  training_mode?: 'lora' | 'checkpoint'; // Training mode: LoRA adapters (default) or full checkpoint
   pretrained_model_name_or_path: string;
   vae_path?: string;
   ae_path?: string;
@@ -1115,6 +1116,54 @@ export const captionAPI = {
         replace: params.replace,
         use_regex: params.use_regex || false,
       }),
+    });
+    return handleResponse(response);
+  },
+};
+
+// ========== Config Presets API ==========
+
+export interface PresetMetadata {
+  id: string;
+  name: string;
+  description: string;
+  model_type?: string;
+  created_at?: number;
+  is_builtin?: boolean;
+}
+
+export interface Preset extends PresetMetadata {
+  config: Partial<TrainingConfig>;
+}
+
+export const presetsAPI = {
+  list: async (): Promise<{ presets: PresetMetadata[] }> => {
+    const response = await fetch(`${API_BASE}/config/presets`);
+    return handleResponse(response);
+  },
+
+  get: async (presetId: string): Promise<Preset> => {
+    const response = await fetch(`${API_BASE}/config/presets/${presetId}`);
+    return handleResponse(response);
+  },
+
+  save: async (preset: {
+    name: string;
+    description?: string;
+    model_type?: string;
+    config: Partial<TrainingConfig>;
+  }): Promise<{ success: boolean; id: string; message: string }> => {
+    const response = await fetch(`${API_BASE}/config/presets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(preset),
+    });
+    return handleResponse(response);
+  },
+
+  delete: async (presetId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await fetch(`${API_BASE}/config/presets/${presetId}`, {
+      method: 'DELETE',
     });
     return handleResponse(response);
   },

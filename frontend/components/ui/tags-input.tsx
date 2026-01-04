@@ -1,7 +1,7 @@
 import * as TagsInputPrimitive from "@diceui/tags-input";
+import { X } from "lucide-react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
-import { Cross2Icon } from "@radix-ui/react-icons";
 
 function TagsInput({
   className,
@@ -79,7 +79,7 @@ function TagsInputItem({
         {children}
       </TagsInputPrimitive.ItemText>
       <TagsInputPrimitive.ItemDelete className="size-4 shrink-0 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
-        <Cross2Icon className="size-3.5" />
+        <X className="size-3.5" />
       </TagsInputPrimitive.ItemDelete>
     </TagsInputPrimitive.Item>
   );

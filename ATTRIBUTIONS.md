@@ -8,13 +8,17 @@ This project builds upon and is inspired by work from the open-source community.
 **Repository:** [bmaltais/kohya_ss](https://github.com/bmaltais/kohya_ss)
 **Copyright:** Copyright (c) 2022 kohya-ss
 **License:** Apache License 2.0
-**Usage:** Reference implementation for WD14 tagger configuration, caption utilities, and training workflows
+**Usage:** Reference implementation for WD14 tagger configuration, caption utilities, training workflows, and training presets
 
 The following components were inspired by or reference the Kohya SS GUI implementation:
 - WD14 auto-tagging parameter structure and validation
 - Caption processing utilities and tag manipulation logic
 - Training configuration patterns and TOML generation
 - Dataset management approaches
+- **Training presets** - 37 community-contributed training configuration presets adapted from the `presets/` directory
+
+**Training Presets Attribution:**
+This project includes adapted training presets from bmaltais/kohya_ss (`presets/` directory), which contain community-contributed training configurations. These presets have been converted to our JSON format with metadata wrappers while preserving the original training parameters. Project-specific paths have been filtered out to make them reusable across different setups.
 
 Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 

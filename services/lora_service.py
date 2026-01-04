@@ -306,10 +306,13 @@ class LoRAService:
                 "--precision", request.precision,
             ]
 
-            # Add each LoRA with its ratio
-            for lora_input in request.lora_inputs:
-                command.extend(["--models", lora_input.path])
-                command.extend(["--ratios", str(lora_input.ratio)])
+            # Collect all model paths and ratios (Kohya expects them as separate lists)
+            model_paths = [lora_input.path for lora_input in request.lora_inputs]
+            model_ratios = [str(lora_input.ratio) for lora_input in request.lora_inputs]
+
+            # Add all models and ratios as single arguments with multiple values
+            command.extend(["--models"] + model_paths)
+            command.extend(["--ratios"] + model_ratios)
 
             # Add device
             if request.device != "cpu":

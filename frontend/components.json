@@ -36,6 +36,7 @@
     "@aevr": "https://ui.aevr.space/r/{name}.json",
     "@intentui": "https://intentui.com/r/{name}",
     "@hooks": "https://shadcn-hooks.vercel.app/r/{name}.json",
-    "@basecn": "https://basecn.dev/r/{name}.json"
+    "@basecn": "https://basecn.dev/r/{name}.json",
+    "@diceui": "https://diceui.com/r/{name}.json"
   }
 }

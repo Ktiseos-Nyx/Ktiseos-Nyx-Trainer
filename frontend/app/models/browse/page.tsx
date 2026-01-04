@@ -35,6 +35,7 @@ export default function CivitaiBrowsePage() {
   // API Key check
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [checkingApiKey, setCheckingApiKey] = useState(true);
+  const [showApiKeyWarning, setShowApiKeyWarning] = useState(true);
 
   // State
   const [models, setModels] = useState<CivitaiModel[]>([]);
@@ -188,9 +189,10 @@ export default function CivitaiBrowsePage() {
     }
   };
 
-  // Initial load
+  // Initial load (now works with or without API key)
   useEffect(() => {
-    if (hasApiKey) {
+    // Only load if we've finished checking for API key
+    if (hasApiKey !== null) {
       setPage(1);
       setCursor(null); // Reset cursor when filters change
       setModels([]);
@@ -328,63 +330,6 @@ export default function CivitaiBrowsePage() {
     );
   }
 
-  // Show API key required screen if no key
-  if (!hasApiKey) {
-    return (
-      <div className="min-h-screen bg-background py-16">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <Breadcrumbs
-            items={[
-              { label: 'Home', href: '/', icon: <Home className="w-4 h-4" /> },
-              { label: 'Models', href: '/models', icon: <Download className="w-4 h-4" /> },
-              { label: 'Browse Civitai', icon: <Search className="w-4 h-4" /> },
-            ]}
-          />
-
-          <div className="mt-12 bg-card/50 backdrop-blur-sm border border-border rounded-lg p-12 text-center">
-            <Lock className="w-20 h-20 mx-auto text-yellow-400 mb-6" />
-            <h1 className="text-4xl font-bold text-foreground mb-4">Add Civitai API Key</h1>
-            <p className="text-xl text-foreground mb-6">
-              Browsing Civitai requires an API key for better rate limits and NSFW access.
-            </p>
-            <p className="text-muted-foreground mb-8">
-              <strong>Optional but recommended:</strong> Add your free API key in Settings to unlock full browsing capabilities.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link href="/settings">
-                <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-foreground font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105">
-                  <Key className="w-5 h-5" />
-                  Go to Settings
-                </button>
-              </Link>
-
-              <a
-                href="https://civitai.com/user/account"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:text-cyan-300 underline"
-              >
-                Get Civitai API Key →
-              </a>
-            </div>
-
-            <div className="mt-8 p-4 bg-cyan-900/20 border border-cyan-500/30 rounded-lg text-left">
-              <p className="text-sm text-cyan-100">
-                <strong>How to get your API key:</strong>
-              </p>
-              <ol className="text-sm text-cyan-100 mt-2 list-decimal list-inside space-y-1">
-                <li>Visit <a href="https://civitai.com/user/account" target="_blank" rel="noopener noreferrer" className="underline">civitai.com/user/account</a></li>
-                <li>Scroll to "API Keys" section</li>
-                <li>Click "Add API Key" and copy the generated key</li>
-                <li>Paste it in Settings → API Keys → Civitai API Key</li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background py-16">
@@ -397,6 +342,45 @@ export default function CivitaiBrowsePage() {
             { label: 'Browse Civitai', icon: <Search className="w-4 h-4" /> },
           ]}
         />
+
+        {/* API Key Info Banner (Optional - Dismissible) */}
+        {!hasApiKey && showApiKeyWarning && (
+          <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 relative">
+            <button
+              onClick={() => setShowApiKeyWarning(false)}
+              className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-start gap-3">
+              <Key className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-foreground mb-1">Civitai API Key (Optional)</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  <strong>Browsing works without an API key!</strong> Adding one is optional but gives you:
+                  higher rate limits, faster browsing, and access to NSFW-rated content.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Link href="/settings">
+                    <button className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md text-sm font-medium transition-colors">
+                      <Key className="w-4 h-4" />
+                      Add API Key (Optional)
+                    </button>
+                  </Link>
+                  <a
+                    href="https://civitai.com/user/account"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 border border-border hover:bg-accent text-foreground rounded-md text-sm font-medium transition-colors"
+                  >
+                    Get Free API Key →
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <div className="mb-6">

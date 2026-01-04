@@ -22,7 +22,8 @@ import {
   Download,
   Files,
   Cpu,
-  FileText
+  FileText,
+  Upload
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -102,14 +103,26 @@ export function Navbar() {
                 Training Tools
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2">
                   <ListItem href="/training" title="LoRA Training" icon={<Zap className="w-4 h-4" />}>
                     Train LoRA adapters (lightweight, fast)
                   </ListItem>
                   <ListItem href="/checkpoint-training" title="Checkpoint Training" icon={<Cpu className="w-4 h-4" />}>
                     Full model fine-tuning (high VRAM required)
                   </ListItem>
-                  <ListItem href="/calculator" title="Calculator" icon={<CalculatorIcon className="w-4 h-4" />}>
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Utilities - Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger>
+                <Wrench className="w-4 h-4 mr-2" />
+                Utilities
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2">
+                  <ListItem href="/calculator" title="Step Calculator" icon={<CalculatorIcon className="w-4 h-4" />}>
                     Calculate optimal training steps
                   </ListItem>
                   <ListItem href="/utilities#resize" title="Resize LoRA" icon={<Package className="w-4 h-4" />}>
@@ -139,7 +152,7 @@ export function Navbar() {
                   <ListItem href="/models/browse" title="Civitai Downloader" icon={<Download className="w-4 h-4" />}>
                     Download models from Civitai
                   </ListItem>
-                  <ListItem href="/utilities#upload" title="HuggingFace Upload" icon={<Download className="w-4 h-4" />}>
+                  <ListItem href="/huggingface-upload" title="HuggingFace Upload" icon={<Upload className="w-4 h-4" />}>
                     Upload LoRAs to HuggingFace Hub
                   </ListItem>
                 </ul>

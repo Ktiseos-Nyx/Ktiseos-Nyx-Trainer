@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Upload,
@@ -15,6 +15,7 @@ import {
   X,
   RefreshCw,
   Download,
+  AlertTriangle,
 } from 'lucide-react';
 import { datasetAPI, fileAPI, API_BASE } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -30,6 +31,10 @@ export default function DatasetUploader() {
   // ========== State Management ==========
   const [activeTab, setActiveTab] = useState('direct');
 
+  // Existing datasets check
+  const [existingDatasets, setExistingDatasets] = useState<string[]>([]);
+  const [datasetExists, setDatasetExists] = useState(false);
+
   // Direct Upload State
   const [datasetName, setDatasetName] = useState('my_dataset');
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -44,6 +49,39 @@ export default function DatasetUploader() {
   const [folderName, setFolderName] = useState('');
   const [folderRepeats, setFolderRepeats] = useState(10);
   const [creatingFolder, setCreatingFolder] = useState(false);
+
+  // Check states for other tabs
+  const [projectExists, setProjectExists] = useState(false);
+  const [folderExists, setFolderExists] = useState(false);
+
+  // Load existing datasets on mount
+  useEffect(() => {
+    const loadExistingDatasets = async () => {
+      try {
+        const data = await datasetAPI.list();
+        setExistingDatasets((data.datasets || []).map(d => d.name));
+      } catch (err) {
+        console.error('Failed to load existing datasets:', err);
+      }
+    };
+    loadExistingDatasets();
+  }, []);
+
+  // Check if dataset name exists
+  useEffect(() => {
+    setDatasetExists(existingDatasets.includes(datasetName.trim()));
+  }, [datasetName, existingDatasets]);
+
+  // Check if project name exists (URL/ZIP tab)
+  useEffect(() => {
+    setProjectExists(existingDatasets.includes(projectName.trim()));
+  }, [projectName, existingDatasets]);
+
+  // Check if folder name exists (Create Folder tab)
+  useEffect(() => {
+    const kohyaFolderName = folderName.trim() ? `${folderRepeats}_${folderName.trim()}` : '';
+    setFolderExists(kohyaFolderName ? existingDatasets.includes(kohyaFolderName) : false);
+  }, [folderName, folderRepeats, existingDatasets]);
 
   // ========== Direct Upload Handlers ==========
 
@@ -76,6 +114,13 @@ export default function DatasetUploader() {
   if (!datasetName.trim()) {
     alert('Please enter a dataset name!');
     return;
+  }
+
+  // Check if dataset exists and confirm
+  if (datasetExists) {
+    if (!confirm(`⚠️ Dataset "${datasetName}" already exists!\n\nFiles will be added to the existing dataset. Continue?`)) {
+      return;
+    }
   }
 
   setUploading(true);
@@ -113,6 +158,14 @@ export default function DatasetUploader() {
     }
 
     alert('✅ Upload complete!');
+
+    // Reload existing datasets list
+    try {
+      const data = await datasetAPI.list();
+      setExistingDatasets((data.datasets || []).map(d => d.name));
+    } catch (err) {
+      console.error('Failed to reload datasets:', err);
+    }
   } catch (err) {
     console.error('Upload failed:', err);
     alert(`❌ Upload failed: ${err}`);
@@ -133,6 +186,13 @@ export default function DatasetUploader() {
     if (!datasetName.trim()) {
       alert('Please enter a dataset name!');
       return;
+    }
+
+    // Check if dataset exists and confirm
+    if (datasetExists) {
+      if (!confirm(`⚠️ Dataset "${datasetName}" already exists!\n\nZIP contents will be extracted to the existing dataset. Continue?`)) {
+        return;
+      }
     }
 
     // Validate the file exists and has size
@@ -184,6 +244,14 @@ export default function DatasetUploader() {
         console.log(`✅ Extracted ${result.extracted} images`);
         alert(`✅ ZIP uploaded! Extracted ${result.extracted} images.\n${result.errors.length > 0 ? `Errors:\n${result.errors.join('\n')}` : ''}`);
         setFiles([]);
+
+        // Reload existing datasets list
+        try {
+          const data = await datasetAPI.list();
+          setExistingDatasets((data.datasets || []).map(d => d.name));
+        } catch (err) {
+          console.error('Failed to reload datasets:', err);
+        }
       } else {
         console.error('❌ No files extracted');
         throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
@@ -224,6 +292,13 @@ export default function DatasetUploader() {
       return;
     }
 
+    // Check if dataset exists and confirm
+    if (projectExists) {
+      if (!confirm(`⚠️ Dataset "${projectName}" already exists!\n\nDownloaded files will be added to the existing dataset. Continue?`)) {
+        return;
+      }
+    }
+
     setDownloading(true);
 
     try {
@@ -249,6 +324,14 @@ export default function DatasetUploader() {
         const fileCount = result.files.length;
         alert(`✅ Downloaded ${fileCount} file(s) to: datasets/${projectName}\n${result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : ''}`);
         setDatasetUrl('');
+
+        // Reload existing datasets list
+        try {
+          const data = await datasetAPI.list();
+          setExistingDatasets((data.datasets || []).map(d => d.name));
+        } catch (err) {
+          console.error('Failed to reload datasets:', err);
+        }
       } else {
         throw new Error('Download failed');
       }
@@ -269,12 +352,26 @@ export default function DatasetUploader() {
 
     const kohyaFolderName = `${folderRepeats}_${folderName}`;
 
+    // Check if folder already exists
+    if (folderExists) {
+      alert(`⚠️ Dataset folder "${kohyaFolderName}" already exists!\n\nPlease choose a different name or modify it in the Direct Upload tab.`);
+      return;
+    }
+
     setCreatingFolder(true);
 
     try {
       await datasetAPI.create(kohyaFolderName);
       setDatasetName(kohyaFolderName);
       alert(`✅ Created dataset folder: ${kohyaFolderName}`);
+
+      // Reload existing datasets list
+      try {
+        const data = await datasetAPI.list();
+        setExistingDatasets((data.datasets || []).map(d => d.name));
+      } catch (err) {
+        console.error('Failed to reload datasets:', err);
+      }
 
       // Switch to direct upload tab
       setActiveTab('direct');
@@ -330,13 +427,24 @@ export default function DatasetUploader() {
               type="text"
               value={datasetName}
               onChange={(e) => setDatasetName(e.target.value)}
-              className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`w-full px-4 py-2 bg-input border rounded-lg text-foreground focus:ring-2 focus:border-transparent ${
+                datasetExists
+                  ? 'border-yellow-500 focus:ring-yellow-500'
+                  : 'border-input focus:ring-blue-500'
+              }`}
               placeholder="my_awesome_dataset"
               disabled={uploading}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              📁 Files will be uploaded to: datasets/{datasetName}
-            </p>
+            {datasetExists ? (
+              <p className="text-xs text-yellow-500 mt-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                ⚠️ Dataset exists - files will be added to existing dataset
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1">
+                📁 Files will be uploaded to: datasets/{datasetName}
+              </p>
+            )}
           </div>
 
           {/* Drop Zone */}
@@ -539,10 +647,24 @@ export default function DatasetUploader() {
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white focus:ring-2 focus:border-transparent ${
+                projectExists
+                  ? 'border-yellow-500 focus:ring-yellow-500'
+                  : 'border-slate-600 focus:ring-purple-500'
+              }`}
               placeholder="my_awesome_character (no spaces or special chars)"
               disabled={downloading}
             />
+            {projectExists ? (
+              <p className="text-xs text-yellow-500 mt-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                ⚠️ Dataset exists - downloaded files will be added to existing dataset
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                📁 Files will be downloaded to: datasets/{projectName}
+              </p>
+            )}
           </div>
 
           {/* Dataset URL */}
@@ -591,10 +713,20 @@ export default function DatasetUploader() {
               type="text"
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white focus:ring-2 focus:border-transparent ${
+                folderExists
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-slate-600 focus:ring-green-500'
+              }`}
               placeholder="character_name"
               disabled={creatingFolder}
             />
+            {folderExists && folderName.trim() && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                ⚠️ Folder "{folderRepeats}_{folderName}" already exists - please choose a different name
+              </p>
+            )}
           </div>
 
           {/* Repeat Count */}

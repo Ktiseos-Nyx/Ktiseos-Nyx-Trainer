@@ -18,12 +18,16 @@ echo Using Python command: %PYTHON_CMD%
 echo    If this is incorrect, please edit this script or ensure the correct Python is in your PATH.
 echo.
 
-REM Verify Python is >= 3.10
+REM Verify Python is >= 3.10 and capture the full version
+for /f "tokens=*" %%v in ('%PYTHON_CMD% --version 2^>^&1') do set "PYTHON_VERSION=%%v"
 for /f "tokens=2 delims=. " %%i in ('%PYTHON_CMD% --version 2^>^&1') do (
     if %%i LSS 10 (
-        echo Python 3.10+ required. Found version %PYTHON_CMD%.
+        echo Python 3.10+ required. Found version: %PYTHON_VERSION%
         pause
         exit /b 1
+    ) else (
+        echo Python 3.10+ detected: %PYTHON_VERSION%
+        echo.
     )
 )
 
