@@ -49,6 +49,8 @@ export default function PresetManager({
 }: PresetManagerProps) {
   // ✅ FIX: Initialize empty list first (Server Safe)
   const [customPresets, setCustomPresets] = useState<CustomPreset[]>([]);
+  const [serverPresets, setServerPresets] = useState<PresetMetadata[]>([]);
+  const [loadingPresets, setLoadingPresets] = useState(true);
 
   // ✅ FIX: Load from localStorage only in the browser
   useEffect(() => {
@@ -62,6 +64,23 @@ export default function PresetManager({
         }
       }
     }
+  }, []);
+
+  // Load server presets on mount
+  useEffect(() => {
+    const loadServerPresets = async () => {
+      try {
+        const { presets } = await presetsAPI.list();
+        setServerPresets(presets);
+      } catch (error) {
+        console.error('Failed to load server presets:', error);
+        // Fall back to localStorage only
+      } finally {
+        setLoadingPresets(false);
+      }
+    };
+
+    loadServerPresets();
   }, []);
 
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -110,7 +129,7 @@ export default function PresetManager({
     return reusableConfig;
   };
 
-  const handleSavePreset = () => {
+  const handleSavePreset = async () => {
     if (!newPresetName.trim()) {
       alert('Please enter a preset name');
       return;
@@ -119,48 +138,112 @@ export default function PresetManager({
     // Filter config to only include reusable hyperparameters
     const filteredConfig = filterPresetConfig(currentConfig);
 
-    const preset: CustomPreset = {
-      id: `custom_${Date.now()}`,
-      name: newPresetName,
-      description: newPresetDescription || 'Custom preset',
-      config: filteredConfig,
-      createdAt: Date.now(),
-    };
+    try {
+      // Try saving to server first
+      const result = await presetsAPI.save({
+        name: newPresetName,
+        description: newPresetDescription || 'Custom preset',
+        model_type: currentConfig.model_type,
+        config: filteredConfig,
+      });
 
-    setCustomPresets((prev) => [...prev, preset]);
-    onSavePreset?.(preset);
+      // Reload presets from server
+      const { presets } = await presetsAPI.list();
+      setServerPresets(presets);
 
-    setNewPresetName('');
-    setNewPresetDescription('');
-    setSaveDialogOpen(false);
+      setNewPresetName('');
+      setNewPresetDescription('');
+      setSaveDialogOpen(false);
 
-    alert(`✅ Preset "${newPresetName}" saved successfully!\n\nNote: Project-specific details (dataset paths, model paths, project name) are not included in presets.`);
+      alert(`✅ Preset "${newPresetName}" saved successfully!\n\nNote: Project-specific details (dataset paths, model paths, project name) are not included in presets.`);
+    } catch (error) {
+      console.error('Failed to save to server, falling back to localStorage:', error);
+
+      // Fallback to localStorage
+      const preset: CustomPreset = {
+        id: `custom_${Date.now()}`,
+        name: newPresetName,
+        description: newPresetDescription || 'Custom preset',
+        config: filteredConfig,
+        createdAt: Date.now(),
+      };
+
+      setCustomPresets((prev) => [...prev, preset]);
+      onSavePreset?.(preset);
+
+      setNewPresetName('');
+      setNewPresetDescription('');
+      setSaveDialogOpen(false);
+
+      alert(`✅ Preset "${newPresetName}" saved locally!\n\nNote: Server unavailable, saved to browser storage only.`);
+    }
   };
 
-  const handleLoadPreset = (presetId: string) => {
+  const handleLoadPreset = async (presetId: string) => {
+    // Check hardcoded presets first (from useTrainingForm hook)
     if (trainingPresets[presetId]) {
       onLoadPreset(trainingPresets[presetId].config);
       alert(`✅ Loaded preset: ${trainingPresets[presetId].name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
       return;
     }
 
-    const customPreset = customPresets.find((p) => p.id === presetId);
-    if (customPreset) {
-      onLoadPreset(customPreset.config);
-      alert(`✅ Loaded preset: ${customPreset.name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
+    // Check localStorage presets
+    const localPreset = customPresets.find((p) => p.id === presetId);
+    if (localPreset) {
+      onLoadPreset(localPreset.config);
+      alert(`✅ Loaded preset: ${localPreset.name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
       return;
+    }
+
+    // Try loading from server
+    try {
+      const preset = await presetsAPI.get(presetId);
+      onLoadPreset(preset.config);
+      alert(`✅ Loaded preset: ${preset.name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
+    } catch (error) {
+      console.error('Failed to load preset from server:', error);
+      alert('❌ Failed to load preset');
     }
   };
 
-  const handleDeletePreset = (presetId: string) => {
+  const handleDeletePreset = async (presetId: string) => {
     if (!confirm('Are you sure you want to delete this preset?')) return;
 
+    // Check if it's a server preset
+    const serverPreset = serverPresets.find((p) => p.id === presetId);
+    if (serverPreset) {
+      if (serverPreset.is_builtin) {
+        alert('❌ Cannot delete built-in presets');
+        return;
+      }
+
+      try {
+        await presetsAPI.delete(presetId);
+
+        // Reload presets from server
+        const { presets } = await presetsAPI.list();
+        setServerPresets(presets);
+
+        if (selectedPreset === presetId) {
+          setSelectedPreset('');
+        }
+
+        alert('✅ Preset deleted');
+        return;
+      } catch (error) {
+        console.error('Failed to delete from server:', error);
+        alert('❌ Failed to delete preset from server');
+        return;
+      }
+    }
+
+    // Delete from localStorage
     setCustomPresets((prev) => prev.filter((p) => p.id !== presetId));
     if (selectedPreset === presetId) {
       setSelectedPreset('');
     }
 
-    alert('✅ Preset deleted');
+    alert('✅ Preset deleted from local storage');
   };
 
   const handleExportPresets = () => {
@@ -226,10 +309,46 @@ export default function PresetManager({
                   </SelectItem>
                 ))}
 
+                {serverPresets.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-green-400 mt-2">
+                      Community Presets
+                    </div>
+                    {serverPresets.filter(p => p.is_builtin).map((preset) => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {preset.model_type}
+                          </Badge>
+                          {preset.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+
+                    {serverPresets.filter(p => !p.is_builtin).length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-blue-400 mt-2">
+                          Your Server Presets
+                        </div>
+                        {serverPresets.filter(p => !p.is_builtin).map((preset) => (
+                          <SelectItem key={preset.id} value={preset.id}>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {preset.model_type}
+                              </Badge>
+                              {preset.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+
                 {customPresets.length > 0 && (
                   <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-blue-400 mt-2">
-                      Your Presets
+                    <div className="px-2 py-1.5 text-xs font-semibold text-cyan-400 mt-2">
+                      Browser-Only Presets
                     </div>
                     {customPresets.map((preset) => (
                       <SelectItem key={preset.id} value={preset.id}>
@@ -261,6 +380,7 @@ export default function PresetManager({
             <Alert className="bg-accent/50 border-border">
               <AlertDescription>
                 {trainingPresets[selectedPreset]?.description ||
+                  serverPresets.find((p) => p.id === selectedPreset)?.description ||
                   customPresets.find((p) => p.id === selectedPreset)?.description}
               </AlertDescription>
             </Alert>
@@ -319,7 +439,12 @@ export default function PresetManager({
             onClick={() => selectedPreset && handleDeletePreset(selectedPreset)}
             disabled={
               !selectedPreset ||
-              !customPresets.find((p) => p.id === selectedPreset)
+              // Can't delete hardcoded presets or built-in server presets
+              trainingPresets[selectedPreset] !== undefined ||
+              serverPresets.find((p) => p.id === selectedPreset && p.is_builtin) !== undefined ||
+              // Can only delete localStorage presets or user server presets
+              (!customPresets.find((p) => p.id === selectedPreset) &&
+               !serverPresets.find((p) => p.id === selectedPreset && !p.is_builtin))
             }
             className="w-full hover:bg-red-500/20 hover:border-red-500/50"
           >
@@ -353,9 +478,36 @@ export default function PresetManager({
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          {customPresets.length === 0
-            ? 'No custom presets saved yet'
-            : `${customPresets.length} custom preset${customPresets.length !== 1 ? 's' : ''} saved`}
+          {loadingPresets ? (
+            'Loading presets...'
+          ) : (
+            <>
+              {serverPresets.filter(p => p.is_builtin).length > 0 && (
+                <span className="text-green-400">
+                  {serverPresets.filter(p => p.is_builtin).length} community preset{serverPresets.filter(p => p.is_builtin).length !== 1 ? 's' : ''}
+                </span>
+              )}
+              {serverPresets.filter(p => !p.is_builtin).length > 0 && (
+                <>
+                  {serverPresets.filter(p => p.is_builtin).length > 0 && ' • '}
+                  <span className="text-blue-400">
+                    {serverPresets.filter(p => !p.is_builtin).length} user server preset{serverPresets.filter(p => !p.is_builtin).length !== 1 ? 's' : ''}
+                  </span>
+                </>
+              )}
+              {customPresets.length > 0 && (
+                <>
+                  {(serverPresets.filter(p => p.is_builtin).length > 0 || serverPresets.filter(p => !p.is_builtin).length > 0) && ' • '}
+                  <span className="text-cyan-400">
+                    {customPresets.length} browser preset{customPresets.length !== 1 ? 's' : ''}
+                  </span>
+                </>
+              )}
+              {serverPresets.length === 0 && customPresets.length === 0 && (
+                'No custom presets saved yet'
+              )}
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
