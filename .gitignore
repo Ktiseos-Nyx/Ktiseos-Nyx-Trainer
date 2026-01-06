@@ -108,8 +108,8 @@ pretrained_model/
 vae/
 tagger_models/
 output/
-dataset/
-datasets/
+/dataset/
+/datasets/
 logs/
 *.log
 user_configs/
@@ -202,6 +202,7 @@ docs/research/
 docs/planning/
 docs/reference/_hold/
 wip_documentation/
+docs/archive/
 WIP_FEATURES.md
 
 # Reference materials

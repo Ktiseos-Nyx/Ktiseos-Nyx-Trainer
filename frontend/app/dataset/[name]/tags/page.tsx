@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 export default function DatasetTagsPage() {
   const params = useParams();
@@ -366,14 +367,14 @@ export default function DatasetTagsPage() {
         }`}>
           {localImages.map((img) => (
             <div key={img.image_path} className="border rounded-lg overflow-hidden bg-card">
-              <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+              <AspectRatio ratio={7 / 9} className="bg-muted">
                 <img
                   src={img.url || `/api/files/image/${datasetName}/${img.image_name}`}
                   alt={img.image_name}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full rounded-t-lg object-contain"
                   onError={(e) => (e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect width="200" height="200" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="sans-serif"%3ENo Image%3C/text%3E%3C/svg%3E')}
                 />
-              </div>
+              </AspectRatio>
               <div className="p-3">
                 <div className="text-xs text-muted-foreground mb-2 truncate">
                   {img.image_name}

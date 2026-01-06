@@ -20,6 +20,8 @@ from services.models.lora import (
     HuggingFaceUploadResponse,
     LoRAMergeRequest,
     LoRAMergeResponse,
+    CheckpointMergeRequest,
+    CheckpointMergeResponse,
 )
 from services.core.exceptions import ValidationError, ProcessError, NotFoundError
 
@@ -41,6 +43,9 @@ class LoRAService:
         self.scripts_path = (
             self.project_root / "trainer" / "derrian_backend" / "sd_scripts" / "networks"
         )
+        self.tools_path = (
+            self.project_root / "trainer" / "derrian_backend" / "sd_scripts" / "tools"
+        )
         self.resize_script = self.scripts_path / "resize_lora.py"
         self.merge_scripts = {
             "sd": self.scripts_path / "merge_lora.py",
@@ -48,6 +53,7 @@ class LoRAService:
             "flux": self.scripts_path / "flux_merge_lora.py",
             "svd": self.scripts_path / "svd_merge_lora.py",
         }
+        self.checkpoint_merge_script = self.tools_path / "merge_models.py"
 
     async def resize_lora(self, request: LoRAResizeRequest) -> LoRAResizeResponse:
         """
@@ -363,6 +369,114 @@ class LoRAService:
         except Exception as e:
             logger.exception(f"Unexpected error during LoRA merge: {e}")
             return LoRAMergeResponse(
+                success=False,
+                message=f"Internal error: {e}"
+            )
+
+    async def merge_checkpoint(self, request: CheckpointMergeRequest) -> CheckpointMergeResponse:
+        """
+        Merge multiple checkpoint models into one.
+
+        Args:
+            request: Checkpoint merge request
+
+        Returns:
+            CheckpointMergeResponse with result
+        """
+        try:
+            # Validate all input checkpoints exist
+            for checkpoint_input in request.checkpoint_inputs:
+                input_path = Path(checkpoint_input.path)
+                if not input_path.exists():
+                    raise NotFoundError(f"Input checkpoint not found: {checkpoint_input.path}")
+
+                if input_path.suffix.lower() not in ['.safetensors', '.ckpt']:
+                    raise ValidationError(f"Invalid checkpoint file format: {input_path.suffix}")
+
+            # Validate output path
+            output_path = Path(request.output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Check merge script exists
+            if not self.checkpoint_merge_script.exists():
+                raise NotFoundError(
+                    "Checkpoint merge script not found. "
+                    "Please ensure the training backend is installed."
+                )
+
+            # Build command
+            command = [
+                sys.executable,
+                str(self.checkpoint_merge_script),
+                "--output", str(output_path),
+                "--precision", request.precision,
+                "--saving_precision", request.save_precision,
+            ]
+
+            # Collect all model paths and ratios (Kohya expects them as separate lists)
+            model_paths = [cp_input.path for cp_input in request.checkpoint_inputs]
+            model_ratios = [str(cp_input.ratio) for cp_input in request.checkpoint_inputs]
+
+            # Add all models and ratios as single arguments with multiple values
+            command.extend(["--models"] + model_paths)
+            command.extend(["--ratios"] + model_ratios)
+
+            # Add optional flags
+            if request.unet_only:
+                command.append("--unet_only")
+
+            if request.show_skipped:
+                command.append("--show_skipped")
+
+            # Add device
+            if request.device != "cpu":
+                command.extend(["--device", request.device])
+
+            logger.info(
+                f"Merging {len(request.checkpoint_inputs)} checkpoints "
+                f"(UNet only: {request.unet_only})"
+            )
+
+            # Execute merge
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=self.project_root,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode != 0:
+                error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
+                raise ProcessError(f"Checkpoint merge failed: {error_msg}")
+
+            # Get file size
+            file_size_mb = output_path.stat().st_size / (1024 * 1024)
+
+            logger.info(
+                f"Checkpoints merged successfully: {output_path.name} "
+                f"({file_size_mb:.2f} MB)"
+            )
+
+            return CheckpointMergeResponse(
+                success=True,
+                message=f"Successfully merged {len(request.checkpoint_inputs)} checkpoints",
+                output_path=str(output_path),
+                merged_count=len(request.checkpoint_inputs),
+                file_size_mb=round(file_size_mb, 2)
+            )
+
+        except (ValidationError, NotFoundError, ProcessError) as e:
+            logger.error(f"Checkpoint merge failed: {e}")
+            return CheckpointMergeResponse(
+                success=False,
+                message=str(e)
+            )
+
+        except Exception as e:
+            logger.exception(f"Unexpected error during checkpoint merge: {e}")
+            return CheckpointMergeResponse(
                 success=False,
                 message=f"Internal error: {e}"
             )

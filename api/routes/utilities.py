@@ -17,7 +17,9 @@ from services.models.lora import (
     LoRAResizeRequest as ServiceResizeRequest,
     HuggingFaceUploadRequest as ServiceHFRequest,
     LoRAMergeRequest as ServiceMergeRequest,
+    CheckpointMergeRequest as ServiceCheckpointMergeRequest,
     LoRAInput,
+    CheckpointInput,
 )
 
 logger = logging.getLogger(__name__)
@@ -326,6 +328,58 @@ async def merge_lora(request: LoRAMergeRequest):
 
     except Exception as e:
         logger.error(f"LoRA merge error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Checkpoint Merge (Using Service) ==========
+
+class CheckpointMergeRequest(BaseModel):
+    """Request model for checkpoint merging"""
+    checkpoint_inputs: list[dict]  # [{path: str, ratio: float}, ...]
+    output_path: str
+    unet_only: bool = False
+    device: str = "cpu"
+    save_precision: str = "fp16"
+    precision: str = "float"
+    show_skipped: bool = False
+
+
+@router.post("/checkpoint/merge")
+async def merge_checkpoint(request: CheckpointMergeRequest):
+    """
+    Merge multiple checkpoint models into one.
+    Uses Kohya's merge_models.py script from vendored backend.
+    """
+    try:
+        # Convert dict inputs to CheckpointInput models
+        checkpoint_inputs = [
+            CheckpointInput(path=cp["path"], ratio=cp.get("ratio", 1.0))
+            for cp in request.checkpoint_inputs
+        ]
+
+        # Convert to service request
+        service_request = ServiceCheckpointMergeRequest(
+            checkpoint_inputs=checkpoint_inputs,
+            output_path=request.output_path,
+            unet_only=request.unet_only,
+            device=request.device,
+            save_precision=request.save_precision,
+            precision=request.precision,
+            show_skipped=request.show_skipped
+        )
+
+        response = await lora_service.merge_checkpoint(service_request)
+
+        return {
+            "success": response.success,
+            "message": response.message,
+            "output_path": response.output_path,
+            "merged_count": response.merged_count,
+            "file_size_mb": response.file_size_mb
+        }
+
+    except Exception as e:
+        logger.error(f"Checkpoint merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

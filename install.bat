@@ -1,51 +1,40 @@
 @echo off
 title Ktiseos Nyx Trainer Installer
 
-REM Set PYTHONIOENCODING to UTF-8 for consistent output on Windows
+REM ======================================================================
+REM This script uses the recommended 'py.exe' launcher for Windows to
+REM reliably find and use the correct Python version, avoiding common
+REM PATH and Microsoft Store alias issues.
+REM ======================================================================
+
 set PYTHONIOENCODING=utf-8
 
 echo Running Ktiseos Nyx Trainer Installer for Windows...
 echo.
 
-REM Find the best available python command (prioritize newer versions)
-set "PYTHON_CMD=python"
-where python3.12 >nul 2>&1 && set "PYTHON_CMD=python3.12"
-where python3.11 >nul 2>&1 && set "PYTHON_CMD=python3.11"
-where python3.10 >nul 2>&1 && set "PYTHON_CMD=python3.10"
-where python3 >nul 2>&1 && set "PYTHON_CMD=python3"
+REM Use the py.exe launcher to specifically request Python 3.10 or newer.
+REM This is the most robust method and is the official standard.
+REM It will fail gracefully if a suitable version is not found.
+REM The '%*' passes along any command-line arguments (like --verbose).
+py -3.10 installer_windows_local.py %*
 
-echo Using Python command: %PYTHON_CMD%
-echo    If this is incorrect, please edit this script or ensure the correct Python is in your PATH.
-echo.
-
-REM Verify Python is >= 3.10 and capture the full version
-for /f "tokens=*" %%v in ('%PYTHON_CMD% --version 2^>^&1') do set "PYTHON_VERSION=%%v"
-for /f "tokens=2 delims=. " %%i in ('%PYTHON_CMD% --version 2^>^&1') do (
-    if %%i LSS 10 (
-        echo Python 3.10+ required. Found version: %PYTHON_VERSION%
-        pause
-        exit /b 1
-    ) else (
-        echo Python 3.10+ detected: %PYTHON_VERSION%
-        echo.
-    )
-)
-
-REM Execute the local Windows installer script
-"%PYTHON_CMD%" installer_windows_local.py %*
-
+REM Check the exit code from the Python script
 if %errorlevel% neq 0 (
     echo.
-    echo Installation failed with an error.
-    echo    Please review the messages above.
-    pause
+    echo ----------------------------------------------------------------------
+    echo ERROR: The installer failed.
+    echo Please review the messages above. If the error mentions Python,
+    echo ensure you have Python 3.10 or newer installed from python.org.
+    echo ----------------------------------------------------------------------
 ) else (
     echo.
+    echo ----------------------------------------------------------------------
     echo Installation completed successfully!
     echo.
-    echo Next steps:
-    echo   - Local development: start_services_local.bat
-    echo   - VastAI deployment: Services auto-start via supervisor
-    echo.
-    pause
+    echo Next steps: Run 'start_services_local.bat' to start the application.
+    echo ----------------------------------------------------------------------
 )
+
+echo.
+echo Press any key to close this window.
+pause > nul

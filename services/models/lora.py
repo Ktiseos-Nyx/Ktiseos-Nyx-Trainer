@@ -78,3 +78,29 @@ class LoRAMergeResponse(BaseModel):
     output_path: Optional[str] = None
     merged_count: Optional[int] = None
     file_size_mb: Optional[float] = None
+
+
+class CheckpointInput(BaseModel):
+    """Single checkpoint input for merging."""
+    path: str = Field(..., description="Path to checkpoint file")
+    ratio: float = Field(1.0, ge=0.0, le=2.0, description="Merge weight ratio")
+
+
+class CheckpointMergeRequest(BaseModel):
+    """Request to merge multiple checkpoint models."""
+    checkpoint_inputs: list[CheckpointInput] = Field(..., min_length=2, description="List of checkpoints to merge")
+    output_path: str = Field(..., description="Path to output merged checkpoint")
+    unet_only: bool = Field(False, description="Only merge UNet (keep VAE/TE from first model)")
+    device: str = Field("cpu", description="Device for processing (cpu/cuda)")
+    save_precision: str = Field("fp16", description="Save precision (fp16/bf16/float)")
+    precision: str = Field("float", description="Computation precision (float/fp16/bf16)")
+    show_skipped: bool = Field(False, description="Show skipped keys in logs")
+
+
+class CheckpointMergeResponse(BaseModel):
+    """Response from checkpoint merge operation."""
+    success: bool
+    message: str
+    output_path: Optional[str] = None
+    merged_count: Optional[int] = None
+    file_size_mb: Optional[float] = None
