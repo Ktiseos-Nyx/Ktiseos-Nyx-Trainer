@@ -1,22 +1,28 @@
-# Auto-detect text files and normalize line endings to LF on checkin
-* text=auto eol=lf
+# Set the default behavior for all text files.
+# 'text=auto' lets Git handle line endings automatically. On checkout,
+# it will convert LF to CRLF on Windows. On commit, it will convert
+# CRLF back to LF. This is the key to cross-platform harmony.
+* text=auto
 
-# Explicitly declare text files
-*.py text eol=lf
-*.ts text eol=lf
-*.tsx text eol=lf
-*.js text eol=lf
-*.json text eol=lf
-*.md text eol=lf
+# These files are text and should be handled by the 'text=auto' rule above.
+# We don't need to specify eol=lf for them anymore.
+*.py text
+*.ts text
+*.tsx text
+*.js text
+*.json text
+*.md text
+*.toml text
+*.yaml text
+*.yml text
+
+# These files have OS-specific requirements, so we enforce their line endings.
+# Shell scripts MUST have LF to run on Linux/macOS.
 *.sh text eol=lf
-*.toml text eol=lf
-*.yaml text eol=lf
-*.yml text eol=lf
-
-# Windows batch files need CRLF
+# Windows Batch files MUST have CRLF to run on Windows.
 *.bat text eol=crlf
 
-# Binary files
+# Explicitly declare binary files to prevent Git from touching them.
 *.png binary
 *.jpg binary
 *.dll binary

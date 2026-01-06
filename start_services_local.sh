@@ -1,110 +1,85 @@
 #!/bin/bash
-# Service Startup Script for Ktiseos-Nyx-Trainer (Local Development)
-# This script starts both the FastAPI backend and Next.js frontend, binding to 127.0.0.1
+# Service Startup Script for Ktiseos-Nyx-Trainer (Local Unix)
+# This script activates the virtual environment and starts the backend/frontend.
 
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+# --- Configuration ---
+VENV_DIR=".venv"
+
+# --- Main Script ---
 echo "=========================================="
-echo "🚀 Starting Ktiseos-Nyx-Trainer Services (Local)..."
+echo "Starting Ktiseos-Nyx-Trainer Services (Local)..."
 echo "=========================================="
+echo ""
 
 # --------------------------------------------------------------------
-# Step 0: Clean up any existing processes using the ports
+# Step 1: Verify that the environment has been installed
 # --------------------------------------------------------------------
-echo "🧹 Cleaning up any existing processes on ports 8000 and 3000..."
-lsof -ti:8000 2>/dev/null | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
-
-# Also kill any existing uvicorn or next processes to prevent conflicts
-pkill -f "uvicorn.*api.main" 2>/dev/null || true
-pkill -f "node.*next" 2>/dev/null || true
-
-sleep 3  # Give time for processes to terminate
-
-# --------------------------------------------------------------------
-# Step 1: Run local installer if available (for environment verification)
-# --------------------------------------------------------------------
-if [ -f "installer_local_linux.py" ]; then
-    echo "⚙️ Running local Linux installer (verification only)..."
-    if ! python3 installer_local_linux.py --skip-install; then
-        echo "❌ Installer verification failed! Please run installer manually first."
-        exit 1
-    fi
-else
-    echo "ℹ️ No local installer found — assuming environment is already set up."
-    echo "   To install dependencies, run:"
-    echo "      Linux/WSL: python installer_local_linux.py"
+echo "[Verifying installation...]"
+if [ ! -d "$VENV_DIR/bin" ]; then
+    echo "[ERROR] Virtual environment not found!"
+    echo "   It looks like the installation hasn't been run yet."
+    echo "   Please run './install.sh' once before starting services."
     echo ""
+    exit 1
 fi
+echo "[OK] Environment found."
+echo ""
 
 # --------------------------------------------------------------------
-# Step 2: Start Services
+# Step 2: Activate the Virtual Environment
+# --------------------------------------------------------------------
+echo "[Activating virtual environment...]"
+source "$VENV_DIR/bin/activate"
+echo "   Python executable: $(which python)"
+echo ""
+
+# --------------------------------------------------------------------
+# Step 3: Clean up any existing processes
+# --------------------------------------------------------------------
+echo "[Cleanup] Stopping any existing services on ports 8000 & 3000..."
+# Use pkill for simplicity and robustness. The '|| true' prevents script exit if no process is found.
+pkill -f "uvicorn api.main:app" || true
+pkill -f "npm.*start" || true
+sleep 1
+
+# --------------------------------------------------------------------
+# Step 4: Start Services
 # --------------------------------------------------------------------
 
-# Start FastAPI backend (if api directory exists)
+# Trap SIGINT (Ctrl+C) to gracefully shut down background processes
+trap 'echo "\n[INFO] Shutting down services..."; pkill -P $$; exit' SIGINT
+
+# Start FastAPI backend in the background
 if [ -d "api" ]; then
-    echo "🐍 Starting FastAPI backend on port 8000 (bind 127.0.0.1)..."
-    python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload &
-    BACKEND_PID=$!
-    echo "   Backend PID: $BACKEND_PID"
+    echo "[Backend] Starting FastAPI backend on http://localhost:8000..."
+    # Now 'python' correctly refers to the venv's python
+    python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload &
 else
-    echo "⚠️  API directory not found - skipping backend startup"
-    echo "   Create /api/main.py with FastAPI app"
+    echo "[Warning] API directory not found - skipping backend startup."
 fi
 
-# Start Next.js frontend (if frontend directory exists)
+# Start Next.js frontend in the background
 if [ -d "frontend" ]; then
-    echo "🎨 Preparing Next.js frontend..."
-
-    # Load NVM (if available)
-    export NVM_DIR="$HOME/.nvm"
-    # shellcheck disable=SC1091
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-    # shellcheck disable=SC2164
-    cd frontend
-
-    # Check if production build exists
-    if [ ! -d ".next" ]; then
-        echo "📦 No production build found - building Next.js app..."
-        npm run build
-        if [ $? -ne 0 ]; then
-            echo "❌ Build failed! Please fix errors and try again."
-            cd ..
-            exit 1
-        fi
-        echo "✅ Build complete!"
-    else
-        echo "📦 Using existing production build (run 'npm run build' to rebuild)"
-    fi
-
-    # Start production server
-    echo "🚀 Starting Next.js production server on port 3000..."
-    NODE_ENV=production PORT=3000 npm run start &
-    FRONTEND_PID=$!
-    echo "   Frontend PID: $FRONTEND_PID"
-    # shellcheck disable=SC2103
-    cd ..
+    echo "[Frontend] Starting Next.js frontend on http://localhost:3000..."
+    (cd frontend && npm start &)
 else
-    echo "⚠️  Frontend directory not found - skipping frontend startup"
-    echo "   Create /frontend with Next.js app"
+    echo "[Warning] Frontend directory not found - skipping frontend startup."
 fi
 
 echo ""
 echo "=========================================="
-echo "✅ Local Services Started!"
+echo "[SUCCESS] Local Services Started!"
 echo "=========================================="
 echo ""
-echo "🌐 Access URLs:"
-echo "   Frontend: http://localhost:3000"
-echo "   Backend API: http://localhost:8000"
-echo "   API Docs: http://localhost:8000/docs"
+echo ">> Access the UI at: http://localhost:3000"
+echo ">> API Docs available at: http://localhost:8000/docs"
 echo ""
-echo "📊 To monitor services:"
-echo "   ps aux | grep -E 'uvicorn|node'"
-echo ""
-echo "🛑 To stop services:"
-echo "   pkill -f uvicorn"
-echo "   pkill -f 'node.*next'"
+echo "[INFO] Services are running in the background."
+echo "[INFO] Press CTRL+C in this terminal to stop all services."
 echo ""
 
-# Keep script running (important for foreground process)
+# Wait for all background jobs to finish. The 'trap' will handle shutdown.
 wait
