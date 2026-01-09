@@ -279,6 +279,40 @@ class LocalWindowsInstaller:
             print("   - aria2c: Found")
         return True
 
+    def check_microsoft_store_python(self):
+        """Detect and warn about Microsoft Store Python installations."""
+        if "WindowsApps" in self.python_cmd and "PythonSoftwareFoundation" in self.python_cmd:
+            warning_lines = [
+                "\n" + "!" * 70,
+                "⚠️  WARNING: Microsoft Store Python detected!",
+                "!" * 70,
+                "You're using Python from the Microsoft Store, which can cause issues:",
+                "  - PATH conflicts with other Python installations",
+                "  - Permission issues with certain packages",
+                "  - Difficulty using virtual environments",
+                "",
+                "RECOMMENDED: Install Python from python.org instead:",
+                "  1. Visit https://www.python.org/downloads/",
+                "  2. Download Python 3.10 or 3.11 (NOT 3.12+)",
+                "  3. During installation, check 'Add Python to PATH'",
+                "  4. Uninstall Microsoft Store Python from Settings > Apps",
+                "",
+                "Current installation MAY work, but you might encounter issues.",
+                "!" * 70 + "\n",
+            ]
+            for line in warning_lines:
+                print(line)
+                self.logger.warning(line)
+
+            # Give user a chance to cancel
+            print("Press Ctrl+C within 10 seconds to cancel, or wait to continue...")
+            import time
+            try:
+                time.sleep(10)
+            except KeyboardInterrupt:
+                print("\nInstallation cancelled by user.")
+                sys.exit(0)
+
     def ensure_pytorch_installed(self):
         """Do NOT install PyTorch. Just verify or warn."""
         try:
@@ -287,14 +321,64 @@ class LocalWindowsInstaller:
             self.logger.info(" PyTorch already installed: %s", torch.__version__)
             if torch.cuda.is_available():
                 self.logger.info(" CUDA available: %s", torch.version.cuda)
-                print(f" PyTorch {torch.__version__} + CUDA {torch.version.cuda} detected")
+                print(f"\n✅ PyTorch {torch.__version__} + CUDA {torch.version.cuda} detected")
+                print("   GPU training will be available.\n")
             else:
-                print(f" PyTorch {torch.__version__} (CPU-only) detected")
+                # CPU-only PyTorch - this is a CRITICAL issue for training
+                warning_lines = [
+                    "\n" + "!" * 70,
+                    "🚨 CRITICAL: CPU-only PyTorch detected!",
+                    "!" * 70,
+                    f"Current version: PyTorch {torch.__version__} (CPU-only)",
+                    "",
+                    "⚠️  GPU TRAINING WILL NOT WORK with CPU-only PyTorch!",
+                    "",
+                    "You MUST install PyTorch with CUDA support for GPU training:",
+                    "  1. Uninstall current PyTorch:",
+                    "     python -m pip uninstall torch torchvision torchaudio",
+                    "",
+                    "  2. Install PyTorch with CUDA 11.8:",
+                    "     python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118",
+                    "",
+                    "  3. Or visit: https://pytorch.org/get-started/locally/",
+                    "     Select: Windows, pip, CUDA 11.8",
+                    "",
+                    "The installer will continue, but you won't be able to train LoRAs",
+                    "without proper GPU-enabled PyTorch.",
+                    "!" * 70 + "\n",
+                ]
+                for line in warning_lines:
+                    print(line)
+                    self.logger.warning(line)
+
+                # Give user a chance to cancel and fix PyTorch
+                print("Press Ctrl+C within 15 seconds to cancel and fix PyTorch,")
+                print("or wait to continue with CPU-only installation...")
+                import time
+                try:
+                    time.sleep(15)
+                except KeyboardInterrupt:
+                    print("\nInstallation cancelled. Please install PyTorch with CUDA support.")
+                    sys.exit(0)
+
         except ImportError:
             self.logger.warning(" PyTorch not found.")
-            print(" PyTorch not found.")
-            print("   → Please install PyTorch with CUDA 11.8 from https://pytorch.org/get-started/locally/  ")
-            print("   → Select 'Windows', 'pip', 'CUDA 11.8'")
+            warning_lines = [
+                "\n" + "!" * 70,
+                "⚠️  PyTorch not installed!",
+                "!" * 70,
+                "PyTorch is REQUIRED for LoRA training.",
+                "",
+                "Install PyTorch with CUDA 11.8 support:",
+                "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118",
+                "",
+                "Or visit: https://pytorch.org/get-started/locally/",
+                "Select: Windows, pip, CUDA 11.8",
+                "!" * 70 + "\n",
+            ]
+            for line in warning_lines:
+                print(line)
+                self.logger.warning(line)
         return True
 
     # =============== NEW FRONTEND METHODS ===============
@@ -396,6 +480,10 @@ class LocalWindowsInstaller:
 
     def run_installation(self):
         self.print_banner()
+
+        # Check for Microsoft Store Python and warn
+        self.check_microsoft_store_python()
+
         self.ensure_pytorch_installed()
         start_time = datetime.datetime.now()
         self.logger.info("Installation started")
@@ -432,14 +520,32 @@ class LocalWindowsInstaller:
             duration = end_time - start_time
             completion_lines = [
                 "\n" + "=" * 70,
-                "Local Windows Installation complete!",
+                "✅ Local Windows Installation complete!",
                 f"Total time: {duration}",
                 f"Package manager used: {self.package_manager['name']}",
                 f"Full log available at: {self.log_file}",
                 "",
-                "Backend dependencies installed successfully for Windows!",
-                "   Next steps:",
-                "   - Local: Run start_services_local.bat to start the web UI",
+                "📦 Backend dependencies installed successfully for Windows!",
+                "",
+                "🛡️  About Virtual Environments (STRONGLY RECOMMENDED):",
+                "   - This installer does NOT create a virtual environment automatically",
+                "   - Packages were installed to your Python's user site-packages",
+                "   - ⚠️  For future installs, use a venv to avoid package conflicts!",
+                "",
+                "   How to use venv next time:",
+                "     python -m venv venv",
+                "     venv\\Scripts\\activate",
+                "     install.bat",
+                "",
+                "📍 Next steps:",
+                "   1. ⚠️  Check warnings above - especially PyTorch CUDA support!",
+                "   2. Run 'start_services_local.bat' to start the web UI",
+                "   3. Access the UI at http://localhost:3000",
+                "",
+                "💡 Troubleshooting:",
+                "   - CUDA errors? Reinstall PyTorch with CUDA 11.8",
+                "   - Import errors? Try python.org Python instead of MS Store",
+                "   - Multiple Pythons? Check which one is first in PATH",
                 "=" * 70,
             ]
             for line in completion_lines:
