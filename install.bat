@@ -8,7 +8,7 @@ REM ======================================================================
 
 set PYTHONIOENCODING=utf-8
 set USE_VENV=
-set VENV_DIR=venv
+set VENV_DIR=.venv
 set AUTO_MODE=0
 
 REM Parse command-line arguments
@@ -51,7 +51,7 @@ if not defined USE_VENV (
     echo.
     echo Benefits:
     echo   - No conflicts with other Python projects
-    echo   - Easy to delete if you want to start fresh (just delete 'venv' folder^)
+    echo   - Easy to delete if you want to start fresh (just delete '.venv' folder^)
     echo   - Industry best practice for Python development
     echo.
     echo The venv will be created in: %CD%\%VENV_DIR%
@@ -76,7 +76,7 @@ REM Create venv if requested
 if "%USE_VENV%"=="1" (
     if not exist "%VENV_DIR%\Scripts\activate.bat" (
         echo Creating virtual environment in '%VENV_DIR%'...
-        py -3.10 -m venv %VENV_DIR%
+        py -3 -m venv "%VENV_DIR%"
         if errorlevel 1 (
             echo.
             echo ERROR: Failed to create virtual environment.
@@ -92,7 +92,7 @@ if "%USE_VENV%"=="1" (
     )
 
     echo Activating virtual environment...
-    call %VENV_DIR%\Scripts\activate.bat
+    call "%VENV_DIR%\Scripts\activate.bat"
     echo.
     echo ^(venv^) Virtual environment activated.
     echo Python: %VENV_DIR%\Scripts\python.exe
@@ -101,15 +101,15 @@ if "%USE_VENV%"=="1" (
     echo.
 
     REM Run installer with venv Python, passing through remaining args
-    %VENV_DIR%\Scripts\python.exe installer_windows_local.py %*
+    "%VENV_DIR%\Scripts\python.exe" installer_windows_local.py %*
 ) else (
     echo Running installer WITHOUT virtual environment...
     echo.
     echo Checking Python installation...
     echo.
 
-    REM Use py.exe launcher to find Python 3.10+
-    py -3.10 installer_windows_local.py %*
+    REM Use py.exe launcher to find latest Python 3.x
+    py -3 installer_windows_local.py %*
 )
 
 REM Check the exit code from the Python script
