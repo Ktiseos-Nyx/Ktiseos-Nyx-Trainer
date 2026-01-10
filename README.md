@@ -19,15 +19,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 📖 [Full Requirements & Installation Guide](docs/INSTALLATION.md)
 
-### 🛡️ STRONGLY RECOMMENDED: Use a Virtual Environment
-
-**TL;DR for ADHD brains:** Virtual environments prevent Python package chaos. Yes, they're "extra steps", but they'll save you hours of debugging later.
-
-**Why venv matters:**
-- ✅ Isolates this project's dependencies from other Python projects
-- ✅ Prevents version conflicts between different tools
-- ✅ Makes troubleshooting WAY easier (clean slate if things break)
-- ✅ Avoids the "works on my machine" problem when getting help
+#### 🛡️ STRONGLY RECOMMENDED: Use a Virtual Environment
 
 **Quick venv setup:**
 
