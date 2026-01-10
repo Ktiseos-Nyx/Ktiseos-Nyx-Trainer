@@ -229,6 +229,49 @@ class KohyaTOMLGenerator:
             "prior_loss_weight": self.config.prior_loss_weight,
         }
 
+        # ========== NEW FIELDS (Issue #97 Fix) ==========
+        # Performance/Memory
+        if self.config.cache_text_encoder_outputs_to_disk:
+            args["cache_text_encoder_outputs_to_disk"] = True
+        if self.config.full_bf16:
+            args["full_bf16"] = True
+        if self.config.max_data_loader_n_workers:
+            args["max_data_loader_n_workers"] = self.config.max_data_loader_n_workers
+
+        # Bucketing
+        if self.config.bucket_reso_steps:
+            args["bucket_reso_steps"] = self.config.bucket_reso_steps
+
+        # Timestep control
+        if self.config.min_timestep is not None:
+            args["min_timestep"] = self.config.min_timestep
+        if self.config.max_timestep is not None:
+            args["max_timestep"] = self.config.max_timestep
+
+        # V-prediction loss variants
+        if self.config.scale_v_pred_loss_like_noise_pred:
+            args["scale_v_pred_loss_like_noise_pred"] = True
+        if self.config.v_pred_like_loss is not None:
+            args["v_pred_like_loss"] = self.config.v_pred_like_loss
+        if self.config.debiased_estimation_loss:
+            args["debiased_estimation_loss"] = True
+
+        # State management
+        if self.config.save_state_on_train_end:
+            args["save_state_on_train_end"] = True
+        if self.config.resume_from_state:
+            args["resume"] = str(Path(self.config.resume_from_state).resolve())
+
+        # Logging
+        if self.config.log_tracker_name:
+            args["log_tracker_name"] = self.config.log_tracker_name
+        if self.config.log_tracker_config:
+            args["log_tracker_config"] = self.config.log_tracker_config
+        if self.config.wandb_run_name:
+            args["wandb_run_name"] = self.config.wandb_run_name
+
+        # ========== END NEW FIELDS ==========
+
         # Optional Paths
         if self.config.vae_path:
             args["vae"] = str(Path(self.config.vae_path).resolve())
@@ -254,8 +297,11 @@ class KohyaTOMLGenerator:
             args["min_snr_gamma"] = self.config.min_snr_gamma
         if self.config.ip_noise_gamma_enabled:
             args["ip_noise_gamma"] = self.config.ip_noise_gamma
+            if self.config.ip_noise_gamma_random_strength:
+                args["ip_noise_gamma_random_strength"] = True
         if self.config.multinoise:
-            args["multires_noise_iterations"] = 6
+            # Use config value if set, otherwise default to 6
+            args["multires_noise_iterations"] = self.config.multires_noise_iterations or 6
             args["multires_noise_discount"] = self.config.multires_noise_discount
         if self.config.adaptive_noise_scale > 0:
             args["adaptive_noise_scale"] = self.config.adaptive_noise_scale

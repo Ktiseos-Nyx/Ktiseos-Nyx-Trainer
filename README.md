@@ -19,7 +19,56 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 📖 [Full Requirements & Installation Guide](docs/INSTALLATION.md)
 
-### Installation
+#### 🛡️ STRONGLY RECOMMENDED: Use a Virtual Environment
+
+**Quick venv setup:**
+
+**Windows:**
+```bat
+git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+cd Ktiseos-Nyx-Trainer
+
+REM Create virtual environment
+python -m venv venv
+
+REM Activate it (you'll do this EVERY TIME you open a new terminal)
+venv\Scripts\activate
+
+REM Now install - packages stay in the venv
+install.bat
+```
+
+**Linux:**
+```bash
+git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+cd Ktiseos-Nyx-Trainer
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate it (you'll do this EVERY TIME you open a new terminal)
+source venv/bin/activate
+
+# Now install - packages stay in the venv
+python installer_local_linux.py
+```
+
+**Starting the app with venv:**
+```bash
+# Activate venv first
+venv\Scripts\activate   # Windows
+source venv/bin/activate  # Linux
+
+# Then start services
+start_services_local.bat  # Windows
+./start_services_local.sh # Linux
+```
+
+> 💡 **Pro tip:** Your terminal prompt will show `(venv)` when the virtual environment is active. If you don't see it, activate again!
+
+---
+
+### Installation (Without venv - not recommended)
 
 **Windows:**
 ```bat

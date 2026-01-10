@@ -114,6 +114,7 @@ class TrainingConfig(BaseModel):
     t5xxl_path: Optional[str] = Field(None, description="Path to T5-XXL model (Flux/SD3)")
 
     continue_from_lora: Optional[str] = Field(None, description="Path to LoRA to continue from")
+    resume_from_state: Optional[str] = Field(None, description="Path to training state to resume from")
     wandb_key: Optional[str] = Field(None, description="W&B API key for logging")
 
     # ========== DATASET & BASIC TRAINING ==========
@@ -192,30 +193,38 @@ class TrainingConfig(BaseModel):
     min_bucket_reso: int = Field(256, ge=64, description="Min bucket resolution")
     max_bucket_reso: int = Field(2048, le=4096, description="Max bucket resolution")
     bucket_no_upscale: bool = Field(False, description="No upscaling in buckets")
+    bucket_reso_steps: Optional[int] = Field(None, ge=1, description="Bucket resolution steps")
 
     # ========== ADVANCED TRAINING - SNR & NOISE ==========
     min_snr_gamma_enabled: bool = Field(False, description="Enable min SNR gamma")
     min_snr_gamma: float = Field(5.0, ge=0, description="Min SNR gamma value")
     ip_noise_gamma_enabled: bool = Field(False, description="Enable input perturbation")
     ip_noise_gamma: float = Field(0.0, ge=0, description="Input perturbation noise")
+    ip_noise_gamma_random_strength: Optional[bool] = Field(None, description="Randomize IP noise strength")
     multinoise: bool = Field(False, description="Enable multi-res noise")
     multires_noise_discount: float = Field(0.0, ge=0, description="Multi-res noise discount")
+    multires_noise_iterations: Optional[int] = Field(None, ge=0, description="Multi-res noise iterations")
     noise_offset: float = Field(0.0, description="Noise offset")
     adaptive_noise_scale: float = Field(0.0, ge=0, description="Adaptive noise scale")
     zero_terminal_snr: bool = Field(False, description="Zero terminal SNR")
+    min_timestep: Optional[int] = Field(None, ge=0, le=1000, description="Minimum timestep for noise schedule")
+    max_timestep: Optional[int] = Field(None, ge=0, le=1000, description="Maximum timestep for noise schedule")
 
     # ========== MEMORY & PERFORMANCE ==========
     gradient_checkpointing: bool = Field(True, description="Enable gradient checkpointing")
     mixed_precision: MixedPrecision = Field(MixedPrecision.FP16, description="Mixed precision")
     full_fp16: bool = Field(False, description="Full FP16 training")
+    full_bf16: Optional[bool] = Field(None, description="Full BF16 training")
     fp8_base: bool = Field(False, description="FP8 base model (experimental)")
     vae_batch_size: int = Field(1, ge=1, description="VAE batch size")
     no_half_vae: bool = Field(False, description="Disable half VAE")
     cache_latents: bool = Field(True, description="Cache latents")
     cache_latents_to_disk: bool = Field(False, description="Cache latents to disk")
     cache_text_encoder_outputs: bool = Field(False, description="Cache text encoder outputs")
+    cache_text_encoder_outputs_to_disk: Optional[bool] = Field(None, description="Cache text encoder outputs to disk")
     cross_attention: CrossAttention = Field(CrossAttention.SDPA, description="Cross attention")
     persistent_data_loader_workers: int = Field(0, ge=0, description="Persistent workers")
+    max_data_loader_n_workers: Optional[int] = Field(None, ge=0, description="Max data loader workers")
     no_token_padding: bool = Field(False, description="Disable token padding")
     lowram: bool = Field(False, description="Low RAM mode")
 
@@ -225,6 +234,7 @@ class TrainingConfig(BaseModel):
     save_last_n_epochs: int = Field(0, ge=0, description="Keep last N epochs")
     save_last_n_epochs_state: int = Field(0, ge=0, description="Keep last N epoch states")
     save_state: bool = Field(False, description="Save training state")
+    save_state_on_train_end: Optional[bool] = Field(None, description="Save state when training completes")
     save_last_n_steps_state: int = Field(0, ge=0, description="Keep last N step states")
     save_model_as: SaveModelAs = Field(SaveModelAs.SAFETENSORS, description="Model format")
     save_precision: str = Field("fp16", description="Save precision")
@@ -241,10 +251,16 @@ class TrainingConfig(BaseModel):
     logging_dir: Optional[str] = Field(None, description="Logging directory")
     log_with: Optional[str] = Field(None, description="Logging backend (tensorboard/wandb)")
     log_prefix: Optional[str] = Field(None, description="Log file prefix")
+    log_tracker_name: Optional[str] = Field(None, description="Tracker name for logging")
+    log_tracker_config: Optional[str] = Field(None, description="Tracker config (JSON string)")
+    wandb_run_name: Optional[str] = Field(None, description="W&B run name")
 
     # ========== SD 2.x & ADVANCED ==========
     v2: bool = Field(False, description="SD 2.x base model flag")
     v_parameterization: bool = Field(False, description="V-parameterization")
+    scale_v_pred_loss_like_noise_pred: Optional[bool] = Field(None, description="Scale v-pred loss like noise pred")
+    v_pred_like_loss: Optional[float] = Field(None, ge=0, description="V-prediction-like loss weight")
+    debiased_estimation_loss: Optional[bool] = Field(None, description="Use debiased estimation loss")
     network_train_unet_only: bool = Field(True, description="Train UNet only")
     prior_loss_weight: float = Field(1.0, ge=0, description="Prior loss weight")
 
