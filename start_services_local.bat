@@ -23,18 +23,24 @@ REM --------------------------------------------------------------------
 REM Step 1: Verify that the environment has been installed
 REM --------------------------------------------------------------------
 echo [Verifying installation...]
-if not exist "%VENV_DIR%\Scripts\python.exe" (
-    echo [ERROR] Virtual environment not found!
-    echo    It looks like the installation hasn't been run yet.
-    echo    Please run 'install_windows_local.bat' once before starting services.
-    echo.
-    pause
-    exit /b 1
+if exist "%VENV_DIR%\Scripts\python.exe" (
+    REM Virtual environment exists - use it
+    SET PYTHON_EXE="%VENV_DIR%\Scripts\python.exe"
+    echo [OK] Virtual environment found. Using Python from: %PYTHON_EXE%
+) else (
+    REM No venv - check if system Python is available
+    where py >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] Python not found!
+        echo    Please run 'install.bat' to set up the environment first.
+        echo.
+        pause
+        exit /b 1
+    )
+    REM Use system Python
+    SET PYTHON_EXE=py -3
+    echo [OK] Using system Python (no venv detected^)
 )
-
-REM Set the Python command to the one INSIDE our venv for reliability
-SET PYTHON_EXE="%VENV_DIR%\Scripts\python.exe"
-echo [OK] Environment found. Using Python from: %PYTHON_EXE%
 echo.
 
 REM --------------------------------------------------------------------
@@ -57,8 +63,15 @@ if exist "api\" (
 
 REM Start Next.js frontend
 if exist "frontend\" (
-    echo [Frontend] Starting Next.js frontend on http://localhost:3000...
-    start "Ktiseos Frontend" /MIN cmd /c "cd frontend && npm start"
+    REM Check if npm is available
+    where npm >nul 2>&1
+    if errorlevel 1 (
+        echo [Warning] npm not found - skipping frontend startup.
+        echo            Install Node.js 18+ from https://nodejs.org to enable frontend.
+    ) else (
+        echo [Frontend] Starting Next.js frontend on http://localhost:3000...
+        start "Ktiseos Frontend" /MIN cmd /c "cd frontend && npm start"
+    )
 )
 
 echo.

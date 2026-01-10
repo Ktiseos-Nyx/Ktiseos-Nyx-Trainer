@@ -10,7 +10,7 @@ cd "$SCRIPT_DIR"
 # --- Configuration ---
 PYTHON_CMD="python3"
 MIN_PYTHON_VERSION="3.10"
-VENV_DIR="venv"
+VENV_DIR=".venv"
 INSTALLER_PY="install_linux.py"
 USE_VENV=""
 AUTO_MODE=0
@@ -80,7 +80,7 @@ if [ -z "$USE_VENV" ]; then
     echo ""
     echo "Benefits:"
     echo "  - No conflicts with other Python projects"
-    echo "  - Easy to delete if you want to start fresh (just 'rm -rf venv')"
+    echo "  - Easy to delete if you want to start fresh (just 'rm -rf .venv')"
     echo "  - Industry best practice for Python development"
     echo ""
     echo "The venv will be created in: $SCRIPT_DIR/$VENV_DIR"

@@ -28,13 +28,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
 
-REM Create virtual environment
-python -m venv venv
-
-REM Activate it (you'll do this EVERY TIME you open a new terminal)
-venv\Scripts\activate
-
-REM Now install - packages stay in the venv
+REM The installer will ask if you want a venv (say yes!)
 install.bat
 ```
 
@@ -43,28 +37,18 @@ install.bat
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
 
-# Create virtual environment
-python3 -m venv venv
-
-# Activate it (you'll do this EVERY TIME you open a new terminal)
-source venv/bin/activate
-
-# Now install - packages stay in the venv
-python installer_local_linux.py
+# The installer will ask if you want a venv (say yes!)
+./install.sh
 ```
 
-**Starting the app with venv:**
+**Starting the app:**
 ```bash
-# Activate venv first
-venv\Scripts\activate   # Windows
-source venv/bin/activate  # Linux
-
-# Then start services
+# The start scripts automatically activate your venv if it exists!
 start_services_local.bat  # Windows
 ./start_services_local.sh # Linux
 ```
 
-> 💡 **Pro tip:** Your terminal prompt will show `(venv)` when the virtual environment is active. If you don't see it, activate again!
+> 💡 **Pro tip:** The start scripts now handle venv activation automatically. Just run them and go!
 
 ---
 
@@ -74,7 +58,7 @@ start_services_local.bat  # Windows
 ```bat
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
-install.bat
+install.bat --no-venv
 start_services_local.bat
 ```
 
@@ -82,7 +66,7 @@ start_services_local.bat
 ```bash
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
-python installer_local_linux.py
+./install.sh --no-venv
 ./start_services_local.sh
 ```
 
