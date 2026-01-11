@@ -95,10 +95,18 @@ class LocalWindowsInstaller:
         if not self.verbose:
             print(f" {description}...")
 
+        # On Windows, use shell=True to support .cmd/.bat files (like npm.cmd)
+        use_shell = platform.system() == "Windows"
+        if use_shell:
+            # Convert list to string for shell execution on Windows
+            shell_command = " ".join(str(c) for c in command)
+        else:
+            shell_command = command
+
         try:
             if self.verbose:
                 process = subprocess.Popen(
-                    command,
+                    shell_command if use_shell else command,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -106,6 +114,7 @@ class LocalWindowsInstaller:
                     cwd=cwd,
                     encoding="utf-8",
                     errors="replace",
+                    shell=use_shell,
                 )
                 output_lines = []
                 for line in iter(process.stdout.readline, ""):
@@ -121,7 +130,14 @@ class LocalWindowsInstaller:
                     raise subprocess.CalledProcessError(return_code, command, output)
             else:
                 result = subprocess.run(
-                    command, check=True, capture_output=True, text=True, cwd=cwd, encoding="utf-8", errors="replace"
+                    shell_command if use_shell else command,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=cwd,
+                    encoding="utf-8",
+                    errors="replace",
+                    shell=use_shell,
                 )
                 output = result.stdout
 
@@ -389,7 +405,9 @@ class LocalWindowsInstaller:
             self.logger.info("Frontend directory not found. Skipping.")
             return True
 
-        if not shutil.which("npm"):
+        # Check for npm (on Windows it's npm.cmd, so we need to check for both)
+        npm_found = shutil.which("npm") or shutil.which("npm.cmd")
+        if not npm_found:
             self.logger.warning("npm not found. Is Node.js installed?")
             print(" ⚠️  npm not found! Please install Node.js 18+ from https://nodejs.org/")
             return False
