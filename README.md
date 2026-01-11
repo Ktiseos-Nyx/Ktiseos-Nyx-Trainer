@@ -93,6 +93,39 @@ python installer_local_linux.py
 
 **VastAI Deployment:** Use the deploy button above - auto-configures on launch.
 
+### Updating to Latest Version
+
+**DO NOT delete the folder and re-clone.** This creates orphaned cache files and Python environment shims that cause installation issues.
+
+**Proper update process:**
+
+```bash
+# Navigate to your installation directory
+cd Ktiseos-Nyx-Trainer
+
+# Get latest changes
+git pull
+
+# If you have a virtual environment, reactivate it
+venv\Scripts\activate   # Windows
+source venv/bin/activate  # Linux
+
+# Update dependencies
+install.bat             # Windows
+./install.sh            # Linux
+```
+
+**Why not delete and re-clone?**
+- Leaves behind hidden cache directories (`__pycache__`, `.venv`)
+- Creates orphaned Python shims in system directories
+- Forces re-download of all dependencies
+- May cause version conflicts with cached packages
+
+If you must start fresh, use `git clean` instead:
+```bash
+git clean -fdx  # Remove all untracked files (WARNING: irreversible)
+```
+
 ## What It Does
 
 **Dataset Preparation:**
