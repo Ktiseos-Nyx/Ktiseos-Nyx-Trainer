@@ -28,7 +28,13 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
 
-REM The installer will ask if you want a venv (say yes!)
+REM Create virtual environment
+python -m venv venv
+
+REM Activate it (you'll do this EVERY TIME you open a new terminal)
+venv\Scripts\activate
+
+REM Now install - packages stay in the venv
 install.bat
 ```
 
@@ -37,18 +43,28 @@ install.bat
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
 
-# The installer will ask if you want a venv (say yes!)
-./install.sh
+# Create virtual environment
+python3 -m venv venv
+
+# Activate it (you'll do this EVERY TIME you open a new terminal)
+source venv/bin/activate
+
+# Now install - packages stay in the venv
+python installer_local_linux.py
 ```
 
-**Starting the app:**
+**Starting the app with venv:**
 ```bash
-# The start scripts automatically activate your venv if it exists!
+# Activate venv first
+venv\Scripts\activate   # Windows
+source venv/bin/activate  # Linux
+
+# Then start services
 start_services_local.bat  # Windows
 ./start_services_local.sh # Linux
 ```
 
-> 💡 **Pro tip:** The start scripts now handle venv activation automatically. Just run them and go!
+> 💡 **Pro tip:** Your terminal prompt will show `(venv)` when the virtual environment is active. If you don't see it, activate again!
 
 ---
 
@@ -58,7 +74,7 @@ start_services_local.bat  # Windows
 ```bat
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
-install.bat --no-venv
+install.bat
 start_services_local.bat
 ```
 
@@ -66,7 +82,7 @@ start_services_local.bat
 ```bash
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
-./install.sh --no-venv
+python installer_local_linux.py
 ./start_services_local.sh
 ```
 
@@ -76,6 +92,39 @@ cd Ktiseos-Nyx-Trainer
 - API Docs: http://localhost:8000/docs
 
 **VastAI Deployment:** Use the deploy button above - auto-configures on launch.
+
+### Updating to Latest Version
+
+**DO NOT delete the folder and re-clone.** This creates orphaned cache files and Python environment shims that cause installation issues.
+
+**Proper update process:**
+
+```bash
+# Navigate to your installation directory
+cd Ktiseos-Nyx-Trainer
+
+# Get latest changes
+git pull
+
+# If you have a virtual environment, reactivate it
+venv\Scripts\activate   # Windows
+source venv/bin/activate  # Linux
+
+# Update dependencies
+install.bat             # Windows
+./install.sh            # Linux
+```
+
+**Why not delete and re-clone?**
+- Leaves behind hidden cache directories (`__pycache__`, `.venv`)
+- Creates orphaned Python shims in system directories
+- Forces re-download of all dependencies
+- May cause version conflicts with cached packages
+
+If you must start fresh, use `git clean` instead:
+```bash
+git clean -fdx  # Remove all untracked files (WARNING: irreversible)
+```
 
 ## What It Does
 
@@ -117,6 +166,20 @@ cd Ktiseos-Nyx-Trainer
 - Check [Troubleshooting Guide](docs/guides/troubleshooting.md)
 - Review [Support Guidelines](docs/guides/troubleshooting.md#support-guidelines--boundaries)
 - Include error messages, logs, and system info
+
+**Installation Issues:**
+
+If installation fails, run the diagnostic tool to collect system information:
+
+```bat
+# Windows
+diagnose.bat
+
+# Linux/WSL
+./diagnose.sh
+```
+
+Attach the generated `diagnostics_*.txt` file to your issue report.
 
 ## Credits & Acknowledgements
 
