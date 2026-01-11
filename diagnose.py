@@ -20,9 +20,17 @@ from pathlib import Path
 def run_command(cmd, shell=False):
     """Run command and return stdout, stderr, and return code."""
     try:
+        # On Windows, shell=True is needed for .cmd/.bat files (like npm)
+        # Use shell=True by default on Windows for compatibility
+        use_shell = shell or platform.system() == "Windows"
+
+        # Convert list to string for shell=True on Windows
+        if use_shell and isinstance(cmd, list):
+            cmd = " ".join(str(c) for c in cmd)
+
         result = subprocess.run(
             cmd,
-            shell=shell,
+            shell=use_shell,
             capture_output=True,
             text=True,
             timeout=10
