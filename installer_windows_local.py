@@ -398,6 +398,35 @@ class LocalWindowsInstaller:
         return True
 
     # =============== NEW FRONTEND METHODS ===============
+    def get_npm_executable(self):
+        """Find npm executable, handling Windows .cmd files and custom install locations."""
+        is_win = platform.system() == "Windows"
+
+        # 1. Try the easy way
+        npm_path = shutil.which("npm")
+        if npm_path:
+            return npm_path
+
+        # 2. If on Windows, check the Node neighbor (Fixes the C: vs I: jump)
+        if is_win:
+            node_path = shutil.which("node")
+            if node_path:
+                node_dir = os.path.dirname(node_path)
+                npm_cmd = os.path.join(node_dir, "npm.cmd")
+                if os.path.exists(npm_cmd):
+                    return npm_cmd
+
+            # 3. Check the "Gamer" custom install spots
+            common_spots = [
+                os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"), "nodejs\\npm.cmd"),
+                os.path.expandvars("%APPDATA%\\npm\\npm.cmd")
+            ]
+            for spot in common_spots:
+                if os.path.exists(spot):
+                    return spot
+
+        return "npm"  # Fallback to string and pray
+
     def install_frontend_deps(self):
         """Install frontend dependencies if node_modules is missing."""
         frontend_dir = os.path.join(self.project_root, "frontend")
@@ -405,9 +434,10 @@ class LocalWindowsInstaller:
             self.logger.info("Frontend directory not found. Skipping.")
             return True
 
-        # Check for npm (on Windows it's npm.cmd, so we need to check for both)
-        npm_found = shutil.which("npm") or shutil.which("npm.cmd")
-        if not npm_found:
+        # Find npm executable (handles Windows .cmd and custom install locations)
+        npm_exe = self.get_npm_executable()
+        if npm_exe == "npm" and not shutil.which("npm"):
+            # Fallback failed - npm truly not found
             self.logger.warning("npm not found. Is Node.js installed?")
             print(" ⚠️  npm not found! Please install Node.js 18+ from https://nodejs.org/")
             return False
@@ -416,7 +446,7 @@ class LocalWindowsInstaller:
         if not os.path.exists(node_modules):
             self.logger.info("Installing frontend dependencies...")
             print(" 📦 Installing frontend (Next.js) dependencies...")
-            success = self.run_command(["npm", "install"], "Installing npm packages", cwd=frontend_dir)
+            success = self.run_command([npm_exe, "install"], "Installing npm packages", cwd=frontend_dir)
             return success
         else:
             self.logger.info("Frontend dependencies already installed.")
@@ -430,11 +460,14 @@ class LocalWindowsInstaller:
             self.logger.info("Frontend directory not found. Skipping build.")
             return True
 
+        # Find npm executable
+        npm_exe = self.get_npm_executable()
+
         build_dir = os.path.join(frontend_dir, ".next")
         if not os.path.exists(build_dir):
             self.logger.info("Building Next.js production frontend...")
             print(" 🏗️  Building Next.js production frontend...")
-            success = self.run_command(["npm", "run", "build"], "Building Next.js app", cwd=frontend_dir)
+            success = self.run_command([npm_exe, "run", "build"], "Building Next.js app", cwd=frontend_dir)
             if not success:
                 self.logger.warning("Frontend build failed.")
                 print(" ⚠️  Frontend build failed. Backend will still work.")
