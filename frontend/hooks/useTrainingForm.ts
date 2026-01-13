@@ -6,7 +6,7 @@
 
 import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTrainingStore } from '@/store/trainingStore';
 import { TrainingConfigSchema } from '@/lib/validation';
 import type { TrainingConfig } from '@/lib/api';
@@ -15,14 +15,38 @@ export function useTrainingForm(options: any = {}) {
   const zustandConfig = useTrainingStore((state) => state.config);
   const updateZustandStore = useTrainingStore((state) => state.updateConfig);
   const loadZustandConfig = useTrainingStore((state) => state.loadConfig);
+  const hasHydrated = useTrainingStore((state) => state.hasHydrated);
+  const setHasHydrated = useTrainingStore((state) => state.setHasHydrated);
 
   const form = useForm<TrainingConfig>({
     resolver: zodResolver(TrainingConfigSchema) as any,
-    // ✅ Use values ONLY for initialization.
-    // We do NOT use a useEffect to reset the form anymore.
     defaultValues: zustandConfig,
-    shouldUnregister: false, // ✅ Keeps data alive when you switch tabs
+    shouldUnregister: false,
   });
+
+  const hasInitializedFromStorage = useRef(false);
+
+  // Hydrate form from localStorage ONCE on client
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (!hasInitializedFromStorage.current) {
+      const stored = localStorage.getItem('training-config');
+      if (stored) {
+        try {
+          const { state } = JSON.parse(stored);
+          if (state?.config) {
+            form.reset(state.config, { keepDefaultValues: false });
+            console.log('✅ Hydrated form from localStorage:', state.config.project_name);
+          }
+        } catch (e) {
+          console.error('Failed to hydrate from localStorage:', e);
+        }
+      }
+      hasInitializedFromStorage.current = true;
+      setHasHydrated(true);
+    }
+  }, [form, setHasHydrated]);
 
   // ✅ INTENTIONAL SYNC: Call this to push current form data to Zustand
   const syncToStore = useCallback(() => {

@@ -138,9 +138,6 @@ export const useTrainingStore = create<TrainingStore>()(
       isDirty: false,
       hasHydrated: false,
       setHasHydrated: (state) => set({ hasHydrated: state }),
-      onRehydrateStorage: () => (state) => {
-    state?.setHasHydrated(true);
-  },
 
       updateConfig: (updates) => {
         set((state) => ({
@@ -194,10 +191,11 @@ export const useTrainingStore = create<TrainingStore>()(
         };
       }),
 
-      // ✅ FIX 2: Skip hydration on server
-      skipHydration: true,
-
-      partialize: (state) => ({ config: state.config }),
+      // Partial state - only persist config, not UI state
+      partialize: (state) => ({
+        config: state.config,
+        isDirty: state.isDirty
+      }),
     }
   )
 );
