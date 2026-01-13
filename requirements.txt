@@ -40,7 +40,7 @@ toml>=0.10.2
 tqdm>=4.66.4
 rich>=13.0,<15.0
 ftfy>=6.2.0
-requests>=2.28.0
+requests>=2.32.0  # CVE fixes: alerts #57, #65 (verify=False persist, .netrc leak)
 psutil
 tomlkit
 pyyaml
@@ -64,7 +64,7 @@ opencv-python==4.10.0.84
 imageio>=2.34.1
 imageio-ffmpeg>=0.5.1
 pyarrow>=16.1.0
-Jinja2>=3.1.4
+Jinja2>=3.1.6  # CVE fixes: alerts #60, #61, #63 (sandbox breakouts)
 imagesize>=1.4.1
 setuptools>=78.1.1
 
