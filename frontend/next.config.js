@@ -9,7 +9,7 @@ const nextConfig = {
   },
 
   // 🚀 PERFORMANCE: Production optimizations
-  output: 'standalone', // Reduces deployment size by 80%+
+  // Note: 'standalone' mode conflicts with custom server.js (needed for WebSocket proxying)
   compress: true,       // Enable gzip compression
   productionBrowserSourceMaps: false, // Disable source maps in production (saves ~40% size)
 
