@@ -40,7 +40,7 @@ toml>=0.10.2
 tqdm>=4.66.4
 rich>=13.0,<15.0
 ftfy>=6.2.0
-requests>=2.32.0  # CVE fixes: alerts #57, #65 (verify=False persist, .netrc leak)
+requests>=2.32.4  # CVE fixes: alerts #57, #65 (verify=False persist, .netrc leak)
 psutil
 tomlkit
 pyyaml
