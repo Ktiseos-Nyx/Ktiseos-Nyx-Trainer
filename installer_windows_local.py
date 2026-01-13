@@ -2,7 +2,7 @@
 """
 Ktiseos-Nyx-Trainer - Local Windows Dependency Installer
 Installs training dependencies for local Windows users.
-No GPU auto-install. User must manually install PyTorch with CUDA 11.8.
+No GPU auto-install. User must manually install PyTorch with CUDA 12.1.
 
 ✅ NOW INCLUDES FRONTEND PROVISIONING:
    - Installs npm dependencies if node_modules/ missing
@@ -14,6 +14,7 @@ import argparse
 import datetime
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -26,7 +27,7 @@ if sys.platform == "win32":
         subprocess.check_call([sys.executable, "-m", "pip", "install", "colorama"])
         import colorama
 
-        colorama.init(autoreset=True)
+    colorama.init(autoreset=True)
 
 
 class LocalWindowsInstaller:
@@ -208,14 +209,17 @@ class LocalWindowsInstaller:
 
         if not os.path.exists(src_dir):
             self.logger.warning("bitsandbytes_windows source directory not found. Skipping DLL copy.")
+            print("   ⚠️  Note: If using bitsandbytes, install from community Windows build:")
+            print("      pip install bitsandbytes --index-url https://jllllll.github.io/bitsandbytes-windows-webui")
             return False
 
         os.makedirs(dest_dir, exist_ok=True)
 
-        # Kohya's hardcoded (or patched) loader expects cuda118.dll
+        # Try CUDA 12.1 first (modern), fallback to CUDA 11.8 (legacy)
         dlls_to_copy = [
             "libbitsandbytes_cpu.dll",
-            "libbitsandbytes_cuda118.dll",  # PRIMARY for PyTorch 2.x on Windows
+            "libbitsandbytes_cuda121.dll",  # PRIMARY for PyTorch 2.x + CUDA 12.1
+            "libbitsandbytes_cuda118.dll",  # FALLBACK for older setups
         ]
 
         copied = []
@@ -227,13 +231,15 @@ class LocalWindowsInstaller:
                 copied.append(dll)
                 self.logger.info("Copied %s to %s", dll, dest_dir)
             else:
-                self.logger.warning("DLL not found: %s", src)
+                self.logger.debug("DLL not found (optional): %s", src)
 
         if copied:
             print(f"   ✅ Copied {len(copied)} bitsandbytes DLLs for Kohya")
             self.logger.info("bitsandbytes DLLs ready for Kohya's loader")
         else:
-            self.logger.warning("No bitsandbytes DLLs copied — GPU training will fail")
+            self.logger.warning("No bitsandbytes DLLs found in vendored folder")
+            print("   ℹ️  To use 8-bit optimizers (AdamW8bit), install community Windows bitsandbytes:")
+            print("      pip install bitsandbytes --index-url https://jllllll.github.io/bitsandbytes-windows-webui")
 
         return True
 
@@ -309,7 +315,7 @@ class LocalWindowsInstaller:
                 "",
                 "RECOMMENDED: Install Python from python.org instead:",
                 "  1. Visit https://www.python.org/downloads/",
-                "  2. Download Python 3.10 or 3.11 (NOT 3.12+)",
+                "  2. Download Python 3.10, 3.11, or 3.12",
                 "  3. During installation, check 'Add Python to PATH'",
                 "  4. Uninstall Microsoft Store Python from Settings > Apps",
                 "",
@@ -353,11 +359,11 @@ class LocalWindowsInstaller:
                     "  1. Uninstall current PyTorch:",
                     "     python -m pip uninstall torch torchvision torchaudio",
                     "",
-                    "  2. Install PyTorch with CUDA 11.8:",
-                    "     python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118",
+                    "  2. Install PyTorch with CUDA 12.1 (RECOMMENDED):",
+                    "     python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121",
                     "",
                     "  3. Or visit: https://pytorch.org/get-started/locally/",
-                    "     Select: Windows, pip, CUDA 11.8",
+                    "     Select: Windows, pip, CUDA 12.1 or 12.4",
                     "",
                     "The installer will continue, but you won't be able to train LoRAs",
                     "without proper GPU-enabled PyTorch.",
@@ -385,11 +391,11 @@ class LocalWindowsInstaller:
                 "!" * 70,
                 "PyTorch is REQUIRED for LoRA training.",
                 "",
-                "Install PyTorch with CUDA 11.8 support:",
-                "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118",
+                "Install PyTorch with CUDA 12.1 support (RECOMMENDED):",
+                "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121",
                 "",
                 "Or visit: https://pytorch.org/get-started/locally/",
-                "Select: Windows, pip, CUDA 11.8",
+                "Select: Windows, pip, CUDA 12.1 or 12.4",
                 "!" * 70 + "\n",
             ]
             for line in warning_lines:
@@ -594,9 +600,10 @@ class LocalWindowsInstaller:
                 "   3. Access the UI at http://localhost:3000",
                 "",
                 "💡 Troubleshooting:",
-                "   - CUDA errors? Reinstall PyTorch with CUDA 11.8",
+                "   - CUDA errors? Reinstall PyTorch with CUDA 12.1 (cu121)",
                 "   - Import errors? Try python.org Python instead of MS Store",
                 "   - Multiple Pythons? Check which one is first in PATH",
+                "   - Need 8-bit optimizers? Install community bitsandbytes-windows",
                 "=" * 70,
             ]
             for line in completion_lines:

@@ -272,37 +272,33 @@ class RemoteInstaller:
         return success
 
     def fix_onnx_runtime(self):
-        """Force install correct CUDA 12 ONNX runtime to prevent version conflicts"""
-        self.logger.info("Ensuring correct CUDA 12 ONNX runtime installation...")
-        print("Ensuring correct CUDA 12 ONNX runtime installation...")
+        """
+        Verify ONNX runtime is installed correctly.
 
-        # Uninstall any existing onnxruntime packages to prevent conflicts
-        uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "onnxruntime", "onnxruntime-gpu"]
-        self.run_command(uninstall_cmd, "Removing existing ONNX runtime packages")
+        Since requirements.txt now handles installation with --extra-index-url,
+        this method just verifies it worked.
+        """
+        self.logger.info("Verifying ONNX runtime installation...")
+        print("Verifying ONNX runtime installation...")
 
-        # Install correct CUDA 12 version
-        onnx_cmd = [self.python_cmd, "-m", "pip", "install", "onnx==1.16.1", "protobuf<4"]
-
-        cuda12_cmd = [
+        # Verify onnxruntime can be imported
+        verify_cmd = [
             self.python_cmd,
-            "-m",
-            "pip",
-            "install",
-            "--extra-index-url",
-            "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/",
-            "onnxruntime-gpu==1.17.1",
+            "-c",
+            "import onnxruntime as ort; print(f'ONNX Runtime {ort.__version__} - Providers: {ort.get_available_providers()}')"
         ]
 
-        success = self.run_command(onnx_cmd, "Installing ONNX and protobuf")
-        if success:
-            success = self.run_command(cuda12_cmd, "Installing ONNX Runtime GPU with CUDA 12 support")
+        success = self.run_command(verify_cmd, "Verifying ONNX runtime import")
 
         if success:
-            self.logger.info("ONNX runtime CUDA 12 installation completed successfully")
-            print("ONNX runtime CUDA 12 installation completed successfully")
+            self.logger.info("✅ ONNX runtime verification successful")
+            print("✅ ONNX runtime verification successful")
         else:
-            self.logger.warning("ONNX runtime installation encountered issues - will fallback to CPU")
-            print("ONNX runtime installation encountered issues - will fallback to CPU")
+            error_msg = "❌ ONNX runtime verification failed - WD14 tagging may not work"
+            self.logger.error(error_msg)
+            print(error_msg)
+            print("   If tagging fails, manually install: pip install onnxruntime-gpu==1.17.1")
+            print("   With index: --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/")
 
     def check_system_dependencies(self):
         """Check and attempt to install required system packages like aria2c"""
@@ -398,9 +394,6 @@ class RemoteInstaller:
 
         # --- Platform-Specific Fixes ---
 
-        # --- Linux bitsandbytes binaries fix ---
-        self.ensure_linux_bitsandbytes_binaries()
-
         # --- PyTorch version file fix ---
         self.logger.info("Checking if PyTorch version patch is needed...")
         print("   - Checking if PyTorch version patch is needed...")
@@ -431,60 +424,6 @@ class RemoteInstaller:
 
         return True
 
-    def ensure_linux_bitsandbytes_binaries(self):
-        """Ensure Linux has CUDA 12.1 .so files for bitsandbytes"""
-        if platform.system() != "Linux":
-            return True
-
-        self.logger.info("Checking Linux bitsandbytes binaries...")
-        print("   - Checking Linux bitsandbytes binaries...")
-
-        bits_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
-        if not os.path.exists(bits_dir):
-            self.logger.warning("bitsandbytes directory not found")
-            return False
-
-        required_files = ["libbitsandbytes_cuda121.so", "libbitsandbytes_cuda121_nocublaslt.so"]
-
-        missing = []
-        for f in required_files:
-            if not os.path.exists(os.path.join(bits_dir, f)):
-                missing.append(f)
-
-        if not missing:
-            self.logger.info("All CUDA 12.1 .so files present")
-            print("      All CUDA 12.1 .so files present")
-            return True
-
-        # Try to download from GitHub Releases
-        self.logger.warning("Missing .so files: %s", missing)
-        print(f"      Missing .so files: {', '.join(missing)}")
-
-        try:
-            import requests
-
-            for bin_file in missing:
-                # Point to your GitHub Releases
-                url = f"https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/releases/download/v0.1.0-bitsandbytes-binaries/{bin_file}"
-                self.logger.info("Downloading %s from %s", bin_file, url)
-                print(f"    Downloading {bin_file}...")
-
-                resp = requests.get(url, timeout=30)
-                if resp.status_code == 200:
-                    with open(os.path.join(bits_dir, bin_file), "wb") as f:
-                        f.write(resp.content)
-                    self.logger.info("Downloaded %s", bin_file)
-                    print(f"     Downloaded {bin_file}")
-                else:
-                    self.logger.error("Failed to download %s: %s", bin_file, resp.status_code)
-                    print(f"      Failed to download {bin_file}")
-
-            return True
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            self.logger.error("Download failed: %s", e)
-            print(f"     Download failed: {e}")
-            print("     Please manually add CUDA 12.1 .so files to bitsandbytes/")
-            return False
 
     def fix_cuda_symlinks(self):
         """Auto-fix ONNX CUDA library symlink issues"""

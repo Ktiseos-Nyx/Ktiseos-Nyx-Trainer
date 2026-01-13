@@ -195,6 +195,62 @@ class KohyaTrainer(BaseTrainer):
 
         logger.info(f"Environment prepared for {self.config.model_type} training")
 
+    async def generate_config_files(self) -> Dict[str, Path]:
+        """
+        Generate Kohya TOML configuration files.
+
+        Returns:
+            Dict mapping config names to their file paths
+        """
+        # Generate runtime TOMLs
+        dataset_toml_runtime = self.config_dir / f"{self.config.project_name}_dataset.toml"
+        self.toml_generator.generate_dataset_toml(dataset_toml_runtime)
+
+        config_toml_runtime = self.config_dir / f"{self.config.project_name}_config.toml"
+        self.toml_generator.generate_config_toml(config_toml_runtime)
+
+        # Copy to user config folder
+        user_config_dir = Path("config")
+        user_config_dir.mkdir(exist_ok=True)
+
+        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
+        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
+
+        shutil.copy(dataset_toml_runtime, dataset_toml_user)
+        shutil.copy(config_toml_runtime, config_toml_user)
+
+        return {
+            "dataset_config": dataset_toml_user,
+            "training_config": config_toml_user
+        }
+
+    def build_command(self) -> List[str]:
+        """
+        Build the Kohya training command.
+
+        Returns:
+            Command as list of strings
+        """
+        # Get config file paths (they should exist from generate_config_files)
+        user_config_dir = Path("config")
+        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
+        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
+
+        cmd = [
+            sys.executable,
+            str(self.get_script_path()),
+            "--config_file",
+            str(config_toml_user.resolve()),
+            "--dataset_config",
+            str(dataset_toml_user.resolve()),
+            "--output_dir",
+            str(Path(self.config.output_dir).resolve()),
+            "--output_name",
+            self.config.project_name,
+        ]
+
+        return cmd
+
     def get_script_path(self) -> Path:
         """
         Get the appropriate training script for the model type and training mode.

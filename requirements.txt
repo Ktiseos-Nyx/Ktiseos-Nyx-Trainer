@@ -74,11 +74,12 @@ watchdog>=4.0.0
 tensorboard
 
 # ONNX / Tagger Dependencies
-# NOTE: ONNX runtime CUDA 12 is installed via installer.py fix_onnx_runtime() method
-# This ensures correct version with proper index URL handling
+# Use Microsoft's CUDA 12 package index for proper GPU support
+# NOTE: --extra-index-url must be on separate line before the package
+--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 onnx>=1.16.1
-# onnxruntime-gpu is handled by installer.py - do not install here
-# protobuf<4 is installed by installer.py along with onnxruntime-gpu
+onnxruntime-gpu==1.17.1
+protobuf>=3.20.0,<4  # Pin to latest 3.x for ONNX 1.16 compatibility (CVE-2025-4565: low risk, trusted sources only)
 
 # -- Essential Commented Dependencies (Now Active) --
 timm==0.6.12 # Required for BLIP captioning
