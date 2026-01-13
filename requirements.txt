@@ -5,12 +5,12 @@
 # Core FastAPI and Web Server
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
-python-multipart>=0.0.9
+python-multipart>=0.0.18  # CVE fix: DoS via malformed multipart/form-data
 aiofiles>=23.2.1
 websockets>=12.0
 pydantic>=2.6.0
 pydantic-settings>=2.2.0
-aiohttp>=3.9.0
+aiohttp>=3.13.3  # CVE fixes: directory traversal, DoS, zip bomb (alerts #54, #56, #67)
 starlette
 
 # Core Training & ML Dependencies
@@ -40,7 +40,7 @@ toml>=0.10.2
 tqdm>=4.66.4
 rich>=13.0,<15.0
 ftfy>=6.2.0
-requests>=2.28.0
+requests>=2.32.0  # CVE fixes: alerts #57, #65 (verify=False persist, .netrc leak)
 psutil
 tomlkit
 pyyaml
@@ -64,7 +64,7 @@ opencv-python==4.10.0.84
 imageio>=2.34.1
 imageio-ffmpeg>=0.5.1
 pyarrow>=16.1.0
-Jinja2>=3.1.4
+Jinja2>=3.1.6  # CVE fixes: alerts #60, #61, #63 (sandbox breakouts)
 imagesize>=1.4.1
 setuptools>=78.1.1
 
@@ -77,9 +77,9 @@ tensorboard
 # Use Microsoft's CUDA 12 package index for proper GPU support
 # NOTE: --extra-index-url must be on separate line before the package
 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
-onnx>=1.16.1
+onnx>=1.16.1  # Alerts #62, #64: Can't upgrade to 1.17.0 (needs protobuf 4.x, breaks transformers/diffusers). Low risk: trusted HF models only.
 onnxruntime-gpu==1.17.1
-protobuf>=3.20.0,<4  # Pin to latest 3.x for ONNX 1.16 compatibility (CVE-2025-4565: low risk, trusted sources only)
+protobuf>=3.20.2,<4  # CVE fixes: alerts #50, #51. Can't use 4.x (breaks ONNX 1.16/transformers/diffusers).
 
 # -- Essential Commented Dependencies (Now Active) --
 timm==0.6.12 # Required for BLIP captioning
