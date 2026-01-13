@@ -20,7 +20,9 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // Environment setup
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = process.env.HOSTNAME || '0.0.0.0';
+// In production (Docker/VastAI), always bind to 0.0.0.0 for container networking
+// In dev, use localhost. Don't use HOSTNAME env var (Docker sets it to container ID)
+const hostname = dev ? 'localhost' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 

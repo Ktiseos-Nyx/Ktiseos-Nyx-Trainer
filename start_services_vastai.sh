@@ -89,7 +89,7 @@ if [ -d "frontend" ]; then
 
         # Use production start mode, not development (only if build succeeded)
         if [ -d ".next" ]; then
-            HOSTNAME=0.0.0.0 PORT=3000 npm run start &
+            NODE_ENV=production npm run start &
             FRONTEND_PID=$!
             echo "   Frontend PID: $FRONTEND_PID"
             cd ..
