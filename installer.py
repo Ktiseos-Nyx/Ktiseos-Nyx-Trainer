@@ -394,9 +394,6 @@ class RemoteInstaller:
 
         # --- Platform-Specific Fixes ---
 
-        # --- Linux bitsandbytes binaries fix ---
-        self.ensure_linux_bitsandbytes_binaries()
-
         # --- PyTorch version file fix ---
         self.logger.info("Checking if PyTorch version patch is needed...")
         print("   - Checking if PyTorch version patch is needed...")
@@ -427,60 +424,6 @@ class RemoteInstaller:
 
         return True
 
-    def ensure_linux_bitsandbytes_binaries(self):
-        """Ensure Linux has CUDA 12.1 .so files for bitsandbytes"""
-        if platform.system() != "Linux":
-            return True
-
-        self.logger.info("Checking Linux bitsandbytes binaries...")
-        print("   - Checking Linux bitsandbytes binaries...")
-
-        bits_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
-        if not os.path.exists(bits_dir):
-            self.logger.warning("bitsandbytes directory not found")
-            return False
-
-        required_files = ["libbitsandbytes_cuda121.so", "libbitsandbytes_cuda121_nocublaslt.so"]
-
-        missing = []
-        for f in required_files:
-            if not os.path.exists(os.path.join(bits_dir, f)):
-                missing.append(f)
-
-        if not missing:
-            self.logger.info("All CUDA 12.1 .so files present")
-            print("      All CUDA 12.1 .so files present")
-            return True
-
-        # Try to download from GitHub Releases
-        self.logger.warning("Missing .so files: %s", missing)
-        print(f"      Missing .so files: {', '.join(missing)}")
-
-        try:
-            import requests
-
-            for bin_file in missing:
-                # Point to your GitHub Releases
-                url = f"https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/releases/download/v0.1.0-bitsandbytes-binaries/{bin_file}"
-                self.logger.info("Downloading %s from %s", bin_file, url)
-                print(f"    Downloading {bin_file}...")
-
-                resp = requests.get(url, timeout=30)
-                if resp.status_code == 200:
-                    with open(os.path.join(bits_dir, bin_file), "wb") as f:
-                        f.write(resp.content)
-                    self.logger.info("Downloaded %s", bin_file)
-                    print(f"     Downloaded {bin_file}")
-                else:
-                    self.logger.error("Failed to download %s: %s", bin_file, resp.status_code)
-                    print(f"      Failed to download {bin_file}")
-
-            return True
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            self.logger.error("Download failed: %s", e)
-            print(f"     Download failed: {e}")
-            print("     Please manually add CUDA 12.1 .so files to bitsandbytes/")
-            return False
 
     def fix_cuda_symlinks(self):
         """Auto-fix ONNX CUDA library symlink issues"""
