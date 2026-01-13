@@ -45,24 +45,24 @@ if not defined USE_VENV (
     echo.
     echo Virtual Environment Recommendation:
     echo ======================================================================
-    echo A virtual environment (venv) isolates this project's packages from
+    echo A virtual environment ^(venv^) isolates this project's packages from
     echo other Python projects on your system. This prevents version conflicts
     echo and makes troubleshooting much easier.
     echo.
     echo Benefits:
     echo   - No conflicts with other Python projects
-    echo   - Easy to delete if you want to start fresh (just delete '.venv' folder^)
+    echo   - Easy to delete if you want to start fresh ^(just delete '.venv' folder^)
     echo   - Industry best practice for Python development
     echo.
     echo The venv will be created in: %CD%\%VENV_DIR%
     echo ======================================================================
     echo.
-    choice /C YN /M "Create a virtual environment? (Recommended: Y)"
+    choice /C YN /M "Create a virtual environment? ^(Recommended: Y^)"
     if errorlevel 2 (
         set USE_VENV=0
         echo.
         echo Proceeding WITHOUT virtual environment...
-        echo (You can always re-run with --venv flag later^)
+        echo ^(You can always re-run with --venv flag later^)
         echo.
     ) else (
         set USE_VENV=1
@@ -76,11 +76,22 @@ REM Create venv if requested
 if "%USE_VENV%"=="1" (
     if not exist "%VENV_DIR%\Scripts\activate.bat" (
         echo Creating virtual environment in '%VENV_DIR%'...
-        py -3 -m venv "%VENV_DIR%"
+
+        REM Check if py launcher exists, otherwise use python command
+        where py >nul 2>&1
+        if errorlevel 1 (
+            echo py launcher not found, using python command...
+            python -m venv "%VENV_DIR%"
+        ) else (
+            py -3 -m venv "%VENV_DIR%"
+        )
+
+        REM Check if venv creation succeeded
         if errorlevel 1 (
             echo.
             echo ERROR: Failed to create virtual environment.
             echo Make sure Python 3.10+ is installed from python.org
+            echo and added to PATH during installation.
             pause
             exit /b 1
         )
@@ -108,8 +119,14 @@ if "%USE_VENV%"=="1" (
     echo Checking Python installation...
     echo.
 
-    REM Use py.exe launcher to find latest Python 3.x
-    py -3 installer_windows_local.py %*
+    REM Check if py launcher exists, otherwise use python command
+    where py >nul 2>&1
+    if errorlevel 1 (
+        echo py launcher not found, using python command...
+        python installer_windows_local.py %*
+    ) else (
+        py -3 installer_windows_local.py %*
+    )
 )
 
 REM Check the exit code from the Python script
