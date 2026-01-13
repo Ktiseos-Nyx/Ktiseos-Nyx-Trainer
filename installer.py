@@ -272,37 +272,33 @@ class RemoteInstaller:
         return success
 
     def fix_onnx_runtime(self):
-        """Force install correct CUDA 12 ONNX runtime to prevent version conflicts"""
-        self.logger.info("Ensuring correct CUDA 12 ONNX runtime installation...")
-        print("Ensuring correct CUDA 12 ONNX runtime installation...")
+        """
+        Verify ONNX runtime is installed correctly.
 
-        # Uninstall any existing onnxruntime packages to prevent conflicts
-        uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "onnxruntime", "onnxruntime-gpu"]
-        self.run_command(uninstall_cmd, "Removing existing ONNX runtime packages")
+        Since requirements.txt now handles installation with --extra-index-url,
+        this method just verifies it worked.
+        """
+        self.logger.info("Verifying ONNX runtime installation...")
+        print("Verifying ONNX runtime installation...")
 
-        # Install correct CUDA 12 version
-        onnx_cmd = [self.python_cmd, "-m", "pip", "install", "onnx==1.16.1", "protobuf<4"]
-
-        cuda12_cmd = [
+        # Verify onnxruntime can be imported
+        verify_cmd = [
             self.python_cmd,
-            "-m",
-            "pip",
-            "install",
-            "--extra-index-url",
-            "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/",
-            "onnxruntime-gpu==1.17.1",
+            "-c",
+            "import onnxruntime as ort; print(f'ONNX Runtime {ort.__version__} - Providers: {ort.get_available_providers()}')"
         ]
 
-        success = self.run_command(onnx_cmd, "Installing ONNX and protobuf")
-        if success:
-            success = self.run_command(cuda12_cmd, "Installing ONNX Runtime GPU with CUDA 12 support")
+        success = self.run_command(verify_cmd, "Verifying ONNX runtime import")
 
         if success:
-            self.logger.info("ONNX runtime CUDA 12 installation completed successfully")
-            print("ONNX runtime CUDA 12 installation completed successfully")
+            self.logger.info("✅ ONNX runtime verification successful")
+            print("✅ ONNX runtime verification successful")
         else:
-            self.logger.warning("ONNX runtime installation encountered issues - will fallback to CPU")
-            print("ONNX runtime installation encountered issues - will fallback to CPU")
+            error_msg = "❌ ONNX runtime verification failed - WD14 tagging may not work"
+            self.logger.error(error_msg)
+            print(error_msg)
+            print("   If tagging fails, manually install: pip install onnxruntime-gpu==1.17.1")
+            print("   With index: --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/")
 
     def check_system_dependencies(self):
         """Check and attempt to install required system packages like aria2c"""
