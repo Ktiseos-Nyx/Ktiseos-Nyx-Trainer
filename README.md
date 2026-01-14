@@ -121,10 +121,7 @@ install.bat             # Windows
 - Forces re-download of all dependencies
 - May cause version conflicts with cached packages
 
-If you must start fresh, use `git clean` instead:
-```bash
-git clean -fdx  # Remove all untracked files (WARNING: irreversible)
-```
+**Having issues?** Just re-run the installer - it's safe to run multiple times and will preserve your datasets/models.
 
 ## What It Does
 
