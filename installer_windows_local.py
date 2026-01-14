@@ -344,73 +344,73 @@ class LocalWindowsInstaller:
                 print("\nInstallation cancelled by user.")
                 sys.exit(0)
 
-    def ensure_pytorch_installed(self):
-        """Do NOT install PyTorch. Just verify or warn."""
+    def install_pytorch(self):
+        """
+        Install PyTorch with CUDA 12.1 support for Windows.
+        This is LOCAL INSTALLER ONLY - VastAI has PyTorch pre-installed.
+        """
         try:
             import torch  # pyright: ignore
 
-            self.logger.info(" PyTorch already installed: %s", torch.__version__)
+            # PyTorch is already installed - check if it has CUDA
+            self.logger.info("PyTorch already installed: %s", torch.__version__)
             if torch.cuda.is_available():
-                self.logger.info(" CUDA available: %s", torch.version.cuda)
-                print(f"\n✅ PyTorch {torch.__version__} + CUDA {torch.version.cuda} detected")
-                print("   GPU training will be available.\n")
+                cuda_version = torch.version.cuda
+                self.logger.info("CUDA available: %s", cuda_version)
+                print(f"\n✅ PyTorch {torch.__version__} + CUDA {cuda_version} detected")
+                print("   GPU training is ready.\n")
+                return True
             else:
-                # CPU-only PyTorch - this is a CRITICAL issue for training
-                warning_lines = [
-                    "\n" + "!" * 70,
-                    "🚨 CRITICAL: CPU-only PyTorch detected!",
-                    "!" * 70,
-                    f"Current version: PyTorch {torch.__version__} (CPU-only)",
-                    "",
-                    "⚠️  GPU TRAINING WILL NOT WORK with CPU-only PyTorch!",
-                    "",
-                    "You MUST install PyTorch with CUDA support for GPU training:",
-                    "  1. Uninstall current PyTorch:",
-                    "     python -m pip uninstall torch torchvision torchaudio",
-                    "",
-                    "  2. Install PyTorch with CUDA 12.1 (RECOMMENDED):",
-                    "     python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121",
-                    "",
-                    "  3. Or visit: https://pytorch.org/get-started/locally/",
-                    "     Select: Windows, pip, CUDA 12.1 or 12.4",
-                    "",
-                    "The installer will continue, but you won't be able to train LoRAs",
-                    "without proper GPU-enabled PyTorch.",
-                    "!" * 70 + "\n",
-                ]
-                for line in warning_lines:
-                    print(line)
-                    self.logger.warning(line)
+                # CPU-only PyTorch detected - need to reinstall with CUDA
+                print("\n" + "!" * 70)
+                print("🚨 CPU-only PyTorch detected!")
+                print("!" * 70)
+                print(f"Current: PyTorch {torch.__version__} (CPU-only)")
+                print("\nReinstalling PyTorch with CUDA 12.1 support...")
+                print("!" * 70 + "\n")
 
-                # Give user a chance to cancel and fix PyTorch
-                print("Press Ctrl+C within 15 seconds to cancel and fix PyTorch,")
-                print("or wait to continue with CPU-only installation...")
-                import time
-                try:
-                    time.sleep(15)
-                except KeyboardInterrupt:
-                    print("\nInstallation cancelled. Please install PyTorch with CUDA support.")
-                    sys.exit(0)
+                # Uninstall CPU version
+                uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "torch", "torchvision", "torchaudio"]
+                self.run_command(uninstall_cmd, "Uninstalling CPU-only PyTorch")
 
         except ImportError:
-            self.logger.warning(" PyTorch not found.")
-            warning_lines = [
-                "\n" + "!" * 70,
-                "⚠️  PyTorch not installed!",
-                "!" * 70,
-                "PyTorch is REQUIRED for LoRA training.",
-                "",
-                "Install PyTorch with CUDA 12.1 support (RECOMMENDED):",
-                "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121",
-                "",
-                "Or visit: https://pytorch.org/get-started/locally/",
-                "Select: Windows, pip, CUDA 12.1 or 12.4",
-                "!" * 70 + "\n",
-            ]
-            for line in warning_lines:
-                print(line)
-                self.logger.warning(line)
-        return True
+            # PyTorch not installed - install with CUDA
+            print("\n" + "!" * 70)
+            print("⚠️  PyTorch not found - installing with CUDA 12.1 support")
+            print("!" * 70 + "\n")
+
+        # Install PyTorch with CUDA 12.1
+        pytorch_cmd = [
+            self.python_cmd,
+            "-m",
+            "pip",
+            "install",
+            "torch",
+            "torchvision",
+            "torchaudio",
+            "--index-url",
+            "https://download.pytorch.org/whl/cu121",
+        ]
+
+        success = self.run_command(pytorch_cmd, "Installing PyTorch with CUDA 12.1")
+
+        if success:
+            # Verify installation
+            try:
+                import torch  # pyright: ignore
+                if torch.cuda.is_available():
+                    print(f"\n✅ PyTorch {torch.__version__} + CUDA {torch.version.cuda} installed successfully!")
+                    print("   GPU training is ready.\n")
+                    self.logger.info("PyTorch with CUDA installed successfully")
+                else:
+                    print("\n⚠️  PyTorch installed but CUDA not available. Check your NVIDIA drivers.")
+                    self.logger.warning("PyTorch installed but CUDA not available")
+            except ImportError:
+                print("\n❌ PyTorch installation failed.")
+                self.logger.error("PyTorch installation failed")
+                return False
+
+        return success
 
     # =============== NEW FRONTEND METHODS ===============
     def get_npm_executable(self):
@@ -550,7 +550,6 @@ class LocalWindowsInstaller:
         # Check for Microsoft Store Python and warn
         self.check_microsoft_store_python()
 
-        self.ensure_pytorch_installed()
         start_time = datetime.datetime.now()
         self.logger.info("Installation started")
         try:
@@ -564,6 +563,16 @@ class LocalWindowsInstaller:
                 self.logger.error(error_msg)
                 print(f" {error_msg}")
                 return False
+
+            # CRITICAL: Install PyTorch with CUDA BEFORE requirements.txt
+            # This prevents pip from auto-installing CPU-only PyTorch as a dependency
+            if not self.install_pytorch():
+                error_msg = "PyTorch installation failed. GPU training will not work."
+                self.logger.error(error_msg)
+                print(f"\n⚠️  {error_msg}")
+                print("You can continue, but training will not work without PyTorch + CUDA.\n")
+                # Don't halt - let user decide
+
             if not self.install_dependencies():
                 error_msg = "Halting installation due to dependency installation failure."
                 self.logger.error(error_msg)
