@@ -100,7 +100,16 @@ class LocalWindowsInstaller:
         use_shell = platform.system() == "Windows"
         if use_shell:
             # Convert list to string for shell execution on Windows
-            shell_command = " ".join(str(c) for c in command)
+            # Quote paths with spaces (like "C:\Program Files\nodejs\npm.CMD")
+            quoted_command = []
+            for part in command:
+                part_str = str(part)
+                # Quote if contains spaces and not already quoted
+                if " " in part_str and not (part_str.startswith('"') and part_str.endswith('"')):
+                    quoted_command.append(f'"{part_str}"')
+                else:
+                    quoted_command.append(part_str)
+            shell_command = " ".join(quoted_command)
         else:
             shell_command = command
 
