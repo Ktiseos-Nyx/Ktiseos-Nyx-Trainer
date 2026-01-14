@@ -109,7 +109,7 @@ const defaultConfig: TrainingConfig = {
   lowram: false,
   max_data_loader_n_workers: 8,
   persistent_data_loader_workers: 0,
-  vae_batch_size: 0,
+  vae_batch_size: 1,
   min_timestep: 0,
   max_timestep: 1000,
   ae_path: '',
