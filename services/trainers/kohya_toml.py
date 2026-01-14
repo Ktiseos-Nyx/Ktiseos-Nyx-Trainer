@@ -55,6 +55,34 @@ class KohyaTOMLGenerator:
         dataset["resolution"] = self.config.resolution
         dataset["batch_size"] = self.config.train_batch_size
         dataset["enable_bucket"] = True # Force bucketing enabled
+        dataset["min_bucket_reso"] = self.config.min_bucket_reso
+        dataset["max_bucket_reso"] = self.config.max_bucket_reso
+        if self.config.bucket_reso_steps:
+            dataset["bucket_reso_steps"] = self.config.bucket_reso_steps
+        if self.config.bucket_no_upscale:
+            dataset["bucket_no_upscale"] = True
+
+        # Augmentation settings
+        if self.config.flip_aug:
+            dataset["flip_aug"] = True
+        if self.config.random_crop:
+            dataset["random_crop"] = True
+        if self.config.color_aug:
+            dataset["color_aug"] = True
+
+        # Caption settings
+        if self.config.caption_dropout_rate > 0:
+            dataset["caption_dropout_rate"] = self.config.caption_dropout_rate
+        if self.config.caption_tag_dropout_rate > 0:
+            dataset["caption_tag_dropout_rate"] = self.config.caption_tag_dropout_rate
+        if self.config.caption_dropout_every_n_epochs > 0:
+            dataset["caption_dropout_every_n_epochs"] = self.config.caption_dropout_every_n_epochs
+        if self.config.keep_tokens_separator != "|||":
+            dataset["keep_tokens_separator"] = self.config.keep_tokens_separator
+        if self.config.secondary_separator:
+            dataset["secondary_separator"] = self.config.secondary_separator
+        if self.config.enable_wildcard:
+            dataset["enable_wildcard"] = True
 
         # [[datasets.subsets]] list
         subsets_aot = tomlkit.aot()
