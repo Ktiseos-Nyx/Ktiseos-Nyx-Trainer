@@ -1,0 +1,86 @@
+# Ktiseos-Nyx-Trainer - BASE REQUIREMENTS (Platform-agnostic)
+# Shared dependencies for all platforms (Windows, Linux, VastAI)
+# PyTorch is NOT included - see platform-specific requirements files
+
+# Core FastAPI and Web Server
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.18  # CVE fix: DoS via malformed multipart/form-data
+aiofiles>=23.2.1
+websockets>=12.0
+pydantic>=2.6.0
+pydantic-settings>=2.2.0
+aiohttp>=3.13.3  # CVE fixes: directory traversal, DoS, zip bomb (alerts #54, #56, #67)
+starlette
+
+# Core Training & ML Dependencies
+# torch/torchvision removed - provided by base image (2.4.1/12.1)
+numpy>=1.24.0
+accelerate==0.33.0
+transformers==4.54.1
+safetensors==0.5.3
+diffusers[torch]==0.32.1
+bitsandbytes==0.45.5 # CRITICAL: Verify this version's wheel is CUDA 12.1 compatible
+torch-fidelity==0.3.0
+einops==0.8.1
+pytorch-lightning==1.9.0
+
+# Optimizers & Schedulers
+prodigyopt==1.1.2
+lion-pytorch==0.2.3
+dadaptation==3.2
+pytorch_optimizer==3.1.2
+schedulefree==1.4
+prodigy-plus-schedule-free
+came-pytorch
+
+# General Utilities
+colorama>=0.4.6
+toml>=0.10.2
+tqdm>=4.66.4
+rich>=13.0,<15.0
+ftfy>=6.2.0
+requests>=2.32.4  # CVE fixes: alerts #57, #65 (verify=False persist, .netrc leak)
+psutil
+tomlkit
+pyyaml
+pandas
+scipy
+omegaconf
+huggingface-hub>=0.34.3
+voluptuous>=0.15.2
+sentencepiece>=0.2.1
+wheel
+coverage==7.8.0
+parameterized==0.9.0
+hpsv2==1.2.0
+narwhals==1.34.1
+matplotlib==3.10.1
+
+
+# Image/Data Handling
+Pillow>=10.3.0
+opencv-python==4.10.0.84
+imageio>=2.34.1
+imageio-ffmpeg>=0.5.1
+pyarrow>=16.1.0
+Jinja2>=3.1.6  # CVE fixes: alerts #60, #61, #63 (sandbox breakouts)
+imagesize>=1.4.1
+setuptools>=78.1.1
+
+# Monitoring & Logging
+wandb>=0.17.0
+watchdog>=4.0.0
+tensorboard
+
+# ONNX / Tagger Dependencies
+# Use Microsoft's CUDA 12 package index for proper GPU support
+# NOTE: --extra-index-url must be on separate line before the package
+--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+onnx>=1.16.1  # Alerts #62, #64: Can't upgrade to 1.17.0 (needs protobuf 4.x, breaks transformers/diffusers). Low risk: trusted HF models only.
+onnxruntime-gpu==1.17.1
+protobuf>=3.20.2,<4  # CVE fixes: alerts #50, #51. Can't use 4.x (breaks ONNX 1.16/transformers/diffusers).
+
+# -- Essential Commented Dependencies (Now Active) --
+timm==0.6.12 # Required for BLIP captioning
+fairscale==0.4.13 # Required for BLIP captioning

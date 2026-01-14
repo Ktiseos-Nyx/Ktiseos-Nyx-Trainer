@@ -1,0 +1,10 @@
+# Ktiseos-Nyx-Trainer - VASTAI REQUIREMENTS
+# For VastAI deployments using vastai/pytorch:2.4.1-cuda-12.1.1-py312-22.04 base image
+# PyTorch is PRE-INSTALLED in the base image - DO NOT REINSTALL
+
+# Install with:
+#   pip install -r requirements_vastai.txt
+
+# ========== BASE DEPENDENCIES ONLY ==========
+# PyTorch intentionally excluded - provided by VastAI base image
+-r requirements_base.txt

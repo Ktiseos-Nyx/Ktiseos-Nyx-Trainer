@@ -253,15 +253,21 @@ class RemoteInstaller:
             self.logger.info("Skipping dependency installation due to --skip-install flag")
             return True
 
-        requirements_file = os.path.join(self.project_root, "requirements.txt")
+        # Use VastAI/Remote-specific requirements file (NO PyTorch - pre-installed in base image)
+        requirements_file = os.path.join(self.project_root, "requirements_vastai.txt")
         if not os.path.exists(requirements_file):
-            error_msg = "CRITICAL: requirements.txt not found!"
-            self.logger.error(error_msg)
-            print(error_msg)
-            return False
+            # Fallback to old requirements.txt for backwards compatibility
+            requirements_file = os.path.join(self.project_root, "requirements.txt")
+            if not os.path.exists(requirements_file):
+                error_msg = f"CRITICAL: No requirements file found!"
+                self.logger.error(error_msg)
+                print(error_msg)
+                return False
+            self.logger.warning("requirements_vastai.txt not found, falling back to requirements.txt")
 
-        self.logger.info("Installing dependencies from: %s", requirements_file)
+        self.logger.info("Installing remote/VastAI dependencies from: %s", requirements_file)
 
+        # DO NOT add PyTorch index - VastAI has it pre-installed
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
 

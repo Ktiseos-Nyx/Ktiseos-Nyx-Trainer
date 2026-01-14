@@ -257,14 +257,21 @@ class LocalWindowsInstaller:
             print(" Skipping dependency installation (--skip-install flag)")
             self.logger.info("Skipping dependency installation due to --skip-install flag")
             return True
-        requirements_file = os.path.join(self.project_root, "requirements.txt")
+
+        # Use Windows-specific requirements file
+        requirements_file = os.path.join(self.project_root, "requirements_windows.txt")
         if not os.path.exists(requirements_file):
-            error_msg = " CRITICAL: requirements.txt not found!"
+            error_msg = f" CRITICAL: {requirements_file} not found!"
             self.logger.error(error_msg)
             print(error_msg)
             return False
-        self.logger.info("Installing dependencies from: %s", requirements_file)
-        install_cmd = self.package_manager["install_cmd"] + ["-r", requirements_file]
+
+        self.logger.info("Installing Windows dependencies from: %s", requirements_file)
+        # Add CUDA 12.1 index for PyTorch installation
+        install_cmd = self.package_manager["install_cmd"] + [
+            "-r", requirements_file,
+            "--extra-index-url", "https://download.pytorch.org/whl/cu121"
+        ]
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
         if success:
             self.fix_onnx_runtime()
@@ -564,15 +571,7 @@ class LocalWindowsInstaller:
                 print(f" {error_msg}")
                 return False
 
-            # CRITICAL: Install PyTorch with CUDA BEFORE requirements.txt
-            # This prevents pip from auto-installing CPU-only PyTorch as a dependency
-            if not self.install_pytorch():
-                error_msg = "PyTorch installation failed. GPU training will not work."
-                self.logger.error(error_msg)
-                print(f"\n⚠️  {error_msg}")
-                print("You can continue, but training will not work without PyTorch + CUDA.\n")
-                # Don't halt - let user decide
-
+            # Install dependencies (includes PyTorch via requirements_windows.txt)
             if not self.install_dependencies():
                 error_msg = "Halting installation due to dependency installation failure."
                 self.logger.error(error_msg)
