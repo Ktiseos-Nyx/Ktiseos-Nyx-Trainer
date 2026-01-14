@@ -31,16 +31,65 @@ class KohyaTOMLGenerator:
         self.project_root = project_root
         self.sd_scripts_dir = sd_scripts_dir
 
+    def validate_paths(self) -> None:
+        """
+        Validate critical paths exist before TOML generation.
+        Raises FileNotFoundError if required paths are missing.
+        """
+        errors = []
+
+        # Required paths
+        model_path = Path(self.config.pretrained_model_name_or_path)
+        if not model_path.exists():
+            errors.append(f"Base model not found: {model_path}")
+
+        dataset_path = Path(self.config.train_data_dir)
+        if not dataset_path.exists():
+            errors.append(f"Training dataset directory not found: {dataset_path}")
+        elif not any(dataset_path.iterdir()):
+            errors.append(f"Training dataset directory is empty: {dataset_path}")
+
+        output_path = Path(self.config.output_dir)
+        if not output_path.parent.exists():
+            errors.append(f"Output directory parent does not exist: {output_path.parent}")
+
+        # Optional but important paths
+        if self.config.vae_path:
+            vae_path = Path(self.config.vae_path)
+            if not vae_path.exists():
+                logger.warning(f"VAE path specified but not found: {vae_path}")
+
+        if self.config.continue_from_lora:
+            lora_path = Path(self.config.continue_from_lora)
+            if not lora_path.exists():
+                errors.append(f"LoRA to continue from not found: {lora_path}")
+
+        if errors:
+            error_msg = "Path validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+
     def generate_dataset_toml(self, output_path: Path) -> None:
         """
         Generate dataset.toml.
         This handles the [general] and [[datasets]] formatting required by Kohya.
         """
+        # Validate paths before generating TOML
+        self.validate_paths()
+
         doc = tomlkit.document()
 
         # [general] section
         general = tomlkit.table()
-        general["resolution"] = self.config.resolution
+        # Resolution: For SDXL, use list format [width, height] instead of single integer
+        # See: https://github.com/kohya-ss/sd-scripts/issues/XXX
+        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.FLUX, ModelType.LUMINA]:
+            # For newer model types, use list format
+            resolution_value = [self.config.resolution, self.config.resolution]
+        else:
+            # For SD 1.5, single integer is acceptable
+            resolution_value = self.config.resolution
+        general["resolution"] = resolution_value
         general["shuffle_caption"] = self.config.shuffle_caption
         # general["enable_bucket"] = True # Usually implied, but good to ensure
         doc["general"] = general
@@ -52,7 +101,11 @@ class KohyaTOMLGenerator:
         if self.config.keep_tokens > 0:
             dataset["keep_tokens"] = self.config.keep_tokens
 
-        dataset["resolution"] = self.config.resolution
+        # Resolution: Use same format as general section (list for SDXL/SD3/Flux/Lumina)
+        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.FLUX, ModelType.LUMINA]:
+            dataset["resolution"] = [self.config.resolution, self.config.resolution]
+        else:
+            dataset["resolution"] = self.config.resolution
         dataset["batch_size"] = self.config.train_batch_size
         dataset["enable_bucket"] = True # Force bucketing enabled
         dataset["min_bucket_reso"] = self.config.min_bucket_reso
@@ -92,7 +145,8 @@ class KohyaTOMLGenerator:
         if not dataset_abs_path.is_absolute():
             dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
 
-        subset["image_dir"] = str(dataset_abs_path)
+        # Use .as_posix() to avoid Windows backslash escape issues in TOML
+        subset["image_dir"] = str(dataset_abs_path.as_posix())
         subset["num_repeats"] = self.config.num_repeats
 
         # Add metadata path if you use it, otherwise SD-Scripts scans the folder
@@ -114,6 +168,9 @@ class KohyaTOMLGenerator:
         Generate the MAIN config file.
         Combines Training Arguments AND Network Arguments into one flat TOML.
         """
+        # Validate paths before generating TOML
+        self.validate_paths()
+
         # 1. Get Base Training Args
         args = self._get_training_arguments()
 
@@ -202,11 +259,12 @@ class KohyaTOMLGenerator:
 
     def _get_training_arguments(self) -> Dict[str, Any]:
         """Map internal TrainingConfig keys to Kohya CLI argument keys"""
+        # Use .as_posix() for all paths to avoid Windows backslash escape issues in TOML
         args = {
-            "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve()),
+            "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve().as_posix()),
             "max_train_epochs": self.config.max_train_epochs,
             # "train_batch_size": self.config.train_batch_size, # Often handled in dataset.toml, but safe to keep here too
-            "output_dir": str(Path(self.config.output_dir).resolve()),
+            "output_dir": str(Path(self.config.output_dir).resolve().as_posix()),
             "output_name": self.config.output_name,
             "seed": self.config.seed,
             "unet_lr": self.config.unet_lr,
@@ -288,7 +346,7 @@ class KohyaTOMLGenerator:
         if self.config.save_state_on_train_end:
             args["save_state_on_train_end"] = True
         if self.config.resume_from_state:
-            args["resume"] = str(Path(self.config.resume_from_state).resolve())
+            args["resume"] = str(Path(self.config.resume_from_state).resolve().as_posix())
 
         # Logging
         if self.config.log_tracker_name:
@@ -300,15 +358,15 @@ class KohyaTOMLGenerator:
 
         # ========== END NEW FIELDS ==========
 
-        # Optional Paths
+        # Optional Paths (use .as_posix() to avoid Windows backslash issues)
         if self.config.vae_path:
-            args["vae"] = str(Path(self.config.vae_path).resolve())
+            args["vae"] = str(Path(self.config.vae_path).resolve().as_posix())
         if self.config.continue_from_lora:
-            args["network_weights"] = str(Path(self.config.continue_from_lora).resolve())
+            args["network_weights"] = str(Path(self.config.continue_from_lora).resolve().as_posix())
         if self.config.sample_prompts:
-            args["sample_prompts"] = str(Path(self.config.sample_prompts).resolve())
+            args["sample_prompts"] = str(Path(self.config.sample_prompts).resolve().as_posix())
         if self.config.logging_dir:
-            args["logging_dir"] = str(Path(self.config.logging_dir).resolve())
+            args["logging_dir"] = str(Path(self.config.logging_dir).resolve().as_posix())
         if self.config.log_with:
             args["log_with"] = self.config.log_with
         if self.config.log_prefix:
@@ -352,14 +410,14 @@ class KohyaTOMLGenerator:
         if self.config.conv_block_alphas:
             args["conv_block_alphas"] = self.config.conv_block_alphas
 
-        # Flux/SD3/Lumina Specifics
+        # Flux/SD3/Lumina Specifics (use .as_posix() to avoid Windows backslash issues)
         if self.config.model_type == ModelType.FLUX:
             if self.config.ae_path:
-                args["ae"] = str(Path(self.config.ae_path).resolve())
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
             if self.config.clip_l_path:
-                args["clip_l"] = str(Path(self.config.clip_l_path).resolve())
+                args["clip_l"] = str(Path(self.config.clip_l_path).resolve().as_posix())
             if self.config.t5xxl_path:
-                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve())
+                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve().as_posix())
             if self.config.t5xxl_max_token_length:
                 args["t5xxl_max_token_length"] = self.config.t5xxl_max_token_length
             if self.config.apply_t5_attn_mask:
@@ -374,18 +432,18 @@ class KohyaTOMLGenerator:
 
         if self.config.model_type == ModelType.SD3:
             if self.config.clip_l_path:
-                args["clip_l"] = str(Path(self.config.clip_l_path).resolve())
+                args["clip_l"] = str(Path(self.config.clip_l_path).resolve().as_posix())
             if self.config.clip_g_path:
-                args["clip_g"] = str(Path(self.config.clip_g_path).resolve())
+                args["clip_g"] = str(Path(self.config.clip_g_path).resolve().as_posix())
             if self.config.t5xxl_path:
-                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve())
+                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve().as_posix())
 
         if self.config.model_type == ModelType.LUMINA:
             if self.config.gemma2:
-                args["gemma2"] = str(Path(self.config.gemma2).resolve())
+                args["gemma2"] = str(Path(self.config.gemma2).resolve().as_posix())
             if self.config.gemma2_max_token_length:
                 args["gemma2_max_token_length"] = self.config.gemma2_max_token_length
             if self.config.ae_path:
-                args["ae"] = str(Path(self.config.ae_path).resolve())
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
 
         return args

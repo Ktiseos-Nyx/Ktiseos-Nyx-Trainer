@@ -112,11 +112,18 @@ class LocalLinuxInstaller:
         if self.skip_install:
             print(" ⏩ Skipping dependency installation")
             return True
-        req_file = os.path.join(self.project_root, "requirements.txt")
+        # Use Linux-specific requirements file (includes PyTorch with CUDA 12.1)
+        req_file = os.path.join(self.project_root, "requirements_linux.txt")
         if not os.path.exists(req_file):
-            print(" ❌ requirements.txt not found")
+            print(f" ❌ {req_file} not found")
             return False
-        cmd = [self.python_cmd, "-m", "pip", "install", "-r", req_file]
+
+        # Add CUDA 12.1 index for PyTorch installation
+        cmd = [
+            self.python_cmd, "-m", "pip", "install",
+            "-r", req_file,
+            "--extra-index-url", "https://download.pytorch.org/whl/cu121"
+        ]
         return self.run_command(cmd, "Installing Python dependencies")
 
     def install_pytorch_cuda121(self):

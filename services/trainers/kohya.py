@@ -257,8 +257,15 @@ class KohyaTrainer(BaseTrainer):
 
         Returns:
             Path to training script
+
+        Raises:
+            ValueError: If model_type is not set or invalid
         """
         from services.models.training import TrainingMode
+
+        # Validate model_type is set
+        if not self.config.model_type:
+            raise ValueError("model_type is required but not set in training config")
 
         # Select script based on training mode
         if self.config.training_mode == TrainingMode.CHECKPOINT:
@@ -278,9 +285,19 @@ class KohyaTrainer(BaseTrainer):
                 ModelType.SDXL: "sdxl_train_network.py",
                 ModelType.FLUX: "flux_train_network.py",
                 ModelType.SD3: "sd3_train_network.py",
-                ModelType.LUMINA: "flux_train_network.py",
+                ModelType.LUMINA: "lumina_train_network.py",  # Fixed: was incorrectly using flux_train_network.py
             }
             default_script = "train_network.py"
 
         script_name = script_map.get(self.config.model_type, default_script)
-        return self.sd_scripts_dir / script_name
+        script_path = self.sd_scripts_dir / script_name
+
+        # Log script selection for debugging
+        logger.info(f"Selected training script: {script_name} for model_type={self.config.model_type}, training_mode={self.config.training_mode}")
+
+        # Validate script exists
+        if not script_path.exists():
+            logger.error(f"Training script not found: {script_path}")
+            raise FileNotFoundError(f"Training script not found: {script_path}")
+
+        return script_path
