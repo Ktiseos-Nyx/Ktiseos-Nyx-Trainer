@@ -4,6 +4,7 @@ Provides REST API and WebSocket endpoints for the Next.js frontend.
 """
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -17,12 +18,23 @@ from services import websocket
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Configure logging
+# Configure logging with file output (cross-platform: Windows, Linux, macOS)
+logs_dir = project_root / "logs"
+logs_dir.mkdir(exist_ok=True)
+
+# Create log filename with date (one file per day)
+log_file = logs_dir / f"app_{datetime.now().strftime('%Y%m%d')}.log"
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),  # File logs (dgracey can send these!)
+        logging.StreamHandler()  # Terminal output (keep for live debugging)
+    ]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"📝 Logging to: {log_file}")
 
 # Create FastAPI app
 app = FastAPI(
