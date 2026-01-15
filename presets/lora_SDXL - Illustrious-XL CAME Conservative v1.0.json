@@ -2,6 +2,7 @@
   "name": "Illustrious-XL - CAME Conservative",
   "description": "Conservative SDXL training preset for Illustrious-XL using CAME optimizer. Small LoRA (16/8) with low learning rates, cosine scheduler, and min_snr_gamma=8. Good for character/style training with limited data.",
   "model_type": "SDXL",
+  "is_builtin": true,
   "base_model": "Illustrious-XL-v0.1 (or similar NAI-derived SDXL models)",
   "optimizer": "CAME",
   "notes": "This preset is designed for Illustrious-XL and similar NAI-derived models. Uses conservative learning rates and small network dimensions for stable training.",

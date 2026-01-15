@@ -198,8 +198,13 @@ export default function PresetManager({
     // Try loading from server
     try {
       const preset = await presetsAPI.get(presetId);
-      onLoadPreset(preset.config);
-      alert(`✅ Loaded preset: ${preset.name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
+
+      // Server presets have config at root level (not nested under .config)
+      // Extract metadata fields that aren't part of TrainingConfig
+      const { name, description, notes, base_model, optimizer, is_builtin, created_at, ...config } = preset as any;
+
+      onLoadPreset(config);
+      alert(`✅ Loaded preset: ${name || presetId}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
     } catch (error) {
       console.error('Failed to load preset from server:', error);
       alert('❌ Failed to load preset');
