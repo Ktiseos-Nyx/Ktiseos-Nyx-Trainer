@@ -2,7 +2,7 @@
 """
 Ktiseos-Nyx-Trainer - Local Windows Dependency Installer
 Installs training dependencies for local Windows users.
-No GPU auto-install. User must manually install PyTorch with CUDA 12.1.
+Automatically installs PyTorch with CUDA 12.1 support (detects and replaces CPU-only versions).
 
 ✅ NOW INCLUDES FRONTEND PROVISIONING:
    - Installs npm dependencies if node_modules/ missing
@@ -571,7 +571,13 @@ class LocalWindowsInstaller:
                 print(f" {error_msg}")
                 return False
 
-            # Install dependencies (includes PyTorch via requirements_windows.txt)
+            # Install PyTorch with CUDA FIRST - this checks for CPU-only PyTorch
+            # and replaces it with CUDA version if needed
+            if not self.skip_install:
+                if not self.install_pytorch():
+                    self.logger.warning("PyTorch installation had issues - continuing anyway")
+
+            # Install remaining dependencies
             if not self.install_dependencies():
                 error_msg = "Halting installation due to dependency installation failure."
                 self.logger.error(error_msg)
