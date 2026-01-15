@@ -145,8 +145,11 @@ class KohyaTOMLGenerator:
         if not dataset_abs_path.is_absolute():
             dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
 
-        # Use .as_posix() to avoid Windows backslash escape issues in TOML
-        subset["image_dir"] = str(dataset_abs_path.as_posix())
+        # 🎯 CRITICAL FIX: Use relative path from sd_scripts directory (where training runs)
+        # Training scripts run from trainer/derrian_backend/sd_scripts/, so they need
+        # relative paths like "../../../datasets/my_dataset" to find data
+        # This matches the old working Jupyter implementation
+        subset["image_dir"] = os.path.relpath(dataset_abs_path, self.sd_scripts_dir)
         subset["num_repeats"] = self.config.num_repeats
 
         # Add metadata path if you use it, otherwise SD-Scripts scans the folder
