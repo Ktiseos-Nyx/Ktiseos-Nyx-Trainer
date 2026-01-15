@@ -29,7 +29,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_file, encoding='utf-8'),  # File logs (dgracey can send these!)
+        # File logs with Windows-safe encoding (replace problematic chars instead of crashing)
+        logging.FileHandler(log_file, encoding='utf-8', errors='replace'),
         logging.StreamHandler()  # Terminal output (keep for live debugging)
     ]
 )
