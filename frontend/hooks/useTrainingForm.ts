@@ -59,6 +59,11 @@ export function useTrainingForm(options: any = {}) {
   }, [form, updateZustandStore]);
 
   const loadPreset = useCallback((preset: Partial<TrainingConfig>) => {
+    if (!preset || typeof preset !== 'object') {
+      console.error('❌ Invalid preset:', preset);
+      return;
+    }
+
     // Get current config directly from store to avoid stale closure
     const currentConfig = useTrainingStore.getState().config;
     const fullConfig = { ...currentConfig, ...preset } as TrainingConfig;
