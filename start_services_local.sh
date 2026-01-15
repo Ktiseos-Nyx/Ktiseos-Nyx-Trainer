@@ -38,16 +38,7 @@ fi
 echo ""
 
 # --------------------------------------------------------------------
-# Step 3: Clean up any existing processes
-# --------------------------------------------------------------------
-echo "[Cleanup] Stopping any existing services on ports 8000 & 3000..."
-# Use pkill for simplicity and robustness. The '|| true' prevents script exit if no process is found.
-pkill -f "uvicorn api.main:app" || true
-pkill -f "npm.*start" || true
-sleep 1
-
-# --------------------------------------------------------------------
-# Step 4: Start Services
+# Step 3: Start Services
 # --------------------------------------------------------------------
 
 # Trap SIGINT (Ctrl+C) to gracefully shut down background processes

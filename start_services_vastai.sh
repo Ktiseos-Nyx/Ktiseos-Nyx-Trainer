@@ -9,19 +9,6 @@ echo "🚀 Starting Ktiseos-Nyx-Trainer Services (Vast.ai/Cloud)..."
 echo "=========================================="
 
 # --------------------------------------------------------------------
-# Step 0: Clean up any existing processes using the ports
-# --------------------------------------------------------------------
-echo "🧹 Cleaning up any existing processes on ports 8000 and 3000..."
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
-
-# Also kill any existing uvicorn or next processes to prevent conflicts
-pkill -f "uvicorn.*api.main" 2>/dev/null || true
-pkill -f "node.*next" 2>/dev/null || true
-
-sleep 3  # Give time for processes to terminate
-
-# --------------------------------------------------------------------
 # Step 1: Ensure environment is set up via installer_remote.py
 # Note: VastAI PyTorch template might already have venv activated.
 # The installer_remote.py will verify and install missing components.
