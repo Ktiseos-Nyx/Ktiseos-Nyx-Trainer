@@ -25,6 +25,8 @@ export function useTrainingForm(options: any = {}) {
   });
 
   const hasInitializedFromStorage = useRef(false);
+  const formRef = useRef(form);
+  formRef.current = form;
 
   // Hydrate form from localStorage ONCE on client
   useEffect(() => {
@@ -36,7 +38,7 @@ export function useTrainingForm(options: any = {}) {
         try {
           const { state } = JSON.parse(stored);
           if (state?.config) {
-            form.reset(state.config, { keepDefaultValues: false });
+            formRef.current.reset(state.config, { keepDefaultValues: false });
             console.log('✅ Hydrated form from localStorage:', state.config.project_name);
           }
         } catch (e) {
@@ -46,7 +48,8 @@ export function useTrainingForm(options: any = {}) {
       hasInitializedFromStorage.current = true;
       setHasHydrated(true);
     }
-  }, [form, setHasHydrated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setHasHydrated]); // Only run once
 
   // ✅ INTENTIONAL SYNC: Call this to push current form data to Zustand
   const syncToStore = useCallback(() => {
@@ -56,10 +59,23 @@ export function useTrainingForm(options: any = {}) {
   }, [form, updateZustandStore]);
 
   const loadPreset = useCallback((preset: Partial<TrainingConfig>) => {
-    const fullConfig = { ...zustandConfig, ...preset } as TrainingConfig;
+    // Get current config directly from store to avoid stale closure
+    const currentConfig = useTrainingStore.getState().config;
+    const fullConfig = { ...currentConfig, ...preset } as TrainingConfig;
+
+    console.log('📦 Loading preset:', {
+      presetKeys: Object.keys(preset),
+      sampleValues: { optimizer: preset.optimizer_type, lr: preset.unet_lr, batch: preset.train_batch_size }
+    });
+
+    // Update Zustand store
     loadZustandConfig(fullConfig);
-    form.reset(fullConfig, { keepDirty: false });
-  }, [zustandConfig, loadZustandConfig, form]);
+
+    // Force form to update with new values
+    form.reset(fullConfig, { keepDefaultValues: false, keepDirty: false, keepValues: false });
+
+    console.log('✅ Preset loaded, form reset with', fullConfig.optimizer_type);
+  }, [loadZustandConfig, form]);
 
     // ✅ 2. Added this function back in so the UI can show the error list
   const getValidationErrors = useCallback(() => {
