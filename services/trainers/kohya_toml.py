@@ -149,7 +149,9 @@ class KohyaTOMLGenerator:
         # Training scripts run from trainer/derrian_backend/sd_scripts/, so they need
         # relative paths like "../../../datasets/my_dataset" to find data
         # This matches the old working Jupyter implementation
-        subset["image_dir"] = os.path.relpath(dataset_abs_path, self.sd_scripts_dir)
+        # Use .as_posix() to convert Windows backslashes to forward slashes for TOML compatibility
+        rel_path = os.path.relpath(dataset_abs_path, self.sd_scripts_dir)
+        subset["image_dir"] = Path(rel_path).as_posix()
         subset["num_repeats"] = self.config.num_repeats
 
         # Add metadata path if you use it, otherwise SD-Scripts scans the folder
