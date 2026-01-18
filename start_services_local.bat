@@ -77,4 +77,4 @@ echo.
 echo [INFO] To stop services, simply close the new minimized command windows.
 echo.
 echo This window will now close.
-timeout /t 5 /nobreak
+timeout /t 5 /nobreak >nul 2>&1
