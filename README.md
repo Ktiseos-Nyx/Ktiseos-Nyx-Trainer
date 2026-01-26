@@ -6,6 +6,29 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 |---|---|---|---|---|---|
 | ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Deploy on VastAI](https://img.shields.io/badge/Deploy-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer) | [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) | <a href="https://ko-fi.com/duskfallcrew"><img src="https://img.shields.io/badge/Ko--Fi-Support-FF5E5B?style=for-the-badge&logo=kofi" alt="Ko-fi"></a> |
 
+---
+
+## 🚧 **MIGRATION IN PROGRESS - January 2026**
+
+**We're actively migrating from Python (FastAPI) to Node.js (Next.js API routes).**
+
+**What this means for you:**
+- ✅ **Core features work** - Training, tagging, captioning still functional
+- ⚠️ **Expect rough edges** - Some features may break temporarily
+- 🐛 **Report issues** - [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
+- ⏰ **Part-time development** - Updates will be gradual this month
+
+**Why migrate?**
+- Fixes Windows asyncio issues with tagging
+- Simpler deployment (one server instead of two)
+- Better integration and performance
+
+**Current status**: ~75% complete - see [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md) for details
+
+---
+
+> ⚠️ **ALPHA STAGE**: Active development. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
+
 > ⚠️ **ALPHA STAGE**: Active development. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
 
 ## Quick Start
