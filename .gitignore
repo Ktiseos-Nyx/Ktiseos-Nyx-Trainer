@@ -254,3 +254,5 @@ cache/
 /.vscode
 FEATURE_CREEP.md
 nul
+SESSION_SUMMARY_*.md
+README_BACKUP.md
