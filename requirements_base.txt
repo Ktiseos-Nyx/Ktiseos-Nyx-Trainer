@@ -5,7 +5,7 @@
 # Core FastAPI and Web Server
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
-python-multipart>=0.0.18  # CVE fix: DoS via malformed multipart/form-data
+python-multipart>=0.0.22  # CVE fix: DoS via malformed multipart/form-data
 aiofiles>=23.2.1
 websockets>=12.0
 pydantic>=2.6.0
