@@ -123,8 +123,9 @@ export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNe
 export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
 
 export const fileAPI = {
+  // ✅ MIGRATED: Uses Node.js /api/files/workspace endpoint
   getDefaultWorkspace: async (): Promise<{ path: string; allowed_dirs: string[] }> => {
-    const response = await fetch(`${API_BASE}/files/default-workspace`);
+    const response = await fetch(`${API_BASE}/files/workspace`);
     return handleResponse(response);
   },
 
@@ -176,8 +177,9 @@ export const fileAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/files/read with query param
   read: async (path: string) => {
-    const response = await fetch(`${API_BASE}/files/read/${encodeURIComponent(path.substring(1))}`);
+    const response = await fetch(`${API_BASE}/files/read?path=${encodeURIComponent(path)}`);
     return handleResponse(response);
   },
 
@@ -230,6 +232,7 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/jobs/tagging endpoint
   tag: async (params: {
     datasetDir: string;
     model?: string;
@@ -255,7 +258,7 @@ export const datasetAPI = {
     frequencyTags?: boolean;
     debug?: boolean;
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/tag`, {
+    const response = await fetch(`${API_BASE}/jobs/tagging`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -287,13 +290,15 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/jobs/[id] endpoint
   getTaggingStatus: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/tag/status/${jobId}`);
+    const response = await fetch(`${API_BASE}/jobs/${jobId}`);
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/jobs/[id]/stop endpoint
   stopTagging: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/tag/stop/${jobId}`, {
+    const response = await fetch(`${API_BASE}/jobs/${jobId}/stop`, {
       method: 'POST',
     });
     return handleResponse(response);
@@ -337,8 +342,9 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/captions/add-trigger endpoint
   injectTriggerWord: async (datasetPath: string, triggerWord: string, position: 'start' | 'end' = 'start') => {
-    const response = await fetch(`${API_BASE}/dataset/captions/add-trigger`, {
+    const response = await fetch(`${API_BASE}/captions/add-trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -412,9 +418,10 @@ export interface GITConfig {
   debug?: boolean;
 }
 
+// ✅ MIGRATED: All captioning endpoints use Node.js /api/jobs/* routes
 export const captioningAPI = {
   startBLIP: async (config: BLIPConfig) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/blip`, {
+    const response = await fetch(`${API_BASE}/jobs/captioning/blip`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -423,7 +430,7 @@ export const captioningAPI = {
   },
 
   startGIT: async (config: GITConfig) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/git`, {
+    const response = await fetch(`${API_BASE}/jobs/captioning/git`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -432,12 +439,12 @@ export const captioningAPI = {
   },
 
   getStatus: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/status/${jobId}`);
+    const response = await fetch(`${API_BASE}/jobs/${jobId}`);
     return handleResponse(response);
   },
 
   stop: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/stop/${jobId}`, {
+    const response = await fetch(`${API_BASE}/jobs/${jobId}/stop`, {
       method: 'POST',
     });
     return handleResponse(response);
@@ -641,6 +648,9 @@ export interface TrainingStartResponse {
 }
 
 export const trainingAPI = {
+  // NOTE: Training start still uses Python backend for now
+  // The Node.js route exists at /jobs/training but expects pre-generated TOML paths
+  // TODO: Unify this in a future update
   start: async (config: TrainingConfig) => {
     const response = await fetch(`${API_BASE}/training/start`, {
       method: 'POST',
@@ -650,18 +660,21 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/jobs/[id]/stop endpoint
   stop: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/training/stop/${jobId}`, {
+    const response = await fetch(`${API_BASE}/jobs/${jobId}/stop`, {
       method: 'POST',
     });
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/jobs/[id] endpoint
   status: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/training/status/${jobId}`);
+    const response = await fetch(`${API_BASE}/jobs/${jobId}`);
     return handleResponse(response);
   },
 
+  // NOTE: Validation still uses Python backend for now
   validate: async (config: TrainingConfig) => {
     const response = await fetch(`${API_BASE}/training/validate`, {
       method: 'POST',
@@ -785,14 +798,16 @@ export interface HuggingFaceUploadRequest {
   create_pr?: boolean;
 }
 
+// ✅ PARTIALLY MIGRATED: Calculator and browse are Node.js
+// LoRA operations (resize, merge) and HuggingFace upload stay on Python
 export const utilitiesAPI = {
-  // Directories
+  // Directories - stays Python
   getDirectories: async () => {
     const response = await fetch(`${API_BASE}/utilities/directories`);
     return handleResponse(response);
   },
 
-  // Calculator
+  // ✅ MIGRATED: Uses Node.js /api/utilities/calculator endpoint
   calculateSteps: async (request: CalculatorRequest): Promise<CalculatorResponse> => {
     const response = await fetch(`${API_BASE}/utilities/calculator`, {
       method: 'POST',
@@ -802,6 +817,7 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/utilities/datasets/browse endpoint
   browseDatasets: async (): Promise<{ datasets: DatasetInfo[] }> => {
     const response = await fetch(`${API_BASE}/utilities/datasets/browse`);
     return handleResponse(response);
@@ -905,6 +921,7 @@ export const utilitiesAPI = {
 };
 
 // ========== Models & VAEs ==========
+// NOTE: list uses Node.js, download/delete use Python (huggingface_hub)
 
 export interface ModelFile {
   name: string;
@@ -920,6 +937,7 @@ export interface PopularModel {
 }
 
 export const modelsAPI = {
+  // NOTE: Download stays on Python backend (uses huggingface_hub)
   download: async (url: string, downloadType: 'model' | 'vae', modelType?: string) => {
     const response = await fetch(`${API_BASE}/models/download`, {
       method: 'POST',
@@ -933,6 +951,7 @@ export const modelsAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/models/list endpoint
   list: async () => {
     const response = await fetch(`${API_BASE}/models/list`);
     return handleResponse(response);
@@ -960,6 +979,8 @@ export const modelsAPI = {
 };
 
 // ========== Civitai Browse ==========
+// ✅ MIGRATED: Browse/tags/model details use Node.js
+// Download stays on Python backend (uses model_service for file storage)
 // Attribution: Inspired by sd-webui-civbrowser
 // https://github.com/SignalFlagZ/sd-webui-civbrowser
 
@@ -1092,6 +1113,7 @@ export const civitaiAPI = {
 };
 
 // ========== Caption Editing API ==========
+// ✅ MIGRATED: Uses Node.js /api/captions/* endpoints
 
 export const captionAPI = {
   addTrigger: async (params: {
@@ -1099,7 +1121,7 @@ export const captionAPI = {
     trigger_word: string;
     position?: 'first' | 'last';
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/captions/add-trigger`, {
+    const response = await fetch(`${API_BASE}/captions/add-trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1115,7 +1137,7 @@ export const captionAPI = {
     dataset_path: string;
     tags_to_remove: string[];
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/captions/remove-tags`, {
+    const response = await fetch(`${API_BASE}/captions/remove-tags`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1132,7 +1154,7 @@ export const captionAPI = {
     replace: string;
     use_regex?: boolean;
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/captions/replace`, {
+    const response = await fetch(`${API_BASE}/captions/replace`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

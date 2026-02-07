@@ -17,6 +17,7 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const { WebSocketServer } = require('ws');
 
 // Environment setup
 const dev = process.env.NODE_ENV !== 'production';
@@ -76,7 +77,16 @@ app.prepare().then(() => {
       const parsedUrl = parse(req.url, true);
       const { pathname } = parsedUrl;
 
-      // Proxy API requests to FastAPI
+      // Handle Node.js API routes (new migration)
+      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings'];
+      const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix));
+
+      if (isNodeApi) {
+        // Let Next.js handle these routes
+        return await handle(req, res, parsedUrl);
+      }
+
+      // Proxy other /api requests to FastAPI (backward compatibility)
       if (pathname.startsWith('/api')) {
         return apiAndWsProxy(req, res);
       }
@@ -96,16 +106,98 @@ app.prepare().then(() => {
     }
   });
 
+  // Create native WebSocket server for Node.js job logs
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Handle WebSocket connections
+  wss.on('connection', (ws, req) => {
+    const { pathname } = parse(req.url, true);
+    console.log(`✅ WebSocket connected: ${pathname}`);
+
+    // Extract job ID from path: /ws/jobs/{jobId}/logs
+    const match = pathname.match(/^\/ws\/jobs\/([^/]+)\/logs$/);
+    if (!match) {
+      ws.close(4000, 'Invalid WebSocket path');
+      return;
+    }
+
+    const jobId = match[1];
+
+    // Import job manager (lazy load to avoid circular deps)
+    const { jobManager } = require('./lib/node-services/job-manager');
+    const job = jobManager.getJob(jobId);
+
+    if (!job) {
+      ws.send(JSON.stringify({ error: `Job ${jobId} not found` }));
+      ws.close(4004, 'Job not found');
+      return;
+    }
+
+    // Send existing logs
+    job.logs.forEach((log) => {
+      ws.send(JSON.stringify({ type: 'log', log }));
+    });
+
+    // Send current status
+    ws.send(JSON.stringify({
+      type: 'status',
+      status: job.status,
+      progress: job.progress,
+    }));
+
+    // Listen for new logs
+    const logListener = (jId, log) => {
+      if (jId === jobId && ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'log', log }));
+      }
+    };
+
+    const statusListener = (jId, status) => {
+      if (jId === jobId && ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'status', status }));
+      }
+    };
+
+    const progressListener = (jId, progress) => {
+      if (jId === jobId && ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'progress', progress }));
+      }
+    };
+
+    jobManager.events.on('log', logListener);
+    jobManager.events.on('status', statusListener);
+    jobManager.events.on('progress', progressListener);
+
+    // Handle client disconnect
+    ws.on('close', () => {
+      console.log(`🔌 WebSocket disconnected: ${pathname}`);
+      jobManager.events.removeListener('log', logListener);
+      jobManager.events.removeListener('status', statusListener);
+      jobManager.events.removeListener('progress', progressListener);
+    });
+
+    // Handle ping/pong for connection health
+    ws.on('ping', () => ws.pong());
+  });
+
   // Handle WebSocket upgrade requests
   // This is the critical part for Cloudflare compatibility
   server.on('upgrade', (req, socket, head) => {
     const { pathname } = parse(req.url, true);
 
-    // Only proxy WebSocket upgrades for /ws/* paths
-    if (pathname.startsWith('/ws')) {
-      console.log(`⬆️  WebSocket upgrade: ${pathname}`);
+    // Native Node.js WebSocket for /ws/jobs/* paths
+    if (pathname.startsWith('/ws/jobs/')) {
+      console.log(`⬆️  WebSocket upgrade (Node.js): ${pathname}`);
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
+    }
+    // Proxy WebSocket upgrades for /ws/api/* paths to FastAPI
+    else if (pathname.startsWith('/ws/api/')) {
+      console.log(`⬆️  WebSocket upgrade (FastAPI proxy): ${pathname}`);
       apiAndWsProxy.upgrade(req, socket, head);
-    } else {
+    }
+    else {
       // Reject other upgrade attempts
       socket.destroy();
     }
@@ -126,7 +218,8 @@ app.prepare().then(() => {
     console.log('========================================');
     console.log(`🌐 Frontend:  http://${hostname === '0.0.0.0' ? 'localhost' : hostname}:${port}`);
     console.log(`🐍 Backend:   ${backendUrl}`);
-    console.log(`🔌 WebSocket: Proxy enabled for /ws/* endpoints`);
+    console.log(`🔌 WebSocket (Node.js):  /ws/jobs/{id}/logs`);
+    console.log(`🔌 WebSocket (FastAPI):  /ws/api/* (proxied)`);
     console.log('========================================');
     console.log('');
   });
