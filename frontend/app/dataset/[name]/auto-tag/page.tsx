@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig } from '@/lib/api';
 import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
@@ -128,7 +128,7 @@ export default function AutoTagPage() {
   }, [selectedModel]);
 
   // Load datasets
-  const loadDatasets = async () => {
+  const loadDatasets = useCallback(async () => {
     try {
       setLoading(true);
       const data = await datasetAPI.list();
@@ -141,11 +141,11 @@ export default function AutoTagPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDataset]);
 
   useEffect(() => {
     loadDatasets();
-  }, []);
+  }, [loadDatasets]);
 
   // Cleanup
   useEffect(() => {

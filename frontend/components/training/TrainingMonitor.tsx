@@ -21,29 +21,20 @@ export default function TrainingMonitor() {
   const [logs, setLogs] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
 
-  // ✅ FIX 1: Initialize as null (safe for server)
-  const [jobId, setJobId] = useState<string | null>(null);
+  // Initialize jobId from URL query param or localStorage (browser only)
+  const [jobId, setJobId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlJobId = urlParams.get('job');
+    if (urlJobId) {
+      localStorage.setItem('current_training_job_id', urlJobId);
+      return urlJobId;
+    }
+    return localStorage.getItem('current_training_job_id');
+  });
 
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
-
-  // ✅ FIX 2: Load from URL query parameter, then localStorage after component mounts (browser only)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlJobId = urlParams.get('job');
-
-      if (urlJobId) {
-        setJobId(urlJobId);
-        localStorage.setItem('current_training_job_id', urlJobId);
-      } else {
-        const savedJobId = localStorage.getItem('current_training_job_id');
-        if (savedJobId) {
-          setJobId(savedJobId);
-        }
-      }
-    }
-  }, []);
 
   // Auto-scroll logs to bottom
   const scrollToBottom = () => {
