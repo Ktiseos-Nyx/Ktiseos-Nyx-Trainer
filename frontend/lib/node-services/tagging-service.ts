@@ -61,7 +61,7 @@ class TaggingService {
       await fs.access(modelFile);
       await fs.access(csvFile);
 
-      console.log(\`[Tagging] Loading model: \${modelName}\`);
+      console.log(`[Tagging] Loading model: ${modelName}`);
 
       // Load ONNX Model (CPU execution - no CUDA needed!)
       this.session = await ort.InferenceSession.create(modelFile, {
@@ -71,7 +71,7 @@ class TaggingService {
       // Load Tags CSV
       const csvContent = await fs.readFile(csvFile, 'utf-8');
       this.tags = csvContent
-        .split('\\n')
+        .split('\n')
         .slice(1) // Skip header
         .map((line) => {
           const parts = line.split(',');
@@ -82,11 +82,11 @@ class TaggingService {
       this.modelPath = modelFile;
       this.isInitialized = true;
 
-      console.log(\`[Tagging] ✅ Model loaded: \${this.tags.length} tags available\`);
+      console.log(`[Tagging] Model loaded: ${this.tags.length} tags available`);
     } catch (error) {
-      console.error(\`[Tagging] ❌ Failed to load model:\`, error);
+      console.error(`[Tagging] Failed to load model:`, error);
       throw new Error(
-        \`Model not found: \${modelName}. Please download it first via the Models page.\`
+        `Model not found: ${modelName}. Please download it first via the Models page.`
       );
     }
   }
@@ -197,7 +197,7 @@ class TaggingService {
       imageExtensions.some((ext) => f.toLowerCase().endsWith(ext))
     );
 
-    console.log(\`[Tagging] Found \${imageFiles.length} images in \${config.dataset_dir}\`);
+    console.log(`[Tagging] Found ${imageFiles.length} images in ${config.dataset_dir}`);
 
     let processedCount = 0;
     const errors: string[] = [];
@@ -255,19 +255,19 @@ class TaggingService {
         await fs.writeFile(captionPath, captionContent, 'utf-8');
 
         processedCount++;
-        console.log(\`[Tagging] \${processedCount}/\${imageFiles.length} - \${imageFile}\`);
+        console.log(`[Tagging] ${processedCount}/${imageFiles.length} - ${imageFile}`);
 
         if (onProgress) {
           onProgress(processedCount, imageFiles.length, imageFile);
         }
       } catch (error) {
-        const errorMsg = \`Error processing \${imageFile}: \${error}\`;
-        console.error(\`[Tagging] \${errorMsg}\`);
+        const errorMsg = `Error processing ${imageFile}: ${error}`;
+        console.error(`[Tagging] ${errorMsg}`);
         errors.push(errorMsg);
       }
     }
 
-    console.log(\`[Tagging] ✅ Completed: \${processedCount}/\${imageFiles.length} images tagged\`);
+    console.log(`[Tagging] Completed: ${processedCount}/${imageFiles.length} images tagged`);
 
     return {
       success: errors.length === 0,

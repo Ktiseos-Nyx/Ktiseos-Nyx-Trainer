@@ -17,6 +17,55 @@ interface ChangelogEntry {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: '0.2.0-dev',
+    date: 'February 12, 2026',
+    type: 'minor',
+    commitHash: '02cb0ee',
+    changes: [
+      {
+        category: 'feature',
+        items: [
+          'Complete Node.js API migration (Phases 5-7) - WD14 tagging, config API, and all remaining routes now run natively in Node.js',
+          'WD14 tagger runs entirely in Node.js via ONNX Runtime - no Python subprocess needed for tagging',
+          'File-based logging system for Windows and all platforms',
+          'Illustrious-XL CAME Conservative training preset',
+        ],
+      },
+      {
+        category: 'improvement',
+        items: [
+          'Platform-specific requirements files (requirements_windows.txt, requirements_linux.txt, requirements_vastai.txt)',
+          'Native Node.js addons (onnxruntime-node, sharp) lazily loaded to prevent build failures',
+          'Added serverExternalPackages config for native binary compatibility across platforms',
+          'Windows installer now properly installs PyTorch with CUDA 12.1 support',
+          'Preset loading correctly applies to form fields',
+          'Server presets loading fixed - resolved config structure mismatch',
+          'Zustand localStorage persistence restored for training config',
+        ],
+      },
+      {
+        category: 'bugfix',
+        items: [
+          'Fixed TOML generation for bucketing and vae_batch_size default',
+          'Fixed Windows installer syntax errors from unescaped parentheses',
+          'Fixed Windows-safe encoding error handling in logs',
+          'Fixed dataset path compatibility for Windows',
+          'Removed auto-kill process logic from startup scripts that caused issues',
+          'Removed timeout from Windows startup script to fix UAC issue',
+          'Implemented missing abstract methods in KohyaTrainer',
+          'Fixed 0.0.0.0 binding for production Docker/VastAI (standalone mode conflict resolved)',
+          'Fixed escaped template literals caused by line-ending normalization',
+        ],
+      },
+      {
+        category: 'docs',
+        items: [
+          'Removed dangerous git clean -fdx command from README',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.1.0-dev',
     date: 'January 1, 2026',
     type: 'minor',

@@ -126,7 +126,7 @@ export default function CivitaiBrowsePage() {
   }, []);
 
   // Load models
-  const loadModels = async (pageNum: number, append: boolean = false) => {
+  const loadModels = useCallback(async (pageNum: number, append: boolean = false) => {
     try {
       setLoading(true);
 
@@ -187,7 +187,7 @@ export default function CivitaiBrowsePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, searchMode, cursor, selectedSort, selectedPeriod, allowNSFW, selectedType, selectedBaseModel]);
 
   // Initial load (now works with or without API key)
   useEffect(() => {
@@ -199,14 +199,14 @@ export default function CivitaiBrowsePage() {
       setHasMore(true);
       loadModels(1, false);
     }
-  }, [searchQuery, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, browsingLevel, hasApiKey]);
+  }, [searchQuery, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, browsingLevel, hasApiKey, loadModels]);
 
   // Load more on page change
   useEffect(() => {
     if (page > 1) {
       loadModels(page, true);
     }
-  }, [page]);
+  }, [page, loadModels]);
 
   // Handle search
   const handleSearch = () => {

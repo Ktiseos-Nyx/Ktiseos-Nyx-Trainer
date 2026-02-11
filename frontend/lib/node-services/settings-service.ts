@@ -10,7 +10,6 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import os from 'os';
 
 // ========== Types ==========
 
@@ -272,25 +271,26 @@ export class SettingsService {
    */
   async getStorageInfo(): Promise<StorageInfo> {
     try {
-      // Use Node.js os module to get free memory (approximation)
-      // For accurate disk usage, we'd need platform-specific commands
-      const totalMem = os.totalmem();
-      const freeMem = os.freemem();
-      const usedMem = totalMem - freeMem;
+      const cwd = process.cwd();
+      const stats = await fs.statfs(cwd);
+
+      const totalBytes = stats.bsize * stats.blocks;
+      const freeBytes = stats.bsize * stats.bavail;
+      const usedBytes = totalBytes - freeBytes;
 
       const gb = 1024 ** 3;
 
       return {
         success: true,
         storage: {
-          path: process.cwd(),
-          total_bytes: totalMem,
-          used_bytes: usedMem,
-          free_bytes: freeMem,
-          total_gb: Math.round((totalMem / gb) * 100) / 100,
-          used_gb: Math.round((usedMem / gb) * 100) / 100,
-          free_gb: Math.round((freeMem / gb) * 100) / 100,
-          used_percent: Math.round((usedMem / totalMem) * 1000) / 10,
+          path: cwd,
+          total_bytes: totalBytes,
+          used_bytes: usedBytes,
+          free_bytes: freeBytes,
+          total_gb: Math.round((totalBytes / gb) * 100) / 100,
+          used_gb: Math.round((usedBytes / gb) * 100) / 100,
+          free_gb: Math.round((freeBytes / gb) * 100) / 100,
+          used_percent: Math.round((usedBytes / totalBytes) * 1000) / 10,
         },
       };
     } catch (error) {

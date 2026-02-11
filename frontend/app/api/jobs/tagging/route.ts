@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { taggingService, TaggingConfig } from '@/lib/node-services/tagging-service';
+import type { TaggingConfig } from '@/lib/node-services/tagging-service';
 import { jobManager } from '@/lib/node-services/job-manager';
 
 /**
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Create job ID
-    const jobId = \`tagging_\${Date.now()}_\${Math.floor(Math.random() * 1000)}\`;
+    const jobId = `tagging_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
     // Create job entry in job manager
     const job = {
@@ -68,15 +68,19 @@ export async function POST(request: NextRequest) {
     // Run tagging in background (async, don't await)
     (async () => {
       try {
-        console.log(\`[Job \${jobId}] Starting WD14 tagging (Node.js ONNX Runtime)\`);
+        console.log(`[Job ${jobId}] Starting WD14 tagging (Node.js ONNX Runtime)`);
 
         // Log to job
         jobManager.events.emit('log', jobId, {
           timestamp: Date.now(),
           level: 'info',
-          message: \`Starting tagging with model: \${config.model}\`,
-          raw: \`[INFO] Starting tagging with model: \${config.model}\`,
+          message: `Starting tagging with model: ${config.model}`,
+          raw: `[INFO] Starting tagging with model: ${config.model}`,
         });
+
+        // Lazy import: onnxruntime-node and sharp have native binaries that
+        // break Next.js build if imported at module level
+        const { taggingService } = await import('@/lib/node-services/tagging-service');
 
         const result = await taggingService.tagDataset(
           config,
@@ -90,8 +94,8 @@ export async function POST(request: NextRequest) {
             jobManager.events.emit('log', jobId, {
               timestamp: Date.now(),
               level: 'info',
-              message: \`[\${current}/\${total}] Processing: \${filename}\`,
-              raw: \`[INFO] [\${current}/\${total}] Processing: \${filename}\`,
+              message: `[${current}/${total}] Processing: ${filename}`,
+              raw: `[INFO] [${current}/${total}] Processing: ${filename}`,
             });
           }
         );
@@ -109,12 +113,12 @@ export async function POST(request: NextRequest) {
           jobManager.events.emit('log', jobId, {
             timestamp: Date.now(),
             level: 'error',
-            message: \`Completed with \${result.errors.length} errors\`,
-            raw: \`[ERROR] Completed with \${result.errors.length} errors\`,
+            message: `Completed with ${result.errors.length} errors`,
+            raw: `[ERROR] Completed with ${result.errors.length} errors`,
           });
         }
 
-        console.log(\`[Job \${jobId}] ✅ Completed: \${result.processed}/\${result.total} images\`);
+        console.log(`[Job ${jobId}] Completed: ${result.processed}/${result.total} images`);
       } catch (error) {
         // Mark job as failed
         job.status = 'failed';
@@ -124,7 +128,7 @@ export async function POST(request: NextRequest) {
         jobManager.events.emit('status', jobId, 'failed');
         jobManager.events.emit('error', jobId, job.error);
 
-        console.error(\`[Job \${jobId}] ❌ Failed:\`, error);
+        console.error(`[Job ${jobId}] Failed:`, error);
       }
     })();
 

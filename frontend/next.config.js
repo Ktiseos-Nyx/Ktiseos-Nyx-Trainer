@@ -8,6 +8,10 @@ const nextConfig = {
     },
   },
 
+  // ✅ FIX: Don't bundle native Node.js addons
+  // These have platform-specific .node binaries that break if Next.js tries to trace/bundle them
+  serverExternalPackages: ['onnxruntime-node', 'sharp'],
+
   // 🚀 PERFORMANCE: Production optimizations
   // Note: 'standalone' mode conflicts with custom server.js (needed for WebSocket proxying)
   compress: true,       // Enable gzip compression
