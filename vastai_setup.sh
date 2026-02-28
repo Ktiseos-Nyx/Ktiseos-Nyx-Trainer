@@ -145,7 +145,13 @@ provisioning_start() {
             echo "NPM version: $(npm --version)"
 
             echo "   Installing npm packages..."
-            npm ci --prefer-offline || npm install || {
+            # Remove stale lockfile from different OS to avoid platform-specific dep errors
+            # (e.g. lightningcss-win32-x64-msvc fails on Linux)
+            if [ -f "package-lock.json" ]; then
+                echo "   Removing package-lock.json (regenerating for this platform)..."
+                rm -f package-lock.json
+            fi
+            npm install --legacy-peer-deps || npm install --legacy-peer-deps --force || {
                 echo "⚠️  npm install failed, continuing anyway..."
             }
 

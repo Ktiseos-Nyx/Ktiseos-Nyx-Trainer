@@ -468,7 +468,20 @@ class LocalWindowsInstaller:
         if not os.path.exists(node_modules):
             self.logger.info("Installing frontend dependencies...")
             print(" 📦 Installing frontend (Next.js) dependencies...")
-            success = self.run_command([npm_exe, "install"], "Installing npm packages", cwd=frontend_dir)
+            success = self.run_command(
+                [npm_exe, "install", "--legacy-peer-deps"],
+                "Installing npm packages",
+                cwd=frontend_dir,
+            )
+            if not success:
+                # Retry with --force for stubborn platform-specific dep issues
+                self.logger.warning("npm install failed, retrying with --force...")
+                print(" ⚠️  Retrying npm install with --force...")
+                success = self.run_command(
+                    [npm_exe, "install", "--legacy-peer-deps", "--force"],
+                    "Installing npm packages (force)",
+                    cwd=frontend_dir,
+                )
             return success
         else:
             self.logger.info("Frontend dependencies already installed.")

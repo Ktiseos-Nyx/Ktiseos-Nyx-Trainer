@@ -66,6 +66,12 @@ if [ -d "frontend" ]; then
         # Check if build exists
         if [ ! -d ".next" ]; then
             echo "   ⚠️  No build found, running npm run build first..."
+            # Ensure node_modules exists (may need install if lockfile was platform-specific)
+            if [ ! -d "node_modules" ] || [ ! -d "node_modules/next" ]; then
+                echo "   📦 node_modules missing or incomplete, installing..."
+                rm -f package-lock.json
+                npm install --legacy-peer-deps || npm install --legacy-peer-deps --force || true
+            fi
             npm run build || {
                 echo "❌ Frontend build failed - skipping frontend startup"
                 cd ..
