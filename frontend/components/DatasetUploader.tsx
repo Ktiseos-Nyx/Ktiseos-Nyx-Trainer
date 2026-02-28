@@ -25,6 +25,7 @@ interface UploadedFile {
   status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
   error?: string;
+  preview?: string; // Blob URL for image preview (revoked on cleanup)
 }
 
 export default function DatasetUploader() {
@@ -91,6 +92,7 @@ export default function DatasetUploader() {
       file,
       status: 'pending',
       progress: 0,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
     }));
 
     setFiles((prev) => [...prev, ...newFiles]);
@@ -243,6 +245,7 @@ export default function DatasetUploader() {
       if (result.success) {
         console.log(`✅ Extracted ${result.extracted} images`);
         alert(`✅ ZIP uploaded! Extracted ${result.extracted} images.\n${result.errors.length > 0 ? `Errors:\n${result.errors.join('\n')}` : ''}`);
+        revokePreviewUrls(files);
         setFiles([]);
 
         // Reload existing datasets list
@@ -268,13 +271,28 @@ export default function DatasetUploader() {
     }
   };
 
+  // Revoke blob URLs to prevent memory leaks
+  const revokePreviewUrls = useCallback((filesToRevoke: UploadedFile[]) => {
+    filesToRevoke.forEach(f => {
+      if (f.preview) URL.revokeObjectURL(f.preview);
+    });
+  }, []);
+
+  // Revoke blob URLs on unmount
+  useEffect(() => {
+    return () => revokePreviewUrls(files);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Clear files
   const handleClear = () => {
+    revokePreviewUrls(files);
     setFiles([]);
   };
 
   // Reset upload state
   const handleReset = () => {
+    revokePreviewUrls(files);
     setFiles([]);
     setUploading(false);
   };
@@ -538,7 +556,6 @@ export default function DatasetUploader() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-96 overflow-y-auto p-1">
                 {files.map((fileObj, index) => {
                   const isZip = fileObj.file.name.endsWith('.zip');
-                  const preview = !isZip ? URL.createObjectURL(fileObj.file) : null;
 
                   return (
                     <div
@@ -552,9 +569,10 @@ export default function DatasetUploader() {
                         </div>
                       ) : (
                         <img
-                          src={preview!}
+                          src={fileObj.preview}
                           alt={fileObj.file.name}
                           className="w-full h-32 object-cover"
+                          loading="lazy"
                         />
                       )}
 

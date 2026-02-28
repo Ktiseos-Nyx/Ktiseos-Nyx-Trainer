@@ -155,8 +155,12 @@ export default function AutoTagPage() {
     };
   }, []);
 
+  const MAX_LOGS = 500;
   const addLog = (msg: string) => {
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    setLogs(prev => {
+      const next = [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`];
+      return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+    });
   };
 
   // Poll status
@@ -190,7 +194,7 @@ export default function AutoTagPage() {
     try {
       wsRef.current = datasetAPI.connectTaggingLogs(
         jobId,
-        (data) => { if (data.log) setLogs(prev => [...prev, data.log as string]); },
+        (data) => { if (data.log) setLogs(prev => { const next = [...prev, data.log as string]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; }); },
         (error) => {
           console.error('WebSocket error:', error);
           addLog('⚠️ Log connection lost - using status polling');
@@ -297,7 +301,7 @@ export default function AutoTagPage() {
           if (wsRef.current) wsRef.current.close();
           wsRef.current = captioningAPI.connectLogs(
             response.job_id,
-            (data) => { if (data.log) setLogs(prev => [...prev, data.log as string]); },
+            (data) => { if (data.log) setLogs(prev => { const next = [...prev, data.log as string]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; }); },
             (error) => {
               console.error('WebSocket error:', error);
               addLog('⚠️ Log connection lost - using status polling');
