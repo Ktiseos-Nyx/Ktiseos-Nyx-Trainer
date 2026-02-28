@@ -11,8 +11,6 @@ import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
-import https from 'https';
-import { createWriteStream } from 'fs';
 
 // ========== Types ==========
 
@@ -49,58 +47,19 @@ class TaggingService {
   private static readonly REQUIRED_FILES = ['model.onnx', 'selected_tags.csv'];
 
   /**
-   * Download a file from HuggingFace Hub
+   * Download a file from HuggingFace Hub using native fetch (handles redirects automatically)
    */
   private async downloadFile(url: string, destPath: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const file = createWriteStream(destPath);
-      const request = (reqUrl: string) => {
-        https.get(reqUrl, (response) => {
-          // Follow redirects (HuggingFace uses 301, 302, 303, 307, 308)
-          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
-            const location = response.headers.location;
-            if (location) {
-              response.resume(); // Drain the response to free the socket
-              // Handle relative redirects by resolving against the original URL
-              const redirectUrl = location.startsWith('/')
-                ? new URL(location, reqUrl).href
-                : location;
-              request(redirectUrl);
-              return;
-            }
-          }
+    console.log(`[Tagging] Fetching: ${url}`);
+    const response = await fetch(url, { redirect: 'follow' });
 
-          if (response.statusCode !== 200) {
-            file.close();
-            fs.unlink(destPath).catch(() => {});
-            reject(new Error(`Download failed: HTTP ${response.statusCode} for ${url}`));
-            return;
-          }
+    if (!response.ok) {
+      throw new Error(`Download failed: HTTP ${response.status} for ${url}`);
+    }
 
-          const totalSize = parseInt(response.headers['content-length'] || '0', 10);
-          let downloaded = 0;
-
-          response.on('data', (chunk: Buffer) => {
-            downloaded += chunk.length;
-            if (totalSize > 0 && downloaded % (5 * 1024 * 1024) < chunk.length) {
-              const pct = ((downloaded / totalSize) * 100).toFixed(1);
-              console.log(`[Tagging] Downloading... ${pct}% (${(downloaded / 1024 / 1024).toFixed(1)}MB)`);
-            }
-          });
-
-          response.pipe(file);
-          file.on('finish', () => {
-            file.close();
-            resolve();
-          });
-        }).on('error', (err) => {
-          file.close();
-          fs.unlink(destPath).catch(() => {});
-          reject(err);
-        });
-      };
-      request(url);
-    });
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await fs.writeFile(destPath, buffer);
+    console.log(`[Tagging] Saved: ${destPath} (${(buffer.length / 1024).toFixed(1)}KB)`);
   }
 
   /**
