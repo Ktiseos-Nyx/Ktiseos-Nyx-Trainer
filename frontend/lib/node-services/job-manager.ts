@@ -13,10 +13,6 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import path from 'path';
 
-// Shared event bus and jobs map (plain JS for server.js compatibility)
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { jobEvents, jobsMap } = require('./job-events');
-
 // ========== Types ==========
 
 export type JobType = 'training' | 'tagging' | 'captioning_blip' | 'captioning_git' | 'lora_resize' | 'hf_upload';
@@ -59,13 +55,30 @@ export interface JobEventEmitter extends EventEmitter {
   emit(event: 'error', jobId: string, error: string): boolean;
 }
 
+// ========== Shared State ==========
+// Uses globalThis to ensure server.js (plain JS) and all Next.js API routes
+// share the same job state regardless of how Next.js bundles modules.
+
+if (!globalThis.__jobEvents) {
+  const events = new EventEmitter();
+  events.setMaxListeners(100);
+  // IMPORTANT: 'error' events on EventEmitter throw if no listener is attached.
+  // Add a default handler so job errors don't crash the process.
+  events.on('error', (jobId: string, errorMsg: string) => {
+    console.error(`[JobManager] Job ${jobId} error: ${errorMsg}`);
+  });
+  globalThis.__jobEvents = events;
+}
+if (!globalThis.__jobsMap) {
+  globalThis.__jobsMap = new Map();
+}
+
 // ========== Job Manager ==========
 
 class JobManager {
-  // Use shared maps/events so server.js (plain JS) can access the same instances
-  private jobs: Map<string, Job> = jobsMap;
+  private jobs: Map<string, Job> = globalThis.__jobsMap;
   private processes: Map<string, ChildProcess> = new Map();
-  public events: JobEventEmitter = jobEvents as JobEventEmitter;
+  public events: JobEventEmitter = globalThis.__jobEvents as JobEventEmitter;
   private jobCounter = 0;
 
   /**

@@ -56,10 +56,11 @@ class TaggingService {
       const file = createWriteStream(destPath);
       const request = (reqUrl: string) => {
         https.get(reqUrl, (response) => {
-          // Follow redirects (HuggingFace uses them)
-          if (response.statusCode === 301 || response.statusCode === 302) {
+          // Follow redirects (HuggingFace uses 301, 302, 303, 307, 308)
+          if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
             const redirectUrl = response.headers.location;
             if (redirectUrl) {
+              response.resume(); // Drain the response to free the socket
               request(redirectUrl);
               return;
             }

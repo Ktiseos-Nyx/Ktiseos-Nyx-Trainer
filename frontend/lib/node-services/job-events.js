@@ -15,6 +15,11 @@ const { EventEmitter } = require('events');
 if (!globalThis.__jobEvents) {
   const events = new EventEmitter();
   events.setMaxListeners(100);
+  // IMPORTANT: 'error' events on EventEmitter throw if no listener is attached.
+  // Add a default handler so job errors don't crash the process.
+  events.on('error', (jobId, errorMsg) => {
+    console.error(`[JobManager] Job ${jobId} error: ${errorMsg}`);
+  });
   globalThis.__jobEvents = events;
 }
 
