@@ -11,6 +11,8 @@ import * as ort from 'onnxruntime-node';
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
+import https from 'https';
+import { createWriteStream } from 'fs';
 
 // ========== Types ==========
 
@@ -43,8 +45,83 @@ class TaggingService {
   private modelPath: string = '';
   private isInitialized: boolean = false;
 
+  // Files needed for ONNX inference
+  private static readonly REQUIRED_FILES = ['model.onnx', 'selected_tags.csv'];
+
+  /**
+   * Download a file from HuggingFace Hub
+   */
+  private async downloadFile(url: string, destPath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const file = createWriteStream(destPath);
+      const request = (reqUrl: string) => {
+        https.get(reqUrl, (response) => {
+          // Follow redirects (HuggingFace uses them)
+          if (response.statusCode === 301 || response.statusCode === 302) {
+            const redirectUrl = response.headers.location;
+            if (redirectUrl) {
+              request(redirectUrl);
+              return;
+            }
+          }
+
+          if (response.statusCode !== 200) {
+            file.close();
+            fs.unlink(destPath).catch(() => {});
+            reject(new Error(`Download failed: HTTP ${response.statusCode} for ${url}`));
+            return;
+          }
+
+          const totalSize = parseInt(response.headers['content-length'] || '0', 10);
+          let downloaded = 0;
+
+          response.on('data', (chunk: Buffer) => {
+            downloaded += chunk.length;
+            if (totalSize > 0 && downloaded % (5 * 1024 * 1024) < chunk.length) {
+              const pct = ((downloaded / totalSize) * 100).toFixed(1);
+              console.log(`[Tagging] Downloading... ${pct}% (${(downloaded / 1024 / 1024).toFixed(1)}MB)`);
+            }
+          });
+
+          response.pipe(file);
+          file.on('finish', () => {
+            file.close();
+            resolve();
+          });
+        }).on('error', (err) => {
+          file.close();
+          fs.unlink(destPath).catch(() => {});
+          reject(err);
+        });
+      };
+      request(url);
+    });
+  }
+
+  /**
+   * Download model files from HuggingFace if not already present
+   */
+  private async ensureModelDownloaded(modelName: string, modelDir: string): Promise<void> {
+    await fs.mkdir(modelDir, { recursive: true });
+
+    for (const file of TaggingService.REQUIRED_FILES) {
+      const filePath = path.join(modelDir, file);
+      try {
+        await fs.access(filePath);
+        const stat = await fs.stat(filePath);
+        if (stat.size === 0) throw new Error('Empty file');
+      } catch {
+        const url = `https://huggingface.co/${modelName}/resolve/main/${file}`;
+        console.log(`[Tagging] Downloading ${file} from HuggingFace: ${modelName}`);
+        await this.downloadFile(url, filePath);
+        console.log(`[Tagging] Downloaded ${file} successfully`);
+      }
+    }
+  }
+
   /**
    * Initialize the WD14 model (run once per model)
+   * Auto-downloads from HuggingFace if not present.
    */
   async initModel(modelName: string): Promise<void> {
     if (this.isInitialized && this.modelPath.includes(modelName)) {
@@ -56,39 +133,31 @@ class TaggingService {
     const modelFile = path.join(modelDir, 'model.onnx');
     const csvFile = path.join(modelDir, 'selected_tags.csv');
 
-    try {
-      // Check if model exists
-      await fs.access(modelFile);
-      await fs.access(csvFile);
+    // Auto-download model files if missing
+    await this.ensureModelDownloaded(modelName, modelDir);
 
-      console.log(`[Tagging] Loading model: ${modelName}`);
+    console.log(`[Tagging] Loading model: ${modelName}`);
 
-      // Load ONNX Model (CPU execution - no CUDA needed!)
-      this.session = await ort.InferenceSession.create(modelFile, {
-        executionProviders: ['cpu'],
-      });
+    // Load ONNX Model (CPU execution - no CUDA needed!)
+    this.session = await ort.InferenceSession.create(modelFile, {
+      executionProviders: ['cpu'],
+    });
 
-      // Load Tags CSV
-      const csvContent = await fs.readFile(csvFile, 'utf-8');
-      this.tags = csvContent
-        .split('\n')
-        .slice(1) // Skip header
-        .map((line) => {
-          const parts = line.split(',');
-          return parts[1]?.trim(); // Tag name is in column 1
-        })
-        .filter((t) => t); // Filter empty lines
+    // Load Tags CSV
+    const csvContent = await fs.readFile(csvFile, 'utf-8');
+    this.tags = csvContent
+      .split('\n')
+      .slice(1) // Skip header
+      .map((line) => {
+        const parts = line.split(',');
+        return parts[1]?.trim(); // Tag name is in column 1
+      })
+      .filter((t) => t); // Filter empty lines
 
-      this.modelPath = modelFile;
-      this.isInitialized = true;
+    this.modelPath = modelFile;
+    this.isInitialized = true;
 
-      console.log(`[Tagging] Model loaded: ${this.tags.length} tags available`);
-    } catch (error) {
-      console.error(`[Tagging] Failed to load model:`, error);
-      throw new Error(
-        `Model not found: ${modelName}. Please download it first via the Models page.`
-      );
-    }
+    console.log(`[Tagging] Model loaded: ${this.tags.length} tags available`);
   }
 
   /**

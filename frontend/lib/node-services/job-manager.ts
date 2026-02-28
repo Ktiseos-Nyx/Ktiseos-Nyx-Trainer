@@ -13,6 +13,10 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import path from 'path';
 
+// Shared event bus and jobs map (plain JS for server.js compatibility)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { jobEvents, jobsMap } = require('./job-events');
+
 // ========== Types ==========
 
 export type JobType = 'training' | 'tagging' | 'captioning_blip' | 'captioning_git' | 'lora_resize' | 'hf_upload';
@@ -58,9 +62,10 @@ export interface JobEventEmitter extends EventEmitter {
 // ========== Job Manager ==========
 
 class JobManager {
-  private jobs: Map<string, Job> = new Map();
+  // Use shared maps/events so server.js (plain JS) can access the same instances
+  private jobs: Map<string, Job> = jobsMap;
   private processes: Map<string, ChildProcess> = new Map();
-  public events: JobEventEmitter = new EventEmitter() as JobEventEmitter;
+  public events: JobEventEmitter = jobEvents as JobEventEmitter;
   private jobCounter = 0;
 
   /**

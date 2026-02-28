@@ -124,9 +124,9 @@ app.prepare().then(() => {
 
     const jobId = match[1];
 
-    // Import job manager (lazy load to avoid circular deps)
-    const { jobManager } = require('./lib/node-services/job-manager');
-    const job = jobManager.getJob(jobId);
+    // Use shared event bus (plain JS, works across server.js and Next.js API routes)
+    const { jobEvents, jobsMap } = require('./lib/node-services/job-events');
+    const job = jobsMap.get(jobId);
 
     if (!job) {
       ws.send(JSON.stringify({ error: `Job ${jobId} not found` }));
@@ -165,16 +165,16 @@ app.prepare().then(() => {
       }
     };
 
-    jobManager.events.on('log', logListener);
-    jobManager.events.on('status', statusListener);
-    jobManager.events.on('progress', progressListener);
+    jobEvents.on('log', logListener);
+    jobEvents.on('status', statusListener);
+    jobEvents.on('progress', progressListener);
 
     // Handle client disconnect
     ws.on('close', () => {
       console.log(`🔌 WebSocket disconnected: ${pathname}`);
-      jobManager.events.removeListener('log', logListener);
-      jobManager.events.removeListener('status', statusListener);
-      jobManager.events.removeListener('progress', progressListener);
+      jobEvents.removeListener('log', logListener);
+      jobEvents.removeListener('status', statusListener);
+      jobEvents.removeListener('progress', progressListener);
     });
 
     // Handle ping/pong for connection health
