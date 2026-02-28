@@ -35,6 +35,7 @@ export default function TrainingMonitor() {
 
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const MAX_LOGS = 1000;
 
   // Auto-scroll logs to bottom
   const scrollToBottom = () => {
@@ -132,7 +133,10 @@ export default function TrainingMonitor() {
       jobId,
       (data) => {
         if (data.type === 'log') {
-          setLogs((prev) => [...prev, data.message as string]);
+          setLogs((prev) => {
+            const next = [...prev, data.message as string];
+            return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+          });
         } else if (data.type === 'progress') {
           setStatus((prev) => ({
             ...prev,

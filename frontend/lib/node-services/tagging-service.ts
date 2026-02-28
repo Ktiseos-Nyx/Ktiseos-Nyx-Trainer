@@ -102,10 +102,20 @@ class TaggingService {
 
     console.log(`[Tagging] Loading model: ${modelName}`);
 
-    // Load ONNX Model (CPU execution - no CUDA needed!)
-    this.session = await ort.InferenceSession.create(modelFile, {
-      executionProviders: ['cpu'],
-    });
+    // Load ONNX Model - try GPU first, fall back to CPU
+    // onnxruntime-node supports CUDA on x64 Linux (VastAI GPU instances)
+    try {
+      this.session = await ort.InferenceSession.create(modelFile, {
+        executionProviders: ['cuda', 'cpu'],
+      });
+      console.log(`[Tagging] Model loaded with GPU (CUDA) acceleration`);
+    } catch {
+      // CUDA not available - fall back to CPU only
+      console.log(`[Tagging] CUDA not available, falling back to CPU`);
+      this.session = await ort.InferenceSession.create(modelFile, {
+        executionProviders: ['cpu'],
+      });
+    }
 
     // Load Tags CSV
     const csvContent = await fs.readFile(csvFile, 'utf-8');
