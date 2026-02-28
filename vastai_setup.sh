@@ -219,25 +219,30 @@ if [ ! -d /workspace/Ktiseos-Nyx-Trainer ]; then
 fi
 cd /workspace/Ktiseos-Nyx-Trainer
 
+# VastAI's Caddy binds ports 3000/8000 and reverse-proxies to 13000/18000.
+# Our services must listen on the proxy-target ports, not the Caddy-owned ports.
+BACKEND_PORT="${BACKEND_PORT:-18000}"
+FRONTEND_PORT="${FRONTEND_PORT:-13000}"
+
 # Clean up any existing processes on our ports (only if they're python/node processes)
-# This prevents accidentally killing VastAI infrastructure
-echo "[$(date)] Checking for existing services on ports 8000 and 3000..." | tee -a /workspace/logs/supervisor.log
+# This prevents accidentally killing VastAI infrastructure (Caddy on 3000/8000)
+echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 pkill -f "uvicorn api.main:app" 2>/dev/null || true
-pkill -f "next-server.*3000" 2>/dev/null || true
+pkill -f "next-server" 2>/dev/null || true
 sleep 1
 
 # Start backend
-echo "[$(date)] Starting FastAPI backend on port 8000..." | tee -a /workspace/logs/supervisor.log
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 2>&1 | tee -a /workspace/logs/backend.log &
+echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/logs/supervisor.log
+python -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/logs/backend.log &
 BACKEND_PID=$!
 
 # Give backend a moment to start
 sleep 2
 
 # Start frontend (using custom server with WebSocket proxy)
-echo "[$(date)] Starting Next.js frontend on port 3000 (custom server)..." | tee -a /workspace/logs/supervisor.log
+echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 cd frontend || exit 1
-NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
+PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
 FRONTEND_PID=$!
 
 # Wait for both processes
