@@ -147,6 +147,12 @@ if %errorlevel% neq 0 (
     echo   3. Multiple Python installations conflicting
     echo      Solution: Check "python --version" and "py --list" in CMD
     echo.
+    echo   4. "Access is denied" during install
+    echo      - Make sure the project is NOT in OneDrive/Dropbox/Google Drive
+    echo      - Close any editors ^(VS Code^) that may lock files in the project
+    echo      - Try running this script as Administrator ^(right-click ^> Run as admin^)
+    echo      - Avoid installing to C:\Program Files or other protected folders
+    echo.
     echo Check the log file in logs/ folder for detailed error information.
     echo ======================================================================
 ) else (

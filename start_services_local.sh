@@ -7,6 +7,7 @@ set -e
 
 # --- Configuration ---
 VENV_DIR=".venv"
+HAS_WARNINGS=0
 
 # --- Main Script ---
 echo "=========================================="
@@ -14,9 +15,105 @@ echo "Starting Ktiseos-Nyx-Trainer Services (Local)..."
 echo "=========================================="
 echo ""
 
-# --------------------------------------------------------------------
+# ====================================================================
+#  PRE-FLIGHT CHECKS - Catch common issues BEFORE they become cryptic
+# ====================================================================
+echo "[Pre-flight checks...]"
+echo ""
+
+# --- Check: File ownership mismatch (root vs user) ---
+# This is the #1 cause of "Permission denied" on Linux.
+# Happens when: cloned as root, running as user (or vice versa)
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -d "$PROJECT_DIR/frontend" ]; then
+    DIR_OWNER=$(stat -c '%u' "$PROJECT_DIR/frontend" 2>/dev/null || stat -f '%u' "$PROJECT_DIR/frontend" 2>/dev/null || echo "unknown")
+    CURRENT_UID=$(id -u)
+    if [ "$DIR_OWNER" != "unknown" ] && [ "$DIR_OWNER" != "$CURRENT_UID" ]; then
+        OWNER_NAME=$(id -un "$DIR_OWNER" 2>/dev/null || echo "uid:$DIR_OWNER")
+        echo "[WARNING] File ownership mismatch!"
+        echo "          Project files are owned by: $OWNER_NAME (uid:$DIR_OWNER)"
+        echo "          You are running as: $(whoami) (uid:$CURRENT_UID)"
+        echo ""
+        echo "          This WILL cause 'Permission denied' errors."
+        echo "          Fix: sudo chown -R $(whoami):$(id -gn) $PROJECT_DIR"
+        echo ""
+        HAS_WARNINGS=1
+    fi
+fi
+
+# --- Check: Write permissions ---
+if ! touch "$PROJECT_DIR/.write_test" 2>/dev/null; then
+    echo "[ERROR] Cannot write to project folder!"
+    echo "        Path: $PROJECT_DIR"
+    echo ""
+    echo "        Fix: sudo chown -R $(whoami):$(id -gn) $PROJECT_DIR"
+    echo "        Or:  chmod -R u+w $PROJECT_DIR"
+    echo ""
+    exit 1
+else
+    rm -f "$PROJECT_DIR/.write_test"
+fi
+
+# --- Check: node_modules ownership (common after sudo npm install) ---
+if [ -d "$PROJECT_DIR/frontend/node_modules" ]; then
+    NM_OWNER=$(stat -c '%u' "$PROJECT_DIR/frontend/node_modules" 2>/dev/null || stat -f '%u' "$PROJECT_DIR/frontend/node_modules" 2>/dev/null || echo "unknown")
+    if [ "$NM_OWNER" != "unknown" ] && [ "$NM_OWNER" != "$(id -u)" ]; then
+        echo "[WARNING] frontend/node_modules is owned by a different user!"
+        echo "          This happens if 'npm install' was run as root/sudo."
+        echo "          Fix: sudo chown -R $(whoami):$(id -gn) $PROJECT_DIR/frontend/node_modules"
+        echo "          Or delete and reinstall: rm -rf frontend/node_modules && cd frontend && npm install"
+        echo ""
+        HAS_WARNINGS=1
+    fi
+fi
+
+# --- Check: Ports already in use ---
+if command -v ss &> /dev/null; then
+    PORT_CHECK_CMD="ss -tlnp"
+elif command -v netstat &> /dev/null; then
+    PORT_CHECK_CMD="netstat -tlnp"
+else
+    PORT_CHECK_CMD=""
+fi
+
+if [ -n "$PORT_CHECK_CMD" ]; then
+    if $PORT_CHECK_CMD 2>/dev/null | grep -q ":8000 "; then
+        echo "[WARNING] Port 8000 is already in use!"
+        echo "          Something is already listening there. The backend may fail."
+        echo "          Check with: $PORT_CHECK_CMD 2>/dev/null | grep :8000"
+        echo ""
+        HAS_WARNINGS=1
+    fi
+    if $PORT_CHECK_CMD 2>/dev/null | grep -q ":3000 "; then
+        echo "[WARNING] Port 3000 is already in use!"
+        echo "          Something is already listening there. The frontend may fail."
+        echo "          Check with: $PORT_CHECK_CMD 2>/dev/null | grep :3000"
+        echo ""
+        HAS_WARNINGS=1
+    fi
+fi
+
+# --- Check: Stale node processes ---
+if pgrep -f "node.*server.js" > /dev/null 2>&1 || pgrep -f "next-server" > /dev/null 2>&1; then
+    echo "[INFO] Existing Node.js processes found (possibly from a previous run)."
+    echo "       If the frontend fails, try: pkill -f 'node.*server.js'"
+    echo ""
+fi
+
+if [ "$HAS_WARNINGS" = "1" ]; then
+    echo "------------------------------------------"
+    echo "  Warnings found. Services may still work,"
+    echo "  but check above if you hit errors."
+    echo "------------------------------------------"
+    echo ""
+fi
+
+echo "[Pre-flight checks complete.]"
+echo ""
+
+# ====================================================================
 # Step 1: Verify that the environment has been installed
-# --------------------------------------------------------------------
+# ====================================================================
 echo "[Verifying installation...]"
 if [ -d "$VENV_DIR/bin" ]; then
     echo "[OK] Virtual environment found. Activating..."
@@ -37,9 +134,9 @@ else
 fi
 echo ""
 
-# --------------------------------------------------------------------
-# Step 3: Start Services
-# --------------------------------------------------------------------
+# ====================================================================
+# Step 2: Start Services
+# ====================================================================
 
 # Trap SIGINT (Ctrl+C) to gracefully shut down background processes
 trap 'echo "\n[INFO] Shutting down services..."; pkill -P $$; exit' SIGINT
@@ -57,8 +154,18 @@ if [ -d "frontend" ]; then
     # Check if npm is available
     if ! command -v npm &> /dev/null; then
         echo "[Warning] npm not found - skipping frontend startup."
-        echo "          Install Node.js 18+ to enable frontend."
+        echo "          Install Node.js 20+ to enable frontend."
     else
+        # Auto-install deps if missing
+        if [ ! -d "frontend/node_modules/next" ]; then
+            echo "[Frontend] Dependencies missing, running npm install..."
+            (cd frontend && npm install --legacy-peer-deps)
+        fi
+        # Auto-build if missing
+        if [ ! -d "frontend/.next" ]; then
+            echo "[Frontend] No build found, running npm run build..."
+            (cd frontend && npm run build)
+        fi
         echo "[Frontend] Starting Next.js frontend on http://localhost:3000..."
         (cd frontend && npm start &)
     fi
