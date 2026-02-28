@@ -25,7 +25,8 @@ const dev = process.env.NODE_ENV !== 'production';
 // In dev, use localhost. Don't use HOSTNAME env var (Docker sets it to container ID)
 const hostname = dev ? 'localhost' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
-const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+const defaultBackendPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
+const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackendPort}`;
 
 // Initialize Next.js app
 const app = next({ dev, hostname, port });

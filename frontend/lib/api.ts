@@ -13,7 +13,7 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 // For relative URLs, construct WebSocket URL from current page location
 // For absolute URLs, converts http:// -> ws:// and https:// -> wss://
 export const getWsUrl = (path: string): string => {
-  if (typeof window === 'undefined') return `ws://127.0.0.1:8000${path}`;
+  if (typeof window === 'undefined') return `ws://127.0.0.1:${process.env.BACKEND_PORT || '8000'}${path}`;
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   let host = window.location.host;
