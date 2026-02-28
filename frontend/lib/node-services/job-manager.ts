@@ -401,11 +401,54 @@ export async function createTrainingJob(
 }
 
 /**
- * Create and start a tagging job
+ * Configuration for WD14 tagger jobs.
+ * Fields map to Python CLI flags in custom/tag_images_by_wd14_tagger.py
+ */
+export interface TaggingJobConfig {
+  /** Directory containing images to tag (positional: train_data_dir) */
+  inputDir: string;
+  /** HuggingFace repo ID for the tagger model (--repo_id) */
+  model?: string;
+  /** Global confidence threshold for adding tags (--thresh) */
+  threshold?: number;
+  /** Threshold for general category tags (--general_threshold) */
+  generalThreshold?: number;
+  /** Threshold for character category tags (--character_threshold) */
+  characterThreshold?: number;
+  /** Extension for output caption files, e.g. ".txt" (--caption_extension) */
+  captionExtension?: string;
+  /** Batch size for inference (--batch_size) */
+  batchSize?: number;
+  /** Separator between tags in caption files (--caption_separator) */
+  captionSeparator?: string;
+  /** Comma-separated list of tags to exclude (--undesired_tags) */
+  undesiredTags?: string;
+  /** Comma-separated list of tags to always place first (--always_first_tags) */
+  alwaysFirstTags?: string;
+  /** Tag replacement rules: "source1,target1;source2,target2" (--tag_replacement) */
+  tagReplacement?: string;
+  /** Replace underscores with spaces in output tags (--remove_underscore) */
+  removeUnderscore?: boolean;
+  /** Place character tags before general tags (--character_tags_first) */
+  characterTagsFirst?: boolean;
+  /** Append to existing caption files instead of overwriting (--append_tags) */
+  appendTags?: boolean;
+  /** Search for images in subdirectories recursively (--recursive) */
+  recursive?: boolean;
+  /** Add rating tags as first tag (--use_rating_tags) */
+  useRatingTags?: boolean;
+  /** Add rating tags as last tag (--use_rating_tags_as_last_tag) */
+  useRatingTagsAsLastTag?: boolean;
+  /** Expand character tag parentheses to separate tags (--character_tag_expand) */
+  characterTagExpand?: boolean;
+}
+
+/**
+ * Create and start a tagging job using the Python WD14 tagger.
+ * Always passes --onnx for GPU-accelerated inference.
  */
 export async function createTaggingJob(
-  inputDir: string,
-  model: string = 'wd-v1-4-moat-tagger-v2'
+  config: TaggingJobConfig
 ): Promise<string> {
   const projectRoot = getProjectRoot();
   const pythonPath = getPythonPath();
@@ -416,16 +459,68 @@ export async function createTaggingJob(
     'tag_images_by_wd14_tagger.py'
   );
 
-  const args = [
-    scriptPath,
-    inputDir,
-    '--model',
-    model,
-    '--general_threshold',
-    '0.35',
-    '--character_threshold',
-    '0.85',
-  ];
+  // Build CLI args: script path, then positional train_data_dir
+  const args: string[] = [scriptPath, config.inputDir];
+
+  // Always enable ONNX for GPU support
+  args.push('--onnx');
+
+  // Model repo ID
+  if (config.model) {
+    args.push('--repo_id', config.model);
+  }
+
+  // Numeric / string options
+  if (config.threshold !== undefined) {
+    args.push('--thresh', String(config.threshold));
+  }
+  if (config.generalThreshold !== undefined) {
+    args.push('--general_threshold', String(config.generalThreshold));
+  }
+  if (config.characterThreshold !== undefined) {
+    args.push('--character_threshold', String(config.characterThreshold));
+  }
+  if (config.captionExtension) {
+    args.push('--caption_extension', config.captionExtension);
+  }
+  if (config.batchSize !== undefined) {
+    args.push('--batch_size', String(config.batchSize));
+  }
+  if (config.captionSeparator !== undefined) {
+    args.push('--caption_separator', config.captionSeparator);
+  }
+  if (config.undesiredTags) {
+    args.push('--undesired_tags', config.undesiredTags);
+  }
+  if (config.alwaysFirstTags) {
+    args.push('--always_first_tags', config.alwaysFirstTags);
+  }
+  if (config.tagReplacement) {
+    args.push('--tag_replacement', config.tagReplacement);
+  }
+
+  // Boolean flags (only pass when true)
+  if (config.removeUnderscore) {
+    args.push('--remove_underscore');
+  }
+  if (config.characterTagsFirst) {
+    args.push('--character_tags_first');
+  }
+  if (config.appendTags) {
+    args.push('--append_tags');
+  }
+  if (config.recursive) {
+    args.push('--recursive');
+  }
+  if (config.useRatingTags) {
+    args.push('--use_rating_tags');
+  }
+  if (config.useRatingTagsAsLastTag) {
+    args.push('--use_rating_tags_as_last_tag');
+  }
+  if (config.characterTagExpand) {
+    args.push('--character_tag_expand');
+  }
 
   const jobId = jobManager.createJob('tagging', pythonPath, args, projectRoot);
   jobManager.startJob(jobId);
