@@ -58,9 +58,13 @@ class TaggingService {
         https.get(reqUrl, (response) => {
           // Follow redirects (HuggingFace uses 301, 302, 303, 307, 308)
           if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
-            const redirectUrl = response.headers.location;
-            if (redirectUrl) {
+            const location = response.headers.location;
+            if (location) {
               response.resume(); // Drain the response to free the socket
+              // Handle relative redirects by resolving against the original URL
+              const redirectUrl = location.startsWith('/')
+                ? new URL(location, reqUrl).href
+                : location;
               request(redirectUrl);
               return;
             }
