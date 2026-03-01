@@ -9,8 +9,9 @@
  * - Job control (start, stop, status)
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 import { EventEmitter } from 'events';
+import fs from 'fs';
 import path from 'path';
 
 // ========== Types ==========
@@ -54,6 +55,14 @@ export interface JobEventEmitter extends EventEmitter {
   emit(event: 'complete', jobId: string, exitCode: number): boolean;
   emit(event: 'error', jobId: string, error: string): boolean;
 }
+
+// ========== Configuration ==========
+
+/** Max log entries per job. Oldest entries are trimmed when exceeded. */
+const MAX_LOGS = parseInt(process.env.MAX_LOG_ENTRIES || '500', 10);
+
+/** How often to run auto-cleanup of old completed/failed jobs (ms) */
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 // ========== Shared State ==========
 // Uses globalThis to ensure server.js (plain JS) and all Next.js API routes
@@ -152,6 +161,10 @@ class JobManager {
         lines.forEach((line: string) => {
           const logEntry = this.parseLogLine(line);
           job.logs.push(logEntry);
+          // Cap log array to prevent unbounded memory growth
+          if (job.logs.length > MAX_LOGS) {
+            job.logs.splice(0, job.logs.length - MAX_LOGS);
+          }
           this.events.emit('log', jobId, logEntry);
 
           // Check for progress updates
@@ -170,6 +183,9 @@ class JobManager {
         lines.forEach((line: string) => {
           const logEntry = this.parseLogLine(line, 'error');
           job.logs.push(logEntry);
+          if (job.logs.length > MAX_LOGS) {
+            job.logs.splice(0, job.logs.length - MAX_LOGS);
+          }
           this.events.emit('log', jobId, logEntry);
         });
       });
@@ -325,7 +341,7 @@ class JobManager {
    */
   cleanup(keepLast: number = 100): number {
     const allJobs = Array.from(this.jobs.values())
-      .filter((j) => j.status === 'completed' || j.status === 'failed')
+      .filter((j) => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled')
       .sort((a, b) => (b.completed_at || 0) - (a.completed_at || 0));
 
     const toDelete = allJobs.slice(keepLast);
@@ -339,6 +355,23 @@ class JobManager {
 
 export const jobManager = new JobManager();
 
+// ========== Auto-Cleanup ==========
+// Periodically remove old completed/failed jobs to prevent unbounded memory growth.
+// Uses globalThis guard so only one timer runs per process.
+
+if (!globalThis.__jobCleanupTimer) {
+  globalThis.__jobCleanupTimer = setInterval(() => {
+    const removed = jobManager.cleanup(50);
+    if (removed > 0) {
+      console.log(`[JobManager] Auto-cleanup: removed ${removed} old jobs`);
+    }
+  }, CLEANUP_INTERVAL_MS);
+  // Don't block process exit
+  if (globalThis.__jobCleanupTimer.unref) {
+    globalThis.__jobCleanupTimer.unref();
+  }
+}
+
 // ========== Helper Functions ==========
 
 /**
@@ -349,41 +382,98 @@ export function getProjectRoot(): string {
   return path.resolve(process.cwd(), '..');
 }
 
+/** Cached Python path (detected once per process lifetime) */
+let cachedPythonPath: string | null = null;
+
 /**
- * Get Python executable path
- * Tries to use venv python if available, falls back to system python
+ * Get Python executable path.
+ * Checks known venv locations, then falls back to system python.
+ * Result is cached for the process lifetime.
  */
 export function getPythonPath(): string {
+  if (cachedPythonPath) return cachedPythonPath;
+
   const projectRoot = getProjectRoot();
 
-  // Try venv paths (Windows and Linux)
-  const venvPaths = [
-    path.join(projectRoot, 'venv', 'Scripts', 'python.exe'), // Windows
-    path.join(projectRoot, 'venv', 'bin', 'python'), // Linux
+  // Check known venv locations in priority order
+  const candidates = [
+    // VastAI Docker image venv
+    '/venv/main/bin/python',
+    // install.sh creates .venv/ (note the dot)
+    path.join(projectRoot, '.venv', 'Scripts', 'python.exe'), // Windows
+    path.join(projectRoot, '.venv', 'bin', 'python'), // Linux
+    // Legacy venv/ path (some manual setups)
+    path.join(projectRoot, 'venv', 'Scripts', 'python.exe'),
+    path.join(projectRoot, 'venv', 'bin', 'python'),
   ];
 
-  // For now, just use 'python' and let the system resolve it
-  // In production, you'd check if venv exists
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        cachedPythonPath = candidate;
+        console.log(`[JobManager] Python found: ${candidate}`);
+        return candidate;
+      }
+    } catch {
+      // Skip inaccessible paths
+    }
+  }
+
+  // Fall back to system python - check python3 first (Linux convention)
+  for (const cmd of ['python3', 'python']) {
+    try {
+      execSync(`${cmd} --version`, { stdio: 'ignore', timeout: 5000 });
+      cachedPythonPath = cmd;
+      console.log(`[JobManager] Python found on PATH: ${cmd}`);
+      return cmd;
+    } catch {
+      // Not available, try next
+    }
+  }
+
+  // Last resort - return 'python' and hope for the best
+  console.warn('[JobManager] No Python found in venvs or PATH, defaulting to "python"');
+  cachedPythonPath = 'python';
   return 'python';
 }
 
 /**
- * Create and start a training job
+ * Supported model architectures and their training scripts.
+ * Maps to files in trainer/derrian_backend/sd_scripts/
+ */
+export type ModelArchitecture = 'sd15' | 'sdxl' | 'sd3' | 'flux' | 'lumina';
+
+const TRAINING_SCRIPTS: Record<ModelArchitecture, string> = {
+  sd15: 'train_network.py',
+  sdxl: 'sdxl_train_network.py',
+  sd3: 'sd3_train_network.py',
+  flux: 'flux_train_network.py',
+  lumina: 'lumina_train_network.py',
+};
+
+/**
+ * Create and start a training job.
+ * Selects the correct training script based on model architecture.
  */
 export async function createTrainingJob(
   configPath: string,
-  datasetPath: string
+  datasetPath: string,
+  architecture: ModelArchitecture = 'sdxl'
 ): Promise<string> {
   const projectRoot = getProjectRoot();
   const pythonPath = getPythonPath();
 
-  // Path to training script
+  const scriptName = TRAINING_SCRIPTS[architecture];
+  if (!scriptName) {
+    throw new Error(`Unsupported model architecture: ${architecture}`);
+  }
+
   const scriptPath = path.join(
     projectRoot,
     'trainer',
     'derrian_backend',
     'sd_scripts',
-    'sdxl_train_network.py'
+    scriptName
   );
 
   const args = [
@@ -401,11 +491,54 @@ export async function createTrainingJob(
 }
 
 /**
- * Create and start a tagging job
+ * Configuration for WD14 tagger jobs.
+ * Fields map to Python CLI flags in custom/tag_images_by_wd14_tagger.py
+ */
+export interface TaggingJobConfig {
+  /** Directory containing images to tag (positional: train_data_dir) */
+  inputDir: string;
+  /** HuggingFace repo ID for the tagger model (--repo_id) */
+  model?: string;
+  /** Global confidence threshold for adding tags (--thresh) */
+  threshold?: number;
+  /** Threshold for general category tags (--general_threshold) */
+  generalThreshold?: number;
+  /** Threshold for character category tags (--character_threshold) */
+  characterThreshold?: number;
+  /** Extension for output caption files, e.g. ".txt" (--caption_extension) */
+  captionExtension?: string;
+  /** Batch size for inference (--batch_size) */
+  batchSize?: number;
+  /** Separator between tags in caption files (--caption_separator) */
+  captionSeparator?: string;
+  /** Comma-separated list of tags to exclude (--undesired_tags) */
+  undesiredTags?: string;
+  /** Comma-separated list of tags to always place first (--always_first_tags) */
+  alwaysFirstTags?: string;
+  /** Tag replacement rules: "source1,target1;source2,target2" (--tag_replacement) */
+  tagReplacement?: string;
+  /** Replace underscores with spaces in output tags (--remove_underscore) */
+  removeUnderscore?: boolean;
+  /** Place character tags before general tags (--character_tags_first) */
+  characterTagsFirst?: boolean;
+  /** Append to existing caption files instead of overwriting (--append_tags) */
+  appendTags?: boolean;
+  /** Search for images in subdirectories recursively (--recursive) */
+  recursive?: boolean;
+  /** Add rating tags as first tag (--use_rating_tags) */
+  useRatingTags?: boolean;
+  /** Add rating tags as last tag (--use_rating_tags_as_last_tag) */
+  useRatingTagsAsLastTag?: boolean;
+  /** Expand character tag parentheses to separate tags (--character_tag_expand) */
+  characterTagExpand?: boolean;
+}
+
+/**
+ * Create and start a tagging job using the Python WD14 tagger.
+ * Always passes --onnx for GPU-accelerated inference.
  */
 export async function createTaggingJob(
-  inputDir: string,
-  model: string = 'wd-v1-4-moat-tagger-v2'
+  config: TaggingJobConfig
 ): Promise<string> {
   const projectRoot = getProjectRoot();
   const pythonPath = getPythonPath();
@@ -416,16 +549,68 @@ export async function createTaggingJob(
     'tag_images_by_wd14_tagger.py'
   );
 
-  const args = [
-    scriptPath,
-    inputDir,
-    '--model',
-    model,
-    '--general_threshold',
-    '0.35',
-    '--character_threshold',
-    '0.85',
-  ];
+  // Build CLI args: script path, then positional train_data_dir
+  const args: string[] = [scriptPath, config.inputDir];
+
+  // Always enable ONNX for GPU support
+  args.push('--onnx');
+
+  // Model repo ID
+  if (config.model) {
+    args.push('--repo_id', config.model);
+  }
+
+  // Numeric / string options
+  if (config.threshold !== undefined) {
+    args.push('--thresh', String(config.threshold));
+  }
+  if (config.generalThreshold !== undefined) {
+    args.push('--general_threshold', String(config.generalThreshold));
+  }
+  if (config.characterThreshold !== undefined) {
+    args.push('--character_threshold', String(config.characterThreshold));
+  }
+  if (config.captionExtension) {
+    args.push('--caption_extension', config.captionExtension);
+  }
+  if (config.batchSize !== undefined) {
+    args.push('--batch_size', String(config.batchSize));
+  }
+  if (config.captionSeparator !== undefined) {
+    args.push('--caption_separator', config.captionSeparator);
+  }
+  if (config.undesiredTags) {
+    args.push('--undesired_tags', config.undesiredTags);
+  }
+  if (config.alwaysFirstTags) {
+    args.push('--always_first_tags', config.alwaysFirstTags);
+  }
+  if (config.tagReplacement) {
+    args.push('--tag_replacement', config.tagReplacement);
+  }
+
+  // Boolean flags (only pass when true)
+  if (config.removeUnderscore) {
+    args.push('--remove_underscore');
+  }
+  if (config.characterTagsFirst) {
+    args.push('--character_tags_first');
+  }
+  if (config.appendTags) {
+    args.push('--append_tags');
+  }
+  if (config.recursive) {
+    args.push('--recursive');
+  }
+  if (config.useRatingTags) {
+    args.push('--use_rating_tags');
+  }
+  if (config.useRatingTagsAsLastTag) {
+    args.push('--use_rating_tags_as_last_tag');
+  }
+  if (config.characterTagExpand) {
+    args.push('--character_tag_expand');
+  }
 
   const jobId = jobManager.createJob('tagging', pythonPath, args, projectRoot);
   jobManager.startJob(jobId);

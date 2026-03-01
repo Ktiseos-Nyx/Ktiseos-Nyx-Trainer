@@ -43,6 +43,24 @@ class TaggingService {
   private modelPath: string = '';
   private isInitialized: boolean = false;
 
+  /**
+   * Release the ONNX session and free GPU/CPU memory.
+   * Call on process shutdown or when switching models.
+   */
+  async dispose(): Promise<void> {
+    if (this.session) {
+      try {
+        await this.session.release();
+        console.log('[Tagging] ONNX session released');
+      } catch (err) {
+        console.error('[Tagging] Error releasing ONNX session:', err);
+      }
+      this.session = null;
+      this.tags = [];
+      this.isInitialized = false;
+    }
+  }
+
   // Files needed for ONNX inference
   private static readonly REQUIRED_FILES = ['model.onnx', 'selected_tags.csv'];
 
@@ -324,6 +342,16 @@ class TaggingService {
 // ========== Singleton Instance ==========
 
 export const taggingService = new TaggingService();
+
+// Clean up ONNX session on process exit to free GPU/CPU memory
+process.on('SIGINT', async () => {
+  await taggingService.dispose();
+  process.exit(0);
+});
+process.on('SIGTERM', async () => {
+  await taggingService.dispose();
+  process.exit(0);
+});
 
 // ========== Helper Function ==========
 
