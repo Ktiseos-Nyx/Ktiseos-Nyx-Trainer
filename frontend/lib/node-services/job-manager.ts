@@ -340,7 +340,7 @@ class JobManager {
    */
   cleanup(keepLast: number = 100): number {
     const allJobs = Array.from(this.jobs.values())
-      .filter((j) => j.status === 'completed' || j.status === 'failed')
+      .filter((j) => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled')
       .sort((a, b) => (b.completed_at || 0) - (a.completed_at || 0));
 
     const toDelete = allJobs.slice(keepLast);
