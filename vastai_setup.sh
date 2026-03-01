@@ -107,11 +107,11 @@ provisioning_start() {
     fi
 
     # Run unified installer (handles all backend dependencies and setup)
-    echo "🔧 Running Remote installer..."
-    if [ -f "installer_remote.py" ]; then
-        $PYTHON_CMD installer_remote.py
+    echo "🔧 Running installer..."
+    if [ -f "installer.py" ]; then
+        $PYTHON_CMD installer.py
     else
-        echo "⚠️  installer_remote.py not found - falling back to manual dependency installation"
+        echo "⚠️  installer.py not found - falling back to manual dependency installation"
         # Fallback: Install dependencies manually
         echo "🐍 Installing all dependencies..."
         $PYTHON_CMD -m pip install --upgrade pip -v

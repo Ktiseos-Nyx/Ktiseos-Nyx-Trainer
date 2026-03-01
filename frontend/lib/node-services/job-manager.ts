@@ -9,8 +9,9 @@
  * - Job control (start, stop, status)
  */
 
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync } from 'child_process';
 import { EventEmitter } from 'events';
+import fs from 'fs';
 import path from 'path';
 
 // ========== Types ==========
@@ -381,41 +382,98 @@ export function getProjectRoot(): string {
   return path.resolve(process.cwd(), '..');
 }
 
+/** Cached Python path (detected once per process lifetime) */
+let cachedPythonPath: string | null = null;
+
 /**
- * Get Python executable path
- * Tries to use venv python if available, falls back to system python
+ * Get Python executable path.
+ * Checks known venv locations, then falls back to system python.
+ * Result is cached for the process lifetime.
  */
 export function getPythonPath(): string {
+  if (cachedPythonPath) return cachedPythonPath;
+
   const projectRoot = getProjectRoot();
 
-  // Try venv paths (Windows and Linux)
-  const venvPaths = [
-    path.join(projectRoot, 'venv', 'Scripts', 'python.exe'), // Windows
-    path.join(projectRoot, 'venv', 'bin', 'python'), // Linux
+  // Check known venv locations in priority order
+  const candidates = [
+    // VastAI Docker image venv
+    '/venv/main/bin/python',
+    // install.sh creates .venv/ (note the dot)
+    path.join(projectRoot, '.venv', 'Scripts', 'python.exe'), // Windows
+    path.join(projectRoot, '.venv', 'bin', 'python'), // Linux
+    // Legacy venv/ path (some manual setups)
+    path.join(projectRoot, 'venv', 'Scripts', 'python.exe'),
+    path.join(projectRoot, 'venv', 'bin', 'python'),
   ];
 
-  // For now, just use 'python' and let the system resolve it
-  // In production, you'd check if venv exists
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        cachedPythonPath = candidate;
+        console.log(`[JobManager] Python found: ${candidate}`);
+        return candidate;
+      }
+    } catch {
+      // Skip inaccessible paths
+    }
+  }
+
+  // Fall back to system python - check python3 first (Linux convention)
+  for (const cmd of ['python3', 'python']) {
+    try {
+      execSync(`${cmd} --version`, { stdio: 'ignore', timeout: 5000 });
+      cachedPythonPath = cmd;
+      console.log(`[JobManager] Python found on PATH: ${cmd}`);
+      return cmd;
+    } catch {
+      // Not available, try next
+    }
+  }
+
+  // Last resort - return 'python' and hope for the best
+  console.warn('[JobManager] No Python found in venvs or PATH, defaulting to "python"');
+  cachedPythonPath = 'python';
   return 'python';
 }
 
 /**
- * Create and start a training job
+ * Supported model architectures and their training scripts.
+ * Maps to files in trainer/derrian_backend/sd_scripts/
+ */
+export type ModelArchitecture = 'sd15' | 'sdxl' | 'sd3' | 'flux' | 'lumina';
+
+const TRAINING_SCRIPTS: Record<ModelArchitecture, string> = {
+  sd15: 'train_network.py',
+  sdxl: 'sdxl_train_network.py',
+  sd3: 'sd3_train_network.py',
+  flux: 'flux_train_network.py',
+  lumina: 'lumina_train_network.py',
+};
+
+/**
+ * Create and start a training job.
+ * Selects the correct training script based on model architecture.
  */
 export async function createTrainingJob(
   configPath: string,
-  datasetPath: string
+  datasetPath: string,
+  architecture: ModelArchitecture = 'sdxl'
 ): Promise<string> {
   const projectRoot = getProjectRoot();
   const pythonPath = getPythonPath();
 
-  // Path to training script
+  const scriptName = TRAINING_SCRIPTS[architecture];
+  if (!scriptName) {
+    throw new Error(`Unsupported model architecture: ${architecture}`);
+  }
+
   const scriptPath = path.join(
     projectRoot,
     'trainer',
     'derrian_backend',
     'sd_scripts',
-    'sdxl_train_network.py'
+    scriptName
   );
 
   const args = [

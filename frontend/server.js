@@ -19,6 +19,20 @@ const next = require('next');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { WebSocketServer } = require('ws');
 
+// ========== Global Error Handlers ==========
+// Prevent silent crashes on VastAI. Log the error and exit gracefully.
+
+process.on('uncaughtException', (err) => {
+  console.error('💀 Uncaught Exception:', err);
+  // Give logs time to flush, then exit
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💀 Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit - unhandled rejections are often recoverable
+});
+
 // Environment setup
 const dev = process.env.NODE_ENV !== 'production';
 // In production (Docker/VastAI), always bind to 0.0.0.0 for container networking

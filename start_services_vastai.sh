@@ -9,16 +9,15 @@ echo "🚀 Starting Ktiseos-Nyx-Trainer Services (Vast.ai/Cloud)..."
 echo "=========================================="
 
 # --------------------------------------------------------------------
-# Step 1: Ensure environment is set up via installer_remote.py
-# Note: VastAI PyTorch template might already have venv activated.
-# The installer_remote.py will verify and install missing components.
+# Step 1: Verify environment
+# Note: VastAI provisioning (vastai_setup.sh) handles full install.
+# By the time this script runs, packages should already be installed.
 # --------------------------------------------------------------------
-echo "⚙️ Running remote installer..."
-if [ -f "installer_remote.py" ]; then
-    python installer_remote.py --skip-install  # or without flag if full install needed
+echo "⚙️ Verifying Python environment..."
+if [ -f "installer.py" ]; then
+    python installer.py --skip-install 2>/dev/null || echo "   (installer check skipped)"
 else
-    echo "⚠️ Falling back to installer_remote.py (not recommended)"
-    python installer_remote.py
+    echo "   ℹ️  No installer found - assuming environment is pre-configured"
 fi
 
 # --------------------------------------------------------------------
