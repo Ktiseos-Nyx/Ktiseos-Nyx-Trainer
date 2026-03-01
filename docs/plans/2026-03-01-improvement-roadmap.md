@@ -146,6 +146,30 @@ Power-user navigation: Cmd+K to search pages, datasets, run actions. shadcn alre
 
 ---
 
+## Tier 5: Dashboard Overhaul
+
+### 5A. Replace link-grid dashboard with live workspace overview
+**Current state:** `app/dashboard/page.tsx` is a 9-card icon grid that duplicates the navbar. Shows zero live data. Looks AI-generated.
+
+**What it should become:**
+- **Active/recent jobs** — training progress, last tagging run, job history at a glance
+- **Workspace health** — disk space, loaded models, GPU status (especially useful on VastAI)
+- **Quick actions** — contextual next steps (not 9 equal cards, just the 2-3 things you'd actually click)
+- **Recent activity feed** — last N events, condensed
+
+**Depends on:**
+- Tier 2B: Toast notifications (sonner) for error/success visibility
+- Tier 2C: Error log surfacing API endpoints
+- Tier 4G: TanStack Query adoption (for polling/caching job status)
+- `/api/debug/memory` endpoint (already exists)
+- Job manager `getJobsByStatus()` (already exists)
+
+**Approach:** Start minimal — show active jobs + last 5 completed + memory stats. Expand as more APIs come online. The navbar handles navigation; the dashboard should answer "what's happening right now?"
+
+**Notes:** This is a living section. Add ideas here as they come up during development.
+
+---
+
 ## Future Considerations (Not YAGNI, Just Not Now)
 
 - **Electron/Tauri desktop edition** — Reasonable long-term goal once the web app is stable and battle-tested. Tauri would be lighter than Electron. Not imperative until the core product works reliably.
