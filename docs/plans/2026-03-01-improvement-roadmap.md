@@ -5,7 +5,7 @@
 
 ---
 
-## Tier 1: Reliability (should do soon)
+## Tier 1: Reliability -- COMPLETED 2026-03-01
 
 ### 1A. Fix `getPythonPath()` and venv detection
 **Risk: Medium | Files: `frontend/lib/node-services/job-manager.ts`, installer scripts**
@@ -41,9 +41,23 @@ Both scripts reference `installer_remote.py` which doesn't exist in the repo. `s
 
 ---
 
-## Tier 2: Long-running Instance Health
+## Tier 2: Long-running Instance Health & Quick Wins
 
-### 2A. Error log surfacing in UI
+### 2A. npm Dead Weight Removal
+**Risk: Low | Files: `frontend/package.json`**
+
+Several packages are redundant or duplicated:
+- **`axios`** (~13KB gzipped) — unused, all API calls use native `fetch` via Next.js
+- **`framer-motion` AND `motion`** — same library (motion is framer-motion's rename). Shipping it twice. Pick one.
+- **`gsap` + `@gsap/react`** (~60KB) — only used for rolling number counter and GitHub star counter on homepage. Could replace with CSS or motion.
+- **`styled-jsx`** — Next.js includes this by default. Explicit dep is redundant.
+
+### 2B. Add Toast Notifications (`sonner`)
+**Risk: Low | Files: `frontend/app/layout.tsx`, various pages**
+
+No toast/notification system exists. Errors, success messages, and warnings all go to `console.log` or disappear silently. `sonner` is ~3KB, accessible, themeable, and shadcn already has a component wrapper for it. Drop-in addition.
+
+### 2C. Error log surfacing in UI
 **Files: New `/system` or `/dashboard` page, `server.js`**
 
 Currently all server errors go to `console.error()` only. No way to see them from the browser. On VastAI this means SSH-ing in to debug.
@@ -54,14 +68,14 @@ Currently all server errors go to `console.error()` only. No way to see them fro
 - Simple UI page showing failed jobs (`jobManager.getJobsByStatus('failed')`), recent errors, and memory stats (reuse `/api/debug/memory`)
 - Gradio-style console panel as stretch goal
 
-### 2B. ONNX idle session release
+### 2D. ONNX idle session release
 **Files: `frontend/lib/node-services/tagging-service.ts`**
 
 The Node.js ONNX fallback holds 300-500MB in RAM after a model is loaded, indefinitely. Should auto-release after N minutes of inactivity.
 
 **Approach:** Add a `lastUsed` timestamp, check on a timer, call `dispose()` if idle too long.
 
-### 2C. Blob URL stale closure fix
+### 2E. Blob URL stale closure fix
 **Files: `frontend/components/DatasetUploader.tsx`**
 
 The unmount cleanup captures `files` at mount time (empty dep array). Files added later aren't revoked on unmount. Use a ref to always see latest file list.
@@ -124,9 +138,19 @@ Goal: Keep the app lightweight and accessible - friendly to browsers that aren't
 
 ---
 
-## Not Doing (YAGNI)
+### 4F. Command Palette (`cmdk`)
+Power-user navigation: Cmd+K to search pages, datasets, run actions. shadcn already has a component wrapper. Small package, big UX win for keyboard-heavy workflows.
 
-- Database/connection pooling (no DB, don't add one for logging)
-- Server-side caching layers (the app isn't high-traffic, it's single-user)
-- Complex process managers (supervisor already handles this on VastAI)
-- Turbopack in production (dev-only, webpack is correct for builds)
+### 4G. Fully adopt TanStack Query
+`@tanstack/react-query` is installed but likely underused. Moving all API calls to use it gives: automatic caching, request deduplication, stale-while-revalidate, loading/error states, and retry logic — for free. Reduces custom `useEffect` + `useState` fetch patterns across the app.
+
+---
+
+## Future Considerations (Not YAGNI, Just Not Now)
+
+- **Electron/Tauri desktop edition** — Reasonable long-term goal once the web app is stable and battle-tested. Tauri would be lighter than Electron. Not imperative until the core product works reliably.
+- **Database/connection pooling** — No DB needed, don't add one for logging
+- **Server-side caching layers** — Single-user app, not high-traffic
+- **Complex process managers** — Supervisor already handles this on VastAI
+- **Turbopack in production** — Dev-only, webpack is correct for builds
+- **socket.io** — Native `ws` WebSocket works fine, no need for the abstraction layer
