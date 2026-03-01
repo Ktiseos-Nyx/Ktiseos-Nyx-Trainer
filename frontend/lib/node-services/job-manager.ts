@@ -55,6 +55,14 @@ export interface JobEventEmitter extends EventEmitter {
   emit(event: 'error', jobId: string, error: string): boolean;
 }
 
+// ========== Configuration ==========
+
+/** Max log entries per job. Oldest entries are trimmed when exceeded. */
+const MAX_LOGS = parseInt(process.env.MAX_LOG_ENTRIES || '500', 10);
+
+/** How often to run auto-cleanup of old completed/failed jobs (ms) */
+const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
 // ========== Shared State ==========
 // Uses globalThis to ensure server.js (plain JS) and all Next.js API routes
 // share the same job state regardless of how Next.js bundles modules.
@@ -152,6 +160,10 @@ class JobManager {
         lines.forEach((line: string) => {
           const logEntry = this.parseLogLine(line);
           job.logs.push(logEntry);
+          // Cap log array to prevent unbounded memory growth
+          if (job.logs.length > MAX_LOGS) {
+            job.logs.splice(0, job.logs.length - MAX_LOGS);
+          }
           this.events.emit('log', jobId, logEntry);
 
           // Check for progress updates
@@ -170,6 +182,9 @@ class JobManager {
         lines.forEach((line: string) => {
           const logEntry = this.parseLogLine(line, 'error');
           job.logs.push(logEntry);
+          if (job.logs.length > MAX_LOGS) {
+            job.logs.splice(0, job.logs.length - MAX_LOGS);
+          }
           this.events.emit('log', jobId, logEntry);
         });
       });
@@ -338,6 +353,23 @@ class JobManager {
 // ========== Singleton Instance ==========
 
 export const jobManager = new JobManager();
+
+// ========== Auto-Cleanup ==========
+// Periodically remove old completed/failed jobs to prevent unbounded memory growth.
+// Uses globalThis guard so only one timer runs per process.
+
+if (!globalThis.__jobCleanupTimer) {
+  globalThis.__jobCleanupTimer = setInterval(() => {
+    const removed = jobManager.cleanup(50);
+    if (removed > 0) {
+      console.log(`[JobManager] Auto-cleanup: removed ${removed} old jobs`);
+    }
+  }, CLEANUP_INTERVAL_MS);
+  // Don't block process exit
+  if (globalThis.__jobCleanupTimer.unref) {
+    globalThis.__jobCleanupTimer.unref();
+  }
+}
 
 // ========== Helper Functions ==========
 
