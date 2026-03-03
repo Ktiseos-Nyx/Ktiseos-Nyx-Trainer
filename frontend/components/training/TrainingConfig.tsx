@@ -214,7 +214,7 @@ export default function TrainingConfigNew() {
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">
-                  <Button type="submit" disabled={!isValid || isTraining} className="bg-linear-to-r from-purple-600 to-pink-600">
+                  <Button type="submit" disabled={isTraining} className="bg-linear-to-r from-purple-600 to-pink-600">
                     <Play className="h-4 w-4 mr-2" />
                     {isTraining ? 'Starting...' : 'Start Training'}
                   </Button>
