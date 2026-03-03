@@ -574,13 +574,14 @@ export async function createTaggingJob(
   }
 
   // Numeric / string options
-  if (config.threshold !== undefined) {
+  // Note: JSON null passes `!== undefined` checks, so we must also check for null
+  if (config.threshold != null) {
     args.push('--thresh', String(config.threshold));
   }
-  if (config.generalThreshold !== undefined) {
+  if (config.generalThreshold != null) {
     args.push('--general_threshold', String(config.generalThreshold));
   }
-  if (config.characterThreshold !== undefined) {
+  if (config.characterThreshold != null) {
     args.push('--character_threshold', String(config.characterThreshold));
   }
   if (config.captionExtension) {
