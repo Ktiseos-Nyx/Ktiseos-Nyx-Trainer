@@ -829,7 +829,7 @@ export const trainingAPI = {
           if (data.progress !== undefined) {
             onMessage({ type: 'progress', progress: data.progress });
           }
-          onMessage({ type: 'status', status: data.status });
+          onMessage({ type: 'status', status: data.status, error: data.error });
         }
 
         // Stop polling if job is done
