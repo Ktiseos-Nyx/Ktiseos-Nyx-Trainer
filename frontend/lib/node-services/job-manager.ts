@@ -155,10 +155,13 @@ class JobManager {
       job.started_at = Date.now();
       this.events.emit('status', jobId, 'running');
 
-      // Handle stdout
+      // Handle stdout - capture + emit events + mirror to console
       proc.stdout?.on('data', (data) => {
         const lines = data.toString().split('\n').filter((l: string) => l.trim());
         lines.forEach((line: string) => {
+          // Always log to console so it shows up in supervisor/service logs
+          console.log(`[Job:${jobId}] ${line}`);
+
           const logEntry = this.parseLogLine(line);
           job.logs.push(logEntry);
           // Cap log array to prevent unbounded memory growth
@@ -177,10 +180,13 @@ class JobManager {
         });
       });
 
-      // Handle stderr
+      // Handle stderr - capture + emit events + mirror to console
       proc.stderr?.on('data', (data) => {
         const lines = data.toString().split('\n').filter((l: string) => l.trim());
         lines.forEach((line: string) => {
+          // Always log to console so crashes show up in supervisor/service logs
+          console.error(`[Job:${jobId}:ERR] ${line}`);
+
           const logEntry = this.parseLogLine(line, 'error');
           job.logs.push(logEntry);
           if (job.logs.length > MAX_LOGS) {
@@ -196,14 +202,21 @@ class JobManager {
         job.exit_code = code ?? undefined;
 
         if (code === 0) {
+          console.log(`[Job:${jobId}] Completed successfully`);
           job.status = 'completed';
           job.progress = 100;
           this.events.emit('status', jobId, 'completed');
           this.events.emit('complete', jobId, code);
         } else if (signal === 'SIGTERM' || signal === 'SIGKILL') {
+          console.log(`[Job:${jobId}] Cancelled (signal: ${signal})`);
           job.status = 'cancelled';
           this.events.emit('status', jobId, 'cancelled');
         } else {
+          console.error(`[Job:${jobId}] FAILED with exit code ${code}. Last ${Math.min(job.logs.length, 10)} log lines:`);
+          // Dump last 10 log lines to console so we can see WHY it failed
+          job.logs.slice(-10).forEach((log) => {
+            console.error(`  [Job:${jobId}] ${log.message}`);
+          });
           job.status = 'failed';
           job.error = `Process exited with code ${code}`;
           this.events.emit('status', jobId, 'failed');
@@ -561,22 +574,23 @@ export async function createTaggingJob(
   }
 
   // Numeric / string options
-  if (config.threshold !== undefined) {
+  // Note: JSON null passes `!== undefined` checks, so we must also check for null
+  if (config.threshold != null) {
     args.push('--thresh', String(config.threshold));
   }
-  if (config.generalThreshold !== undefined) {
+  if (config.generalThreshold != null) {
     args.push('--general_threshold', String(config.generalThreshold));
   }
-  if (config.characterThreshold !== undefined) {
+  if (config.characterThreshold != null) {
     args.push('--character_threshold', String(config.characterThreshold));
   }
   if (config.captionExtension) {
     args.push('--caption_extension', config.captionExtension);
   }
-  if (config.batchSize !== undefined) {
+  if (config.batchSize != null) {
     args.push('--batch_size', String(config.batchSize));
   }
-  if (config.captionSeparator !== undefined) {
+  if (config.captionSeparator != null) {
     args.push('--caption_separator', config.captionSeparator);
   }
   if (config.undesiredTags) {

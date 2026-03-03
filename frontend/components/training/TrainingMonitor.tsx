@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { trainingAPI } from '@/lib/api';
+import { trainingAPI, LogPoller } from '@/lib/api';
 import { Activity, Save, Clock, Zap, TrendingUp } from 'lucide-react';
 
 interface TrainingStatus {
@@ -33,7 +33,7 @@ export default function TrainingMonitor() {
     return localStorage.getItem('current_training_job_id');
   });
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const logPollerRef = useRef<LogPoller | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const MAX_LOGS = 1000;
 
@@ -123,17 +123,17 @@ export default function TrainingMonitor() {
     };
   }, [status.is_training, jobId]);
 
-  // WebSocket for logs
+  // HTTP polling for logs (replaces WebSocket which breaks through Caddy proxy)
   useEffect(() => {
     if (!status.is_training || !jobId) return;
 
-    console.log(`Connecting to training logs WebSocket for job ${jobId}...`);
+    console.log(`Starting log polling for job ${jobId}...`);
+    setConnected(true);
 
-    const ws = trainingAPI.connectLogs(
+    const poller = trainingAPI.pollLogs(
       jobId,
       (data) => {
         if (data.type === 'log' && data.log) {
-          // data.log is a LogEntry object { timestamp, level, message, raw }
           const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
           if (msg) {
             setLogs((prev) => {
@@ -147,32 +147,28 @@ export default function TrainingMonitor() {
             progress: data.progress as any,
           }));
         } else if (data.type === 'status') {
-          setConnected(true);
           if (data.status === 'completed') {
             setStatus({ is_training: false });
             setLogs((prev) => [...prev, '✅ Training completed!']);
+            setConnected(false);
           } else if (data.status === 'failed') {
             setStatus({ is_training: false });
             setLogs((prev) => [...prev, '❌ Training failed']);
-          } else if (data.status === 'running') {
-            setConnected(true);
+            setConnected(false);
           }
         }
       },
       (error) => {
-        console.error('WebSocket error:', error);
+        console.error('Log polling error:', error);
         setConnected(false);
       }
     );
 
-    ws.onclose = () => {
-      setConnected(false);
-    };
-
-    wsRef.current = ws;
+    logPollerRef.current = poller;
 
     return () => {
-      ws.close();
+      poller.stop();
+      setConnected(false);
     };
   }, [status.is_training, jobId]);
 
@@ -318,7 +314,7 @@ export default function TrainingMonitor() {
 
       {!status.is_training && logs.length === 0 && (
         <div className="mt-4 text-center text-sm text-muted-foreground">
-          <p>WebSocket-based real-time updates</p>
+          <p>Real-time log updates via polling</p>
         </div>
       )}
     </div>
