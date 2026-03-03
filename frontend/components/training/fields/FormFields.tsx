@@ -159,7 +159,10 @@ export function SelectFormField<T extends FieldValues>({
           <FormLabel>{label}</FormLabel>
           <Select
             value={field.value}
-            onValueChange={field.onChange} // RHF handles the rest
+            onValueChange={(val: string) => {
+              field.onChange(val);
+              form.setValue(name, val, { shouldDirty: true });
+            }}
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
@@ -323,7 +326,10 @@ export function ComboboxFormField<T extends FieldValues>({
           <FormLabel>{label}</FormLabel>
           <Combobox
             value={field.value}
-            onValueChange={field.onChange} // Let RHF handle the state
+            onValueChange={(val: string) => {
+              field.onChange(val);
+              form.setValue(name, val, { shouldDirty: true });
+            }}
           >
             <ComboboxAnchor>
               <FormControl><ComboboxInput placeholder={placeholder} /></FormControl>

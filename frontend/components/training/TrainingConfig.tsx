@@ -38,6 +38,7 @@ export default function TrainingConfigNew() {
     config,
     isDirty,
     isValid,
+    isHydrated,
     syncToStore,
     loadPreset,
     getValidationErrors,
@@ -49,7 +50,11 @@ export default function TrainingConfigNew() {
     validateOnChange: true,
   });
 
+  // Fetch dropdown options AFTER hydration completes
   useEffect(() => {
+    // Wait for localStorage hydration before fetching options
+    if (!isHydrated) return;
+
     const fetchOptions = async () => {
       try {
         const workspaceRes = await fetch('/api/files/default-workspace');
@@ -72,7 +77,7 @@ export default function TrainingConfigNew() {
         const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
         setDatasets((datasetsData.files || []).filter((f: any) => f.type === 'dir').map((dir: any) => ({ value: dir.path, label: dir.name })));
 
-        // Set defaults ONCE
+        // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
             if (!form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
             if (!form.getValues('pretrained_model_name_or_path') && modelsData.models?.length > 0) {
@@ -89,7 +94,8 @@ export default function TrainingConfigNew() {
       }
     };
     fetchOptions();
-  }, [form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated]);
 
   const startTraining = async (validatedConfig: any) => {
     try {
