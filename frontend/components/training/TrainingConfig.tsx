@@ -123,7 +123,7 @@ export default function TrainingConfigNew() {
 
   const handleSaveToServer = async () => {
     try {
-      syncToStore(); // Sync to Zustand first
+      syncToStore(); // Force save to localStorage
       const currentValues = form.getValues();
 
       // Use new endpoint that generates both dataset.toml and config.toml
@@ -143,7 +143,7 @@ export default function TrainingConfigNew() {
   // Handler for individual card save buttons
   const handleCardSave = async () => {
     try {
-      syncToStore(); // Update Zustand
+      syncToStore(); // Force save to localStorage
       const currentValues = form.getValues();
 
       // Also save configs to disk (generates both dataset.toml and config.toml)
@@ -214,7 +214,7 @@ export default function TrainingConfigNew() {
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">
-                  <Button type="submit" disabled={!isValid || isTraining} className="bg-linear-to-r from-purple-600 to-pink-600">
+                  <Button type="submit" disabled={isTraining} className="bg-linear-to-r from-purple-600 to-pink-600">
                     <Play className="h-4 w-4 mr-2" />
                     {isTraining ? 'Starting...' : 'Start Training'}
                   </Button>

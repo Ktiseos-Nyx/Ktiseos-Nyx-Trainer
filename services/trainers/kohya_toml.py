@@ -313,14 +313,7 @@ class KohyaTOMLGenerator:
             "save_model_as": self.config.save_model_as,
             "save_precision": self.config.save_precision,
             "no_metadata": self.config.no_metadata,
-            "save_every_n_epochs": self.config.save_every_n_epochs,
-            "save_every_n_steps": self.config.save_every_n_steps,
-            "save_last_n_epochs": self.config.save_last_n_epochs,
-            "save_last_n_epochs_state": self.config.save_last_n_epochs_state,
-            "save_last_n_steps_state": self.config.save_last_n_steps_state,
             "save_state": self.config.save_state,
-            "sample_every_n_epochs": self.config.sample_every_n_epochs,
-            "sample_every_n_steps": self.config.sample_every_n_steps,
             "sample_sampler": self.config.sample_sampler,
             "mixed_precision": self.config.mixed_precision,
             "gradient_checkpointing": self.config.gradient_checkpointing,
@@ -402,6 +395,23 @@ class KohyaTOMLGenerator:
             args["log_prefix"] = self.config.log_prefix
         if self.config.optimizer_args:
             args["optimizer_args"] = self.config.optimizer_args
+
+        # Save/sample intervals - only include when > 0 to avoid ZeroDivisionError
+        # (Kohya does `global_step % save_every_n_steps` which crashes on 0)
+        if self.config.save_every_n_epochs and self.config.save_every_n_epochs > 0:
+            args["save_every_n_epochs"] = self.config.save_every_n_epochs
+        if self.config.save_every_n_steps and self.config.save_every_n_steps > 0:
+            args["save_every_n_steps"] = self.config.save_every_n_steps
+        if self.config.save_last_n_epochs and self.config.save_last_n_epochs > 0:
+            args["save_last_n_epochs"] = self.config.save_last_n_epochs
+        if self.config.save_last_n_epochs_state and self.config.save_last_n_epochs_state > 0:
+            args["save_last_n_epochs_state"] = self.config.save_last_n_epochs_state
+        if self.config.save_last_n_steps_state and self.config.save_last_n_steps_state > 0:
+            args["save_last_n_steps_state"] = self.config.save_last_n_steps_state
+        if self.config.sample_every_n_epochs and self.config.sample_every_n_epochs > 0:
+            args["sample_every_n_epochs"] = self.config.sample_every_n_epochs
+        if self.config.sample_every_n_steps and self.config.sample_every_n_steps > 0:
+            args["sample_every_n_steps"] = self.config.sample_every_n_steps
 
         # Steps vs Epochs handling
         if self.config.max_train_steps > 0:
