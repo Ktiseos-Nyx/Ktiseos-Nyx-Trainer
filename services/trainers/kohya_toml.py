@@ -212,6 +212,22 @@ class KohyaTOMLGenerator:
 
         logger.info("Generated main config TOML: %s", output_path)
 
+    # Optimizers that aren't in torch.optim need full dotted module paths
+    # so Kohya's train_util.py can import them via importlib
+    CUSTOM_OPTIMIZER_PATHS = {
+        "CAME": "custom_scheduler.LoraEasyCustomOptimizer.CAME",
+    }
+
+    def _resolve_optimizer_type(self, optimizer_type: str) -> str:
+        """
+        Map friendly optimizer names to importable module paths.
+
+        Kohya's train_util.py checks: if "." not in name → torch.optim lookup.
+        If "." in name → importlib.import_module. Custom optimizers need the
+        full dotted path to their vendored location.
+        """
+        return self.CUSTOM_OPTIMIZER_PATHS.get(optimizer_type, optimizer_type)
+
     def _get_network_config(self) -> Dict[str, Any]:
         """
         Helper to determine module string based on LoRA type.
@@ -279,7 +295,7 @@ class KohyaTOMLGenerator:
             "lr_warmup_ratio": self.config.lr_warmup_ratio,
             "lr_warmup_steps": self.config.lr_warmup_steps,
             "lr_power": self.config.lr_power,
-            "optimizer_type": self.config.optimizer_type,
+            "optimizer_type": self._resolve_optimizer_type(self.config.optimizer_type),
             "max_grad_norm": self.config.max_grad_norm,
             "weight_decay": self.config.weight_decay,
             "max_token_length": self.config.max_token_length,

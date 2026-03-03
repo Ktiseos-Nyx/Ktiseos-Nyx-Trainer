@@ -98,13 +98,20 @@ class KohyaTrainer(BaseTrainer):
 
         # 6. Execute Async Process (The Fix)
         try:
+            # Build env with derrian_backend on PYTHONPATH so custom optimizers
+            # (CAME, Compass, etc.) are importable from the sd_scripts cwd
+            env = os.environ.copy()
+            derrian_dir = str(self.sd_scripts_dir.parent)  # trainer/derrian_backend
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = f"{derrian_dir}:{existing_pythonpath}" if existing_pythonpath else derrian_dir
+
             process = await asyncio.create_subprocess_exec(
                 cmd[0],  # Program (python)
                 *cmd[1:],  # Arguments
                 cwd=self.sd_scripts_dir,
                 stdout=asyncio.subprocess.PIPE,  # Capture stdout
                 stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout (Critical so errors show in logs)
-                env=os.environ.copy(),
+                env=env,
             )
             return process  # Now returns an asyncio Process compatible with JobManager
 
