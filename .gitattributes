@@ -1,29 +1,113 @@
-# Set the default behavior for all text files.
-# 'text=auto' lets Git handle line endings automatically. On checkout,
-# it will convert LF to CRLF on Windows. On commit, it will convert
-# CRLF back to LF. This is the key to cross-platform harmony.
-* text=auto
+# ===========================================================================
+# LINE ENDING RULES - Force LF everywhere, no exceptions.
+# ===========================================================================
+#
+# WHY: Switching between WSL and native Windows causes Git to see every file
+# as modified (mode 755→644, or CRLF↔LF). The old `text=auto` rule let Git
+# "guess" and it guessed wrong constantly.
+#
+# FIX: `eol=lf` forces LF in the working tree on ALL platforms. Modern
+# Windows tools (VS Code, Node.js, Python, bash) handle LF just fine.
+# The `text=auto` part still auto-detects binary files so Git won't
+# corrupt images/models.
+#
+# The ONLY exception is .bat files, which Windows cmd.exe requires CRLF for.
+# ===========================================================================
 
-# These files are text and should be handled by the 'text=auto' rule above.
-# We don't need to specify eol=lf for them anymore.
-*.py text
-*.ts text
-*.tsx text
-*.js text
-*.json text
-*.md text
-*.toml text
-*.yaml text
-*.yml text
+# Default: all text files use LF in working tree AND in the repo
+* text=auto eol=lf
 
-# These files have OS-specific requirements, so we enforce their line endings.
-# Shell scripts MUST have LF to run on Linux/macOS.
+# Source code (redundant but documents intent)
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.xml text eol=lf
+*.svg text eol=lf
+*.env text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+
+# Shell scripts: LF (Linux/macOS requirement)
 *.sh text eol=lf
-# Windows Batch files MUST have CRLF to run on Windows.
+
+# Windows batch files: CRLF (cmd.exe requirement)
 *.bat text eol=crlf
 
-# Explicitly declare binary files to prevent Git from touching them.
+# Config files
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.gitmodules text eol=lf
+.editorconfig text eol=lf
+.eslintrc* text eol=lf
+.prettierrc* text eol=lf
+.npmrc text eol=lf
+Dockerfile text eol=lf
+Makefile text eol=lf
+
+# Lock files (don't mess with these)
+package-lock.json text eol=lf -diff
+
+# ===========================================================================
+# BINARY FILES - Git must never touch these
+# ===========================================================================
+
+# Images
 *.png binary
 *.jpg binary
-*.dll binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.bmp binary
+*.tiff binary
+
+# Fonts
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+
+# ML Models & Weights
 *.safetensors binary
+*.ckpt binary
+*.pt binary
+*.pth binary
+*.bin binary
+*.onnx binary
+*.gguf binary
+
+# Native binaries
+*.dll binary
+*.so binary
+*.dylib binary
+*.node binary
+*.exe binary
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.xz binary
+*.rar binary
+*.7z binary
+
+# Other binary
+*.pdf binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
