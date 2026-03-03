@@ -262,6 +262,58 @@ async def get_training_status(job_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/logs/{job_id}")
+async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
+    """
+    Get training logs via HTTP (works through reverse proxies).
+
+    Query params:
+        since: line index to start from (0-based) - returns logs after this index
+        limit: max number of log lines to return (0 = no limit)
+    """
+    try:
+        from services.jobs import job_manager as py_job_manager
+
+        job = py_job_manager.store.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+        # Get logs from the requested position
+        logs = job.get_logs(since)
+
+        # Apply limit if specified
+        if limit > 0:
+            logs = logs[-limit:]
+
+        # Format logs to match the Node.js /api/jobs/[id]/logs response format
+        import time
+        formatted_logs = [
+            {
+                "timestamp": int(time.time() * 1000),  # ms timestamp
+                "level": "info",
+                "message": line,
+                "raw": line,
+            }
+            for line in logs
+        ]
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "logs": formatted_logs,
+            "total_logs": len(job.logs),
+            "status": job.status.value,
+            "progress": job.progress,
+            "next_since": since + len(logs),  # client sends this as next 'since'
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get training logs: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/stop/{job_id}")
 async def stop_training(job_id: str):
     """Stop a running training job"""

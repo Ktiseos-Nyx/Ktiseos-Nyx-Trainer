@@ -13,6 +13,7 @@ interface TrainingStatus {
     total_epochs?: number;
     loss?: number;
     lr?: number;
+    progress_percent?: number;  // 0-100 from Python backend
   };
 }
 
@@ -144,7 +145,10 @@ export default function TrainingMonitor() {
         } else if (data.type === 'progress' && data.progress !== undefined) {
           setStatus((prev) => ({
             ...prev,
-            progress: data.progress as any,
+            progress: {
+              ...prev.progress,
+              progress_percent: data.progress as number,
+            },
           }));
         } else if (data.type === 'status') {
           if (data.status === 'completed') {
@@ -174,6 +178,9 @@ export default function TrainingMonitor() {
 
   const getProgress = () => {
     if (!status.progress) return 0;
+    // Use progress_percent from Python backend if available
+    if (status.progress.progress_percent !== undefined) return status.progress.progress_percent;
+    // Fallback: calculate from step/total
     const { current_step, total_steps } = status.progress;
     if (!current_step || !total_steps) return 0;
     return (current_step / total_steps) * 100;
