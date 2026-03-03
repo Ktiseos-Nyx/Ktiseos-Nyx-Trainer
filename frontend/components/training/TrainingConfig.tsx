@@ -112,7 +112,21 @@ export default function TrainingConfigNew() {
         }
         alert(`✅ Training started! Job ID: ${response.job_id}`);
       } else {
-        alert(`❌ Training failed: ${response.message}`);
+        // Show validation error details if available
+        const errors = response.validation_errors || [];
+        const errorDetails = errors
+          .filter((e: any) => e.severity === 'error')
+          .map((e: any) => `• ${e.field}: ${e.message}`)
+          .join('\n');
+        const warnings = errors
+          .filter((e: any) => e.severity === 'warning')
+          .map((e: any) => `⚠ ${e.field}: ${e.message}`)
+          .join('\n');
+
+        let msg = `Training failed: ${response.message}`;
+        if (errorDetails) msg += `\n\nErrors:\n${errorDetails}`;
+        if (warnings) msg += `\n\nWarnings:\n${warnings}`;
+        alert(msg);
       }
     } catch (error: any) {
       alert(`❌ Failed to start training: ${error.message}`);
