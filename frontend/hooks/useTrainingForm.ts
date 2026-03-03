@@ -11,7 +11,13 @@ import { useTrainingStore } from '@/store/trainingStore';
 import { TrainingConfigSchema } from '@/lib/validation';
 import type { TrainingConfig } from '@/lib/api';
 
-export function useTrainingForm(options: any = {}) {
+export function useTrainingForm(options: {
+  autoSave?: boolean;
+  autoSaveDelay?: number;
+  validateOnChange?: boolean;
+} = {}) {
+  const { autoSave = false, autoSaveDelay = 500 } = options;
+
   const zustandConfig = useTrainingStore((state) => state.config);
   const updateZustandStore = useTrainingStore((state) => state.updateConfig);
   const loadZustandConfig = useTrainingStore((state) => state.loadConfig);
@@ -38,8 +44,37 @@ export function useTrainingForm(options: any = {}) {
         try {
           const { state } = JSON.parse(stored);
           if (state?.config) {
-            formRef.current.reset(state.config, { keepDefaultValues: false });
-            console.log('✅ Hydrated form from localStorage:', state.config.project_name);
+            // Coerce numeric fields that may have been saved as strings
+            const config = { ...state.config };
+            const numericFields = [
+              'unet_lr', 'text_encoder_lr', 'lr_warmup_ratio', 'lr_power',
+              'network_dropout', 'rank_dropout', 'module_dropout', 'weight_decay',
+              'max_grad_norm', 'caption_dropout_rate', 'caption_tag_dropout_rate',
+              'noise_offset', 'adaptive_noise_scale', 'ip_noise_gamma',
+              'multires_noise_discount', 'guidance_scale', 'sigmoid_scale',
+            ];
+            for (const field of numericFields) {
+              if (field in config && typeof config[field] === 'string') {
+                config[field] = Number(config[field]) || 0;
+              }
+            }
+            const intFields = [
+              'resolution', 'num_repeats', 'max_train_epochs', 'max_train_steps',
+              'train_batch_size', 'seed', 'network_dim', 'network_alpha',
+              'conv_dim', 'conv_alpha', 'gradient_accumulation_steps',
+              'keep_tokens', 'clip_skip', 'max_token_length', 'lr_scheduler_number',
+              'lr_warmup_steps', 'save_every_n_epochs', 'save_every_n_steps',
+              'min_bucket_reso', 'max_bucket_reso', 'bucket_reso_steps',
+              'vae_batch_size', 'factor',
+            ];
+            for (const field of intFields) {
+              if (field in config && typeof config[field] === 'string') {
+                config[field] = parseInt(config[field], 10) || 0;
+              }
+            }
+
+            formRef.current.reset(config, { keepDefaultValues: false });
+            console.log('Hydrated form from localStorage:', config.project_name);
           }
         } catch (e) {
           console.error('Failed to hydrate from localStorage:', e);
@@ -51,11 +86,30 @@ export function useTrainingForm(options: any = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setHasHydrated]); // Only run once
 
-  // ✅ INTENTIONAL SYNC: Call this to push current form data to Zustand
+  // Auto-save: watch form changes and sync to Zustand with debounce
+  useEffect(() => {
+    if (!autoSave) return;
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const subscription = form.watch(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const values = form.getValues();
+        updateZustandStore(values);
+      }, autoSaveDelay);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [autoSave, autoSaveDelay, form, updateZustandStore]);
+
+  // Sync: push current form data to Zustand
   const syncToStore = useCallback(() => {
     const values = form.getValues();
     updateZustandStore(values);
-    console.log("🛰️ Form synced to Zustand for project:", values.project_name);
+    console.log("Form synced to Zustand for project:", values.project_name);
   }, [form, updateZustandStore]);
 
   const loadPreset = useCallback((preset: Partial<TrainingConfig>) => {
@@ -106,10 +160,11 @@ export function useTrainingForm(options: any = {}) {
     config: zustandConfig,
     isDirty: form.formState.isDirty,
     isValid: form.formState.isValid,
-    syncToStore, // ✅ Give the UI the ability to save manually
+    isHydrated: hasHydrated,
+    syncToStore,
     loadPreset,
     onSubmit,
-    getValidationErrors, // 👈 ADD THIS LINE
+    getValidationErrors,
     resetForm: () => form.reset(zustandConfig),
   };
 }

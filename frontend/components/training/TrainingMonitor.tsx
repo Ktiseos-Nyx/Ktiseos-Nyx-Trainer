@@ -56,9 +56,16 @@ export default function TrainingMonitor() {
       try {
         const statusData = await trainingAPI.status(currentJobId);
         setStatus(statusData);
+
+        // If job is done (completed/failed/cancelled), clear stale ID
+        if (!statusData.is_training) {
+          localStorage.removeItem('current_training_job_id');
+        }
       } catch (err) {
-        // No training running - stay idle
+        // Job not found (e.g. backend restarted) - clear stale job ID
         setStatus({ is_training: false });
+        localStorage.removeItem('current_training_job_id');
+        setJobId(null);
       }
     };
 

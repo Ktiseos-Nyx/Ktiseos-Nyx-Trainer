@@ -135,7 +135,7 @@ class TrainingConfig(BaseModel):
 
     # ========== LEARNING RATES ==========
     unet_lr: float = Field(1e-4, gt=0, description="UNet learning rate")
-    text_encoder_lr: float = Field(1e-5, gt=0, description="Text encoder learning rate")
+    text_encoder_lr: float = Field(1e-5, ge=0, description="Text encoder learning rate (0 = freeze)")
     lr_scheduler: LRScheduler = Field(LRScheduler.COSINE, description="LR scheduler type")
     lr_scheduler_number: int = Field(1, ge=0, description="Scheduler-specific parameter")
     lr_warmup_ratio: float = Field(0.0, ge=0.0, le=1.0, description="Warmup ratio")
