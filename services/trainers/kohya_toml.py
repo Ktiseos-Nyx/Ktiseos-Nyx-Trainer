@@ -214,8 +214,16 @@ class KohyaTOMLGenerator:
 
     # Optimizers that aren't in torch.optim need full dotted module paths
     # so Kohya's train_util.py can import them via importlib
+    # Dotted import paths for custom optimizers.
+    # LoraEasyCustomOptimizer is pip-installed as a package by installer.py
+    # (via `pip install -e .` on trainer/derrian_backend/custom_scheduler/),
+    # so the import root is the package name, NOT the directory path.
+    # Original paths from derrian's utils/validation.py.
     CUSTOM_OPTIMIZER_PATHS = {
-        "CAME": "custom_scheduler.LoraEasyCustomOptimizer.CAME",
+        "CAME": "LoraEasyCustomOptimizer.came.CAME",
+        "Compass": "LoraEasyCustomOptimizer.compass.Compass",
+        "LPFAdamW": "LoraEasyCustomOptimizer.lpfadamw.LPFAdamW",
+        "RMSProp": "LoraEasyCustomOptimizer.rmsprop.RMSProp",
     }
 
     def _resolve_optimizer_type(self, optimizer_type: str) -> str:
