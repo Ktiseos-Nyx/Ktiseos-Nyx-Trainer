@@ -102,8 +102,12 @@ class KohyaTrainer(BaseTrainer):
             # (CAME, Compass, etc.) are importable from the sd_scripts cwd
             env = os.environ.copy()
             derrian_dir = str(self.sd_scripts_dir.parent)  # trainer/derrian_backend
+            custom_sched_dir = str(self.sd_scripts_dir.parent / "custom_scheduler")  # LoraEasyCustomOptimizer
             existing_pythonpath = env.get("PYTHONPATH", "")
-            env["PYTHONPATH"] = f"{derrian_dir}:{existing_pythonpath}" if existing_pythonpath else derrian_dir
+            # Include both derrian_backend and custom_scheduler on PYTHONPATH
+            # so LoraEasyCustomOptimizer.came.CAME etc. resolve even if editable install failed
+            new_paths = f"{derrian_dir}{os.pathsep}{custom_sched_dir}"
+            env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_paths
 
             process = await asyncio.create_subprocess_exec(
                 cmd[0],  # Program (python)
