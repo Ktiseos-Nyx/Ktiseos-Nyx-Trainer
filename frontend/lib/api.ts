@@ -9,22 +9,9 @@
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-// Derive WebSocket base URL from current page location.
-// WebSocket connections go to the SAME host:port the page was loaded from,
-// because server.js handles all WS routing:
-//   /ws/jobs/* → handled natively by Node.js WebSocketServer
-//   /ws/api/*  → proxied to FastAPI by server.js
-// NO port remapping needed — server.js is the single entry point.
-export const getWsUrl = (path: string): string => {
-  if (typeof window === 'undefined') return `ws://127.0.0.1:${process.env.PORT || '3000'}${path}`;
-
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host;
-
-  return `${protocol}//${host}${path}`;
-};
-
-export const WS_BASE = getWsUrl('');
+// NOTE: WebSocket connections were removed because VastAI's Caddy reverse proxy
+// corrupts WebSocket frames ("Invalid frame header" errors). All real-time log
+// streaming now uses HTTP polling via pollJobLogs() instead.
 
 // Helper for handling API responses
 async function handleResponse(response: Response) {
@@ -79,6 +66,107 @@ export interface WebSocketLogMessage {
   type?: string;
   data?: number | string | object;
   [key: string]: unknown; // Allow additional properties
+}
+
+// ========== HTTP Log Polling ==========
+// Replaces WebSocket log streaming which breaks through VastAI's Caddy proxy.
+// Polls /api/jobs/[id]/logs?since=<timestamp> at a configurable interval.
+
+export interface LogEntry {
+  timestamp: number;
+  level: string;
+  message: string;
+  raw: string;
+}
+
+export interface LogPollResponse {
+  success: boolean;
+  job_id: string;
+  logs: LogEntry[];
+  total_logs: number;
+  status: string;
+  progress?: number;
+}
+
+export interface LogPoller {
+  stop: () => void;
+}
+
+/**
+ * Poll job logs via HTTP instead of WebSocket.
+ * Works reliably through reverse proxies (Caddy, Cloudflare, etc).
+ *
+ * @param jobId - The job ID to poll logs for
+ * @param onLogs - Called with new log entries each poll cycle
+ * @param onStatus - Called when job status changes (completed, failed, running)
+ * @param onError - Called on fetch errors
+ * @param intervalMs - Poll interval in ms (default 1000)
+ * @returns LogPoller with stop() method
+ */
+export function pollJobLogs(
+  jobId: string,
+  onLogs: (logs: LogEntry[]) => void,
+  onStatus: (status: string, progress?: number) => void,
+  onError?: (error: Error) => void,
+  intervalMs: number = 1000,
+): LogPoller {
+  let lastTimestamp = 0;
+  let stopped = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const poll = async () => {
+    if (stopped) return;
+
+    try {
+      const url = `${API_BASE}/jobs/${jobId}/logs?since=${lastTimestamp}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data: LogPollResponse = await response.json();
+
+      if (stopped) return;
+
+      // Deliver new logs
+      if (data.logs && data.logs.length > 0) {
+        onLogs(data.logs);
+        // Track last timestamp to avoid re-fetching
+        lastTimestamp = data.logs[data.logs.length - 1].timestamp;
+      }
+
+      // Report status and progress
+      if (data.status) {
+        onStatus(data.status, data.progress);
+      }
+
+      // Stop polling if job is done
+      if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+        stopped = true;
+        return;
+      }
+    } catch (err) {
+      if (!stopped && onError) {
+        onError(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+
+    // Schedule next poll
+    if (!stopped) {
+      timeoutId = setTimeout(poll, intervalMs);
+    }
+  };
+
+  // Start first poll immediately
+  poll();
+
+  return {
+    stop: () => {
+      stopped = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    },
+  };
 }
 
 // ========== File Operations ==========
@@ -365,21 +453,27 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // WebSocket for tagging logs (job-based)
-  connectTaggingLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    };
-
-    if (onError) {
-      ws.onerror = onError;
-    }
-
-    return ws;
+  // HTTP polling for tagging logs (replaces WebSocket which breaks through Caddy)
+  pollTaggingLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log: log as any });
+        }
+      },
+      (status, progress) => {
+        if (progress !== undefined) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
   },
 };
 
@@ -444,21 +538,27 @@ export const captioningAPI = {
     return handleResponse(response);
   },
 
-  // WebSocket for captioning logs (reuses same endpoint as tagging)
-  connectLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    };
-
-    if (onError) {
-      ws.onerror = onError;
-    }
-
-    return ws;
+  // HTTP polling for captioning logs (replaces WebSocket which breaks through Caddy)
+  pollLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log: log as any });
+        }
+      },
+      (status, progress) => {
+        if (progress !== undefined) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
   },
 };
 
@@ -678,21 +778,27 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
-  // WebSocket for logs
-  connectLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    };
-
-    if (onError) {
-      ws.onerror = onError;
-    }
-
-    return ws;
+  // HTTP polling for training logs (replaces WebSocket which breaks through Caddy)
+  pollLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log: log as any });
+        }
+      },
+      (status, progress) => {
+        if (progress !== undefined) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
   },
 };
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig } from '@/lib/api';
+import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig, LogPoller } from '@/lib/api';
 import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -117,7 +117,7 @@ export default function AutoTagPage() {
   // Log viewer
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
+  const logPollerRef = useRef<LogPoller | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-enable ONNX for v3 models (smart UX!)
@@ -150,7 +150,7 @@ export default function AutoTagPage() {
   // Cleanup
   useEffect(() => {
     return () => {
-      if (wsRef.current) wsRef.current.close();
+      if (logPollerRef.current) logPollerRef.current.stop();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     };
   }, []);
@@ -188,33 +188,27 @@ export default function AutoTagPage() {
     }, 1000);
   };
 
-  // WebSocket logs
+  // HTTP polling for logs (replaces WebSocket which breaks through Caddy proxy)
   const connectLogs = (jobId: string) => {
-    if (wsRef.current) wsRef.current.close();
-    try {
-      wsRef.current = datasetAPI.connectTaggingLogs(
-        jobId,
-        (data) => {
-          if (data.type === 'log' && data.log) {
-            // data.log is a LogEntry object { timestamp, level, message, raw }
-            const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
-            if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
-          } else if (data.type === 'progress' && data.progress !== undefined) {
-            setProgress(data.progress);
-          } else if (data.type === 'status') {
-            if (data.status === 'completed') addLog('✅ Tagging completed!');
-            else if (data.status === 'failed') addLog('❌ Tagging failed');
-          }
-        },
-        (error) => {
-          console.error('WebSocket error:', error);
-          addLog('⚠️ Log connection lost - using status polling');
+    if (logPollerRef.current) logPollerRef.current.stop();
+    logPollerRef.current = datasetAPI.pollTaggingLogs(
+      jobId,
+      (data) => {
+        if (data.type === 'log' && data.log) {
+          const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
+          if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+        } else if (data.type === 'progress' && data.progress !== undefined) {
+          setProgress(data.progress as number);
+        } else if (data.type === 'status') {
+          if (data.status === 'completed') addLog('✅ Tagging completed!');
+          else if (data.status === 'failed') addLog('❌ Tagging failed');
         }
-      );
-    } catch (err) {
-      console.error('WebSocket connect error:', err);
-      addLog('⚠️ Real-time logs unavailable');
-    }
+      },
+      (error) => {
+        console.error('Log polling error:', error);
+        addLog('⚠️ Log polling error - status polling still active');
+      }
+    );
   };
 
   // Start tagging/captioning
@@ -304,25 +298,25 @@ export default function AutoTagPage() {
         setJobId(response.job_id);
         addLog(`✅ Job started! ID: ${response.job_id}`);
 
-        // Connect logs and status polling
+        // Connect log polling and status polling
         if (currentModelType === 'wd14') {
           connectLogs(response.job_id);
         } else {
-          // BLIP/GIT use same WebSocket endpoint
-          if (wsRef.current) wsRef.current.close();
-          wsRef.current = captioningAPI.connectLogs(
+          // BLIP/GIT use same polling endpoint
+          if (logPollerRef.current) logPollerRef.current.stop();
+          logPollerRef.current = captioningAPI.pollLogs(
             response.job_id,
             (data) => {
               if (data.type === 'log' && data.log) {
                 const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
                 if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
               } else if (data.type === 'progress' && data.progress !== undefined) {
-                setProgress(data.progress);
+                setProgress(data.progress as number);
               }
             },
             (error) => {
-              console.error('WebSocket error:', error);
-              addLog('⚠️ Log connection lost - using status polling');
+              console.error('Log polling error:', error);
+              addLog('⚠️ Log polling error - status polling still active');
             }
           );
         }
@@ -347,7 +341,7 @@ export default function AutoTagPage() {
       await datasetAPI.stopTagging(jobId);
       addLog('✅ Stopped');
       setTagging(false);
-      if (wsRef.current) wsRef.current.close();
+      if (logPollerRef.current) logPollerRef.current.stop();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     } catch (err) {
       addLog(`❌ Stop failed: ${err}`);
