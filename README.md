@@ -8,28 +8,18 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 ---
 
-## 🚧 **MIGRATION IN PROGRESS - January 2026**
+## 🚧 **ALPHA - March 2026**
 
-**We're actively migrating from Python (FastAPI) to Node.js (Next.js API routes).**
+**Active development.** The web UI (Next.js + FastAPI) is functional but expect rough edges.
 
-**What this means for you:**
-- ✅ **Core features work** - Training, tagging, captioning still functional
-- ⚠️ **Expect rough edges** - Some features may break temporarily
+**Current status:**
+- ✅ **Web UI** - Dataset management, tagging, captioning, file browser all working
+- ✅ **Training config** - 132+ parameters across 7 tabs, preset system, form persistence
+- ⚠️ **Training execution** - Actively being stabilized (config generation and job launch work, debugging edge cases)
+- ⚠️ **Custom optimizers** - CAME/Compass support in progress, standard optimizers (AdamW8bit, Prodigy, etc.) work
 - 🐛 **Report issues** - [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
-- ⏰ **Part-time development** - Updates will be gradual this month
 
-**Why migrate?**
-- Fixes Windows asyncio issues with tagging
-- Simpler deployment (one server instead of two)
-- Better integration and performance
-
-**Current status**: ~75% complete - see [MIGRATION_PROGRESS.md](MIGRATION_PROGRESS.md) for details
-
----
-
-> ⚠️ **ALPHA STAGE**: Active development. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
-
-> ⚠️ **ALPHA STAGE**: Active development. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
+> ⚠️ **ALPHA STAGE**: Training may not work end-to-end yet. We're close! [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
 
 ## Quick Start
 
