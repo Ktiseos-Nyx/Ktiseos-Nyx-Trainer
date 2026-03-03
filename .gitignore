@@ -103,16 +103,27 @@ frontend/app/effects-demo/
 
 # ----------------------------------------------------------------------------
 # Training Artifacts (Large Files)
+# Using /* (not /) so Git enters the dir but ignores contents,
+# allowing .gitkeep to be tracked. Dirs pre-exist after clone to
+# prevent permission errors on VastAI/Docker.
 # ----------------------------------------------------------------------------
-pretrained_model/
-vae/
-tagger_models/
-output/
+pretrained_model/*
+!pretrained_model/.gitkeep
+vae/*
+!vae/.gitkeep
+tagger_models/*
+!tagger_models/.gitkeep
+output/*
+!output/.gitkeep
 /dataset/
-/datasets/
-logs/
+/datasets/*
+!datasets/.gitkeep
+logs/*
+!logs/.gitkeep
 *.log
 user_configs/
+trainer/runtime_store/*
+!trainer/runtime_store/.gitkeep
 
 
 # Model files

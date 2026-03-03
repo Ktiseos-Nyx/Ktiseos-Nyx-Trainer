@@ -9,23 +9,17 @@
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-// Derive WebSocket base URL from API_BASE
-// For relative URLs, construct WebSocket URL from current page location
-// For absolute URLs, converts http:// -> ws:// and https:// -> wss://
+// Derive WebSocket base URL from current page location.
+// WebSocket connections go to the SAME host:port the page was loaded from,
+// because server.js handles all WS routing:
+//   /ws/jobs/* → handled natively by Node.js WebSocketServer
+//   /ws/api/*  → proxied to FastAPI by server.js
+// NO port remapping needed — server.js is the single entry point.
 export const getWsUrl = (path: string): string => {
-  if (typeof window === 'undefined') return `ws://127.0.0.1:${process.env.BACKEND_PORT || '8000'}${path}`;
+  if (typeof window === 'undefined') return `ws://127.0.0.1:${process.env.PORT || '3000'}${path}`;
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  let host = window.location.host;
-
-  // ✅ CASE 1: Standard Localhost or Vast Direct Mapping (3000 -> 8000)
-  if (host.includes(':3000')) {
-    host = host.replace(':3000', ':8000');
-  }
-  // ✅ CASE 2: Your Specific Vast Proxy Template (13000 -> 18000)
-  else if (host.includes(':13000')) {
-    host = host.replace(':13000', ':18000');
-  }
+  const host = window.location.host;
 
   return `${protocol}//${host}${path}`;
 };

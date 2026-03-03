@@ -29,19 +29,25 @@ const nextConfig = {
   //   return config;
   // },
 
-  // API backend proxy
+  // API backend proxy - FALLBACK only
+  // Routes handled by Node.js API routes (app/api/jobs/*, app/api/files/*, etc.)
+  // are matched first by Next.js filesystem routing. Only unmatched /api/* paths
+  // fall through to the FastAPI backend proxy.
   async rewrites() {
     // Keep this as 127.0.0.1!
     // Since Next.js and Python run in the same container on Vast,
     // they talk via localhost internally.
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
-    ];
+    return {
+      // fallback rewrites only fire when NO filesystem route (page or API route) matches
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${backendUrl}/api/:path*`,
+        },
+      ],
+    };
   },
 
   reactStrictMode: true,
