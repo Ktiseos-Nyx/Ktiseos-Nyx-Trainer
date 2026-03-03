@@ -2,6 +2,29 @@
 
 This guide provides solutions to the most common errors and issues you might encounter while using Ktiseos-Nyx-Trainer.
 
+## 🔄 Recent Fixes (March 2026)
+
+### Pydantic Validation Errors Now Show Details
+**Before**: Generic "Validation failed" alert  
+**After**: Alert shows exact field + constraint that failed  
+**If you see this**: Read the error details—it tells you exactly which config value is invalid.  
+**Still stuck?** See [[#Pydantic-Validation-Errors|Pydantic Validation Errors]] below.
+
+### CAME Optimizer Path Resolution Fixed
+**Error**: `ModuleNotFoundError: No module named 'LoraEasyCustomOptimizer.came'`  
+**Cause**: `PYTHONPATH` not including `custom_scheduler` directory  
+**Fix**: Automatically handled in current alpha. If you still see this:  
+1. Ensure you're on the latest commit (`git pull`)  
+2. Re-run the installer (`install.bat` / `./install.sh`)  
+3. Verify `custom_scheduler` is in your project root  
+
+### Form State Persistence (Tabbed UI)
+**Issue**: Config values on unvisited tabs not saving  
+**Status**: Being stabilized. Workaround:  
+1. Visit each tab at least once before saving  
+2. Click "Save" explicitly (don't rely on auto-save before submit)  
+3. Check `localStorage` in browser DevTools if values seem lost  
+
 ## Installation Issues
 
 ### Rust/Cargo on Windows
