@@ -587,10 +587,10 @@ export async function createTaggingJob(
   if (config.captionExtension) {
     args.push('--caption_extension', config.captionExtension);
   }
-  if (config.batchSize !== undefined) {
+  if (config.batchSize != null) {
     args.push('--batch_size', String(config.batchSize));
   }
-  if (config.captionSeparator !== undefined) {
+  if (config.captionSeparator != null) {
     args.push('--caption_separator', config.captionSeparator);
   }
   if (config.undesiredTags) {
