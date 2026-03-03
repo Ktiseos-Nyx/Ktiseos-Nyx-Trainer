@@ -194,7 +194,18 @@ export default function AutoTagPage() {
     try {
       wsRef.current = datasetAPI.connectTaggingLogs(
         jobId,
-        (data) => { if (data.log) setLogs(prev => { const next = [...prev, data.log as string]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; }); },
+        (data) => {
+          if (data.type === 'log' && data.log) {
+            // data.log is a LogEntry object { timestamp, level, message, raw }
+            const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
+            if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+          } else if (data.type === 'progress' && data.progress !== undefined) {
+            setProgress(data.progress);
+          } else if (data.type === 'status') {
+            if (data.status === 'completed') addLog('✅ Tagging completed!');
+            else if (data.status === 'failed') addLog('❌ Tagging failed');
+          }
+        },
         (error) => {
           console.error('WebSocket error:', error);
           addLog('⚠️ Log connection lost - using status polling');
@@ -301,7 +312,14 @@ export default function AutoTagPage() {
           if (wsRef.current) wsRef.current.close();
           wsRef.current = captioningAPI.connectLogs(
             response.job_id,
-            (data) => { if (data.log) setLogs(prev => { const next = [...prev, data.log as string]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; }); },
+            (data) => {
+              if (data.type === 'log' && data.log) {
+                const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
+                if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+              } else if (data.type === 'progress' && data.progress !== undefined) {
+                setProgress(data.progress);
+              }
+            },
             (error) => {
               console.error('WebSocket error:', error);
               addLog('⚠️ Log connection lost - using status polling');

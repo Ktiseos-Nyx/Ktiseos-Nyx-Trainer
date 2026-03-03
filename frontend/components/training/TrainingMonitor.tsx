@@ -132,21 +132,31 @@ export default function TrainingMonitor() {
     const ws = trainingAPI.connectLogs(
       jobId,
       (data) => {
-        if (data.type === 'log') {
-          setLogs((prev) => {
-            const next = [...prev, data.message as string];
-            return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
-          });
-        } else if (data.type === 'progress') {
+        if (data.type === 'log' && data.log) {
+          // data.log is a LogEntry object { timestamp, level, message, raw }
+          const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
+          if (msg) {
+            setLogs((prev) => {
+              const next = [...prev, msg];
+              return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+            });
+          }
+        } else if (data.type === 'progress' && data.progress !== undefined) {
           setStatus((prev) => ({
             ...prev,
-            progress: data.data as any,
+            progress: data.progress as any,
           }));
-        } else if (data.type === 'connected') {
+        } else if (data.type === 'status') {
           setConnected(true);
-          setLogs((prev) => [...prev, '✓ Connected to training logs']);
-        } else if (data.type === 'heartbeat') {
-          setConnected(true);
+          if (data.status === 'completed') {
+            setStatus({ is_training: false });
+            setLogs((prev) => [...prev, '✅ Training completed!']);
+          } else if (data.status === 'failed') {
+            setStatus({ is_training: false });
+            setLogs((prev) => [...prev, '❌ Training failed']);
+          } else if (data.status === 'running') {
+            setConnected(true);
+          }
         }
       },
       (error) => {
