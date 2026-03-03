@@ -6,6 +6,7 @@ import { Activity, Save, Clock, Zap, TrendingUp } from 'lucide-react';
 
 interface TrainingStatus {
   is_training: boolean;
+  error?: string;
   progress?: {
     current_step?: number;
     total_steps?: number;
@@ -47,14 +48,34 @@ export default function TrainingMonitor() {
     scrollToBottom();
   }, [logs]);
 
-  // Initial check on mount (for page refreshes during active training)
+  // Listen for training start event from TrainingConfig (ALWAYS active)
+  // This must be a separate effect with no jobId dependency so the listener
+  // stays registered even when jobId is null (e.g. after clearing a stale ID).
   useEffect(() => {
-    // Wait for jobId to be loaded
+    if (typeof window === 'undefined') return;
+
+    const handleTrainingStart = (event: any) => {
+      const newJobId = event.detail?.jobId || localStorage.getItem('current_training_job_id');
+      if (newJobId) {
+        console.log(`TrainingMonitor: received training-started event for ${newJobId}`);
+        setLogs([]); // Clear previous logs
+        setJobId(newJobId);
+      }
+    };
+
+    window.addEventListener('training-started', handleTrainingStart);
+    return () => {
+      window.removeEventListener('training-started', handleTrainingStart);
+    };
+  }, []);
+
+  // Check status when jobId changes (on mount with stored ID, or after training-started event)
+  useEffect(() => {
     if (!jobId) return;
 
-    const checkInitialStatus = async (currentJobId: string) => {
+    const checkInitialStatus = async () => {
       try {
-        const statusData = await trainingAPI.status(currentJobId);
+        const statusData = await trainingAPI.status(jobId);
         setStatus(statusData);
 
         // If job is done (completed/failed/cancelled), clear stale ID
@@ -69,27 +90,7 @@ export default function TrainingMonitor() {
       }
     };
 
-    checkInitialStatus(jobId);
-
-    // Listen for training start event from TrainingConfig
-    const handleTrainingStart = (event: any) => {
-      // Use event detail, fallback to localStorage if window exists
-      const newJobId = event.detail?.jobId || (typeof window !== 'undefined' ? localStorage.getItem('current_training_job_id') : null);
-      if (newJobId) {
-        setJobId(newJobId);
-        checkInitialStatus(newJobId);
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('training-started', handleTrainingStart);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('training-started', handleTrainingStart);
-      }
-    };
+    checkInitialStatus();
   }, [jobId]);
 
   // Poll training status (only when training is active)
@@ -160,12 +161,15 @@ export default function TrainingMonitor() {
         } else if (data.type === 'status') {
           if (data.status === 'completed') {
             setStatus({ is_training: false });
-            setLogs((prev) => [...prev, '✅ Training completed!']);
+            setLogs((prev) => [...prev, '--- Training completed! ---']);
             setConnected(false);
+            localStorage.removeItem('current_training_job_id');
           } else if (data.status === 'failed') {
-            setStatus({ is_training: false });
-            setLogs((prev) => [...prev, '❌ Training failed']);
+            const errorMsg = (data as any).error || 'Unknown error';
+            setStatus({ is_training: false, error: errorMsg });
+            setLogs((prev) => [...prev, `--- Training FAILED: ${errorMsg} ---`]);
             setConnected(false);
+            localStorage.removeItem('current_training_job_id');
           }
         }
       },

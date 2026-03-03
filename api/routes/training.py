@@ -304,6 +304,7 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
             "total_logs": len(job.logs),
             "status": job.status.value,
             "progress": job.progress,
+            "error": job.error,
             "next_since": since + len(logs),  # client sends this as next 'since'
         }
 
