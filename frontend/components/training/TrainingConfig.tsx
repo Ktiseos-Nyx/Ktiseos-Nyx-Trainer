@@ -123,7 +123,7 @@ export default function TrainingConfigNew() {
 
   const handleSaveToServer = async () => {
     try {
-      syncToStore(); // Sync to Zustand first
+      syncToStore(); // Force save to localStorage
       const currentValues = form.getValues();
 
       // Use new endpoint that generates both dataset.toml and config.toml
@@ -143,7 +143,7 @@ export default function TrainingConfigNew() {
   // Handler for individual card save buttons
   const handleCardSave = async () => {
     try {
-      syncToStore(); // Update Zustand
+      syncToStore(); // Force save to localStorage
       const currentValues = form.getValues();
 
       // Also save configs to disk (generates both dataset.toml and config.toml)

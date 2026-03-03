@@ -6,6 +6,7 @@
 # Archive & Temporary Storage
 # ----------------------------------------------------------------------------
 archive/                    # Deprecated/archived code and docs
+Letters_From_Qwen_Gitignormepls/
 temp/
 tmp/
 .temp/
