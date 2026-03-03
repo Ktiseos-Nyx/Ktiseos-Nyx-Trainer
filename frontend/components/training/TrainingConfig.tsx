@@ -97,6 +97,13 @@ export default function TrainingConfigNew() {
       const response = await trainingAPI.start(validatedConfig);
       if (response.success) {
         setTrainingJobId(response.job_id || null);
+        // Store job ID for TrainingMonitor to pick up
+        if (response.job_id && typeof window !== 'undefined') {
+          localStorage.setItem('current_training_job_id', response.job_id);
+          window.dispatchEvent(new CustomEvent('training-started', {
+            detail: { jobId: response.job_id },
+          }));
+        }
         alert(`✅ Training started! Job ID: ${response.job_id}`);
       } else {
         alert(`❌ Training failed: ${response.message}`);

@@ -168,6 +168,17 @@ class LogParser:
 
         return progress if found_anything else None
 
+    # Lines that match error keywords but are NOT actual errors
+    ERROR_FALSE_POSITIVES = re.compile(
+        r'mean ar error|'          # Kohya aspect ratio stats
+        r'error \(without|'        # Kohya AR stats variant
+        r'error count|'            # Stats/counters
+        r'error_rate|'             # Metric names
+        r'validation.*error|'      # "validation error rate: 0.0"
+        r'no error',               # "no error found"
+        re.I
+    )
+
     @classmethod
     def extract_error(cls, log_line: str) -> Optional[str]:
         """
@@ -179,6 +190,16 @@ class LogParser:
         Returns:
             Error message if found, None otherwise
         """
+        lower_line = log_line.lower().strip()
+
+        # Skip known false positives first
+        if cls.ERROR_FALSE_POSITIVES.search(lower_line):
+            return None
+
+        # Skip standard INFO/DEBUG log level prefixes
+        if lower_line.startswith(('info', 'debug', 'warning')):
+            return None
+
         error_indicators = [
             'error',
             'exception',
@@ -187,7 +208,6 @@ class LogParser:
             'fatal',
         ]
 
-        lower_line = log_line.lower()
         for indicator in error_indicators:
             if indicator in lower_line:
                 return log_line.strip()

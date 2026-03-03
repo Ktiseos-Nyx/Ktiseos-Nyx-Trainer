@@ -754,21 +754,32 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
-  // ✅ MIGRATED: Uses Node.js /api/jobs/[id]/stop endpoint
+  // Uses Python /api/training/stop/{job_id} endpoint
   stop: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/jobs/${jobId}/stop`, {
+    const response = await fetch(`${API_BASE}/training/stop/${jobId}`, {
       method: 'POST',
     });
     return handleResponse(response);
   },
 
-  // ✅ MIGRATED: Uses Node.js /api/jobs/[id] endpoint
+  // Uses Python /api/training/status/{job_id} endpoint
+  // Transforms flat Python response to match TrainingMonitor's expected shape
   status: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/jobs/${jobId}`);
-    return handleResponse(response);
+    const response = await fetch(`${API_BASE}/training/status/${jobId}`);
+    const data = await handleResponse(response);
+    return {
+      is_training: data.status === 'running',
+      job_id: data.job_id,
+      status: data.status,
+      error: data.error,
+      progress: {
+        current_epoch: data.current_epoch,
+        total_epochs: data.total_epochs,
+        progress_percent: data.progress,  // 0-100 from Python
+      },
+    };
   },
 
-  // NOTE: Validation still uses Python backend for now
   validate: async (config: TrainingConfig) => {
     const response = await fetch(`${API_BASE}/training/validate`, {
       method: 'POST',
@@ -778,27 +789,73 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
-  // HTTP polling for training logs (replaces WebSocket which breaks through Caddy)
+  // HTTP polling for training logs from Python backend
+  // Python uses line-index-based pagination (since=lineNumber), not timestamps
   pollLogs: (
     jobId: string,
     onMessage: (data: WebSocketLogMessage) => void,
     onError?: (error: Error) => void,
   ): LogPoller => {
-    return pollJobLogs(
-      jobId,
-      (logs) => {
-        for (const log of logs) {
-          onMessage({ type: 'log', log: log as any });
+    let nextSince = 0;
+    let stopped = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      if (stopped) return;
+
+      try {
+        const url = `${API_BASE}/training/logs/${jobId}?since=${nextSince}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
-      },
-      (status, progress) => {
-        if (progress !== undefined) {
-          onMessage({ type: 'progress', progress });
+
+        const data = await response.json();
+
+        if (stopped) return;
+
+        // Deliver new logs
+        if (data.logs && data.logs.length > 0) {
+          for (const log of data.logs) {
+            onMessage({ type: 'log', log: log as any });
+          }
+          // Use server's next_since for line-based pagination
+          nextSince = data.next_since ?? (nextSince + data.logs.length);
         }
-        onMessage({ type: 'status', status });
+
+        // Report status and progress
+        if (data.status) {
+          if (data.progress !== undefined) {
+            onMessage({ type: 'progress', progress: data.progress });
+          }
+          onMessage({ type: 'status', status: data.status });
+        }
+
+        // Stop polling if job is done
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+          stopped = true;
+          return;
+        }
+      } catch (err) {
+        if (!stopped && onError) {
+          onError(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
+
+      if (!stopped) {
+        timeoutId = setTimeout(poll, 1000);
+      }
+    };
+
+    poll();
+
+    return {
+      stop: () => {
+        stopped = true;
+        if (timeoutId) clearTimeout(timeoutId);
       },
-      onError,
-    );
+    };
   },
 };
 
