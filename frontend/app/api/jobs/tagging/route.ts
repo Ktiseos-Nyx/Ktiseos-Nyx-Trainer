@@ -1,72 +1,39 @@
 /**
  * Next.js API Routes: /api/jobs/tagging
- * Create tagging jobs via the tagging orchestrator.
+ * Proxies tagging requests to the FastAPI backend which handles
+ * WD14 tagging with GPU-accelerated onnxruntime.
  *
  * POST - Start a new WD14 tagging job
- *
- * The orchestrator automatically selects the best backend:
- * - Python (GPU-accelerated via onnxruntime-gpu) if available
- * - Node.js ONNX Runtime (CPU fallback) otherwise
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  startTagging,
-  type TaggingRequest,
-} from '@/lib/node-services/tagging-orchestrator';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 /**
  * POST /api/jobs/tagging
- * Start a new WD14 tagging job
+ * Proxy to FastAPI backend's /api/dataset/tag endpoint
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.dataset_dir) {
+    const response = await fetch(`${BACKEND_URL}/api/dataset/tag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
       return NextResponse.json(
-        { success: false, error: 'Missing required field: dataset_dir' },
-        { status: 400 }
+        { success: false, error: data.detail || `Backend error: ${response.status}` },
+        { status: response.status }
       );
     }
 
-    // Build request with defaults
-    const taggingRequest: TaggingRequest = {
-      dataset_dir: body.dataset_dir,
-      model: body.model || 'SmilingWolf/wd-vit-large-tagger-v3',
-      threshold: body.threshold ?? 0.35,
-      general_threshold: body.general_threshold,
-      character_threshold: body.character_threshold,
-      caption_extension: body.caption_extension || '.txt',
-      batch_size: body.batch_size,
-      caption_separator: body.caption_separator || ', ',
-      undesired_tags: body.undesired_tags || '',
-      remove_underscore: body.remove_underscore ?? true,
-      character_tags_first: body.character_tags_first ?? false,
-      always_first_tags: body.always_first_tags,
-      append_tags: body.append_tags ?? false,
-      recursive: body.recursive ?? false,
-      use_rating_tags: body.use_rating_tags ?? false,
-      use_rating_tags_as_last_tag: body.use_rating_tags_as_last_tag ?? false,
-      tag_replacement: body.tag_replacement,
-      character_tag_expand: body.character_tag_expand ?? false,
-      force_prepend_trigger: body.force_prepend_trigger ?? true,
-    };
-
-    const { jobId, backend } = await startTagging(taggingRequest);
-
-    const backendLabel =
-      backend === 'python'
-        ? 'Python onnxruntime (GPU-accelerated)'
-        : 'Node.js ONNX Runtime (CPU)';
-
-    return NextResponse.json({
-      success: true,
-      job_id: jobId,
-      backend,
-      message: `Tagging job started (${backendLabel})`,
-    });
+    return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
       {

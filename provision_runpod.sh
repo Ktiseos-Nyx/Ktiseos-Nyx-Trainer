@@ -4,10 +4,11 @@
 # RunPod Template: Ktiseos-Nyx LoRA Trainer
 #   Container Image: runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
 #   Exposed Ports: 8000/http, 3000/http, 22/tcp
-#   Docker Command: (leave empty - Jupyter stays alive as your emergency terminal)
+#   Docker Command (auto-provisions on pod start, keeps Jupyter/SSH alive):
+#     bash -c "/start.sh & sleep 5 && cd /workspace && git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git 2>/dev/null; cd /workspace/Ktiseos-Nyx-Trainer && git pull && bash provision_runpod.sh"
 #   Volume Mount Path: /workspace
 #
-# USAGE: Open Jupyter terminal (port 8888) and run:
+# Manual usage (from Jupyter terminal, if not using Docker Command above):
 #   cd /workspace && git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git && cd Ktiseos-Nyx-Trainer && bash provision_runpod.sh
 #
 # On subsequent restarts (repo already cloned):
@@ -108,16 +109,15 @@ provisioning_start() {
         done
 
         if [ "$NODE_FOUND" = false ]; then
-            echo "  Node.js not found - installing via nvm..."
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            # shellcheck disable=SC1091
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 20
-            nvm use 20
+            echo "  Node.js not found - installing system-wide..."
+            # Install directly to /usr/local so it's always in PATH (survives restarts)
+            NODE_VERSION="v20.18.1"
+            curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" | tar -xJ -C /usr/local --strip-components=1
             if ! command -v node &> /dev/null; then
                 echo "  Node.js installation failed! Frontend will be unavailable."
                 SKIP_FRONTEND=true
+            else
+                echo "  Installed Node.js $(node --version) to /usr/local/bin"
             fi
         fi
     fi
