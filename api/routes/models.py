@@ -17,7 +17,7 @@ router = APIRouter()
 
 class DownloadRequest(BaseModel):
     url: str
-    download_type: str  # "model" or "vae"
+    download_type: ModelType = ModelType.MODEL
     filename: Optional[str] = None  # Required for Civitai, optional for HuggingFace
     model_type: Optional[str] = None  # "sdxl", "sd15", "flux", "sd3.5"
 
@@ -41,13 +41,13 @@ async def download_model_or_vae(request: DownloadRequest):
         elif "civitai.com" in request.url:
             api_token = api_keys.get("civitai_api_key")
 
-        # Determine target directory
-        if request.download_type == "vae":
+        # Determine target directory based on download type
+        if request.download_type == ModelType.VAE:
             target_dir = str(model_service.vae_dir)
-            model_type = ModelType.VAE
+        elif request.download_type == ModelType.LORA:
+            target_dir = str(model_service.lora_dir)
         else:
             target_dir = str(model_service.pretrained_model_dir)
-            model_type = ModelType.MODEL
 
         # Create download config
         config = DownloadConfig(
@@ -55,7 +55,7 @@ async def download_model_or_vae(request: DownloadRequest):
             download_dir=target_dir,
             filename=request.filename,
             api_token=api_token,
-            model_type=model_type
+            model_type=request.download_type
         )
 
         # Download using service

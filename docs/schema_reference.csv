@@ -1,0 +1,504 @@
+Source,File,Model,Field,Type,Required,Description
+Pydantic,services/models/caption.py,CaptionFile,image_path,str,True,
+Pydantic,services/models/caption.py,CaptionFile,caption_path,str,True,
+Pydantic,services/models/caption.py,CaptionFile,caption_text,str,True,
+Pydantic,services/models/caption.py,CaptionFile,exists,bool,True,
+Pydantic,services/models/caption.py,AddTriggerWordRequest,dataset_dir,str,True,Dataset directory path
+Pydantic,services/models/caption.py,AddTriggerWordRequest,trigger_word,str,True,Trigger word to add
+Pydantic,services/models/caption.py,AddTriggerWordRequest,position,str,True,'start' or 'end'
+Pydantic,services/models/caption.py,AddTriggerWordRequest,caption_extension,str,True,Caption file extension
+Pydantic,services/models/caption.py,RemoveTagsRequest,dataset_dir,str,True,Dataset directory path
+Pydantic,services/models/caption.py,RemoveTagsRequest,tags_to_remove,List[str],True,Tags to remove
+Pydantic,services/models/caption.py,RemoveTagsRequest,caption_extension,str,True,Caption file extension
+Pydantic,services/models/caption.py,ReplaceTextRequest,dataset_dir,str,True,Dataset directory path
+Pydantic,services/models/caption.py,ReplaceTextRequest,find_text,str,True,Text to find
+Pydantic,services/models/caption.py,ReplaceTextRequest,replace_text,str,True,Replacement text
+Pydantic,services/models/caption.py,ReplaceTextRequest,caption_extension,str,True,Caption file extension
+Pydantic,services/models/caption.py,ReplaceTextRequest,use_regex,bool,True,Use regex pattern matching
+Pydantic,services/models/caption.py,ReadCaptionRequest,image_path,str,True,Path to image file
+Pydantic,services/models/caption.py,ReadCaptionRequest,caption_extension,str,True,Caption file extension
+Pydantic,services/models/caption.py,WriteCaptionRequest,image_path,str,True,Path to image file
+Pydantic,services/models/caption.py,WriteCaptionRequest,caption_text,str,True,Caption content
+Pydantic,services/models/caption.py,WriteCaptionRequest,caption_extension,str,True,Caption file extension
+Pydantic,services/models/caption.py,CaptionOperationResponse,success,bool,True,
+Pydantic,services/models/caption.py,CaptionOperationResponse,message,str,True,
+Pydantic,services/models/caption.py,CaptionOperationResponse,files_modified,int,True,
+Pydantic,services/models/caption.py,CaptionOperationResponse,errors,List[str],False,
+Pydantic,services/models/caption.py,CaptionReadResponse,success,bool,True,
+Pydantic,services/models/caption.py,CaptionReadResponse,image_path,str,True,
+Pydantic,services/models/caption.py,CaptionReadResponse,caption_path,str,True,
+Pydantic,services/models/caption.py,CaptionReadResponse,caption_text,Optional[str],True,
+Pydantic,services/models/caption.py,CaptionReadResponse,exists,bool,True,
+Pydantic,services/models/captioning.py,BLIPConfig,dataset_dir,str,True,Dataset directory path
+Pydantic,services/models/captioning.py,BLIPConfig,caption_extension,str,False,Caption file extension
+Pydantic,services/models/captioning.py,BLIPConfig,caption_weights,str,False,BLIP model weights URL
+Pydantic,services/models/captioning.py,BLIPConfig,batch_size,int,False,Inference batch size
+Pydantic,services/models/captioning.py,BLIPConfig,max_workers,int,False,DataLoader workers
+Pydantic,services/models/captioning.py,BLIPConfig,beam_search,bool,False,Use beam search instead of nucleus sampling
+Pydantic,services/models/captioning.py,BLIPConfig,num_beams,int,False,Number of beams for beam search
+Pydantic,services/models/captioning.py,BLIPConfig,top_p,float,False,Top-p for nucleus sampling
+Pydantic,services/models/captioning.py,BLIPConfig,max_length,int,False,Maximum caption length
+Pydantic,services/models/captioning.py,BLIPConfig,min_length,int,False,Minimum caption length
+Pydantic,services/models/captioning.py,BLIPConfig,recursive,bool,False,Process subdirectories recursively
+Pydantic,services/models/captioning.py,BLIPConfig,debug,bool,False,Enable debug mode
+Pydantic,services/models/captioning.py,GITConfig,dataset_dir,str,True,Dataset directory path
+Pydantic,services/models/captioning.py,GITConfig,caption_extension,str,False,Caption file extension
+Pydantic,services/models/captioning.py,GITConfig,model_id,str,False,HuggingFace model ID for GIT
+Pydantic,services/models/captioning.py,GITConfig,batch_size,int,False,Inference batch size
+Pydantic,services/models/captioning.py,GITConfig,max_workers,int,False,DataLoader workers
+Pydantic,services/models/captioning.py,GITConfig,max_length,int,False,Maximum caption length
+Pydantic,services/models/captioning.py,GITConfig,remove_words,bool,False,Remove 'with the words xxx' artifacts from captions
+Pydantic,services/models/captioning.py,GITConfig,recursive,bool,False,Process subdirectories recursively
+Pydantic,services/models/captioning.py,GITConfig,debug,bool,False,Enable debug mode
+Pydantic,services/models/captioning.py,CaptioningStartResponse,success,bool,True,
+Pydantic,services/models/captioning.py,CaptioningStartResponse,message,str,True,
+Pydantic,services/models/captioning.py,CaptioningStartResponse,job_id,Optional[str],True,
+Pydantic,services/models/captioning.py,CaptioningStartResponse,validation_errors,list,True,
+Pydantic,services/models/captioning.py,CaptioningStatusResponse,job_id,str,True,
+Pydantic,services/models/captioning.py,CaptioningStatusResponse,status,str,True,
+Pydantic,services/models/captioning.py,CaptioningStatusResponse,progress,int,True,
+Pydantic,services/models/captioning.py,CaptioningStatusResponse,current_image,Optional[str],True,
+Pydantic,services/models/captioning.py,CaptioningStatusResponse,total_images,Optional[int],True,
+Pydantic,services/models/captioning.py,CaptioningStatusResponse,error,Optional[str],True,
+Pydantic,services/models/common.py,PaginatedResponse,items,list[T],True,
+Pydantic,services/models/common.py,PaginatedResponse,total,int,True,
+Pydantic,services/models/common.py,PaginatedResponse,page,int,True,
+Pydantic,services/models/common.py,PaginatedResponse,page_size,int,True,
+Pydantic,services/models/common.py,ErrorResponse,error,str,True,
+Pydantic,services/models/common.py,ErrorResponse,detail,Optional[str],True,
+Pydantic,services/models/common.py,ErrorResponse,field,Optional[str],True,
+Pydantic,services/models/dataset.py,FileInfo,name,str,True,
+Pydantic,services/models/dataset.py,FileInfo,path,str,True,
+Pydantic,services/models/dataset.py,FileInfo,type,str,True,'file' or 'dir'
+Pydantic,services/models/dataset.py,FileInfo,size,int,True,File size in bytes
+Pydantic,services/models/dataset.py,FileInfo,modified,float,True,Last modified timestamp
+Pydantic,services/models/dataset.py,FileInfo,is_image,bool,True,Whether file is an image
+Pydantic,services/models/dataset.py,FileInfo,mime_type,Optional[str],True,
+Pydantic,services/models/dataset.py,DatasetInfo,name,str,True,
+Pydantic,services/models/dataset.py,DatasetInfo,path,str,True,
+Pydantic,services/models/dataset.py,DatasetInfo,image_count,int,True,
+Pydantic,services/models/dataset.py,DatasetInfo,caption_count,int,True,
+Pydantic,services/models/dataset.py,DatasetInfo,total_size,int,True,
+Pydantic,services/models/dataset.py,DatasetInfo,created_at,Optional[datetime],True,
+Pydantic,services/models/dataset.py,DatasetInfo,modified_at,Optional[datetime],True,
+Pydantic,services/models/dataset.py,DatasetInfo,tags_present,bool,True,
+Pydantic,services/models/dataset.py,CreateDatasetRequest,name,str,True,
+Pydantic,services/models/dataset.py,CreateDatasetRequest,parent_dir,Optional[str],True,Parent directory (default: datasets)
+Pydantic,services/models/dataset.py,UploadImageRequest,dataset_name,str,True,
+Pydantic,services/models/dataset.py,UploadImageRequest,overwrite,bool,True,Overwrite existing files
+Pydantic,services/models/dataset.py,UploadRequest,dataset_name,str,True,
+Pydantic,services/models/dataset.py,UploadRequest,file_names,List[str],True,
+Pydantic,services/models/dataset.py,UploadRequest,overwrite,bool,True,Overwrite existing files
+Pydantic,services/models/dataset.py,DatasetListResponse,datasets,List[DatasetInfo],True,
+Pydantic,services/models/dataset.py,DatasetListResponse,total,int,True,
+Pydantic,services/models/dataset.py,DatasetFilesResponse,dataset_name,str,True,
+Pydantic,services/models/dataset.py,DatasetFilesResponse,files,List[FileInfo],True,
+Pydantic,services/models/dataset.py,DatasetFilesResponse,total_files,int,True,
+Pydantic,services/models/dataset.py,DatasetFilesResponse,total_images,int,True,
+Pydantic,services/models/job.py,JobStatus,job_id,str,True,
+Pydantic,services/models/job.py,JobStatus,job_type,JobType,True,
+Pydantic,services/models/job.py,JobStatus,status,JobStatusEnum,True,
+Pydantic,services/models/job.py,JobStatus,progress,int,True,Progress percentage (0-100)
+Pydantic,services/models/job.py,JobStatus,current_step,Optional[str],True,"Current operation (e.g., 'Epoch 3/10')"
+Pydantic,services/models/job.py,JobStatus,current_epoch,Optional[int],True,Current epoch number
+Pydantic,services/models/job.py,JobStatus,total_epochs,Optional[int],True,
+Pydantic,services/models/job.py,JobStatus,current_image,Optional[str],True,Currently processing image
+Pydantic,services/models/job.py,JobStatus,total_images,Optional[int],True,
+Pydantic,services/models/job.py,JobStatus,created_at,datetime,True,
+Pydantic,services/models/job.py,JobStatus,started_at,Optional[datetime],True,
+Pydantic,services/models/job.py,JobStatus,completed_at,Optional[datetime],True,
+Pydantic,services/models/job.py,JobStatus,error,Optional[str],True,Error message if failed
+Pydantic,services/models/job.py,JobStatus,error_traceback,Optional[str],True,Full traceback for debugging
+Pydantic,services/models/job.py,JobCreateResponse,job_id,str,True,
+Pydantic,services/models/job.py,JobCreateResponse,status,str,True,
+Pydantic,services/models/job.py,JobCreateResponse,message,Optional[str],True,
+Pydantic,services/models/lora.py,LoRAResizeRequest,input_path,str,True,Path to input LoRA file
+Pydantic,services/models/lora.py,LoRAResizeRequest,output_path,str,True,Path to output LoRA file
+Pydantic,services/models/lora.py,LoRAResizeRequest,target_dim,int,True,Target dimension/rank
+Pydantic,services/models/lora.py,LoRAResizeRequest,target_alpha,Optional[int],True,Target alpha (None = auto)
+Pydantic,services/models/lora.py,LoRAResizeRequest,device,str,True,Device for processing (cpu/cuda)
+Pydantic,services/models/lora.py,LoRAResizeRequest,save_precision,str,True,Save precision (fp16/bf16/fp32)
+Pydantic,services/models/lora.py,LoRAResizeResponse,success,bool,True,
+Pydantic,services/models/lora.py,LoRAResizeResponse,message,str,True,
+Pydantic,services/models/lora.py,LoRAResizeResponse,input_path,str,True,
+Pydantic,services/models/lora.py,LoRAResizeResponse,output_path,str,True,
+Pydantic,services/models/lora.py,LoRAResizeResponse,original_dim,Optional[int],True,
+Pydantic,services/models/lora.py,LoRAResizeResponse,new_dim,Optional[int],True,
+Pydantic,services/models/lora.py,LoRAResizeResponse,file_size_mb,Optional[float],True,
+Pydantic,services/models/lora.py,HuggingFaceUploadRequest,token,str,True,HuggingFace API token
+Pydantic,services/models/lora.py,HuggingFaceUploadRequest,repo_id,str,True,HuggingFace repo ID (owner/repo-name)
+Pydantic,services/models/lora.py,HuggingFaceUploadRequest,repo_type,str,True,Repository type (model/dataset/space)
+Pydantic,services/models/lora.py,HuggingFaceUploadRequest,file_paths,list[str],True,List of local file paths to upload
+Pydantic,services/models/lora.py,HuggingFaceUploadRequest,remote_folder,str,True,Remote folder path within the repo
+Pydantic,services/models/lora.py,HuggingFaceUploadRequest,commit_message,str,True,Git commit message
+Pydantic,services/models/lora.py,HuggingFaceUploadRequest,create_pr,bool,True,Create a pull request instead of direct commit
+Pydantic,services/models/lora.py,HuggingFaceUploadResponse,success,bool,True,
+Pydantic,services/models/lora.py,HuggingFaceUploadResponse,repo_id,str,True,
+Pydantic,services/models/lora.py,HuggingFaceUploadResponse,uploaded_files,list[str],False,
+Pydantic,services/models/lora.py,HuggingFaceUploadResponse,failed_files,list[str],False,
+Pydantic,services/models/lora.py,HuggingFaceUploadResponse,error,Optional[str],True,
+Pydantic,services/models/lora.py,LoRAInput,path,str,True,Path to LoRA file
+Pydantic,services/models/lora.py,LoRAInput,ratio,float,True,Merge weight ratio
+Pydantic,services/models/lora.py,LoRAMergeRequest,lora_inputs,list[LoRAInput],True,List of LoRAs to merge
+Pydantic,services/models/lora.py,LoRAMergeRequest,output_path,str,True,Path to output merged LoRA
+Pydantic,services/models/lora.py,LoRAMergeRequest,model_type,str,True,"Model type: sd (SD1.5), sdxl, flux, svd"
+Pydantic,services/models/lora.py,LoRAMergeRequest,device,str,True,Device for processing (cpu/cuda)
+Pydantic,services/models/lora.py,LoRAMergeRequest,save_precision,str,True,Save precision (fp16/bf16/fp32)
+Pydantic,services/models/lora.py,LoRAMergeRequest,precision,str,True,Computation precision (float/fp16/bf16)
+Pydantic,services/models/lora.py,LoRAMergeResponse,success,bool,True,
+Pydantic,services/models/lora.py,LoRAMergeResponse,message,str,True,
+Pydantic,services/models/lora.py,LoRAMergeResponse,output_path,Optional[str],True,
+Pydantic,services/models/lora.py,LoRAMergeResponse,merged_count,Optional[int],True,
+Pydantic,services/models/lora.py,LoRAMergeResponse,file_size_mb,Optional[float],True,
+Pydantic,services/models/lora.py,CheckpointInput,path,str,True,Path to checkpoint file
+Pydantic,services/models/lora.py,CheckpointInput,ratio,float,True,Merge weight ratio
+Pydantic,services/models/lora.py,CheckpointMergeRequest,checkpoint_inputs,list[CheckpointInput],True,List of checkpoints to merge
+Pydantic,services/models/lora.py,CheckpointMergeRequest,output_path,str,True,Path to output merged checkpoint
+Pydantic,services/models/lora.py,CheckpointMergeRequest,unet_only,bool,True,Only merge UNet (keep VAE/TE from first model)
+Pydantic,services/models/lora.py,CheckpointMergeRequest,device,str,True,Device for processing (cpu/cuda)
+Pydantic,services/models/lora.py,CheckpointMergeRequest,save_precision,str,True,Save precision (fp16/bf16/float)
+Pydantic,services/models/lora.py,CheckpointMergeRequest,precision,str,True,Computation precision (float/fp16/bf16)
+Pydantic,services/models/lora.py,CheckpointMergeRequest,show_skipped,bool,True,Show skipped keys in logs
+Pydantic,services/models/lora.py,CheckpointMergeResponse,success,bool,True,
+Pydantic,services/models/lora.py,CheckpointMergeResponse,message,str,True,
+Pydantic,services/models/lora.py,CheckpointMergeResponse,output_path,Optional[str],True,
+Pydantic,services/models/lora.py,CheckpointMergeResponse,merged_count,Optional[int],True,
+Pydantic,services/models/lora.py,CheckpointMergeResponse,file_size_mb,Optional[float],True,
+Pydantic,services/models/model_download.py,DownloadConfig,url,str,True,Download URL (HuggingFace or Civitai)
+Pydantic,services/models/model_download.py,DownloadConfig,download_dir,str,True,Target directory for download
+Pydantic,services/models/model_download.py,DownloadConfig,filename,Optional[str],True,"Explicit filename (required for Civitai, optional for HuggingFace)"
+Pydantic,services/models/model_download.py,DownloadConfig,api_token,Optional[str],True,API token/key for authenticated downloads
+Pydantic,services/models/model_download.py,DownloadConfig,model_type,ModelType,True,Type of file being downloaded
+Pydantic,services/models/model_download.py,DownloadConfig,model_id,Optional[int],True,Civitai model ID
+Pydantic,services/models/model_download.py,DownloadConfig,version_id,Optional[int],True,Civitai version ID
+Pydantic,services/models/model_download.py,DownloadResponse,success,bool,True,
+Pydantic,services/models/model_download.py,DownloadResponse,message,str,True,
+Pydantic,services/models/model_download.py,DownloadResponse,file_path,Optional[str],True,
+Pydantic,services/models/model_download.py,DownloadResponse,file_name,Optional[str],True,
+Pydantic,services/models/model_download.py,DownloadResponse,size_mb,Optional[float],True,
+Pydantic,services/models/model_download.py,DownloadResponse,download_method,Optional[DownloadMethod],True,
+Pydantic,services/models/model_download.py,DownloadResponse,error,Optional[str],True,
+Pydantic,services/models/model_download.py,ModelInfo,name,str,True,Filename
+Pydantic,services/models/model_download.py,ModelInfo,path,str,True,Full file path
+Pydantic,services/models/model_download.py,ModelInfo,size_mb,float,True,File size in MB
+Pydantic,services/models/model_download.py,ModelInfo,type,ModelType,True,Model type
+Pydantic,services/models/model_download.py,ListModelsResponse,success,bool,True,
+Pydantic,services/models/model_download.py,ListModelsResponse,models,list[ModelInfo],False,
+Pydantic,services/models/model_download.py,ListModelsResponse,vaes,list[ModelInfo],False,
+Pydantic,services/models/model_download.py,ListModelsResponse,loras,list[ModelInfo],False,
+Pydantic,services/models/model_download.py,ListModelsResponse,model_dir,str,True,
+Pydantic,services/models/model_download.py,ListModelsResponse,vae_dir,str,True,
+Pydantic,services/models/model_download.py,ListModelsResponse,lora_dir,Optional[str],True,
+Pydantic,services/models/model_download.py,DeleteModelResponse,success,bool,True,
+Pydantic,services/models/model_download.py,DeleteModelResponse,message,str,True,
+Pydantic,services/models/model_download.py,DeleteModelResponse,file_path,str,True,
+Pydantic,services/models/tagging.py,TaggingConfig,dataset_dir,str,True,Directory containing images to tag
+Pydantic,services/models/tagging.py,TaggingConfig,model,TaggerModel,True,WD14 tagger model to use (eva02-large-v3 recommended)
+Pydantic,services/models/tagging.py,TaggingConfig,force_download,bool,True,Force download model to local dir
+Pydantic,services/models/tagging.py,TaggingConfig,threshold,float,True,Overall tag confidence threshold (0-1)
+Pydantic,services/models/tagging.py,TaggingConfig,general_threshold,Optional[float],True,Threshold for general tags (uses threshold if None)
+Pydantic,services/models/tagging.py,TaggingConfig,character_threshold,Optional[float],True,Threshold for character tags (uses threshold if None)
+Pydantic,services/models/tagging.py,TaggingConfig,caption_extension,str,True,"Caption file extension (.txt, .cap, .caption)"
+Pydantic,services/models/tagging.py,TaggingConfig,caption_separator,str,True,Separator between tags
+Pydantic,services/models/tagging.py,TaggingConfig,undesired_tags,str,True,Comma-separated tags to exclude (blacklist)
+Pydantic,services/models/tagging.py,TaggingConfig,tag_replacement,Optional[str],True,"Tag replacement: 'old1,new1;old2,new2'"
+Pydantic,services/models/tagging.py,TaggingConfig,always_first_tags,Optional[str],True,"Comma-separated tags to always put first (e.g., '1girl,solo')"
+Pydantic,services/models/tagging.py,TaggingConfig,character_tags_first,bool,True,Put character tags before general tags
+Pydantic,services/models/tagging.py,TaggingConfig,use_rating_tags,bool,True,Include rating tags in output
+Pydantic,services/models/tagging.py,TaggingConfig,use_rating_tags_as_last_tag,bool,True,Put rating tags at the end instead of beginning
+Pydantic,services/models/tagging.py,TaggingConfig,remove_underscore,bool,True,Convert underscores to spaces in tags
+Pydantic,services/models/tagging.py,TaggingConfig,character_tag_expand,bool,True,"Expand 'name_(series)' to 'name, series'"
+Pydantic,services/models/tagging.py,TaggingConfig,append_tags,bool,True,Append to existing captions instead of overwriting
+Pydantic,services/models/tagging.py,TaggingConfig,recursive,bool,True,Process images in subfolders recursively
+Pydantic,services/models/tagging.py,TaggingConfig,batch_size,int,True,Batch size for inference
+Pydantic,services/models/tagging.py,TaggingConfig,max_workers,int,True,Max data loader workers
+Pydantic,services/models/tagging.py,TaggingConfig,use_onnx,bool,True,Use ONNX runtime if available (faster)
+Pydantic,services/models/tagging.py,TaggingConfig,frequency_tags,bool,True,Show tag frequency report after tagging
+Pydantic,services/models/tagging.py,TaggingConfig,debug,bool,True,Enable debug mode
+Pydantic,services/models/tagging.py,TaggingStartResponse,success,bool,True,
+Pydantic,services/models/tagging.py,TaggingStartResponse,message,str,True,
+Pydantic,services/models/tagging.py,TaggingStartResponse,job_id,Optional[str],True,
+Pydantic,services/models/tagging.py,TaggingStartResponse,validation_errors,list[dict],False,
+Pydantic,services/models/tagging.py,TaggingStatusResponse,job_id,str,True,
+Pydantic,services/models/tagging.py,TaggingStatusResponse,status,str,True,
+Pydantic,services/models/tagging.py,TaggingStatusResponse,progress,int,True,
+Pydantic,services/models/tagging.py,TaggingStatusResponse,current_image,Optional[str],True,
+Pydantic,services/models/tagging.py,TaggingStatusResponse,total_images,Optional[int],True,
+Pydantic,services/models/tagging.py,TaggingStatusResponse,error,Optional[str],True,
+Pydantic,services/models/training.py,TrainingConfig,project_name,str,True,Name of the training project
+Pydantic,services/models/training.py,TrainingConfig,model_type,ModelType,True,Model architecture type
+Pydantic,services/models/training.py,TrainingConfig,training_mode,TrainingMode,True,Training mode: LoRA or full checkpoint
+Pydantic,services/models/training.py,TrainingConfig,pretrained_model_name_or_path,str,True,Path to pretrained model checkpoint
+Pydantic,services/models/training.py,TrainingConfig,vae_path,Optional[str],True,Path to VAE model
+Pydantic,services/models/training.py,TrainingConfig,clip_l_path,Optional[str],True,Path to CLIP-L model (Flux/SD3)
+Pydantic,services/models/training.py,TrainingConfig,clip_g_path,Optional[str],True,Path to CLIP-G model (Flux/SD3)
+Pydantic,services/models/training.py,TrainingConfig,t5xxl_path,Optional[str],True,Path to T5-XXL model (Flux/SD3)
+Pydantic,services/models/training.py,TrainingConfig,continue_from_lora,Optional[str],True,Path to LoRA to continue from
+Pydantic,services/models/training.py,TrainingConfig,resume_from_state,Optional[str],True,Path to training state to resume from
+Pydantic,services/models/training.py,TrainingConfig,wandb_key,Optional[str],True,W&B API key for logging
+Pydantic,services/models/training.py,TrainingConfig,train_data_dir,str,True,Directory containing training data
+Pydantic,services/models/training.py,TrainingConfig,output_dir,str,True,Directory to save outputs
+Pydantic,services/models/training.py,TrainingConfig,resolution,int,True,Training resolution
+Pydantic,services/models/training.py,TrainingConfig,num_repeats,int,True,Dataset repeat count
+Pydantic,services/models/training.py,TrainingConfig,max_train_epochs,int,True,Maximum training epochs
+Pydantic,services/models/training.py,TrainingConfig,max_train_steps,int,True,Max steps (0 = use epochs)
+Pydantic,services/models/training.py,TrainingConfig,train_batch_size,int,True,Training batch size
+Pydantic,services/models/training.py,TrainingConfig,seed,int,True,Random seed for reproducibility
+Pydantic,services/models/training.py,TrainingConfig,flip_aug,bool,True,Enable horizontal flipping
+Pydantic,services/models/training.py,TrainingConfig,random_crop,bool,True,Enable random cropping
+Pydantic,services/models/training.py,TrainingConfig,color_aug,bool,True,Enable color augmentation
+Pydantic,services/models/training.py,TrainingConfig,shuffle_caption,bool,True,Shuffle caption tokens
+Pydantic,services/models/training.py,TrainingConfig,unet_lr,float,True,UNet learning rate
+Pydantic,services/models/training.py,TrainingConfig,text_encoder_lr,float,True,Text encoder learning rate (0 = freeze)
+Pydantic,services/models/training.py,TrainingConfig,lr_scheduler,LRScheduler,True,LR scheduler type
+Pydantic,services/models/training.py,TrainingConfig,lr_scheduler_number,int,True,Scheduler-specific parameter (num_cycles for cosine_with_restarts)
+Pydantic,services/models/training.py,TrainingConfig,lr_warmup_ratio,float,True,Warmup ratio (fraction of total steps)
+Pydantic,services/models/training.py,TrainingConfig,lr_warmup_steps,int,True,Warmup steps (0 = use lr_warmup_ratio instead)
+Pydantic,services/models/training.py,TrainingConfig,lr_power,float,True,Power for polynomial scheduler
+Pydantic,services/models/training.py,TrainingConfig,lora_type,LoRAType,True,LoRA type
+Pydantic,services/models/training.py,TrainingConfig,network_module,str,True,Network module (derived from lora_type)
+Pydantic,services/models/training.py,TrainingConfig,network_dim,int,True,LoRA rank
+Pydantic,services/models/training.py,TrainingConfig,network_alpha,int,True,LoRA alpha
+Pydantic,services/models/training.py,TrainingConfig,conv_dim,int,True,Conv layer dimension (LoCon/LoHa)
+Pydantic,services/models/training.py,TrainingConfig,conv_alpha,int,True,Conv alpha (LoCon/LoHa)
+Pydantic,services/models/training.py,TrainingConfig,network_dropout,float,True,Network dropout
+Pydantic,services/models/training.py,TrainingConfig,dim_from_weights,bool,True,Derive dim from weights
+Pydantic,services/models/training.py,TrainingConfig,factor,int,True,LoKR decomposition factor
+Pydantic,services/models/training.py,TrainingConfig,train_norm,bool,True,Train norm layers (LyCORIS)
+Pydantic,services/models/training.py,TrainingConfig,rank_dropout,float,True,LyCORIS rank dropout
+Pydantic,services/models/training.py,TrainingConfig,module_dropout,float,True,LyCORIS module dropout
+Pydantic,services/models/training.py,TrainingConfig,down_lr_weight,Optional[str],True,Down block LR weights
+Pydantic,services/models/training.py,TrainingConfig,mid_lr_weight,Optional[str],True,Mid block LR weight
+Pydantic,services/models/training.py,TrainingConfig,up_lr_weight,Optional[str],True,Up block LR weights
+Pydantic,services/models/training.py,TrainingConfig,block_lr_zero_threshold,Optional[str],True,Block LR zero threshold
+Pydantic,services/models/training.py,TrainingConfig,block_dims,Optional[str],True,Per-block dimensions
+Pydantic,services/models/training.py,TrainingConfig,block_alphas,Optional[str],True,Per-block alphas
+Pydantic,services/models/training.py,TrainingConfig,conv_block_dims,Optional[str],True,Per-block conv dims
+Pydantic,services/models/training.py,TrainingConfig,conv_block_alphas,Optional[str],True,Per-block conv alphas
+Pydantic,services/models/training.py,TrainingConfig,optimizer_type,OptimizerType,True,Optimizer
+Pydantic,services/models/training.py,TrainingConfig,weight_decay,float,True,Weight decay
+Pydantic,services/models/training.py,TrainingConfig,gradient_accumulation_steps,int,True,Gradient accumulation
+Pydantic,services/models/training.py,TrainingConfig,max_grad_norm,float,True,Max gradient norm
+Pydantic,services/models/training.py,TrainingConfig,optimizer_args,Optional[str],True,Custom optimizer args JSON
+Pydantic,services/models/training.py,TrainingConfig,keep_tokens,int,True,Tokens to keep (no dropout)
+Pydantic,services/models/training.py,TrainingConfig,clip_skip,int,True,CLIP layers to skip
+Pydantic,services/models/training.py,TrainingConfig,max_token_length,int,True,Max token length
+Pydantic,services/models/training.py,TrainingConfig,caption_dropout_rate,float,True,Caption dropout
+Pydantic,services/models/training.py,TrainingConfig,caption_tag_dropout_rate,float,True,Tag dropout
+Pydantic,services/models/training.py,TrainingConfig,caption_dropout_every_n_epochs,int,True,Dropout frequency
+Pydantic,services/models/training.py,TrainingConfig,keep_tokens_separator,str,True,Keep tokens separator
+Pydantic,services/models/training.py,TrainingConfig,secondary_separator,str,True,Secondary separator
+Pydantic,services/models/training.py,TrainingConfig,enable_wildcard,bool,True,Enable wildcard expansion
+Pydantic,services/models/training.py,TrainingConfig,weighted_captions,bool,True,Enable weighted captions
+Pydantic,services/models/training.py,TrainingConfig,enable_bucket,bool,True,Enable bucketing
+Pydantic,services/models/training.py,TrainingConfig,min_bucket_reso,int,True,Min bucket resolution
+Pydantic,services/models/training.py,TrainingConfig,max_bucket_reso,int,True,Max bucket resolution
+Pydantic,services/models/training.py,TrainingConfig,bucket_no_upscale,bool,True,No upscaling in buckets
+Pydantic,services/models/training.py,TrainingConfig,bucket_reso_steps,Optional[int],True,Bucket resolution steps
+Pydantic,services/models/training.py,TrainingConfig,min_snr_gamma_enabled,bool,True,Enable min SNR gamma
+Pydantic,services/models/training.py,TrainingConfig,min_snr_gamma,float,True,Min SNR gamma value
+Pydantic,services/models/training.py,TrainingConfig,ip_noise_gamma_enabled,bool,True,Enable input perturbation
+Pydantic,services/models/training.py,TrainingConfig,ip_noise_gamma,float,True,Input perturbation noise
+Pydantic,services/models/training.py,TrainingConfig,ip_noise_gamma_random_strength,Optional[bool],True,Randomize IP noise strength
+Pydantic,services/models/training.py,TrainingConfig,multinoise,bool,True,Enable multi-res noise
+Pydantic,services/models/training.py,TrainingConfig,multires_noise_discount,float,True,Multi-res noise discount
+Pydantic,services/models/training.py,TrainingConfig,multires_noise_iterations,Optional[int],True,Multi-res noise iterations
+Pydantic,services/models/training.py,TrainingConfig,noise_offset,float,True,Noise offset
+Pydantic,services/models/training.py,TrainingConfig,adaptive_noise_scale,float,True,Adaptive noise scale
+Pydantic,services/models/training.py,TrainingConfig,zero_terminal_snr,bool,True,Zero terminal SNR
+Pydantic,services/models/training.py,TrainingConfig,min_timestep,Optional[int],True,Minimum timestep for noise schedule
+Pydantic,services/models/training.py,TrainingConfig,max_timestep,Optional[int],True,Maximum timestep for noise schedule
+Pydantic,services/models/training.py,TrainingConfig,gradient_checkpointing,bool,True,Enable gradient checkpointing
+Pydantic,services/models/training.py,TrainingConfig,mixed_precision,MixedPrecision,True,Mixed precision
+Pydantic,services/models/training.py,TrainingConfig,full_fp16,bool,True,Full FP16 training
+Pydantic,services/models/training.py,TrainingConfig,full_bf16,Optional[bool],True,Full BF16 training
+Pydantic,services/models/training.py,TrainingConfig,fp8_base,bool,True,FP8 base model (experimental)
+Pydantic,services/models/training.py,TrainingConfig,vae_batch_size,int,True,VAE batch size
+Pydantic,services/models/training.py,TrainingConfig,no_half_vae,bool,True,Disable half VAE
+Pydantic,services/models/training.py,TrainingConfig,cache_latents,bool,True,Cache latents
+Pydantic,services/models/training.py,TrainingConfig,cache_latents_to_disk,bool,True,Cache latents to disk
+Pydantic,services/models/training.py,TrainingConfig,cache_text_encoder_outputs,bool,True,Cache text encoder outputs
+Pydantic,services/models/training.py,TrainingConfig,cache_text_encoder_outputs_to_disk,Optional[bool],True,Cache text encoder outputs to disk
+Pydantic,services/models/training.py,TrainingConfig,cross_attention,CrossAttention,True,Cross attention
+Pydantic,services/models/training.py,TrainingConfig,persistent_data_loader_workers,int,True,Persistent workers
+Pydantic,services/models/training.py,TrainingConfig,max_data_loader_n_workers,Optional[int],True,Max data loader workers
+Pydantic,services/models/training.py,TrainingConfig,no_token_padding,bool,True,Disable token padding
+Pydantic,services/models/training.py,TrainingConfig,lowram,bool,True,Low RAM mode
+Pydantic,services/models/training.py,TrainingConfig,save_every_n_epochs,int,True,Save every N epochs
+Pydantic,services/models/training.py,TrainingConfig,save_every_n_steps,int,True,Save every N steps
+Pydantic,services/models/training.py,TrainingConfig,save_last_n_epochs,int,True,Keep last N epochs
+Pydantic,services/models/training.py,TrainingConfig,save_last_n_epochs_state,int,True,Keep last N epoch states
+Pydantic,services/models/training.py,TrainingConfig,save_state,bool,True,Save training state
+Pydantic,services/models/training.py,TrainingConfig,save_state_on_train_end,Optional[bool],True,Save state when training completes
+Pydantic,services/models/training.py,TrainingConfig,save_last_n_steps_state,int,True,Keep last N step states
+Pydantic,services/models/training.py,TrainingConfig,save_model_as,SaveModelAs,True,Model format
+Pydantic,services/models/training.py,TrainingConfig,save_precision,SavePrecision,True,Save precision
+Pydantic,services/models/training.py,TrainingConfig,output_name,str,True,Output file name
+Pydantic,services/models/training.py,TrainingConfig,no_metadata,bool,True,Skip metadata
+Pydantic,services/models/training.py,TrainingConfig,sample_every_n_epochs,int,True,Generate samples every N epochs
+Pydantic,services/models/training.py,TrainingConfig,sample_every_n_steps,int,True,Generate samples every N steps
+Pydantic,services/models/training.py,TrainingConfig,sample_prompts,Optional[str],True,Path to sample prompts file
+Pydantic,services/models/training.py,TrainingConfig,sample_sampler,SampleSampler,True,Sample generation sampler
+Pydantic,services/models/training.py,TrainingConfig,logging_dir,Optional[str],True,Logging directory
+Pydantic,services/models/training.py,TrainingConfig,log_with,Optional[str],True,Logging backend (tensorboard/wandb)
+Pydantic,services/models/training.py,TrainingConfig,log_prefix,Optional[str],True,Log file prefix
+Pydantic,services/models/training.py,TrainingConfig,log_tracker_name,Optional[str],True,Tracker name for logging
+Pydantic,services/models/training.py,TrainingConfig,log_tracker_config,Optional[str],True,Tracker config (JSON string)
+Pydantic,services/models/training.py,TrainingConfig,wandb_run_name,Optional[str],True,W&B run name
+Pydantic,services/models/training.py,TrainingConfig,v2,bool,True,SD 2.x base model flag
+Pydantic,services/models/training.py,TrainingConfig,v_parameterization,bool,True,V-parameterization
+Pydantic,services/models/training.py,TrainingConfig,scale_v_pred_loss_like_noise_pred,Optional[bool],True,Scale v-pred loss like noise pred
+Pydantic,services/models/training.py,TrainingConfig,v_pred_like_loss,Optional[float],True,V-prediction-like loss weight
+Pydantic,services/models/training.py,TrainingConfig,debiased_estimation_loss,Optional[bool],True,Use debiased estimation loss
+Pydantic,services/models/training.py,TrainingConfig,network_train_unet_only,bool,True,Train UNet only
+Pydantic,services/models/training.py,TrainingConfig,prior_loss_weight,float,True,Prior loss weight
+Pydantic,services/models/training.py,TrainingConfig,ae_path,Optional[str],True,Flux AutoEncoder path
+Pydantic,services/models/training.py,TrainingConfig,t5xxl_max_token_length,Optional[int],True,T5-XXL max tokens
+Pydantic,services/models/training.py,TrainingConfig,apply_t5_attn_mask,bool,True,Apply T5-XXL attention mask
+Pydantic,services/models/training.py,TrainingConfig,guidance_scale,float,True,Guidance scale (Flux.1 dev)
+Pydantic,services/models/training.py,TrainingConfig,timestep_sampling,TimestepSampling,True,Timestep sampling method
+Pydantic,services/models/training.py,TrainingConfig,sigmoid_scale,float,True,Sigmoid timestep scale
+Pydantic,services/models/training.py,TrainingConfig,model_prediction_type,ModelPredictionType,True,Model prediction type
+Pydantic,services/models/training.py,TrainingConfig,blocks_to_swap,Optional[int],True,Blocks to swap (memory)
+Pydantic,services/models/training.py,TrainingConfig,gemma2,Optional[str],True,Path to Gemma2 model
+Pydantic,services/models/training.py,TrainingConfig,gemma2_max_token_length,Optional[int],True,Gemma2 max tokens
+Pydantic,services/models/training.py,TrainingStartRequest,config,TrainingConfig,True,
+Pydantic,services/models/training.py,TrainingStartResponse,success,bool,True,
+Pydantic,services/models/training.py,TrainingStartResponse,message,str,True,
+Pydantic,services/models/training.py,TrainingStartResponse,job_id,Optional[str],True,
+Pydantic,services/models/training.py,TrainingStartResponse,validation_errors,list[dict],False,
+Pydantic,services/models/training.py,TrainingStatusResponse,job_id,str,True,
+Pydantic,services/models/training.py,TrainingStatusResponse,status,str,True,
+Pydantic,services/models/training.py,TrainingStatusResponse,progress,int,True,
+Pydantic,services/models/training.py,TrainingStatusResponse,current_epoch,Optional[int],True,
+Pydantic,services/models/training.py,TrainingStatusResponse,total_epochs,Optional[int],True,
+Pydantic,services/models/training.py,TrainingStatusResponse,current_step,Optional[str],True,
+Pydantic,services/models/training.py,TrainingStatusResponse,error,Optional[str],True,
+Pydantic,api/routes/civitai.py,DownloadModelRequest,model_id,int,True,
+Pydantic,api/routes/civitai.py,DownloadModelRequest,version_id,int,True,
+Pydantic,api/routes/civitai.py,DownloadModelRequest,download_url,str,True,
+Pydantic,api/routes/civitai.py,DownloadModelRequest,filename,str,True,
+Pydantic,api/routes/civitai.py,DownloadModelRequest,model_type,ModelType,True,
+Pydantic,api/routes/config.py,ConfigTemplate,name,str,True,
+Pydantic,api/routes/config.py,ConfigTemplate,description,str,True,
+Pydantic,api/routes/config.py,ConfigTemplate,config,"Dict[str, Any]",True,
+Pydantic,api/routes/config.py,SaveConfigRequest,name,str,True,
+Pydantic,api/routes/config.py,SaveConfigRequest,config,"Dict[str, Any]",True,
+Pydantic,api/routes/config.py,ValidateConfigRequest,config,"Dict[str, Any]",True,
+Pydantic,api/routes/config.py,ValidationResponse,valid,bool,True,
+Pydantic,api/routes/config.py,ValidationResponse,errors,List[str],True,
+Pydantic,api/routes/config.py,PresetModel,name,str,True,
+Pydantic,api/routes/config.py,PresetModel,description,str,True,
+Pydantic,api/routes/config.py,PresetModel,model_type,Optional[str],True,
+Pydantic,api/routes/config.py,PresetModel,config,"Dict[str, Any]",True,
+Pydantic,api/routes/config.py,PresetModel,created_at,Optional[int],True,
+Pydantic,api/routes/config.py,SavePresetRequest,name,str,True,
+Pydantic,api/routes/config.py,SavePresetRequest,description,str,True,
+Pydantic,api/routes/config.py,SavePresetRequest,model_type,Optional[str],True,
+Pydantic,api/routes/config.py,SavePresetRequest,config,"Dict[str, Any]",True,
+Pydantic,api/routes/dataset.py,TaggingRequest,dataset_dir,str,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,model,str,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,force_download,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,threshold,float,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,general_threshold,Optional[float],True,
+Pydantic,api/routes/dataset.py,TaggingRequest,character_threshold,Optional[float],True,
+Pydantic,api/routes/dataset.py,TaggingRequest,caption_extension,str,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,caption_separator,str,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,undesired_tags,str,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,tag_replacement,Optional[str],True,
+Pydantic,api/routes/dataset.py,TaggingRequest,always_first_tags,Optional[str],True,
+Pydantic,api/routes/dataset.py,TaggingRequest,character_tags_first,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,use_rating_tags,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,use_rating_tags_as_last_tag,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,remove_underscore,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,character_tag_expand,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,append_tags,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,recursive,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,batch_size,int,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,max_workers,int,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,use_onnx,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,frequency_tags,bool,True,
+Pydantic,api/routes/dataset.py,TaggingRequest,debug,bool,True,
+Pydantic,api/routes/dataset.py,UpdateTagsRequest,image_path,str,True,
+Pydantic,api/routes/dataset.py,UpdateTagsRequest,tags,list[str],True,
+Pydantic,api/routes/dataset.py,BulkTagOperationRequest,dataset_path,str,True,
+Pydantic,api/routes/dataset.py,BulkTagOperationRequest,operation,str,True,
+Pydantic,api/routes/dataset.py,BulkTagOperationRequest,tags,list[str],True,
+Pydantic,api/routes/dataset.py,BulkTagOperationRequest,replace_with,str,True,
+Pydantic,api/routes/dataset.py,DownloadUrlRequest,url,str,True,
+Pydantic,api/routes/dataset.py,DownloadUrlRequest,dataset_name,str,True,
+Pydantic,api/routes/files.py,FileInfo,name,str,True,
+Pydantic,api/routes/files.py,FileInfo,path,str,True,
+Pydantic,api/routes/files.py,FileInfo,type,str,True,
+Pydantic,api/routes/files.py,FileInfo,size,int,True,
+Pydantic,api/routes/files.py,FileInfo,modified,float,True,
+Pydantic,api/routes/files.py,FileInfo,is_image,bool,True,
+Pydantic,api/routes/files.py,FileInfo,mime_type,Optional[str],True,
+Pydantic,api/routes/files.py,DirectoryListing,path,str,True,
+Pydantic,api/routes/files.py,DirectoryListing,parent,Optional[str],True,
+Pydantic,api/routes/files.py,DirectoryListing,files,List[FileInfo],True,
+Pydantic,api/routes/models.py,DownloadRequest,url,str,True,
+Pydantic,api/routes/models.py,DownloadRequest,download_type,ModelType,True,
+Pydantic,api/routes/models.py,DownloadRequest,filename,Optional[str],True,
+Pydantic,api/routes/models.py,DownloadRequest,model_type,Optional[str],True,
+Pydantic,api/routes/settings.py,UserSettings,huggingface_token,Optional[str],True,
+Pydantic,api/routes/settings.py,UserSettings,civitai_api_key,Optional[str],True,
+Pydantic,api/routes/training.py,ValidationError,field,str,True,
+Pydantic,api/routes/training.py,ValidationError,message,str,True,
+Pydantic,api/routes/training.py,ValidationError,severity,str,True,
+Pydantic,api/routes/training.py,TrainingStartResponse,success,bool,True,
+Pydantic,api/routes/training.py,TrainingStartResponse,message,str,True,
+Pydantic,api/routes/training.py,TrainingStartResponse,job_id,Optional[str],True,
+Pydantic,api/routes/training.py,TrainingStartResponse,validation_errors,list[ValidationError],True,
+Pydantic,api/routes/training.py,TrainingStatusResponse,job_id,str,True,
+Pydantic,api/routes/training.py,TrainingStatusResponse,status,str,True,
+Pydantic,api/routes/training.py,TrainingStatusResponse,progress,int,True,
+Pydantic,api/routes/training.py,TrainingStatusResponse,current_step,Optional[str],True,
+Pydantic,api/routes/training.py,TrainingStatusResponse,current_epoch,Optional[int],True,
+Pydantic,api/routes/training.py,TrainingStatusResponse,total_epochs,Optional[int],True,
+Pydantic,api/routes/training.py,TrainingStatusResponse,error,Optional[str],True,
+Pydantic,api/routes/utilities.py,CalculatorRequest,dataset_path,str,True,
+Pydantic,api/routes/utilities.py,CalculatorRequest,epochs,int,True,
+Pydantic,api/routes/utilities.py,CalculatorRequest,batch_size,int,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,success,bool,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,dataset_path,str,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,images,int,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,repeats,int,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,epochs,int,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,batch_size,int,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,total_steps,int,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,caption,Optional[str],True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,time_estimate_min,float,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,time_estimate_max,float,True,
+Pydantic,api/routes/utilities.py,CalculatorResponse,recommendation,str,True,
+Pydantic,api/routes/utilities.py,LoRAResizeRequest,input_path,str,True,
+Pydantic,api/routes/utilities.py,LoRAResizeRequest,output_path,str,True,
+Pydantic,api/routes/utilities.py,LoRAResizeRequest,new_dim,int,True,
+Pydantic,api/routes/utilities.py,LoRAResizeRequest,new_alpha,Optional[int],True,
+Pydantic,api/routes/utilities.py,LoRAResizeRequest,device,"Literal['cpu', 'cuda']",True,
+Pydantic,api/routes/utilities.py,LoRAResizeRequest,save_precision,"Literal['float', 'fp16', 'bf16']",True,
+Pydantic,api/routes/utilities.py,ListLoraFilesRequest,directory,str,True,
+Pydantic,api/routes/utilities.py,ListLoraFilesRequest,file_extension,str,True,
+Pydantic,api/routes/utilities.py,ListLoraFilesRequest,sort_by,str,True,
+Pydantic,api/routes/utilities.py,LoRAMergeRequest,lora_inputs,list[dict],True,
+Pydantic,api/routes/utilities.py,LoRAMergeRequest,output_path,str,True,
+Pydantic,api/routes/utilities.py,LoRAMergeRequest,model_type,"Literal['sd', 'sdxl', 'flux', 'sd3']",True,
+Pydantic,api/routes/utilities.py,LoRAMergeRequest,device,"Literal['cpu', 'cuda']",True,
+Pydantic,api/routes/utilities.py,LoRAMergeRequest,save_precision,"Literal['float', 'fp16', 'bf16']",True,
+Pydantic,api/routes/utilities.py,LoRAMergeRequest,precision,"Literal['float', 'fp16', 'bf16']",True,
+Pydantic,api/routes/utilities.py,CheckpointMergeRequest,checkpoint_inputs,list[dict],True,
+Pydantic,api/routes/utilities.py,CheckpointMergeRequest,output_path,str,True,
+Pydantic,api/routes/utilities.py,CheckpointMergeRequest,unet_only,bool,True,
+Pydantic,api/routes/utilities.py,CheckpointMergeRequest,device,"Literal['cpu', 'cuda']",True,
+Pydantic,api/routes/utilities.py,CheckpointMergeRequest,save_precision,"Literal['float', 'fp16', 'bf16']",True,
+Pydantic,api/routes/utilities.py,CheckpointMergeRequest,precision,"Literal['float', 'fp16', 'bf16']",True,
+Pydantic,api/routes/utilities.py,CheckpointMergeRequest,show_skipped,bool,True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,hf_token,str,True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,owner,str,True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,repo_name,str,True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,repo_type,"Literal['model', 'dataset', 'space']",True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,selected_files,list[str],True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,remote_folder,str,True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,commit_message,str,True,
+Pydantic,api/routes/utilities.py,HuggingFaceUploadRequest,create_pr,bool,True,
+Pydantic,api/routes/utilities.py,ValidateTokenRequest,hf_token,str,True,

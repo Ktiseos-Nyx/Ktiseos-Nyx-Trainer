@@ -12,7 +12,7 @@ from typing import Any, Dict
 import toml
 import tomlkit  # Ensure tomlkit is installed (pip install tomlkit)
 
-from services.models.training import ModelType, TrainingConfig
+from services.models.training import ModelType, TrainingConfig, TrainingMode
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +153,7 @@ class KohyaTOMLGenerator:
         rel_path = os.path.relpath(dataset_abs_path, self.sd_scripts_dir)
         subset["image_dir"] = Path(rel_path).as_posix()
         subset["num_repeats"] = self.config.num_repeats
+        subset["caption_extension"] = self.config.caption_extension
 
         # Add metadata path if you use it, otherwise SD-Scripts scans the folder
         # subset["metadata_file"] = ...
@@ -179,31 +180,34 @@ class KohyaTOMLGenerator:
         # 1. Get Base Training Args
         args = self._get_training_arguments()
 
-        # 2. Add Network Args (LoRA settings) directly into the same dict
-        network_config = self._get_network_config()
-        args.update(network_config)
+        # 2. Add Network Args — only for LoRA training, not checkpoint/fine-tune
+        if self.config.training_mode != TrainingMode.CHECKPOINT:
+            network_config = self._get_network_config()
+            args.update(network_config)
 
-        # Add manual network params
-        args["network_dim"] = self.config.network_dim
-        args["network_alpha"] = self.config.network_alpha
+            args["network_dim"] = self.config.network_dim
+            args["network_alpha"] = self.config.network_alpha
 
-        if self.config.conv_dim > 0:
-            args["conv_dim"] = self.config.conv_dim
-        if self.config.conv_alpha > 0:
-            args["conv_alpha"] = self.config.conv_alpha
+            if self.config.conv_dim > 0:
+                args["conv_dim"] = self.config.conv_dim
+            if self.config.conv_alpha > 0:
+                args["conv_alpha"] = self.config.conv_alpha
 
-        if self.config.network_dropout > 0:
-            args["network_dropout"] = self.config.network_dropout
-        if self.config.rank_dropout > 0:
-            args["rank_dropout"] = self.config.rank_dropout
-        if self.config.module_dropout > 0:
-            args["module_dropout"] = self.config.module_dropout
-        if self.config.train_norm:
-            args["train_norm"] = True
+            if self.config.network_dropout > 0:
+                args["network_dropout"] = self.config.network_dropout
+            if self.config.rank_dropout > 0:
+                args["rank_dropout"] = self.config.rank_dropout
+            if self.config.module_dropout > 0:
+                args["module_dropout"] = self.config.module_dropout
+            if self.config.train_norm:
+                args["train_norm"] = True
 
-        # LoKR specific
-        if self.config.lora_type == "LoKR" and self.config.factor != -1:
-            args["factor"] = self.config.factor
+            if self.config.dim_from_weights:
+                args["dim_from_weights"] = True
+
+            # LoKR specific
+            if self.config.lora_type == "LoKR" and self.config.factor != -1:
+                args["factor"] = self.config.factor
 
         # 3. Dump to file
         os.makedirs(output_path.parent, exist_ok=True)
@@ -300,9 +304,13 @@ class KohyaTOMLGenerator:
             "text_encoder_lr": self.config.text_encoder_lr,
             "lr_scheduler": self.config.lr_scheduler,
             "lr_scheduler_num_cycles": self.config.lr_scheduler_number,
-            "lr_warmup_ratio": self.config.lr_warmup_ratio,
-            "lr_warmup_steps": self.config.lr_warmup_steps,
-            "lr_power": self.config.lr_power,
+            # Kohya's --lr_warmup_steps accepts floats < 1 as ratios of total steps.
+            # If user set a warmup ratio but no explicit steps, pass the ratio instead.
+            "lr_warmup_steps": (
+                self.config.lr_warmup_steps if self.config.lr_warmup_steps > 0
+                else self.config.lr_warmup_ratio
+            ),
+            "lr_scheduler_power": self.config.lr_power,
             "optimizer_type": self._resolve_optimizer_type(self.config.optimizer_type),
             "max_grad_norm": self.config.max_grad_norm,
             "weight_decay": self.config.weight_decay,
@@ -329,6 +337,7 @@ class KohyaTOMLGenerator:
             "lowram": self.config.lowram,
             "xformers": self.config.cross_attention == "xformers",
             "sdpa": self.config.cross_attention == "sdpa",
+            "mem_eff_attn": self.config.cross_attention == "mem_eff_attn",
             "v2": self.config.v2,
             "v_parameterization": self.config.v_parameterization,
             "network_train_unet_only": self.config.network_train_unet_only,

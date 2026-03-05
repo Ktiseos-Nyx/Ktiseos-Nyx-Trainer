@@ -26,12 +26,17 @@ interface ModelOption {
 }
 
 const AVAILABLE_MODELS: ModelOption[] = [
-  // WD14 Models
-  { id: 'SmilingWolf/wd-vit-large-tagger-v3', name: 'WD14 ViT Large v3', type: 'wd14', description: '⭐ Recommended' },
+  // WD14 v3 Models (newest, best quality)
+  { id: 'SmilingWolf/wd-eva02-large-tagger-v3', name: 'WD14 EVA02 Large v3', type: 'wd14', description: '⭐ Recommended' },
+  { id: 'SmilingWolf/wd-vit-large-tagger-v3', name: 'WD14 ViT Large v3', type: 'wd14' },
+  { id: 'SmilingWolf/wd-swinv2-tagger-v3', name: 'WD14 SwinV2 v3', type: 'wd14' },
   { id: 'SmilingWolf/wd-vit-tagger-v3', name: 'WD14 ViT v3', type: 'wd14' },
+  // WD14 v2/v1 Models (older but stable)
   { id: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2', name: 'WD14 SwinV2 v2', type: 'wd14' },
   { id: 'SmilingWolf/wd-v1-4-convnext-tagger-v2', name: 'WD14 ConvNext v2', type: 'wd14' },
+  { id: 'SmilingWolf/wd-v1-4-convnext-tagger', name: 'WD14 ConvNext v1', type: 'wd14' },
   { id: 'SmilingWolf/wd-v1-4-vit-tagger-v2', name: 'WD14 ViT v2', type: 'wd14' },
+  { id: 'SmilingWolf/wd-v1-4-vit-tagger', name: 'WD14 ViT v1', type: 'wd14' },
   // BLIP Models
   { id: 'blip-base', name: 'BLIP Base', type: 'blip', description: 'Natural language captions' },
   // GIT Models
@@ -47,7 +52,7 @@ export default function AutoTagPage() {
   const [loading, setLoading] = useState(true);
 
   // Unified model selection (replaces method + taggerModel)
-  const [selectedModel, setSelectedModel] = useState<string>('SmilingWolf/wd-vit-large-tagger-v3');
+  const [selectedModel, setSelectedModel] = useState<string>('SmilingWolf/wd-eva02-large-tagger-v3');
 
   // Derive model type from selected model
   const currentModelType = AVAILABLE_MODELS.find(m => m.id === selectedModel)?.type || 'wd14';
