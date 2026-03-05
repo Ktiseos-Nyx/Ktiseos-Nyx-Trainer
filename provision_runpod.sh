@@ -3,7 +3,8 @@
 #
 # RunPod Template: Ktiseos-Nyx LoRA Trainer
 #   Container Image: runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
-#   Exposed Ports: 8000/http, 3000/http, 22/tcp
+#   HTTP Ports: 8888, 6006, 3000, 8000
+#   TCP Ports: 22
 #   Docker Command (auto-provisions on pod start, keeps Jupyter/SSH alive):
 #     bash -c "/start.sh & sleep 5 && cd /workspace && git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git 2>/dev/null; cd /workspace/Ktiseos-Nyx-Trainer && git pull && bash provision_runpod.sh"
 #   Volume Mount Path: /workspace
