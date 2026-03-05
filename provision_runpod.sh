@@ -109,16 +109,15 @@ provisioning_start() {
         done
 
         if [ "$NODE_FOUND" = false ]; then
-            echo "  Node.js not found - installing via nvm..."
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            # shellcheck disable=SC1091
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm install 20
-            nvm use 20
+            echo "  Node.js not found - installing system-wide..."
+            # Install directly to /usr/local so it's always in PATH (survives restarts)
+            NODE_VERSION="v20.18.1"
+            curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" | tar -xJ -C /usr/local --strip-components=1
             if ! command -v node &> /dev/null; then
                 echo "  Node.js installation failed! Frontend will be unavailable."
                 SKIP_FRONTEND=true
+            else
+                echo "  Installed Node.js $(node --version) to /usr/local/bin"
             fi
         fi
     fi
