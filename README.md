@@ -4,7 +4,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 | Python | License | Deploy | Discord | Twitch | Support |
 |---|---|---|---|---|---|
-| ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Deploy on VastAI](https://img.shields.io/badge/Deploy-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer) | [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) | <a href="https://ko-fi.com/duskfallcrew"><img src="https://img.shields.io/badge/Ko--Fi-Support-FF5E5B?style=for-the-badge&logo=kofi" alt="Ko-fi"></a> |
+| ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Deploy on VastAI](https://img.shields.io/badge/Deploy-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer) [![Deploy on RunPod](https://img.shields.io/badge/Deploy-RunPod-673AB7?style=for-the-badge&logo=runpod)](https://console.runpod.io/deploy?template=2kkfdbmlcc&ref=yx1lcptf) | [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) | <a href="https://ko-fi.com/duskfallcrew"><img src="https://img.shields.io/badge/Ko--Fi-Support-FF5E5B?style=for-the-badge&logo=kofi" alt="Ko-fi"></a> |
 
 ---
 
@@ -30,7 +30,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 - **Node.js**: 18+
 - **Disk**: 50GB+ free space
 
-📖 [Full Requirements & Installation Guide](docs/INSTALLATION.md)
+📖 [Full Requirements & Installation Guide](documentation/INSTALLATION.md)
 
 #### 🛡️ STRONGLY RECOMMENDED: Use a Virtual Environment
 
@@ -104,7 +104,7 @@ python installer_local_linux.py
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
-**VastAI Deployment:** Use the deploy button above - auto-configures on launch.
+**Cloud Deployment:** Use the VastAI or RunPod deploy buttons above - auto-configures on launch.
 
 ### Updating to Latest Version
 
@@ -155,15 +155,15 @@ install.bat             # Windows
 - HuggingFace uploads
 - Model downloads from Civitai/HuggingFace
 
-📖 [Full Feature List](docs/FEATURES.md) • [In-App Documentation](http://localhost:3000/docs) (when running)
+📖 [Full Feature List](documentation/FEATURES.md) • [In-App Documentation](http://localhost:3000/docs) (when running)
 
 ## Documentation
 
-- 📘 [Installation Guide](docs/INSTALLATION.md) - Detailed setup for all platforms
-- 🚀 [Deployment Guide](docs/DEPLOYMENT.md) - VastAI and RunPod deployment
-- 🔧 [Troubleshooting](docs/guides/troubleshooting.md) - Common issues and solutions
-- 💻 [Development Setup](docs/DEVELOPMENT_ENVIRONMENTS.md) - Contributing and local dev
-- ✨ [Features](docs/FEATURES.md) - Complete feature documentation
+- 📘 [Installation Guide](documentation/INSTALLATION.md) - Detailed setup for all platforms
+- 🚀 [Deployment Guide](documentation/DEPLOYMENT.md) - VastAI and RunPod deployment
+- 🔧 [Troubleshooting](documentation/guides/troubleshooting.md) - Common issues and solutions
+- 💻 [Development Setup](documentation/DEVELOPMENT_ENVIRONMENTS.md) - Contributing and local dev
+- ✨ [Features](documentation/FEATURES.md) - Complete feature documentation
 - 📊 [Development Status](STATUS.md) - Current progress and roadmap
 
 ## Support
@@ -173,8 +173,8 @@ install.bat             # Windows
 - [Discord Server](https://discord.gg/HhBSM9gBY) - Community support and discussion
 
 **Before Requesting Help:**
-- Check [Troubleshooting Guide](docs/guides/troubleshooting.md)
-- Review [Support Guidelines](docs/guides/troubleshooting.md#support-guidelines--boundaries)
+- Check [Troubleshooting Guide](documentation/guides/troubleshooting.md)
+- Review [Support Guidelines](documentation/guides/troubleshooting.md#support-guidelines--boundaries)
 - Include error messages, logs, and system info
 
 **Installation Issues:**
