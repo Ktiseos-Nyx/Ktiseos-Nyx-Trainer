@@ -16,7 +16,10 @@ export const ModelTypeSchema = z.enum(['SD1.5', 'SDXL', 'Flux', 'SD3', 'SD3.5', 
 /**
  * LoRA type enumeration
  */
-export const LoRATypeSchema = z.enum(['LoRA', 'LoCon', 'LoHa', 'LoKr', 'DoRA'], {
+export const LoRATypeSchema = z.enum([
+  'LoRA', 'LoCon', 'LoHa', 'LoKr', 'DoRA',
+  'Full', 'IA3', 'DyLoRA', 'GLoRA', 'Diag-OFT', 'BOFT',
+], {
   message: 'Please select a valid LoRA type',
 });
 
@@ -71,6 +74,45 @@ export const SaveFormatSchema = z.enum(['safetensors', 'ckpt', 'pt'], {
   message: 'Please select a valid save format',
 });
 
+/**
+ * Save precision enumeration
+ */
+export const SavePrecisionSchema = z.enum(['float', 'fp16', 'bf16'], {
+  message: 'Please select a valid save precision',
+});
+
+/**
+ * Cross attention enumeration
+ */
+export const CrossAttentionSchema = z.enum(['sdpa', 'xformers', 'mem_eff_attn', 'none'], {
+  message: 'Please select a valid cross attention mode',
+});
+
+/**
+ * Sample sampler enumeration
+ */
+export const SampleSamplerSchema = z.enum([
+  'ddim', 'pndm', 'lms', 'euler', 'euler_a', 'heun',
+  'dpm_2', 'dpm_2_a', 'dpmsolver', 'dpmsolver++', 'dpmsingle',
+  'k_lms', 'k_euler', 'k_euler_a', 'k_dpm_2', 'k_dpm_2_a',
+], {
+  message: 'Please select a valid sampler',
+});
+
+/**
+ * Timestep sampling enumeration (Flux/SD3)
+ */
+export const TimestepSamplingSchema = z.enum(['sigma', 'uniform', 'sigmoid', 'shift', 'flux_shift'], {
+  message: 'Please select a valid timestep sampling method',
+});
+
+/**
+ * Model prediction type enumeration (Flux)
+ */
+export const ModelPredictionTypeSchema = z.enum(['raw', 'additive', 'sigma_scaled'], {
+  message: 'Please select a valid model prediction type',
+});
+
 
 /**
  * Training configuration validation schema
@@ -107,7 +149,7 @@ export const TrainingConfigSchema = z.object({
   resolution: z
     .number()
     .int('Resolution must be an integer')
-    .min(256, 'Resolution must be at least 256')
+    .min(64, 'Resolution must be at least 64')
     .max(4096, 'Resolution must not exceed 4096')
     .refine((val) => val % 64 === 0, {
       message: 'Resolution must be divisible by 64',
@@ -115,7 +157,7 @@ export const TrainingConfigSchema = z.object({
 
   num_repeats: z.number().int().min(1, 'Number of repeats must be at least 1').max(1000),
 
-  max_train_epochs: z.number().int().min(0, 'Epochs must be non-negative').max(10000),
+  max_train_epochs: z.number().int().min(1, 'Epochs must be at least 1').max(10000),
 
   max_train_steps: z.number().int().min(0, 'Steps must be non-negative'),
 
@@ -159,9 +201,9 @@ export const TrainingConfigSchema = z.object({
 
   network_alpha: z.number().int().min(1, 'Network alpha must be at least 1').max(1024),
 
-  conv_dim: z.number().int().min(1).max(1024),
+  conv_dim: z.number().int().min(0).max(1024),
 
-  conv_alpha: z.number().int().min(1).max(1024),
+  conv_alpha: z.number().int().min(0).max(1024),
 
   network_dropout: z.number().min(0, 'Dropout must be non-negative').max(1, 'Dropout must not exceed 1.0'),
 
@@ -199,7 +241,7 @@ export const TrainingConfigSchema = z.object({
   // ========== CAPTION & TOKEN CONTROL ==========
   keep_tokens: z.number().int().min(0),
 
-  clip_skip: z.number().int().min(0).max(12),
+  clip_skip: z.number().int().min(1).max(12),
 
   max_token_length: z.number().int().min(75).max(512),
 
@@ -213,14 +255,14 @@ export const TrainingConfigSchema = z.object({
 
   secondary_separator: z.string(),
 
+  caption_extension: z.string().regex(/^\.[a-zA-Z0-9]+$/, 'Must be a file extension like .txt or .caption'),
+
   enable_wildcard: z.boolean(),
 
   weighted_captions: z.boolean(),
 
   // ========== BUCKETING ==========
   enable_bucket: z.boolean(),
-
-  sdxl_bucket_optimization: z.boolean().optional(),
 
   min_bucket_reso: z.number().int().min(64).max(2048),
 
@@ -272,7 +314,7 @@ export const TrainingConfigSchema = z.object({
 
   cache_text_encoder_outputs_to_disk: z.boolean().optional(),
 
-  cross_attention: z.string().optional(),
+  cross_attention: CrossAttentionSchema.optional(),
 
   persistent_data_loader_workers: z.union([z.boolean(), z.number()])
   .transform((val) => {
@@ -303,7 +345,7 @@ export const TrainingConfigSchema = z.object({
 
   save_model_as: SaveFormatSchema,
 
-  save_precision: z.string(),
+  save_precision: SavePrecisionSchema,
 
   output_name: z.string().optional(),
 
@@ -318,7 +360,7 @@ export const TrainingConfigSchema = z.object({
 
   sample_prompts: z.string().optional(),
 
-  sample_sampler: z.string(),
+  sample_sampler: SampleSamplerSchema,
 
   // ========== LOGGING ==========
   logging_dir: z.string().optional(),
@@ -356,24 +398,24 @@ export const TrainingConfigSchema = z.object({
   // ========== FLUX-SPECIFIC PARAMETERS ==========
   ae_path: z.string().optional(),
 
-  t5xxl_max_token_length: z.number().int().min(128).max(1024).optional(),
+  t5xxl_max_token_length: z.number().int().min(75).max(1024).optional(),
 
   apply_t5_attn_mask: z.boolean().optional(),
 
   guidance_scale: z.number().min(0).max(30).optional(),
 
-  timestep_sampling: z.string().optional(),
+  timestep_sampling: TimestepSamplingSchema.optional(),
 
   sigmoid_scale: z.number().min(0).optional(),
 
-  model_prediction_type: z.string().optional(),
+  model_prediction_type: ModelPredictionTypeSchema.optional(),
 
   blocks_to_swap: z.number().int().min(0).optional(),
 
   // ========== LUMINA-SPECIFIC PARAMETERS ==========
   gemma2: z.string().optional(),
 
-  gemma2_max_token_length: z.number().int().min(128).max(1024).optional(),
+  gemma2_max_token_length: z.number().int().min(75).max(1024).optional(),
 });
 
 /**

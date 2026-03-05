@@ -11,7 +11,6 @@ import sys
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional
 
 from services.models.lora import (
     LoRAResizeRequest,
@@ -162,106 +161,94 @@ class LoRAService:
         request: HuggingFaceUploadRequest
     ) -> HuggingFaceUploadResponse:
         """
-        Upload a LoRA model to HuggingFace Hub.
+        Upload files to HuggingFace Hub.
+
+        Supports uploading multiple files to a repo, with optional
+        remote folder prefix and pull request creation.
 
         Args:
             request: HuggingFace upload request
 
         Returns:
-            HuggingFaceUploadResponse with result
+            HuggingFaceUploadResponse with per-file results
         """
         try:
-            # Lazy import to avoid dependency issues
             try:
-                from huggingface_hub import HfApi, create_repo, upload_file
+                from huggingface_hub import HfApi
             except ImportError:
                 raise ProcessError(
                     "huggingface_hub not installed. "
                     "Install with: pip install huggingface_hub"
                 )
 
-            # Validate LoRA file
-            lora_path = Path(request.lora_path)
-            if not lora_path.exists():
-                raise NotFoundError(f"LoRA file not found: {request.lora_path}")
+            # Validate all files exist
+            for file_path_str in request.file_paths:
+                fp = Path(file_path_str)
+                if not fp.exists():
+                    raise NotFoundError(f"File not found: {file_path_str}")
 
-            if lora_path.suffix.lower() not in ['.safetensors', '.pt', '.ckpt']:
-                raise ValidationError(f"Invalid LoRA file format: {lora_path.suffix}")
-
-            # Initialize HF API
             api = HfApi(token=request.token)
 
-            # Create repo if requested
-            if request.create_repo:
+            # Ensure repo exists (create if needed)
+            try:
+                api.create_repo(
+                    repo_id=request.repo_id,
+                    repo_type=request.repo_type,
+                    exist_ok=True,
+                )
+                logger.info(f"Repository ready: {request.repo_id}")
+            except Exception as e:
+                logger.warning(f"Repo creation warning: {e}")
+
+            # Upload each file
+            uploaded_files: list[str] = []
+            failed_files: list[str] = []
+
+            for file_path_str in request.file_paths:
+                fp = Path(file_path_str)
+                # Build the remote path: remote_folder/filename
+                path_in_repo = fp.name
+                if request.remote_folder:
+                    path_in_repo = f"{request.remote_folder.strip('/')}/{fp.name}"
+
                 try:
-                    repo_url = create_repo(
+                    api.upload_file(
+                        path_or_fileobj=str(fp),
+                        path_in_repo=path_in_repo,
                         repo_id=request.repo_id,
-                        token=request.token,
-                        private=request.private,
-                        exist_ok=True,
-                        repo_type="model"
+                        repo_type=request.repo_type,
+                        commit_message=request.commit_message,
+                        create_pr=request.create_pr,
                     )
-                    logger.info(f"Repository ready: {repo_url}")
+                    uploaded_files.append(fp.name)
+                    logger.info(f"Uploaded {fp.name} to {request.repo_id}/{path_in_repo}")
                 except Exception as e:
-                    logger.warning(f"Repo creation warning: {e}")
+                    failed_files.append(fp.name)
+                    logger.error(f"Failed to upload {fp.name}: {e}")
 
-            # Prepare metadata for README
-            readme_content = self._generate_readme(request)
-
-            # Upload README if metadata provided
-            if readme_content:
-                readme_path = lora_path.parent / "README.md"
-                readme_path.write_text(readme_content, encoding='utf-8')
-
-                try:
-                    upload_file(
-                        path_or_fileobj=str(readme_path),
-                        path_in_repo="README.md",
-                        repo_id=request.repo_id,
-                        token=request.token,
-                        commit_message=f"{request.commit_message} (README)"
-                    )
-                    logger.info("Uploaded README.md")
-                except Exception as e:
-                    logger.warning(f"README upload warning: {e}")
-
-            # Upload LoRA file
-            logger.info(f"Uploading {lora_path.name} to {request.repo_id}...")
-
-            commit_info = upload_file(
-                path_or_fileobj=str(lora_path),
-                path_in_repo=lora_path.name,
-                repo_id=request.repo_id,
-                token=request.token,
-                commit_message=request.commit_message
-            )
-
-            repo_url = f"https://huggingface.co/{request.repo_id}"
-
-            logger.info(f"Successfully uploaded to {repo_url}")
-
+            success = len(uploaded_files) > 0
             return HuggingFaceUploadResponse(
-                success=True,
-                message=f"LoRA uploaded successfully to {request.repo_id}",
-                repo_url=repo_url,
-                commit_hash=commit_info.commit_url.split('/')[-1] if hasattr(commit_info, 'commit_url') else None,
-                errors=[]
+                success=success,
+                repo_id=request.repo_id,
+                uploaded_files=uploaded_files,
+                failed_files=failed_files,
+                error=None if success else "All files failed to upload",
             )
 
         except (ValidationError, NotFoundError, ProcessError) as e:
             logger.error(f"HuggingFace upload failed: {e}")
             return HuggingFaceUploadResponse(
                 success=False,
-                message=str(e),
-                errors=[str(e)]
+                repo_id=request.repo_id,
+                error=str(e),
             )
 
         except Exception as e:
             logger.exception(f"Unexpected error during HuggingFace upload: {e}")
             return HuggingFaceUploadResponse(
                 success=False,
-                message=f"Internal error: {e}",
-                errors=[str(e)]
+                repo_id=request.repo_id,
+                error=f"Internal error: {e}",
             )
 
     async def merge_lora(self, request: LoRAMergeRequest) -> LoRAMergeResponse:
@@ -480,38 +467,6 @@ class LoRAService:
                 success=False,
                 message=f"Internal error: {e}"
             )
-
-    def _generate_readme(self, request: HuggingFaceUploadRequest) -> Optional[str]:
-        """Generate README.md content from metadata."""
-        if not any([request.model_type, request.base_model, request.description, request.trigger_word]):
-            return None
-
-        lines = [f"# {request.repo_id.split('/')[-1]}", ""]
-
-        if request.description:
-            lines.extend([request.description, ""])
-
-        lines.append("## Model Details")
-        if request.model_type:
-            lines.append(f"- **Architecture**: {request.model_type}")
-        if request.base_model:
-            lines.append(f"- **Base Model**: {request.base_model}")
-        if request.trigger_word:
-            lines.append(f"- **Trigger Word**: `{request.trigger_word}`")
-
-        if request.tags:
-            lines.extend(["", "## Tags", request.tags])
-
-        lines.extend([
-            "",
-            "## Usage",
-            "Download and use this LoRA with your favorite Stable Diffusion interface.",
-            "",
-            "Generated with [Ktiseos-Nyx-Trainer]"
-            "(https://github.com/yourusername/Ktiseos-Nyx-Trainer)"
-        ])
-
-        return '\n'.join(lines)
 
 
 # Global service instance

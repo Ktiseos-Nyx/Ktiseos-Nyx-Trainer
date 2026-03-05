@@ -232,7 +232,9 @@ export default function CivitaiBrowsePage() {
     try {
       setDownloading((prev) => new Set(prev).add(model.id));
 
-      const modelType = model.type === 'VAE' ? 'vae' : 'model';
+      const modelType = model.type === 'VAE' ? 'vae'
+        : (model.type === 'LORA' || model.type === 'LoCon') ? 'lora'
+        : 'model';
 
       await civitaiAPI.download(
         model.id,

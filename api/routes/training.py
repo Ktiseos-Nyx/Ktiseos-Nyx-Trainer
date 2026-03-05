@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 # Import new service layer
 from services import training_service
-from services.models.training import TrainingConfig
+from services.models.training import TrainingConfig, TrainingMode
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -78,7 +78,7 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
         )
 
     # Helpful warnings for common mistakes
-    if config.network_dim > 128:
+    if config.training_mode != TrainingMode.CHECKPOINT and config.network_dim > 128:
         errors.append(
             ValidationError(
                 field="network_dim",

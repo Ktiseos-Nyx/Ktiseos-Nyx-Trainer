@@ -16,7 +16,9 @@ class ModelType(str, Enum):
     SDXL = "SDXL"
     FLUX = "Flux"
     SD3 = "SD3"
+    SD35 = "SD3.5"
     LUMINA = "Lumina"
+    CHROMA = "Chroma"
 
 
 class LoRAType(str, Enum):
@@ -43,8 +45,7 @@ class OptimizerType(str, Enum):
     ADAMW8BIT = "AdamW8bit"
     LION = "Lion"
     LION8BIT = "Lion8bit"
-    ADAFACTOR = "Adafactor"
-    ADAFACTOR_CAMEL = "AdaFactor"
+    ADAFACTOR = "AdaFactor"
     DADAPTATION = "DAdaptation"
     DADAPTADAM = "DAdaptAdam"
     DADAPTADAGRAD = "DAdaptAdaGrad"
@@ -64,6 +65,7 @@ class LRScheduler(str, Enum):
     COSINE_WITH_RESTARTS = "cosine_with_restarts"
     LINEAR = "linear"
     POLYNOMIAL = "polynomial"
+    ADAFACTOR = "adafactor"
 
 
 class MixedPrecision(str, Enum):
@@ -77,13 +79,58 @@ class CrossAttention(str, Enum):
     """Cross attention implementations."""
     SDPA = "sdpa"
     XFORMERS = "xformers"
+    MEM_EFF_ATTN = "mem_eff_attn"
     NONE = "none"
+
+
+class SavePrecision(str, Enum):
+    """Model save precision."""
+    FLOAT = "float"
+    FP16 = "fp16"
+    BF16 = "bf16"
+
+
+class SampleSampler(str, Enum):
+    """Samplers for sample image generation."""
+    DDIM = "ddim"
+    PNDM = "pndm"
+    LMS = "lms"
+    EULER = "euler"
+    EULER_A = "euler_a"
+    HEUN = "heun"
+    DPM_2 = "dpm_2"
+    DPM_2_A = "dpm_2_a"
+    DPMSOLVER = "dpmsolver"
+    DPMSOLVER_PP = "dpmsolver++"
+    DPMSINGLE = "dpmsingle"
+    K_LMS = "k_lms"
+    K_EULER = "k_euler"
+    K_EULER_A = "k_euler_a"
+    K_DPM_2 = "k_dpm_2"
+    K_DPM_2_A = "k_dpm_2_a"
+
+
+class TimestepSampling(str, Enum):
+    """Timestep sampling methods (Flux/SD3)."""
+    SIGMA = "sigma"
+    UNIFORM = "uniform"
+    SIGMOID = "sigmoid"
+    SHIFT = "shift"
+    FLUX_SHIFT = "flux_shift"
+
+
+class ModelPredictionType(str, Enum):
+    """Model prediction types (Flux)."""
+    RAW = "raw"
+    ADDITIVE = "additive"
+    SIGMA_SCALED = "sigma_scaled"
 
 
 class SaveModelAs(str, Enum):
     """Model save formats."""
     SAFETENSORS = "safetensors"
     CKPT = "ckpt"
+    PT = "pt"
 
 
 class TrainingMode(str, Enum):
@@ -136,15 +183,17 @@ class TrainingConfig(BaseModel):
     # ========== LEARNING RATES ==========
     unet_lr: float = Field(1e-4, gt=0, description="UNet learning rate")
     text_encoder_lr: float = Field(1e-5, ge=0, description="Text encoder learning rate (0 = freeze)")
-    lr_scheduler: LRScheduler = Field(LRScheduler.COSINE, description="LR scheduler type")
-    lr_scheduler_number: int = Field(1, ge=0, description="Scheduler-specific parameter")
-    lr_warmup_ratio: float = Field(0.0, ge=0.0, le=1.0, description="Warmup ratio")
-    lr_warmup_steps: int = Field(0, ge=0, description="Warmup steps (0 = use ratio)")
+    lr_scheduler: LRScheduler = Field(LRScheduler.COSINE_WITH_RESTARTS, description="LR scheduler type")
+    lr_scheduler_number: int = Field(3, ge=0, description="Scheduler-specific parameter (num_cycles for cosine_with_restarts)")
+    lr_warmup_ratio: float = Field(0.0, ge=0.0, le=1.0, description="Warmup ratio (fraction of total steps)")
+    lr_warmup_steps: int = Field(0, ge=0, description="Warmup steps (0 = use lr_warmup_ratio instead)")
     lr_power: float = Field(1.0, description="Power for polynomial scheduler")
 
     # ========== LORA STRUCTURE ==========
     lora_type: LoRAType = Field(LoRAType.LORA, description="LoRA type")
-    network_module: str = Field("networks.lora", description="Network module")
+    # NOTE: network_module is always derived from lora_type in KohyaTOMLGenerator._get_network_config().
+    # This default is for serialization only; the user-set value is not used in TOML generation.
+    network_module: str = Field("networks.lora", description="Network module (derived from lora_type)")
     network_dim: int = Field(32, ge=1, le=1024, description="LoRA rank")
     network_alpha: int = Field(32, ge=1, description="LoRA alpha")
     conv_dim: int = Field(0, ge=0, description="Conv layer dimension (LoCon/LoHa)")
@@ -184,12 +233,12 @@ class TrainingConfig(BaseModel):
     caption_dropout_every_n_epochs: int = Field(0, ge=0, description="Dropout frequency")
     keep_tokens_separator: str = Field("|||", description="Keep tokens separator")
     secondary_separator: str = Field("", description="Secondary separator")
+    caption_extension: str = Field(".txt", description="Caption file extension (e.g. .txt, .caption)")
     enable_wildcard: bool = Field(False, description="Enable wildcard expansion")
     weighted_captions: bool = Field(False, description="Enable weighted captions")
 
     # ========== BUCKETING ==========
     enable_bucket: bool = Field(True, description="Enable bucketing")
-    sdxl_bucket_optimization: bool = Field(False, description="SDXL bucket optimization")
     min_bucket_reso: int = Field(256, ge=64, description="Min bucket resolution")
     max_bucket_reso: int = Field(2048, le=4096, description="Max bucket resolution")
     bucket_no_upscale: bool = Field(False, description="No upscaling in buckets")
@@ -237,7 +286,7 @@ class TrainingConfig(BaseModel):
     save_state_on_train_end: Optional[bool] = Field(None, description="Save state when training completes")
     save_last_n_steps_state: int = Field(0, ge=0, description="Keep last N step states")
     save_model_as: SaveModelAs = Field(SaveModelAs.SAFETENSORS, description="Model format")
-    save_precision: str = Field("fp16", description="Save precision")
+    save_precision: SavePrecision = Field(SavePrecision.FP16, description="Save precision")
     output_name: str = Field("lora", description="Output file name")
     no_metadata: bool = Field(False, description="Skip metadata")
 
@@ -245,7 +294,7 @@ class TrainingConfig(BaseModel):
     sample_every_n_epochs: int = Field(0, ge=0, description="Generate samples every N epochs")
     sample_every_n_steps: int = Field(0, ge=0, description="Generate samples every N steps")
     sample_prompts: Optional[str] = Field(None, description="Path to sample prompts file")
-    sample_sampler: str = Field("euler_a", description="Sample generation sampler")
+    sample_sampler: SampleSampler = Field(SampleSampler.EULER_A, description="Sample generation sampler")
 
     # ========== LOGGING ==========
     logging_dir: Optional[str] = Field(None, description="Logging directory")
@@ -268,10 +317,10 @@ class TrainingConfig(BaseModel):
     ae_path: Optional[str] = Field(None, description="Flux AutoEncoder path")
     t5xxl_max_token_length: Optional[int] = Field(None, ge=75, description="T5-XXL max tokens")
     apply_t5_attn_mask: bool = Field(False, description="Apply T5-XXL attention mask")
-    guidance_scale: float = Field(1.0, ge=0, description="Guidance scale (Flux.1 dev)")
-    timestep_sampling: str = Field("sigma", description="Timestep sampling method")
+    guidance_scale: float = Field(3.5, ge=0, description="Guidance scale (Flux.1 dev)")
+    timestep_sampling: TimestepSampling = Field(TimestepSampling.SIGMA, description="Timestep sampling method")
     sigmoid_scale: float = Field(1.0, description="Sigmoid timestep scale")
-    model_prediction_type: str = Field("raw", description="Model prediction type")
+    model_prediction_type: ModelPredictionType = Field(ModelPredictionType.RAW, description="Model prediction type")
     blocks_to_swap: Optional[int] = Field(None, ge=0, description="Blocks to swap (memory)")
 
     # ========== LUMINA-SPECIFIC ==========
@@ -300,12 +349,18 @@ class TrainingConfig(BaseModel):
             # FLUX variations
             elif v_upper in {"FLUX", "FLUX.1", "FLUX-1"}:
                 return "Flux"
+            # SD3.5 variations (must check before SD3)
+            elif v_upper in {"SD3.5", "SD_3.5", "SD-3.5", "SD 3.5"}:
+                return "SD3.5"
             # SD3 variations
-            elif v_upper in {"SD3", "SD3.5", "SD_3", "SD-3", "SD 3"}:
+            elif v_upper in {"SD3", "SD_3", "SD-3", "SD 3"}:
                 return "SD3"
             # LUMINA variations
             elif v_upper == "LUMINA":
                 return "Lumina"
+            # CHROMA variations
+            elif v_upper == "CHROMA":
+                return "Chroma"
 
         # If we can't normalize, return the original value
         # Pydantic will handle validation errors appropriately

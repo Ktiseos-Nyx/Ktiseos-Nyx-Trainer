@@ -345,7 +345,7 @@ export const datasetAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         dataset_dir: params.datasetDir,
-        model: params.model ?? 'SmilingWolf/wd-vit-large-tagger-v3',
+        model: params.model ?? 'SmilingWolf/wd-eva02-large-tagger-v3',
         force_download: params.forceDownload ?? false,
         threshold: params.threshold ?? 0.35,
         general_threshold: params.generalThreshold ?? null,
@@ -636,12 +636,12 @@ export interface TrainingConfig {
   caption_dropout_every_n_epochs: number;
   keep_tokens_separator: string;
   secondary_separator: string;
+  caption_extension: string;
   enable_wildcard: boolean;
   weighted_captions: boolean;
 
   // ========== BUCKETING ==========
   enable_bucket: boolean;
-  sdxl_bucket_optimization?: boolean;
   min_bucket_reso: number;
   max_bucket_reso: number;
   bucket_reso_steps?: number;
@@ -695,6 +695,8 @@ export interface TrainingConfig {
   zero_terminal_snr?: boolean;
 
   // ========== ADDITIONAL ADVANCED ==========
+  network_train_unet_only?: boolean;
+  prior_loss_weight?: number;
   scale_v_pred_loss_like_noise_pred?: boolean;
   v_pred_like_loss?: number;
   debiased_estimation_loss?: boolean;
@@ -1095,7 +1097,7 @@ export interface PopularModel {
 
 export const modelsAPI = {
   // NOTE: Download stays on Python backend (uses huggingface_hub)
-  download: async (url: string, downloadType: 'model' | 'vae', modelType?: string) => {
+  download: async (url: string, downloadType: 'model' | 'vae' | 'lora', modelType?: string) => {
     const response = await fetch(`${API_BASE}/models/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1252,7 +1254,7 @@ export const civitaiAPI = {
     versionId: number,
     downloadUrl: string,
     filename: string,
-    modelType: 'model' | 'vae' = 'model'
+    modelType: 'model' | 'vae' | 'lora' = 'model'
   ) => {
     const response = await fetch(`${API_BASE}/civitai/download`, {
       method: 'POST',

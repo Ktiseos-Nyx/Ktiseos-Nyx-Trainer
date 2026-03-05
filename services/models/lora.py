@@ -28,31 +28,26 @@ class LoRAResizeResponse(BaseModel):
 
 
 class HuggingFaceUploadRequest(BaseModel):
-    """Request to upload LoRA to HuggingFace."""
-    lora_path: str = Field(..., description="Path to LoRA file to upload")
-    repo_id: str = Field(..., description="HuggingFace repo ID (username/repo-name)")
+    """Request to upload files to HuggingFace Hub."""
     token: str = Field(..., description="HuggingFace API token")
-    commit_message: Optional[str] = Field(
-        "Upload LoRA model",
+    repo_id: str = Field(..., description="HuggingFace repo ID (owner/repo-name)")
+    repo_type: str = Field("model", description="Repository type (model/dataset/space)")
+    file_paths: list[str] = Field(..., min_length=1, description="List of local file paths to upload")
+    remote_folder: str = Field("", description="Remote folder path within the repo")
+    commit_message: str = Field(
+        "Upload via Ktiseos-Nyx-Trainer",
         description="Git commit message"
     )
-    private: bool = Field(False, description="Make repo private")
-    create_repo: bool = Field(True, description="Create repo if doesn't exist")
-    # Metadata fields
-    model_type: Optional[str] = Field(None, description="Model architecture (SDXL, SD1.5, etc.)")
-    base_model: Optional[str] = Field(None, description="Base model used for training")
-    trigger_word: Optional[str] = Field(None, description="Trigger word for the LoRA")
-    tags: Optional[str] = Field(None, description="Comma-separated tags")
-    description: Optional[str] = Field(None, description="Model description")
+    create_pr: bool = Field(False, description="Create a pull request instead of direct commit")
 
 
 class HuggingFaceUploadResponse(BaseModel):
     """Response from HuggingFace upload."""
     success: bool
-    message: str
-    repo_url: Optional[str] = None
-    commit_hash: Optional[str] = None
-    errors: list[str] = Field(default_factory=list)
+    repo_id: str
+    uploaded_files: list[str] = Field(default_factory=list)
+    failed_files: list[str] = Field(default_factory=list)
+    error: Optional[str] = None
 
 
 class LoRAInput(BaseModel):
