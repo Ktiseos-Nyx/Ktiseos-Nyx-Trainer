@@ -116,14 +116,14 @@ provisioning_start() {
         echo "🐍 Installing all dependencies..."
         $PYTHON_CMD -m pip install --upgrade pip -v
         # Use VastAI-specific requirements (no PyTorch - pre-installed in base image)
-        if [ -f "requirements_vastai.txt" ]; then
+        if [ -f "requirements_cloud.txt" ]; then
             # First try to resolve any version conflicts
             $PYTHON_CMD -m pip install --upgrade setuptools wheel -v
             # Install with conflict resolution (verbose for debugging)
-            $PYTHON_CMD -m pip install -r requirements_vastai.txt --no-cache-dir -v
+            $PYTHON_CMD -m pip install -r requirements_cloud.txt --no-cache-dir -v
         elif [ -f "requirements.txt" ]; then
-            # Fallback to old requirements.txt if vastai version doesn't exist yet
-            echo "⚠️  requirements_vastai.txt not found, using requirements.txt"
+            # Fallback to old requirements.txt if cloud version doesn't exist yet
+            echo "⚠️  requirements_cloud.txt not found, using requirements.txt"
             $PYTHON_CMD -m pip install -r requirements.txt --no-cache-dir -v
         fi
     fi

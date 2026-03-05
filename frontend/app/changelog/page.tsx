@@ -34,7 +34,7 @@ const changelog: ChangelogEntry[] = [
       {
         category: 'improvement',
         items: [
-          'Platform-specific requirements files (requirements_windows.txt, requirements_linux.txt, requirements_vastai.txt)',
+          'Platform-specific requirements files (requirements_windows.txt, requirements_linux.txt, requirements_cloud.txt)',
           'Native Node.js addons (onnxruntime-node, sharp) lazily loaded to prevent build failures',
           'Added serverExternalPackages config for native binary compatibility across platforms',
           'Windows installer now properly installs PyTorch with CUDA 12.1 support',
