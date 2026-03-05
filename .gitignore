@@ -220,6 +220,9 @@ WIP_FEATURES.md
 # Reference materials
 kohya-colab-main/
 
+# VastAI instance logs (downloaded locally for debugging)
+*_logs_*/
+
 # User logs & debugging
 user_logs_submissions/
 Error_Tracking_PlsGitIgnore.txt
