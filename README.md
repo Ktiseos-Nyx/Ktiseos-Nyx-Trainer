@@ -15,11 +15,12 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 **Current status:**
 - ✅ **Web UI** - Dataset management, tagging, captioning, file browser all working
 - ✅ **Training config** - 132+ parameters across 7 tabs, preset system, form persistence
-- ⚠️ **Training execution** - Actively being stabilized (config generation and job launch work, debugging edge cases)
-- ⚠️ **Custom optimizers** - CAME/Compass support in progress, standard optimizers (AdamW8bit, Prodigy, etc.) work
+- ✅ **Training execution** - End-to-end training verified on VastAI and RunPod (CAME optimizer, SDXL LoRA)
+- ✅ **Custom optimizers** - CAME working, Compass/standard optimizers (AdamW8bit, Prodigy, etc.) supported
+- ✅ **HuggingFace upload** - Direct upload from the web UI after training
 - 🐛 **Report issues** - [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
 
-> ⚠️ **ALPHA STAGE**: Training may not work end-to-end yet. We're close! [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
+> ⚠️ **ALPHA STAGE**: Core training works! Still polishing edges and testing more configurations. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
 
 ## Quick Start
 
@@ -104,7 +105,9 @@ python installer_local_linux.py
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
-**Cloud Deployment:** Use the VastAI or RunPod deploy buttons above - auto-configures on launch.
+**Cloud Deployment:** Use the VastAI or RunPod deploy buttons above - auto-configures on launch. Training has been verified end-to-end on both platforms.
+
+> 💰 **New to RunPod?** [Sign up with this link](https://runpod.io?ref=yx1lcptf) for bonus credits to get started.
 
 ### Updating to Latest Version
 
