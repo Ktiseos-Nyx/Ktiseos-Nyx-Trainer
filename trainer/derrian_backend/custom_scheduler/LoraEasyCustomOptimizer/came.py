@@ -3,12 +3,27 @@
 # With stochastic rounding added per https://github.com/neggles/neurosis/blob/main/src/neurosis/optimizers/came.py
 
 import math
-from typing import Tuple
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import torch
-from pytorch_optimizer.base.exception import NoSparseGradientError
-from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, LOSS, PARAMETERS
+
+# Type aliases - inlined to avoid dependency on pytorch_optimizer.base.type
+# which was removed/reorganized in newer versions of pytorch_optimizer
+PARAMETERS = Union[Iterable[torch.Tensor], Iterable[Dict[str, Any]]]
+CLOSURE = Optional[Callable[[], float]]
+DEFAULTS = Dict[str, Any]
+LOSS = Optional[float]
+BETAS = Tuple[float, ...]
+
+try:
+    from pytorch_optimizer.base.exception import NoSparseGradientError
+    from pytorch_optimizer.base.optimizer import BaseOptimizer
+except ImportError:
+    # Fallback if pytorch_optimizer is not installed or incompatible
+    raise ImportError(
+        "pytorch_optimizer is required for the CAME optimizer. "
+        "Install it with: pip install pytorch_optimizer==3.1.2"
+    )
 
 
 class CAME(BaseOptimizer):
