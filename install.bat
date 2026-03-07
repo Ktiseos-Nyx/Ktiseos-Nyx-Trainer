@@ -154,6 +154,8 @@ if %errorlevel% neq 0 (
     echo      - Avoid installing to C:\Program Files or other protected folders
     echo.
     echo Check the log file in logs/ folder for detailed error information.
+    echo.
+    echo Run 'diagnose.bat' to collect system info for a bug report.
     echo ======================================================================
 ) else (
     echo.

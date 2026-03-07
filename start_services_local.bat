@@ -68,6 +68,10 @@ if errorlevel 1 (
     echo         Fix: Move the project to a folder you own, like:
     echo              C:\Users\%USERNAME%\Projects\Ktiseos-Nyx-Trainer
     echo.
+    echo         DO NOT install to C:\ root, Program Files, or Windows folders.
+    echo.
+    echo         Run 'diagnose.bat' to collect system info for a bug report.
+    echo.
     pause
     exit /b 1
 ) else (
