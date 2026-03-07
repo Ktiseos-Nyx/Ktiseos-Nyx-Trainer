@@ -31,10 +31,12 @@ def get_python_command():
 class RemoteInstaller:
     """Unified Installer for Ktiseos-Nyx-Trainer Backend Dependencies"""
 
-    def __init__(self, verbose=False, skip_install=False):
+    def __init__(self, verbose=False, skip_install=False, force=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
+        self.force = force
+        self.install_marker = os.path.join(self.project_root, ".install_complete")
 
         # Setup logging
         self.setup_logging()
@@ -558,9 +560,51 @@ class RemoteInstaller:
 
         return created_links
 
+    def check_already_installed(self):
+        """Check if a previous installation exists. Returns True if we should proceed."""
+        if not os.path.exists(self.install_marker):
+            return True
+
+        try:
+            with open(self.install_marker, "r") as f:
+                prev_info = f.read().strip()
+        except Exception:
+            prev_info = "unknown date"
+
+        if self.force:
+            self.logger.info("Previous installation found (%s), but --force flag set. Reinstalling.", prev_info)
+            print(f"\n Previous installation detected ({prev_info})")
+            print(" --force flag set, proceeding with reinstall...\n")
+            return True
+
+        print("\n" + "=" * 70)
+        print(" Installation already completed!")
+        print("=" * 70)
+        print(f"\n Previous install: {prev_info}")
+        print("\n If you want to reinstall, use one of these options:")
+        print("   python installer.py --force          Reinstall everything")
+        print("   python installer.py --skip-install   Skip deps, reapply fixes only")
+        print("=" * 70 + "\n")
+        return False
+
+    def write_install_marker(self):
+        """Write marker file indicating successful installation."""
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self.install_marker, "w") as f:
+                f.write(f"Remote install completed: {timestamp}\n")
+                f.write(f"Python: {self.python_cmd}\n")
+            self.logger.info("Install marker written: %s", self.install_marker)
+        except Exception as e:
+            self.logger.warning("Could not write install marker: %s", e)
+
     def run_installation(self):
         """Run the complete installation process"""
         self.print_banner()
+
+        # Check if already installed (skip with --force)
+        if not self.check_already_installed():
+            return True
 
         # Install PyTorch with CUDA 12.1 (for remote GPU containers)
         self.ensure_pytorch_installed()
@@ -620,6 +664,7 @@ class RemoteInstaller:
                 if line.strip():
                     self.logger.info(line)
 
+            self.write_install_marker()
             return True
 
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -665,10 +710,16 @@ Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
         help="Skip dependency installation (for quick restarts when deps already installed)",
     )
 
+    parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Force reinstall even if already installed",
+    )
+
     args = parser.parse_args()
 
     try:
-        installer = RemoteInstaller(verbose=args.verbose, skip_install=args.skip_install)
+        installer = RemoteInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
