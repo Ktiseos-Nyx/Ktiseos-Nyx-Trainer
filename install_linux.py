@@ -20,10 +20,12 @@ import sys
 
 
 class LocalLinuxInstaller:
-    def __init__(self, verbose=False, skip_install=False):
+    def __init__(self, verbose=False, skip_install=False, force=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
+        self.force = force
+        self.install_marker = os.path.join(self.project_root, ".install_complete")
         self.setup_logging()
         self.python_cmd = sys.executable
         self.package_manager = {
@@ -217,8 +219,51 @@ class LocalLinuxInstaller:
 
     # ====================================================
 
+    def check_already_installed(self):
+        """Check if a previous installation exists. Returns True if we should proceed."""
+        if not os.path.exists(self.install_marker):
+            return True
+
+        try:
+            with open(self.install_marker, "r") as f:
+                prev_info = f.read().strip()
+        except Exception:
+            prev_info = "unknown date"
+
+        if self.force:
+            self.logger.info("Previous installation found (%s), but --force flag set. Reinstalling.", prev_info)
+            print(f"\n Previous installation detected ({prev_info})")
+            print(" --force flag set, proceeding with reinstall...\n")
+            return True
+
+        print("\n" + "=" * 70)
+        print(" Installation already completed!")
+        print("=" * 70)
+        print(f"\n Previous install: {prev_info}")
+        print("\n If you want to reinstall, use one of these options:")
+        print("   ./install.sh --force          Reinstall everything")
+        print("   ./install.sh --skip-install   Rebuild frontend only (fast)")
+        print("\n To start the app: ./start_services_local.sh")
+        print("=" * 70 + "\n")
+        return False
+
+    def write_install_marker(self):
+        """Write marker file indicating successful installation."""
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self.install_marker, "w") as f:
+                f.write(f"Linux local install completed: {timestamp}\n")
+                f.write(f"Python: {self.python_cmd}\n")
+            self.logger.info("Install marker written: %s", self.install_marker)
+        except Exception as e:
+            self.logger.warning("Could not write install marker: %s", e)
+
     def run_installation(self):
         self.print_banner()
+
+        if not self.check_already_installed():
+            return True
+
         if not self.verify_vendored_backend():
             return False
         self.check_aria2c()
@@ -245,6 +290,7 @@ class LocalLinuxInstaller:
         print("    - Backend: http://localhost:8000")
         print("    - Frontend: http://localhost:3000")
         print("=" * 70)
+        self.write_install_marker()
         return True
 
 
@@ -252,8 +298,9 @@ def main():
     parser = argparse.ArgumentParser(description="Local Linux Installer (NVIDIA GPU)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--skip-install", action="store_true", help="Skip pip install")
+    parser.add_argument("--force", "-f", action="store_true", help="Force reinstall even if already installed")
     args = parser.parse_args()
-    installer = LocalLinuxInstaller(verbose=args.verbose, skip_install=args.skip_install)
+    installer = LocalLinuxInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
     success = installer.run_installation()
     sys.exit(0 if success else 1)
 
