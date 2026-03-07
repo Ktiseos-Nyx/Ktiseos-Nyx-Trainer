@@ -5,6 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Home, Database } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import { toast } from 'sonner';
 import { datasetAPI, DatasetInfo } from '@/lib/api';
 import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Edit, Zap, Info, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -56,7 +57,7 @@ export default function DatasetPage() {
       await fetch(`/api/dataset/${name}`, { method: 'DELETE' });
       loadDatasets();
     } catch (err) {
-      alert(`Failed to delete: ${err}`);
+      toast.error(`Failed to delete: ${err}`);
     }
   };
 
@@ -96,7 +97,7 @@ export default function DatasetPage() {
                 onClick={(e) => {
                   if (datasets.length === 0) {
                     e.preventDefault();
-                    alert('📸 Upload a dataset first to use auto-tagging!');
+                    toast.info('Upload a dataset first to use auto-tagging');
                   }
                 }}
               >
@@ -112,7 +113,7 @@ export default function DatasetPage() {
                 onClick={(e) => {
                   if (datasets.length === 0) {
                     e.preventDefault();
-                    alert('🏷️ Upload a dataset first to edit tags!');
+                    toast.info('Upload a dataset first to edit tags');
                   }
                 }}
               >

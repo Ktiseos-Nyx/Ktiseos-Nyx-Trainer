@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff } from 'lucide-react'
+import { toast } from 'sonner'
 import { GradientCard } from '@/components/effects'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { API_BASE } from '@/lib/api'
@@ -32,6 +33,9 @@ export default function SettingsPage() {
   const [showSD2Params, setShowSD2Params] = useState(false)
   const [showPerformanceTuning, setShowPerformanceTuning] = useState(false)
   const [showExperimentalFeatures, setShowExperimentalFeatures] = useState(false)
+
+  // Upload Optimization
+  const [remoteGPU, setRemoteGPU] = useState(false)
 
   // File Management
   const [autoCleanup, setAutoCleanup] = useState(false)
@@ -63,6 +67,7 @@ export default function SettingsPage() {
         setShowSD2Params(settings.showSD2Params ?? false)
         setShowPerformanceTuning(settings.showPerformanceTuning ?? false)
         setShowExperimentalFeatures(settings.showExperimentalFeatures ?? false)
+        setRemoteGPU(settings.remoteGPU ?? false)
         setAutoCleanup(settings.autoCleanup ?? false)
         setMaxStorageGB(settings.maxStorageGB ?? 50)
       }
@@ -148,7 +153,7 @@ export default function SettingsPage() {
       }
 
       console.error("Backend Save Error:", errorMessage);
-      alert(`Backend Error: ${errorMessage}`);
+      toast.error('Failed to save API keys', { description: errorMessage });
       // =========================
 
       return false
@@ -174,6 +179,7 @@ export default function SettingsPage() {
       showSD2Params,
       showPerformanceTuning,
       showExperimentalFeatures,
+      remoteGPU,
       autoCleanup,
       maxStorageGB,
     }
@@ -181,9 +187,9 @@ export default function SettingsPage() {
     console.log('Settings saved:', settings)
 
     if (apiKeysSaved) {
-      alert('Settings saved successfully!')
+      toast.success('Settings saved')
     } else {
-      alert('UI settings saved, but there was an error saving API keys. Please try again.')
+      toast.warning('UI settings saved, but there was an error saving API keys')
     }
   }
 
@@ -199,6 +205,7 @@ export default function SettingsPage() {
       setShowSD2Params(false)
       setShowPerformanceTuning(false)
       setShowExperimentalFeatures(false)
+      setRemoteGPU(false)
       setAutoCleanup(false)
       setMaxStorageGB(50)
       localStorage.removeItem('ktiseos-nyx-settings')
@@ -401,6 +408,42 @@ export default function SettingsPage() {
                   />
                 </div>
               )}
+
+              {/* Remote GPU Mode */}
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-foreground">
+                      Remote GPU Mode
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Compresses images into a ZIP before uploading for faster transfers
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setRemoteGPU(!remoteGPU)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      remoteGPU ? 'bg-purple-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        remoteGPU ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                {remoteGPU && (
+                  <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-500/30 rounded-lg">
+                    <p className="text-xs text-foreground">
+                      <strong>When to use this:</strong> Enable if you&apos;re running on a rented GPU
+                      (RunPod, VastAI, etc.) and image uploads feel slow. Instead of sending each image
+                      individually, the uploader will compress all images into a single ZIP and send it
+                      in one request -- much faster over high-latency connections.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </GradientCard>

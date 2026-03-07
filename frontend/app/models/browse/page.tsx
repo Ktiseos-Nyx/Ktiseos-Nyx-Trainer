@@ -11,6 +11,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 import { civitaiAPI, CivitaiModel, API_BASE } from '@/lib/api';
 import {
   Download,
@@ -183,7 +184,7 @@ export default function CivitaiBrowsePage() {
       }
     } catch (err: any) {
       console.error('Failed to load models:', err);
-      alert(`Failed to load models: ${err.message}`);
+      toast.error(`Failed to load models: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -217,7 +218,7 @@ export default function CivitaiBrowsePage() {
   const handleDownload = async (model: CivitaiModel) => {
     const latestVersion = model.modelVersions[0];
     if (!latestVersion || !latestVersion.files || latestVersion.files.length === 0) {
-      alert('No downloadable files found for this model');
+      toast.warning('No downloadable files found for this model');
       return;
     }
 
@@ -225,7 +226,7 @@ export default function CivitaiBrowsePage() {
     const downloadUrl = primaryFile.downloadUrl || latestVersion.downloadUrl;
 
     if (!downloadUrl) {
-      alert('Download URL not available');
+      toast.warning('Download URL not available');
       return;
     }
 
@@ -244,9 +245,9 @@ export default function CivitaiBrowsePage() {
         modelType
       );
 
-      alert(`Download started: ${primaryFile.name}`);
+      toast.success(`Download started: ${primaryFile.name}`);
     } catch (err: any) {
-      alert(`Download failed: ${err.message}`);
+      toast.error(`Download failed: ${err.message}`);
     } finally {
       setDownloading((prev) => {
         const newSet = new Set(prev);

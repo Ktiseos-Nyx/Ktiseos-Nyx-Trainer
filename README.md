@@ -158,6 +158,39 @@ install.bat             # Windows
 
 **Having issues?** Just re-run the installer - it's safe to run multiple times and will preserve your datasets/models.
 
+### Clean Reinstall
+
+If things are truly broken and you need a fresh start, use the clean slate script instead of deleting and re-cloning:
+
+```bash
+# Preview what will be deleted (nothing is removed)
+python clean_slate.py --dry-run
+
+# Delete build artifacts, venvs, node_modules, caches
+python clean_slate.py
+
+# Skip confirmation prompt
+python clean_slate.py --yes
+
+# Nuclear option: also delete models, VAEs, datasets, outputs
+python clean_slate.py --nuclear
+```
+
+This removes build artifacts and dependencies while **preserving your models, datasets, and outputs** by default. After running it, just re-run the installer:
+
+```bat
+REM Windows
+install.bat
+
+REM Linux
+./install.sh
+```
+
+**When to use this vs. `git pull`:**
+- `git pull` + re-run installer = normal updates (do this first)
+- `clean_slate.py` = something is broken and reinstalling didn't fix it
+- `clean_slate.py --nuclear` = scorched earth, start completely over
+
 ## What It Does
 
 **Dataset Preparation:**

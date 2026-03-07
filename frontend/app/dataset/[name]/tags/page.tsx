@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { datasetAPI, ImageWithTags } from '@/lib/api';
 import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon, Grid3x3, Grid2x2, LayoutGrid } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
@@ -137,7 +138,7 @@ export default function DatasetTagsPage() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       console.error('Save failed:', err);
-      alert('Failed to save tags. Check console.');
+      toast.error('Failed to save tags. Check console.');
     } finally {
       setSaving(false);
     }
@@ -321,7 +322,7 @@ export default function DatasetTagsPage() {
                 const replaceWith = bulkReplaceWith.trim();
 
                 if (tags.length === 0) {
-                  alert('Please select at least one tag from the library or type tags in the input');
+                  toast.warning('Please select at least one tag from the library or type tags in the input');
                   return;
                 }
 
@@ -336,15 +337,15 @@ export default function DatasetTagsPage() {
                     );
 
                     if (result.success) {
-                      alert(`Successfully modified ${result.modified_count} files!`);
+                      toast.success(`Successfully modified ${result.modified_count} files`);
                       // Reload
                       window.location.reload();
                     } else {
-                      alert('Operation failed');
+                      toast.error('Operation failed');
                     }
                   } catch (e) {
                     console.error(e);
-                    alert('Error performing bulk operation');
+                    toast.error('Error performing bulk operation');
                   } finally {
                     setLoading(false);
                   }
