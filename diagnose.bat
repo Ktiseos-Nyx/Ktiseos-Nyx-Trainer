@@ -65,6 +65,6 @@ echo ======================================================================
 echo Diagnostic files created successfully!
 echo ======================================================================
 echo.
-echo Please attach the diagnostics_*.txt file to your GitHub issue.
+echo Please attach the logs\diagnostics_*.txt file to your GitHub issue.
 echo.
 pause

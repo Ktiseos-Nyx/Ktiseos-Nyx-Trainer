@@ -275,34 +275,7 @@ class LocalWindowsInstaller:
             "--extra-index-url", "https://download.pytorch.org/whl/cu121"
         ]
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
-        if success:
-            self.fix_onnx_runtime()
         return success
-
-    def fix_onnx_runtime(self):
-        self.logger.info(" Ensuring correct ONNX runtime installation for Windows...")
-        print(" Ensuring correct ONNX runtime installation for Windows...")
-        uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "onnxruntime", "onnxruntime-gpu"]
-        self.run_command(uninstall_cmd, "Removing existing ONNX runtime packages")
-        onnx_cmd = [self.python_cmd, "-m", "pip", "install", "onnx==1.16.1", "protobuf<4"]
-        cuda12_cmd = [
-            self.python_cmd,
-            "-m",
-            "pip",
-            "install",
-            "--extra-index-url",
-            "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/",
-            "onnxruntime-gpu==1.17.1",
-        ]
-        success = self.run_command(onnx_cmd, "Installing ONNX and protobuf")
-        if success:
-            success = self.run_command(cuda12_cmd, "Installing ONNX Runtime GPU with CUDA 12 support")
-        if success:
-            self.logger.info(" ONNX runtime installation completed successfully")
-            print(" ONNX runtime installation completed successfully")
-        else:
-            self.logger.warning(" ONNX runtime installation encountered issues - will fallback to CPU")
-            print(" ONNX runtime installation encountered issues - will fallback to CPU")
 
     def check_system_dependencies(self):
         self.logger.info(" Checking system dependencies for Windows...")
@@ -657,27 +630,35 @@ class LocalWindowsInstaller:
 
             end_time = datetime.datetime.now()
             duration = end_time - start_time
+            # Detect if we're running inside a venv
+            in_venv = hasattr(sys, "real_prefix") or (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix)
+
             completion_lines = [
                 "\n" + "=" * 70,
                 "✅ Local Windows Installation complete!",
                 f"Total time: {duration}",
-                f"Package manager used: {self.package_manager['name']}",
                 f"Full log available at: {self.log_file}",
                 "",
-                "📦 Backend dependencies installed successfully for Windows!",
-                "",
-                "🛡️  About Virtual Environments (STRONGLY RECOMMENDED):",
-                "   - This installer does NOT create a virtual environment automatically",
-                "   - Packages were installed to your Python's user site-packages",
-                "   - ⚠️  For future installs, use a venv to avoid package conflicts!",
-                "",
-                "   How to use venv next time:",
-                "     python -m venv venv",
-                "     venv\\Scripts\\activate",
-                "     install.bat",
+            ]
+
+            if in_venv:
+                completion_lines += [
+                    f"📦 Packages installed to virtual environment: {sys.prefix}",
+                    "   Your system Python is untouched.",
+                ]
+            else:
+                completion_lines += [
+                    "⚠️  Packages installed to your system Python (no virtual environment).",
+                    "   Consider using a venv next time to isolate dependencies:",
+                    "     python -m venv .venv",
+                    "     .venv\\Scripts\\activate",
+                    "     install.bat",
+                ]
+
+            completion_lines += [
                 "",
                 "📍 Next steps:",
-                "   1. ⚠️  Check warnings above - especially PyTorch CUDA support!",
+                "   1. Check warnings above - especially PyTorch CUDA support!",
                 "   2. Run 'start_services_local.bat' to start the web UI",
                 "   3. Access the UI at http://localhost:3000",
                 "",

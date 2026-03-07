@@ -136,24 +136,12 @@ if %errorlevel% neq 0 (
     echo ERROR: The installer failed!
     echo ======================================================================
     echo.
-    echo Common issues:
-    echo   1. Python 3.10+ not installed
-    echo      Solution: Install from https://python.org/downloads/
-    echo      During install, CHECK "Add Python to PATH"
+    echo READ THE ERROR ABOVE THIS BOX - it tells you what actually went wrong.
     echo.
-    echo   2. Microsoft Store Python detected
-    echo      Solution: Uninstall MS Store Python, install from python.org
+    echo If you can't figure it out, run 'diagnose.bat' and attach the
+    echo logs\diagnostics_*.txt file to your GitHub issue.
     echo.
-    echo   3. Multiple Python installations conflicting
-    echo      Solution: Check "python --version" and "py --list" in CMD
-    echo.
-    echo   4. "Access is denied" during install
-    echo      - Make sure the project is NOT in OneDrive/Dropbox/Google Drive
-    echo      - Close any editors ^(VS Code^) that may lock files in the project
-    echo      - Try running this script as Administrator ^(right-click ^> Run as admin^)
-    echo      - Avoid installing to C:\Program Files or other protected folders
-    echo.
-    echo Check the log file in logs/ folder for detailed error information.
+    echo Check logs\ folder for detailed installer logs.
     echo ======================================================================
 ) else (
     echo.
@@ -161,14 +149,11 @@ if %errorlevel% neq 0 (
     echo Installation completed successfully!
     echo ======================================================================
     echo.
-    echo IMPORTANT: Review any warnings above about:
-    echo   - Microsoft Store Python
-    echo   - CPU-only PyTorch ^(GPU training won't work^)
+    echo Review any warnings printed above before continuing.
     echo.
     echo Next steps:
-    echo   1. Ensure PyTorch has CUDA support ^(see warnings above^)
-    echo   2. Run 'start_services_local.bat' to start the web UI
-    echo   3. Access at http://localhost:3000
+    echo   1. Run 'start_services_local.bat' to start the web UI
+    echo   2. Access at http://localhost:3000
     echo ======================================================================
 )
 

@@ -16,6 +16,9 @@ tmp/
 *.bak
 .kilocode
 .install_complete
+.write_test_diagnostic
+diagnostics_*.json
+diagnostics_*.txt
 
 # ----------------------------------------------------------------------------
 # Python
