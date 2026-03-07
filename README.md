@@ -33,6 +33,25 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 📖 [Full Requirements & Installation Guide](documentation/INSTALLATION.md)
 
+#### 🚨 WHERE YOU INSTALL MATTERS — READ THIS
+
+> **DO NOT install this project in any of these locations:**
+> - `C:\` (root of any drive)
+> - `C:\Program Files\` or `C:\Program Files (x86)\`
+> - `C:\Windows\` or any system directory
+> - Network drives, OneDrive, Dropbox, or Google Drive folders
+>
+> **These locations have restricted permissions on modern Windows and WILL cause "Access Denied" errors**, even when running as Administrator.
+>
+> **Install to a folder YOU own**, like:
+> ```
+> C:\Users\YourName\Projects\Ktiseos-Nyx-Trainer
+> C:\Users\YourName\Desktop\Ktiseos-Nyx-Trainer
+> D:\Projects\Ktiseos-Nyx-Trainer
+> ```
+>
+> If you're thinking "but I always install stuff to `C:\`" — consider that this project manages files, runs scripts, and creates virtual environments. You really don't want a rogue process with write access to your system root. Your user folder exists for a reason!
+
 #### 🛡️ STRONGLY RECOMMENDED: Use a Virtual Environment
 
 **Quick venv setup:**
