@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { modelsAPI, ModelFile, PopularModel } from '@/lib/api';
 import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
@@ -88,7 +89,7 @@ export default function ModelsPage() {
       await modelsAPI.delete(file.type, file.name);
       loadFiles();
     } catch (err: any) {
-      alert(`Failed to delete: ${err.message}`);
+      toast.error(`Failed to delete: ${err.message}`);
     }
   };
 

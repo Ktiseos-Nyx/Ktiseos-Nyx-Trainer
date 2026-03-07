@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig, LogPoller } from '@/lib/api';
 import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
+import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -219,7 +220,7 @@ export default function AutoTagPage() {
   // Start tagging/captioning
   const handleStartTagging = async () => {
     if (!selectedDataset) {
-      alert('Please select a dataset!');
+      toast.warning('Please select a dataset');
       return;
     }
 
@@ -333,7 +334,7 @@ export default function AutoTagPage() {
       }
     } catch (err) {
       addLog(`❌ Error: ${err}`);
-      alert(`❌ ${methodLabel} failed: ${err}`);
+      toast.error(`${methodLabel} failed: ${err}`);
       setTagging(false);
     }
   };

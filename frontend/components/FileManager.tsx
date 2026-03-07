@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useDropzone } from 'react-dropzone';
 import {
   Folder,
@@ -132,7 +133,7 @@ export default function FileManager() {
       await fileAPI.delete(file.path);
       loadDirectory(currentPath);
     } catch (err) {
-      alert(`Failed to delete: ${err}`);
+      toast.error(`Failed to delete: ${err}`);
     }
   };
 
@@ -145,7 +146,7 @@ export default function FileManager() {
       await fileAPI.mkdir(currentPath, name);
       loadDirectory(currentPath);
     } catch (err) {
-      alert(`Failed to create directory: ${err}`);
+      toast.error(`Failed to create directory: ${err}`);
     }
   };
 

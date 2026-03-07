@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Play, Save, RotateCcw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -110,26 +111,26 @@ export default function TrainingConfigNew() {
             detail: { jobId: response.job_id },
           }));
         }
-        alert(`✅ Training started! Job ID: ${response.job_id}`);
+        toast.success(`Training started! Job ID: ${response.job_id}`);
       } else {
         // Show validation error details if available
         const errors = response.validation_errors || [];
         const errorDetails = errors
           .filter((e: any) => e.severity === 'error')
-          .map((e: any) => `• ${e.field}: ${e.message}`)
-          .join('\n');
+          .map((e: any) => `${e.field}: ${e.message}`)
+          .join('; ');
         const warnings = errors
           .filter((e: any) => e.severity === 'warning')
-          .map((e: any) => `⚠ ${e.field}: ${e.message}`)
-          .join('\n');
+          .map((e: any) => `${e.field}: ${e.message}`)
+          .join('; ');
 
-        let msg = `Training failed: ${response.message}`;
-        if (errorDetails) msg += `\n\nErrors:\n${errorDetails}`;
-        if (warnings) msg += `\n\nWarnings:\n${warnings}`;
-        alert(msg);
+        toast.error(`Training failed: ${response.message}`, {
+          description: [errorDetails, warnings].filter(Boolean).join(' | ') || undefined,
+          duration: 10000,
+        });
       }
     } catch (error: any) {
-      alert(`❌ Failed to start training: ${error.message}`);
+      toast.error(`Failed to start training: ${error.message}`);
     } finally {
       setIsTraining(false);
     }
@@ -144,10 +145,12 @@ export default function TrainingConfigNew() {
       const result = await configAPI.saveTraining(currentValues);
 
       if (result.success) {
-        alert(`✅ Training configs saved!\n\nFiles created:\n- ${result.files.dataset}\n- ${result.files.config}`);
+        toast.success('Training configs saved', {
+          description: `Files: ${result.files.dataset}, ${result.files.config}`,
+        });
       }
     } catch (error: any) {
-      alert("❌ Error saving configs: " + error.message);
+      toast.error(`Error saving configs: ${error.message}`);
     }
   };
 
