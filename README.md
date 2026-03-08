@@ -12,6 +12,8 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 **Active development.** The web UI (Next.js + FastAPI) is functional but expect rough edges.
 
+Currently dealing with minor broken features until Claude resets in the next ocuple hours, hoping code rabbit can help me!
+
 **Current status:**
 - ✅ **Web UI** - Dataset management, tagging, captioning, file browser all working
 - ✅ **Training config** - 132+ parameters across 7 tabs, preset system, form persistence
