@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from services.models.training import TrainingConfig
 from services.trainers.kohya_toml import KohyaTOMLGenerator
+from services.core.validation import validate_path_within
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -95,6 +96,19 @@ async def list_config_templates():
 async def load_config(path: str):
     """Load a configuration file"""
     try:
+        # Security: confine to config, presets, and runtime_store directories
+        from services.core.validation import ValidationError as VError
+        allowed_config_dirs = [
+            PROJECT_ROOT / "config",
+            PRESETS_DIR,
+            PROJECT_ROOT / "trainer" / "runtime_store",
+            PROJECT_ROOT / "example_configs",
+        ]
+        try:
+            validate_path_within(path, allowed_config_dirs)
+        except VError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         config_path = Path(path)
 
         if not config_path.exists():

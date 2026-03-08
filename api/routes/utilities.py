@@ -10,6 +10,11 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from services.core.validation import (
+    validate_path_within, validate_dataset_path, validate_output_path,
+    PROJECT_ROOT, DATASETS_DIR, OUTPUT_DIR,
+)
+from services.core.exceptions import ValidationError
 
 # Import new service
 from services import lora_service
@@ -64,6 +69,12 @@ async def calculate_steps(request: CalculatorRequest):
 
         if request.batch_size <= 0:
             raise HTTPException(status_code=400, detail="Batch size must be greater than zero")
+
+        # Security: confine to datasets directory
+        try:
+            validate_path_within(dataset_path, [DATASETS_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         if not os.path.exists(dataset_path):
             raise HTTPException(status_code=404, detail=f"Dataset path does not exist: {dataset_path}")
@@ -201,14 +212,11 @@ async def list_lora_files(request: ListLoraFilesRequest):
 
         directory = Path(request.directory)
 
-        # Security: Ensure directory is within project bounds
-        project_root = Path.cwd()
+        # Security: confine to output directory
         try:
-            directory = directory.resolve()
-            if not str(directory).startswith(str(project_root)):
-                raise HTTPException(status_code=403, detail="Access denied")
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid directory path")
+            directory = validate_path_within(str(directory), [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Create directory if it doesn't exist
         directory.mkdir(parents=True, exist_ok=True)
@@ -259,6 +267,13 @@ async def resize_lora(request: LoRAResizeRequest):
     Uses Kohya's resize_lora.py script from vendored backend.
     """
     try:
+        # Security: confine paths to output directory
+        try:
+            validate_path_within(request.input_path, [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert to service request
         service_request = ServiceResizeRequest(
             input_path=request.input_path,
@@ -281,6 +296,8 @@ async def resize_lora(request: LoRAResizeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LoRA resize error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
