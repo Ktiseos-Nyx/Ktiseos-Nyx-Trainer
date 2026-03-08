@@ -386,7 +386,6 @@ export default function DatasetTagsPage() {
                   value={img.tags}
                   onValueChange={(newTags) => updateTags(img.image_path, newTags)}
                   addOnPaste
-                  addOnBlur
                   className="w-full"
                 >
                   <TagsInputList>

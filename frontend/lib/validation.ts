@@ -9,7 +9,7 @@ import { z } from 'zod';
  * Model type enumeration
  */
 // FIX: Changed errorMap to 'message' based on your TS error
-export const ModelTypeSchema = z.enum(['SD1.5', 'SDXL', 'Flux', 'SD3', 'SD3.5', 'Lumina', 'Chroma'], {
+export const ModelTypeSchema = z.enum(['SD1.5', 'SDXL', 'Flux', 'SD3', 'SD3.5', 'Lumina', 'Chroma', 'Anima', 'HunyuanImage'], {
   message: 'Please select a valid model type',
 });
 
@@ -18,7 +18,7 @@ export const ModelTypeSchema = z.enum(['SD1.5', 'SDXL', 'Flux', 'SD3', 'SD3.5', 
  */
 export const LoRATypeSchema = z.enum([
   'LoRA', 'LoCon', 'LoHa', 'LoKr', 'DoRA',
-  'Full', 'IA3', 'DyLoRA', 'GLoRA', 'Diag-OFT', 'BOFT',
+  'Full', 'IA3', 'DyLoRA', 'GLoRA', 'Diag-OFT', 'BOFT', 'ABBA',
 ], {
   message: 'Please select a valid LoRA type',
 });
@@ -416,6 +416,33 @@ export const TrainingConfigSchema = z.object({
   gemma2: z.string().optional(),
 
   gemma2_max_token_length: z.number().int().min(75).max(1024).optional(),
+
+  // ========== ANIMA-SPECIFIC PARAMETERS ==========
+  qwen3: z.string().optional(),
+  llm_adapter_path: z.string().optional(),
+  llm_adapter_lr: z.number().min(0).optional(),
+  self_attn_lr: z.number().min(0).optional(),
+  cross_attn_lr: z.number().min(0).optional(),
+  mlp_lr: z.number().min(0).optional(),
+  mod_lr: z.number().min(0).optional(),
+  t5_tokenizer_path: z.string().optional(),
+  qwen3_max_token_length: z.number().int().min(1).optional(),
+  t5_max_token_length: z.number().int().min(1).optional(),
+  unsloth_offload_checkpointing: z.boolean().optional(),
+
+  // ========== HUNYUAN IMAGE-SPECIFIC PARAMETERS ==========
+  text_encoder_path: z.string().optional(),
+  byt5_path: z.string().optional(),
+  fp8_scaled: z.boolean().optional(),
+  fp8_vl: z.boolean().optional(),
+  text_encoder_cpu: z.boolean().optional(),
+
+  // ========== SHARED DiT PARAMETERS ==========
+  discrete_flow_shift: z.number().optional(),
+  vae_chunk_size: z.number().int().min(1).optional(),
+  vae_disable_cache: z.boolean().optional(),
+  attn_mode: z.string().optional(),
+  split_attn: z.boolean().optional(),
 });
 
 /**

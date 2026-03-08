@@ -57,7 +57,7 @@ export default function SettingsPage() {
       const stored = localStorage.getItem('ktiseos-nyx-settings')
       if (stored) {
         const settings = JSON.parse(stored)
-        setApiUrl(settings.apiUrl ?? 'http://localhost:8000')
+        // apiUrl is read-only from API_BASE (no setter needed)
         setApiTimeout(settings.apiTimeout ?? 30)
         setAutoRefresh(settings.autoRefresh ?? true)
         setRefreshInterval(settings.refreshInterval ?? 5)
@@ -195,7 +195,7 @@ export default function SettingsPage() {
 
   const handleReset = () => {
     if (confirm('Reset all settings to defaults?')) {
-      setApiUrl('http://localhost:8000')
+      // apiUrl is read-only from API_BASE (no setter needed)
       setApiTimeout(30)
       setAutoRefresh(true)
       setRefreshInterval(5)

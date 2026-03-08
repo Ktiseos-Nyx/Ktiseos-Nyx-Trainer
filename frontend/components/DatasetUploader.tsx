@@ -208,14 +208,14 @@ export default function DatasetUploader() {
     );
 
     // Build zip in memory
-    const zipData: Record<string, [Uint8Array, { level: number }]> = {};
+    const zipData: { [key: string]: [Uint8Array, { level: 6 }] } = {};
     for (const fileObj of imageFiles) {
       const buf = await fileObj.file.arrayBuffer();
-      zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 6 }];
+      zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 6 as const }];
     }
 
     const zipped = zipSync(zipData);
-    const zipBlob = new Blob([zipped], { type: 'application/zip' });
+    const zipBlob = new Blob([zipped.buffer as ArrayBuffer], { type: 'application/zip' });
 
     // Upload single zip
     const formData = new FormData();

@@ -83,7 +83,7 @@ class KohyaTOMLGenerator:
         general = tomlkit.table()
         # Resolution: For SDXL, use list format [width, height] instead of single integer
         # See: https://github.com/kohya-ss/sd-scripts/issues/XXX
-        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.FLUX, ModelType.LUMINA]:
+        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.SD35, ModelType.FLUX, ModelType.LUMINA, ModelType.CHROMA, ModelType.ANIMA, ModelType.HUNYUAN_IMAGE]:
             # For newer model types, use list format
             resolution_value = [self.config.resolution, self.config.resolution]
         else:
@@ -102,7 +102,7 @@ class KohyaTOMLGenerator:
             dataset["keep_tokens"] = self.config.keep_tokens
 
         # Resolution: Use same format as general section (list for SDXL/SD3/Flux/Lumina)
-        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.FLUX, ModelType.LUMINA]:
+        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.SD35, ModelType.FLUX, ModelType.LUMINA, ModelType.CHROMA, ModelType.ANIMA, ModelType.HUNYUAN_IMAGE]:
             dataset["resolution"] = [self.config.resolution, self.config.resolution]
         else:
             dataset["resolution"] = self.config.resolution
@@ -285,6 +285,9 @@ class KohyaTOMLGenerator:
         elif lora_type == "BOFT":
             # Butterfly OFT
             return {"network_module": "lycoris.kohya", "network_args": ["algo=boft"]}
+        elif lora_type == "ABBA":
+            # Activation-Based Block Adaptation (LyCORIS v3.2.0+)
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=abba"]}
 
         # Default fallback
         else:
@@ -478,13 +481,29 @@ class KohyaTOMLGenerator:
             if self.config.blocks_to_swap:
                 args["blocks_to_swap"] = self.config.blocks_to_swap
 
-        if self.config.model_type == ModelType.SD3:
+        if self.config.model_type in [ModelType.SD3, ModelType.SD35]:
             if self.config.clip_l_path:
                 args["clip_l"] = str(Path(self.config.clip_l_path).resolve().as_posix())
             if self.config.clip_g_path:
                 args["clip_g"] = str(Path(self.config.clip_g_path).resolve().as_posix())
             if self.config.t5xxl_path:
                 args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve().as_posix())
+
+        # Chroma: uses Flux scripts, same args except no CLIP-L needed
+        if self.config.model_type == ModelType.CHROMA:
+            if self.config.ae_path:
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+            if self.config.t5xxl_path:
+                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve().as_posix())
+            if self.config.t5xxl_max_token_length:
+                args["t5xxl_max_token_length"] = self.config.t5xxl_max_token_length
+            if self.config.apply_t5_attn_mask:
+                args["apply_t5_attn_mask"] = True
+            args["timestep_sampling"] = self.config.timestep_sampling
+            args["sigmoid_scale"] = self.config.sigmoid_scale
+            args["model_prediction_type"] = self.config.model_prediction_type
+            if self.config.blocks_to_swap:
+                args["blocks_to_swap"] = self.config.blocks_to_swap
 
         if self.config.model_type == ModelType.LUMINA:
             if self.config.gemma2:
@@ -493,5 +512,72 @@ class KohyaTOMLGenerator:
                 args["gemma2_max_token_length"] = self.config.gemma2_max_token_length
             if self.config.ae_path:
                 args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+
+        # Anima-specific args
+        if self.config.model_type == ModelType.ANIMA:
+            if self.config.qwen3:
+                args["qwen3"] = str(Path(self.config.qwen3).resolve().as_posix())
+            if self.config.t5_tokenizer_path:
+                args["t5_tokenizer_path"] = str(Path(self.config.t5_tokenizer_path).resolve().as_posix())
+            if self.config.qwen3_max_token_length is not None:
+                args["qwen3_max_token_length"] = self.config.qwen3_max_token_length
+            if self.config.t5_max_token_length is not None:
+                args["t5_max_token_length"] = self.config.t5_max_token_length
+            if self.config.llm_adapter_path:
+                args["llm_adapter_path"] = str(Path(self.config.llm_adapter_path).resolve().as_posix())
+            # Per-layer learning rates (None = use base LR, 0 = freeze)
+            if self.config.llm_adapter_lr is not None:
+                args["llm_adapter_lr"] = self.config.llm_adapter_lr
+            if self.config.self_attn_lr is not None:
+                args["self_attn_lr"] = self.config.self_attn_lr
+            if self.config.cross_attn_lr is not None:
+                args["cross_attn_lr"] = self.config.cross_attn_lr
+            if self.config.mlp_lr is not None:
+                args["mlp_lr"] = self.config.mlp_lr
+            if self.config.mod_lr is not None:
+                args["mod_lr"] = self.config.mod_lr
+            # Anima timestep/flow args (defaults differ from Flux)
+            args["timestep_sampling"] = self.config.timestep_sampling if self.config.timestep_sampling else "sigmoid"
+            args["sigmoid_scale"] = self.config.sigmoid_scale
+            if self.config.discrete_flow_shift is not None:
+                args["discrete_flow_shift"] = self.config.discrete_flow_shift
+            if self.config.blocks_to_swap:
+                args["blocks_to_swap"] = self.config.blocks_to_swap
+            if self.config.unsloth_offload_checkpointing:
+                args["unsloth_offload_checkpointing"] = True
+            if self.config.ae_path:
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+
+        # HunyuanImage-specific args
+        if self.config.model_type == ModelType.HUNYUAN_IMAGE:
+            if self.config.text_encoder_path:
+                args["text_encoder"] = str(Path(self.config.text_encoder_path).resolve().as_posix())
+            if self.config.byt5_path:
+                args["byt5"] = str(Path(self.config.byt5_path).resolve().as_posix())
+            if self.config.fp8_scaled:
+                args["fp8_scaled"] = True
+            if self.config.fp8_vl:
+                args["fp8_vl"] = True
+            if self.config.text_encoder_cpu:
+                args["text_encoder_cpu"] = True
+            if self.config.discrete_flow_shift is not None:
+                args["discrete_flow_shift"] = self.config.discrete_flow_shift
+            # HunyuanImage shares some flow-matching args
+            args["timestep_sampling"] = self.config.timestep_sampling if self.config.timestep_sampling else "sigma"
+            args["sigmoid_scale"] = self.config.sigmoid_scale
+            args["model_prediction_type"] = self.config.model_prediction_type if self.config.model_prediction_type else "raw"
+            if self.config.blocks_to_swap:
+                args["blocks_to_swap"] = self.config.blocks_to_swap
+
+        # Shared DiT fields (Anima, HunyuanImage, and potentially others)
+        if self.config.model_type in [ModelType.ANIMA, ModelType.HUNYUAN_IMAGE]:
+            if self.config.vae_chunk_size is not None:
+                args["vae_chunk_size"] = self.config.vae_chunk_size
+            if self.config.vae_disable_cache:
+                args["vae_disable_cache"] = True
+            if self.config.attn_mode:
+                args["attn_mode"] = self.config.attn_mode
+            if self.config.split_attn:
+                args["split_attn"] = True
 
         return args

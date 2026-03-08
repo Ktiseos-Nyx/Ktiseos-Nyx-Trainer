@@ -19,6 +19,8 @@ class ModelType(str, Enum):
     SD35 = "SD3.5"
     LUMINA = "Lumina"
     CHROMA = "Chroma"
+    ANIMA = "Anima"
+    HUNYUAN_IMAGE = "HunyuanImage"
 
 
 class LoRAType(str, Enum):
@@ -37,6 +39,7 @@ class LoRAType(str, Enum):
     GLORA = "GLoRA"  # Generalized LoRA
     DIAG_OFT = "Diag-OFT"  # Diagonal Orthogonal Finetuning
     BOFT = "BOFT"  # Butterfly OFT
+    ABBA = "ABBA"  # LyCORIS v3.2.0+ - Activation-Based Block Adaptation
 
 
 class OptimizerType(str, Enum):
@@ -143,8 +146,8 @@ class TrainingConfig(BaseModel):
     """
     Complete training configuration.
 
-    Supports SD1.5, SDXL, Flux, SD3.5, and Lumina model types.
-    Supports both LoRA and full checkpoint training.
+    Supports SD1.5, SDXL, Flux, SD3, SD3.5, Lumina, Chroma, Anima, and HunyuanImage model types.
+    Supports both LoRA and full checkpoint training (HunyuanImage is LoRA-only).
     Matches frontend TrainingConfig interface.
     """
 
@@ -327,6 +330,33 @@ class TrainingConfig(BaseModel):
     gemma2: Optional[str] = Field(None, description="Path to Gemma2 model")
     gemma2_max_token_length: Optional[int] = Field(256, ge=75, description="Gemma2 max tokens")
 
+    # ========== ANIMA-SPECIFIC ==========
+    qwen3: Optional[str] = Field(None, description="Path to Qwen3-0.6B text encoder")
+    llm_adapter_path: Optional[str] = Field(None, description="Path to LLM adapter weights")
+    llm_adapter_lr: Optional[float] = Field(None, ge=0, description="LR for LLM adapter (None=base, 0=freeze)")
+    self_attn_lr: Optional[float] = Field(None, ge=0, description="LR for self-attention layers")
+    cross_attn_lr: Optional[float] = Field(None, ge=0, description="LR for cross-attention layers")
+    mlp_lr: Optional[float] = Field(None, ge=0, description="LR for MLP layers")
+    mod_lr: Optional[float] = Field(None, ge=0, description="LR for AdaLN modulation layers")
+    t5_tokenizer_path: Optional[str] = Field(None, description="Path to T5 tokenizer dir")
+    qwen3_max_token_length: Optional[int] = Field(None, ge=1, description="Max Qwen3 tokens")
+    t5_max_token_length: Optional[int] = Field(None, ge=1, description="Max T5 tokens")
+    unsloth_offload_checkpointing: Optional[bool] = Field(None, description="Offload activations to CPU (LoRA only)")
+
+    # ========== HUNYUAN IMAGE-SPECIFIC ==========
+    text_encoder_path: Optional[str] = Field(None, description="Path to Qwen2.5-VL text encoder (bfloat16)")
+    byt5_path: Optional[str] = Field(None, description="Path to byT5 model (float16)")
+    fp8_scaled: Optional[bool] = Field(None, description="Scaled fp8 for DiT")
+    fp8_vl: Optional[bool] = Field(None, description="fp8 for VLM text encoder")
+    text_encoder_cpu: Optional[bool] = Field(None, description="Run text encoders on CPU")
+
+    # ========== SHARED DiT FIELDS (Anima/HunyuanImage/Lumina) ==========
+    discrete_flow_shift: Optional[float] = Field(None, description="Flow shift for Euler scheduler")
+    vae_chunk_size: Optional[int] = Field(None, ge=1, description="Spatial chunk size for VAE")
+    vae_disable_cache: Optional[bool] = Field(None, description="Disable VAE caching")
+    attn_mode: Optional[str] = Field(None, description="Attention mode: torch/xformers/flash/sageattn")
+    split_attn: Optional[bool] = Field(None, description="Split attention for memory savings")
+
     @field_validator('model_type', mode='before')
     @classmethod
     def normalize_model_type(cls, v):
@@ -361,6 +391,12 @@ class TrainingConfig(BaseModel):
             # CHROMA variations
             elif v_upper == "CHROMA":
                 return "Chroma"
+            # ANIMA variations
+            elif v_upper in {"ANIMA"}:
+                return "Anima"
+            # HUNYUAN IMAGE variations
+            elif v_upper in {"HUNYUANIMAGE", "HUNYUAN_IMAGE", "HUNYUAN-IMAGE", "HUNYUAN IMAGE"}:
+                return "HunyuanImage"
 
         # If we can't normalize, return the original value
         # Pydantic will handle validation errors appropriately

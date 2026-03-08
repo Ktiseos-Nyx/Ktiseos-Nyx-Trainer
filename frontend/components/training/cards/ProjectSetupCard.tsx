@@ -28,6 +28,9 @@ interface ProjectSetupCardProps {
 export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
   const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
+  const isChroma = modelType === 'Chroma';
+  const isAnima = modelType === 'Anima';
+  const isHunyuanImage = modelType === 'HunyuanImage';
 
 
   return (
@@ -96,6 +99,21 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               label: 'Lumina',
               description: 'Experimental architecture',
             },
+            {
+              value: 'Chroma',
+              label: 'Chroma',
+              description: 'Flux variant (no CLIP-L needed)',
+            },
+            {
+              value: 'Anima',
+              label: 'Anima',
+              description: 'Qwen3 + T5 dual encoder',
+            },
+            {
+              value: 'HunyuanImage',
+              label: 'HunyuanImage',
+              description: 'Qwen2.5-VL + byT5 (LoRA only)',
+            },
           ]}
 
         />
@@ -161,6 +179,100 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
                 placeholder="/path/to/ae.safetensors"
               />
             )}
+          </div>
+        )}
+
+        {/* Conditional: Chroma specific paths (T5 + AE, no CLIP-L) */}
+        {isChroma && (
+          <div className="space-y-4 p-4 border border-green-500/30 rounded-lg bg-green-500/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-green-400">
+              <Folder className="h-4 w-4" />
+              Chroma Specific Paths
+            </div>
+
+            <TextFormField
+              form={form}
+              name="t5xxl_path"
+              label="T5-XXL Path"
+              description="Required for Chroma"
+              placeholder="/path/to/t5xxl.safetensors"
+            />
+
+            <TextFormField
+              form={form}
+              name="ae_path"
+              label="AutoEncoder Path"
+              description="Required for Chroma"
+              placeholder="/path/to/ae.safetensors"
+            />
+          </div>
+        )}
+
+        {/* Conditional: Anima specific paths (Qwen3 + T5 tokenizer + AE) */}
+        {isAnima && (
+          <div className="space-y-4 p-4 border border-orange-500/30 rounded-lg bg-orange-500/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-orange-400">
+              <Folder className="h-4 w-4" />
+              Anima Specific Paths
+            </div>
+
+            <TextFormField
+              form={form}
+              name="qwen3"
+              label="Qwen3-0.6B Path"
+              description="Required - safetensors file or directory"
+              placeholder="/path/to/qwen3-0.6b.safetensors"
+            />
+
+            <TextFormField
+              form={form}
+              name="ae_path"
+              label="AutoEncoder (VAE) Path"
+              description="Required for Anima"
+              placeholder="/path/to/ae.safetensors"
+            />
+
+            <TextFormField
+              form={form}
+              name="t5_tokenizer_path"
+              label="T5 Tokenizer Path (Optional)"
+              description="Uses default configs/t5_old/ if not set"
+              placeholder="/path/to/t5_tokenizer/"
+            />
+
+            <TextFormField
+              form={form}
+              name="llm_adapter_path"
+              label="LLM Adapter Path (Optional)"
+              description="Separate LLM adapter weights"
+              placeholder="/path/to/llm_adapter.safetensors"
+            />
+          </div>
+        )}
+
+        {/* Conditional: HunyuanImage specific paths (Qwen2.5-VL + byT5) */}
+        {isHunyuanImage && (
+          <div className="space-y-4 p-4 border border-cyan-500/30 rounded-lg bg-cyan-500/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-cyan-400">
+              <Folder className="h-4 w-4" />
+              HunyuanImage Specific Paths
+            </div>
+
+            <TextFormField
+              form={form}
+              name="text_encoder_path"
+              label="Qwen2.5-VL Text Encoder Path"
+              description="Required - bfloat16 safetensors"
+              placeholder="/path/to/qwen2.5-vl.safetensors"
+            />
+
+            <TextFormField
+              form={form}
+              name="byt5_path"
+              label="byT5 Path"
+              description="Required - float16 safetensors"
+              placeholder="/path/to/byt5.safetensors"
+            />
           </div>
         )}
 
