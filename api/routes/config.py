@@ -105,11 +105,12 @@ async def load_config(path: str):
             PROJECT_ROOT / "example_configs",
         ]
         try:
-            validate_path_within(path, allowed_config_dirs)
-        except VError:
-            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
-
-        config_path = Path(path)
+            config_path = validate_path_within(path, allowed_config_dirs)
+        except VError as err:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: path outside allowed directories",
+            ) from err
 
         if not config_path.exists():
             raise HTTPException(status_code=404, detail="Config file not found")
