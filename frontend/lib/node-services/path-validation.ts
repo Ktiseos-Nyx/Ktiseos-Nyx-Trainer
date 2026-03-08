@@ -28,11 +28,32 @@ const BROWSE_DIRS = [
 /**
  * Check if a resolved path is within any of the given allowed directories.
  */
+import fs from 'fs';
+import path from 'path';
+
+function canonicalizeForCheck(inputPath: string): string {
+  const resolved = path.resolve(inputPath);
+  let cursor = resolved;
+  const suffix: string[] = [];
+
+  while (!fs.existsSync(cursor)) {
+    const parent = path.dirname(cursor);
+    if (parent === cursor) break;
+    suffix.unshift(path.basename(cursor));
+    cursor = parent;
+  }
+
+  const realBase = fs.existsSync(cursor)
+    ? fs.realpathSync.native(cursor)
+    : path.resolve(cursor);
+
+  return suffix.length ? path.join(realBase, ...suffix) : realBase;
+}
+
 function isWithin(resolvedPath: string, allowedDirs: string[]): boolean {
-  const normalized = path.resolve(resolvedPath);
+  const normalized = canonicalizeForCheck(resolvedPath);
   return allowedDirs.some(dir => {
-    const normalizedDir = path.resolve(dir);
-    // Must start with the dir AND either be exactly the dir or have a separator after
+    const normalizedDir = canonicalizeForCheck(dir);
     return normalized === normalizedDir ||
       normalized.startsWith(normalizedDir + path.sep);
   });
@@ -42,14 +63,15 @@ function isWithin(resolvedPath: string, allowedDirs: string[]): boolean {
  * Validate that a path is within allowed directories.
  * Resolves the path, strips traversal, and checks confinement.
  *
- * @throws Error if path is outside allowed directories
+ * `@throws` Error if path is outside allowed directories
  */
 function validateWithin(userPath: string, allowedDirs: string[], context: string): string {
-  const resolved = path.resolve(userPath);
+  const resolved = canonicalizeForCheck(userPath);
   if (!isWithin(resolved, allowedDirs)) {
     throw new Error(`Access denied: ${context} path outside allowed directories`);
   }
   return resolved;
+}
 }
 
 // ========== Public API ==========
