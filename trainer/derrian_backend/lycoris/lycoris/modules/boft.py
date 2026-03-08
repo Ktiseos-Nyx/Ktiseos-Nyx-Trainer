@@ -16,7 +16,7 @@ from typing import Optional
 @cache
 def log_butterfly_factorize(dim, factor, result):
     logger.info(
-        f"Use BOFT({int(log2(result[1]))}, {result[0]//2})"
+        f"Use BOFT(num_stages={int(log2(result[1]))}, elementary_block_size={result[0]})"
         f" (equivalent to factor={result[0]}) "
         f"for {dim=} and {factor=}"
     )
@@ -59,8 +59,6 @@ class ButterflyOFTModule(LycorisBaseModule):
         dropout=0.0,
         rank_dropout=0.0,
         module_dropout=0.0,
-        lora_dropout=0.0,
-        aid_dropout=0.0,
         use_tucker=False,
         use_scalar=False,
         rank_dropout_scale=False,
@@ -78,8 +76,6 @@ class ButterflyOFTModule(LycorisBaseModule):
             dropout,
             rank_dropout,
             module_dropout,
-            lora_dropout,
-            aid_dropout,
             rank_dropout_scale,
             bypass_mode,
             ggpo_beta,
@@ -94,7 +90,7 @@ class ButterflyOFTModule(LycorisBaseModule):
         self.block_num = m_exp
         # BOFT(m, b)
         self.boft_b = b
-        self.boft_m = sum(int(i) for i in f"{m_exp-1:b}") + 1
+        self.boft_m = int(log2(m_exp))
         # block_num > block_size
         self.rescaled = rescaled
         self.constraint = constraint * out_dim
@@ -102,6 +98,8 @@ class ButterflyOFTModule(LycorisBaseModule):
         self.oft_blocks = nn.Parameter(
             torch.zeros(self.boft_m, self.block_num, self.block_size, self.block_size)
         )
+
+        self.register_buffer("I", torch.eye(self.block_size, device=self.oft_blocks.device, dtype=self.oft_blocks.dtype))
         if rescaled:
             self.rescale = nn.Parameter(
                 torch.ones(out_dim, *(1 for _ in range(org_module.weight.dim() - 1)))
@@ -133,12 +131,8 @@ class ButterflyOFTModule(LycorisBaseModule):
             module.rescale.copy_(rescale)
         return module
 
-    @property
-    def I(self):
-        return torch.eye(self.block_size, device=self.device)
-
     def get_r(self):
-        I = self.I
+        I = self.I.to(device=self.oft_blocks.device, dtype=self.oft_blocks.dtype)
         # for Q = -Q^T
         q = self.oft_blocks - self.oft_blocks.transpose(-1, -2)
         normed_q = q
@@ -148,40 +142,99 @@ class ButterflyOFTModule(LycorisBaseModule):
             if q_norm > self.constraint:
                 normed_q = q * self.constraint / q_norm
         # use float() to prevent unsupported type
-        r = (I + normed_q) @ (I - normed_q).float().inverse()
+
+        q_float = normed_q.float()
+        I_float = I.float()
+        r = (I_float + q_float) @ torch.inverse(I_float - q_float)
         return r
+    
+    def _apply_multiplicative_dropout(self, r: torch.Tensor) -> torch.Tensor:
+        """
+        Applies multiplicative dropout to the orthogonal matrices r.
+        Selected components (dim 0) or blocks within components (dim 1)
+        are replaced by identity matrices during training.
+
+        Args:
+            r (torch.Tensor): The orthogonal matrices computed by get_r(),
+                              shape (boft_m, block_num, block_size, block_size).
+
+        Returns:
+            torch.Tensor: The dropout-applied orthogonal matrices.
+        """
+        if not self.training or (self.dropout == 0):
+            return r
+
+        m, n, b, _ = r.shape
+        device = r.device
+        dtype = r.dtype
+        identity_matrix = self.I.to(device=device, dtype=dtype) # Shape (b, b)
+
+        # Create masks
+        # Mask for components (True = keep, False = replace with I)
+        comp_mask = torch.rand(m, device=device) >= self.dropout
+        # Mask for blocks within components (True = keep, False = replace with I)
+        block_mask = torch.rand(m, n, device=device) >= self.dropout
+
+        # Combine masks: Keep if component is kept AND block is kept
+        # Shape: (m, n) -> (m, n, 1, 1) for broadcasting with r
+        keep_mask = (comp_mask.unsqueeze(1) & block_mask).view(m, n, 1, 1)
+
+        # Use torch.where to select between original r and identity
+        # Expand identity to match r's shape for torch.where
+        # identity_expanded = identity_matrix.unsqueeze(0).unsqueeze(0).expand_as(r) # More explicit expand
+        # r_dropped = torch.where(keep_mask, r, identity_expanded)
+
+        # Alternative using broadcasting (more efficient):
+        # torch.where expects condition and tensors to be broadcastable.
+        # keep_mask (m, n, 1, 1) is broadcastable with r (m, n, b, b)
+        # identity_matrix (b, b) is broadcastable with r (m, n, b, b)
+        r_dropped = torch.where(keep_mask, r, identity_matrix)
+
+        return r_dropped
 
     def make_weight(self, scale=1, device=None, diff=False):
         m = self.boft_m
         b = self.boft_b
         r_b = b // 2
         r = self.get_r()
-        inp = org = self.org_weight.to(device, dtype=r.dtype)
+        
+        r = self._apply_multiplicative_dropout(r)
+        
+        # Ensure org_weight is on the correct device and dtype early
+        org_weight = self.get_org_weight_for_compute(device)
+        org_weight_dtype = org_weight.dtype
+        r_dtype = r.dtype # Usually float32 due to inverse, ensure consistency
+        target_dtype = torch.promote_types(org_weight_dtype, r_dtype)
+
+        if device is None:
+            device = self.oft_blocks.device
+            org_weight
+        inp = org = org_weight.to(target_dtype, non_blocking=True)
 
         for i in range(m):
             bi = r[i]  # b_num, b_size, b_size
             g = 2
             k = 2**i * r_b
             if scale != 1:
-                bi = bi * scale + (1 - scale) * self.I
+                bi = bi * scale + (1 - scale) * self.I.to(device=bi.device, dtype=bi.dtype)
             inp = (
-                inp.unflatten(-1, (-1, g, k))
-                .transpose(-2, -1)
-                .flatten(-3)
-                .unflatten(-1, (-1, b))
+                inp.unflatten(0, (-1, g, k))
+                .transpose(1, 2)
+                .flatten(0, 2)
+                .unflatten(0, (-1, b))
             )
-            inp = torch.einsum("b i j, b j ... -> b i ...", bi, inp)
+            inp = torch.einsum("b i j, b j ...-> b i ...", bi, inp)
             inp = (
-                inp.flatten(-2).unflatten(-1, (-1, k, g)).transpose(-2, -1).flatten(-3)
+                inp.flatten(0, 1).unflatten(0, (-1, k, g)).transpose(1, 2).flatten(0, 2)
             )
 
         if self.rescaled:
-            inp = inp * self.rescale
+            inp = inp * self.rescale.to(device=inp.device, dtype=inp.dtype)
 
         if diff:
             inp = inp - org
 
-        return inp.to(self.oft_blocks.dtype)
+        return inp.to(org_weight_dtype)
 
     def get_diff_weight(self, multiplier=1, shape=None, device=None):
         diff = self.make_weight(scale=multiplier, device=device, diff=True)
@@ -213,15 +266,14 @@ class ButterflyOFTModule(LycorisBaseModule):
     def get_norm(self, device=None):
         # Norm before scale determined by alpha / r_factor
         unscaled_norm = self.oft_blocks.norm()
-        # Norm after scale determined by alpha / r_factor
-        scaled_norm = unscaled_norm * self.scale
-        return unscaled_norm.item(), scaled_norm.item()
+        return unscaled_norm
 
     def _bypass_forward(self, x, scale=1, diff=False):
         m = self.boft_m
         b = self.boft_b
         r_b = b // 2
         r = self.get_r()
+        r = self._apply_multiplicative_dropout(r)
         inp = org = self.org_forward(x)
         if self.op in {F.conv2d, F.conv1d, F.conv3d}:
             inp = inp.transpose(1, -1)
@@ -231,20 +283,20 @@ class ButterflyOFTModule(LycorisBaseModule):
             g = 2
             k = 2**i * r_b
             if scale != 1:
-                bi = bi * scale + (1 - scale) * self.I
+                bi = bi * scale + (1 - scale) * self.I.to(device=bi.device, dtype=bi.dtype)
             inp = (
                 inp.unflatten(-1, (-1, g, k))
                 .transpose(-2, -1)
                 .flatten(-3)
                 .unflatten(-1, (-1, b))
             )
-            inp = torch.einsum("b i j, ... b j -> ... b i", bi, inp)
+            inp = torch.einsum("b i j, b j ... -> b i ...", bi, inp)
             inp = (
                 inp.flatten(-2).unflatten(-1, (-1, k, g)).transpose(-2, -1).flatten(-3)
             )
 
         if self.rescaled:
-            inp = inp * self.rescale.transpose(0, -1)
+            inp = inp * self.rescale.to(device=inp.device, dtype=inp.dtype).transpose(0, -1)
 
         if self.op in {F.conv2d, F.conv1d, F.conv3d}:
             inp = inp.transpose(1, -1)
@@ -269,5 +321,12 @@ class ButterflyOFTModule(LycorisBaseModule):
             return self.bypass_forward(x, scale)
         else:
             w = self.make_weight(scale, x.device)
-            kw_dict = self.kw_dict | {"weight": w, "bias": self.org_module[0].bias}
+
+            current_bias = self.get_org_bias_for_compute(x.device)
+            if current_bias is not None:
+                current_bias = current_bias.to(x.dtype, non_blocking=True)
+            
+            kw_dict = {**self.kw_dict, "weight": w, "bias": current_bias}
+
             return self.op(x, **kw_dict)
+

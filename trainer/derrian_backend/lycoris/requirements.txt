@@ -1,0 +1,7 @@
+torch>=2.4.1
+toml>=0.10.2
+einops>=0.8.1
+tqdm>=4.67.1
+setuptools>=80.9.0
+#RamTorch>=0.2.2
+RamTorch @ git+https://github.com/67372a/RamTorch

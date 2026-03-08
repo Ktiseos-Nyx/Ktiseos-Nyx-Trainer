@@ -23,8 +23,6 @@ class NormModule(LycorisBaseModule):
         multiplier=1.0,
         rank_dropout=0.0,
         module_dropout=0.0,
-        lora_dropout=0.0,
-        aid_dropout=0.0,
         rank_dropout_scale=False,
         **kwargs,
     ):
@@ -35,8 +33,6 @@ class NormModule(LycorisBaseModule):
             multiplier=multiplier,
             rank_dropout=rank_dropout,
             module_dropout=module_dropout,
-            lora_dropout=lora_dropout,
-            aid_dropout=aid_dropout,
             rank_dropout_scale=rank_dropout_scale,
             **kwargs,
         )

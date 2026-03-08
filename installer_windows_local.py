@@ -213,47 +213,6 @@ class LocalWindowsInstaller:
         self.logger.info("Vendored backend verification complete")
         return True
 
-    def copy_bitsandbytes_dlls_for_kohya(self):
-        """Copy DLLs from bitsandbytes_windows/ into bitsandbytes/ where Kohya expects them."""
-        src_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes_windows")
-        dest_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
-
-        if not os.path.exists(src_dir):
-            self.logger.warning("bitsandbytes_windows source directory not found. Skipping DLL copy.")
-            print("   ⚠️  Note: If using bitsandbytes, install from community Windows build:")
-            print("      pip install bitsandbytes --index-url https://jllllll.github.io/bitsandbytes-windows-webui")
-            return False
-
-        os.makedirs(dest_dir, exist_ok=True)
-
-        # Try CUDA 12.1 first (modern), fallback to CUDA 11.8 (legacy)
-        dlls_to_copy = [
-            "libbitsandbytes_cpu.dll",
-            "libbitsandbytes_cuda121.dll",  # PRIMARY for PyTorch 2.x + CUDA 12.1
-            "libbitsandbytes_cuda118.dll",  # FALLBACK for older setups
-        ]
-
-        copied = []
-        for dll in dlls_to_copy:
-            src = os.path.join(src_dir, dll)
-            dst = os.path.join(dest_dir, dll)
-            if os.path.exists(src):
-                shutil.copy2(src, dst)
-                copied.append(dll)
-                self.logger.info("Copied %s to %s", dll, dest_dir)
-            else:
-                self.logger.debug("DLL not found (optional): %s", src)
-
-        if copied:
-            print(f"   ✅ Copied {len(copied)} bitsandbytes DLLs for Kohya")
-            self.logger.info("bitsandbytes DLLs ready for Kohya's loader")
-        else:
-            self.logger.warning("No bitsandbytes DLLs found in vendored folder")
-            print("   ℹ️  To use 8-bit optimizers (AdamW8bit), install community Windows bitsandbytes:")
-            print("      pip install bitsandbytes --index-url https://jllllll.github.io/bitsandbytes-windows-webui")
-
-        return True
-
     def install_dependencies(self):
         if self.skip_install:
             print(" Skipping dependency installation (--skip-install flag)")
@@ -508,9 +467,6 @@ class LocalWindowsInstaller:
             else:
                 self.logger.debug("No setup.py found for %s at %s, skipping", name, path)
 
-        # Critical: Copy DLLs into Kohya's bitsandbytes/ folder
-        self.copy_bitsandbytes_dlls_for_kohya()
-
         # Apply PyTorch patch if needed
         self.logger.info("Checking if PyTorch version patch is needed...")
         print("   - Checking if PyTorch version patch is needed...")
@@ -666,7 +622,7 @@ class LocalWindowsInstaller:
                 "   - CUDA errors? Reinstall PyTorch with CUDA 12.1 (cu121)",
                 "   - Import errors? Try python.org Python instead of MS Store",
                 "   - Multiple Pythons? Check which one is first in PATH",
-                "   - Need 8-bit optimizers? Install community bitsandbytes-windows",
+                "   - 8-bit optimizers (AdamW8bit)? bitsandbytes works out of the box!",
                 "=" * 70,
             ]
             for line in completion_lines:

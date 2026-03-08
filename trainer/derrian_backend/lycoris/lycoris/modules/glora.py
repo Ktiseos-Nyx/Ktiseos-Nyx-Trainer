@@ -1,13 +1,23 @@
 import math
+from functools import cache
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from .base import LycorisBaseModule
-from ..functional import tucker_weight_from_conv
+from ..functional.general import tucker_weight_from_conv
+from ..logging import logger
 
-from typing import Optional
+from .base import LycorisBaseModule
+
+@cache
+def log_glora_drop():
+    return logger.warning(
+        "Using GLoRA with bypass_mode=False will result in network or LoRA dropout " \
+        "being applied to the forward input instead of the layers. Requiring much lower values for dropout." \
+        "Note: Bypass mode may not behave the same, so test and compare if desired."
+    )
 
 
 class GLoRAModule(LycorisBaseModule):
@@ -38,16 +48,14 @@ class GLoRAModule(LycorisBaseModule):
         dropout=0.0,
         rank_dropout=0.0,
         module_dropout=0.0,
-        lora_dropout=0.0,
-        aid_dropout=0.0,
         use_tucker=False,
         use_scalar=False,
         rank_dropout_scale=False,
         weight_decompose=False,
+        wd_on_output=True,
         bypass_mode=None,
         rs_lora=False,
-        ggpo_beta: Optional[float] = None,
-        ggpo_sigma: Optional[float] = None,
+        orthogonalize=False,
         **kwargs,
     ):
         """
@@ -64,18 +72,24 @@ class GLoRAModule(LycorisBaseModule):
             dropout,
             rank_dropout,
             module_dropout,
-            lora_dropout,
-            aid_dropout,
             rank_dropout_scale,
             bypass_mode,
-            ggpo_beta,
-            ggpo_sigma
+            None,
+            None,
+            False,
+            0
         )
         if self.module_type not in self.support_module:
             raise ValueError(f"{self.module_type} is not supported in GLoRA algo.")
         self.lora_dim = lora_dim
         self.tucker = False
         self.rs_lora = rs_lora
+        self.use_orthogonal_weights = orthogonalize
+        if self.use_orthogonal_weights == True and use_scalar == False:
+            use_scalar = True
+
+        if dropout and not bypass_mode:
+            log_glora_drop()
 
         if self.module_type.startswith("conv"):
             self.isconv = True
@@ -134,14 +148,28 @@ class GLoRAModule(LycorisBaseModule):
             self.register_buffer("scalar", torch.tensor(1.0), persistent=False)
 
         # same as microsoft's
-        torch.nn.init.kaiming_uniform_(self.a1.weight, a=math.sqrt(5))
-        torch.nn.init.kaiming_uniform_(self.b1.weight, a=math.sqrt(5))
-        if use_scalar:
+        if self.use_orthogonal_weights:
+            torch.nn.init.orthogonal_(self.a1.weight)
+            torch.nn.init.orthogonal_(self.b1.weight)
+        else:
+            torch.nn.init.kaiming_uniform_(self.a1.weight, a=math.sqrt(5))
+            torch.nn.init.kaiming_uniform_(self.b1.weight, a=math.sqrt(5))
+
+        if self.use_orthogonal_weights:
+            torch.nn.init.orthogonal_(self.a2.weight)
+            torch.nn.init.orthogonal_(self.b2.weight)
+        elif use_scalar:
             torch.nn.init.kaiming_uniform_(self.a2.weight, a=math.sqrt(5))
             torch.nn.init.kaiming_uniform_(self.b2.weight, a=math.sqrt(5))
         else:
             torch.nn.init.zeros_(self.a2.weight)
             torch.nn.init.zeros_(self.b2.weight)
+
+        if self.tucker:
+            if self.use_orthogonal_weights:
+                torch.nn.init.orthogonal_(self.bm.weight)
+            else:
+                torch.nn.init.kaiming_uniform_(self.bm.weight, a=math.sqrt(5))
 
     @classmethod
     def make_module_from_state_dict(
@@ -167,9 +195,9 @@ class GLoRAModule(LycorisBaseModule):
         destination = {}
         destination["alpha"] = self.alpha
         destination["a1.weight"] = self.a1.weight
-        destination["a2.weight"] = self.a2.weight * self.scalar
+        destination["a2.weight"] = self.a2.weight * self.scalar.to(device=self.a2.weight.device)
         destination["b1.weight"] = self.b1.weight
-        destination["b2.weight"] = self.b2.weight * self.scalar
+        destination["b2.weight"] = self.b2.weight * self.scalar.to(device=self.b2.weight.device)
         if self.tucker:
             destination["bm.weight"] = self.bm.weight
         return destination
@@ -189,15 +217,22 @@ class GLoRAModule(LycorisBaseModule):
             )
 
     def make_weight(self, device=None):
-        wa1 = self.a1.weight.view(self.a1.weight.size(0), -1)
-        wa2 = self.a2.weight.view(self.a2.weight.size(0), -1)
-        orig = self.org_weight
+        wa1 = self._orthogonalize(self.a1.weight.to(device)).view(self.a1.weight.size(0), -1)
+        wa2 = self._orthogonalize(self.a2.weight.to(device)).view(self.a2.weight.size(0), -1)
+
+        orig = self.get_org_weight_for_compute(device)
+
+        if orig.dtype != wa1.dtype:
+            orig = orig.to(wa1.dtype)
 
         if self.tucker:
-            wb = tucker_weight_from_conv(self.b1.weight, self.b2.weight, self.bm.weight)
+            wb1 = self._orthogonalize(self.b1.weight.to(device))
+            wb2 = self._orthogonalize(self.b2.weight.to(device))
+            wbm = self._orthogonalize(self.bm.weight.to(device))
+            wb = tucker_weight_from_conv(wb1, wb2, wbm)
         else:
-            wb1 = self.b1.weight.view(self.b1.weight.size(0), -1)
-            wb2 = self.b2.weight.view(self.b2.weight.size(0), -1)
+            wb1 = self._orthogonalize(self.b1.weight.to(device)).view(self.b1.weight.size(0), -1)
+            wb2 = self._orthogonalize(self.b2.weight.to(device)).view(self.b2.weight.size(0), -1)
             wb = wb1 @ wb2
             wb = wb.view(*orig.shape)
         if orig.dim() > 2:
@@ -205,7 +240,7 @@ class GLoRAModule(LycorisBaseModule):
             w_wa2 = torch.einsum("o i ..., i j -> o j ...", w_wa1, wa2)
         else:
             w_wa2 = (orig @ wa1) @ wa2
-        return (wb + w_wa2) * self.scale * self.scalar
+        return (wb + w_wa2) * self.scale * self.scalar.to(device=device)
 
     def get_diff_weight(self, multiplier=1.0, shape=None, device=None):
         weight = self.make_weight(device) * multiplier
@@ -215,36 +250,72 @@ class GLoRAModule(LycorisBaseModule):
 
     def get_merged_weight(self, multiplier=1, shape=None, device=None):
         diff_w, _ = self.get_diff_weight(multiplier, shape, device)
-        return self.org_weight + diff_w, None
+
+        weight = self.get_org_weight_for_compute(diff_w.device)
+
+        if weight.dtype != diff_w.dtype:
+            weight = weight.to(diff_w.dtype)
+
+        return weight + diff_w, None
 
     def _bypass_forward(self, x, scale=1, diff=False):
         scale = self.scale * scale
-        ax_mid = self.a2(x) * scale
-        bx_mid = self.b2(x) * scale
+        
+        # Orthogonalize all weights on the fly
+        wa1 = self._orthogonalize(self.a1.weight).to(x.device, dtype=x.dtype)
+        wa2 = self._orthogonalize(self.a2.weight).to(x.device, dtype=x.dtype)
+        wb1 = self._orthogonalize(self.b1.weight).to(x.device, dtype=x.dtype)
+        wb2 = self._orthogonalize(self.b2.weight).to(x.device, dtype=x.dtype)
+        
+        # Branch A calculation
+        ax_mid = self.down_op(x, wa2) * scale
+        
+        # Branch B calculation
+        bx_mid = self.down_op(x, wb2) * scale
 
         if self.rank_dropout and self.training:
             drop_a = (
-                torch.rand(self.lora_dim, device=ax_mid.device) < self.rank_dropout
+                torch.rand(self.lora_dim, device=ax_mid.device) > self.rank_dropout
             ).to(ax_mid.dtype)
             drop_b = (
-                torch.rand(self.lora_dim, device=bx_mid.device) < self.rank_dropout
+                torch.rand(self.lora_dim, device=bx_mid.device) > self.rank_dropout
             ).to(bx_mid.dtype)
             if self.rank_dropout_scale:
                 drop_a /= drop_a.mean()
                 drop_b /= drop_b.mean()
-            if (dims := len(x.shape)) == 4:
-                drop_a = drop_a.view(1, -1, 1, 1)
-                drop_b = drop_b.view(1, -1, 1, 1)
-            else:
+            if (dims := len(x.shape)) >= 4: # Support conv1d, conv2d, conv3d
+                drop_a = drop_a.view(1, -1, *([1]*(dims-2)))
+                drop_b = drop_b.view(1, -1, *([1]*(dims-2)))
+            else: # Linear
                 drop_a = drop_a.view(*[1] * (dims - 1), -1)
                 drop_b = drop_b.view(*[1] * (dims - 1), -1)
             ax_mid = ax_mid * drop_a
             bx_mid = bx_mid * drop_b
+            
+        # Finish branch A
+        ax = self.up_op(ax_mid, wa1)
+
+        # Finish branch B
+        if self.tucker:
+            wbm = self._orthogonalize(self.bm.weight)
+            # Use functional call for the middle convolution
+            bx_mid = self.op(
+                bx_mid,
+                wbm,
+                bias=None,
+                stride=self.bm.stride,
+                padding=self.bm.padding,
+                dilation=self.bm.dilation,
+                groups=self.bm.groups,
+            )
+        bx = self.up_op(bx_mid, wb1)
+
+        # W(X + A(X)) + B(X)
         return (
             self.org_forward(
-                (0 if diff else x) + self.drop(self.a1(ax_mid)) * self.scale
+                (0 if diff else x) + self.drop(ax) * self.scale
             )
-            + self.drop(self.b1(bx_mid)) * self.scale
+            + self.drop(bx) * self.scale
         )
 
     def bypass_forward_diff(self, x, scale=1):
@@ -260,13 +331,46 @@ class GLoRAModule(LycorisBaseModule):
         if self.bypass_mode:
             return self.bypass_forward(x, self.multiplier)
         else:
-            weight = (
-                self.org_module[0].weight.data.to(self.dtype)
-                + self.get_diff_weight(multiplier=self.multiplier)[0]
-            )
-            bias = (
-                None
-                if self.org_module[0].bias is None
-                else self.org_module[0].bias.data
-            )
-            return self.op(x, weight, bias, **self.kw_dict)
+            weight = self.get_org_weight_for_compute(x.device)
+
+            # Ensure correct dtype
+            if weight.dtype != self.dtype:
+                weight = weight.to(self.dtype)
+
+            diff_w, _ = self.get_diff_weight(multiplier=self.multiplier, device=x.device)
+
+            weight = weight.add(diff_w)
+
+            bias = self.get_org_bias_for_compute(x.device)
+
+            if self.dropout:
+                x = self.drop(x)
+
+            if weight.dtype != x.dtype:
+                weight = weight.to(x.dtype)
+            if bias is not None and bias.dtype != x.dtype:
+                bias = bias.to(x.dtype)
+
+            result = self.op(x, weight, bias, **self.kw_dict)
+
+            return result
+        
+    @torch.no_grad()
+    def apply_max_norm(self, max_norm, device=None):
+        orig_norm = self.make_weight(device).norm() * self.scale
+        norm = torch.clamp(orig_norm, max_norm / 2)
+        desired = torch.clamp(norm, max=max_norm)
+        ratio = desired.cpu() / norm.cpu()
+
+        scaled = norm != desired
+        if scaled:
+            self.scalar *= ratio
+            return scaled, orig_norm * ratio
+        else:
+            return 0, orig_norm
+
+    @torch.no_grad()
+    def get_norm(self, device=None):
+        # Norm before scale determined by alpha / r_factor
+        unscaled_norm = self.make_weight(device).norm()
+        return unscaled_norm

@@ -1,8 +1,8 @@
 import argparse
 from typing import List, Optional, Union
 
-import torch  # pyright: ignore[reportMissingImports]
-from accelerate import Accelerator  # pyright: ignore[reportMissingImports]
+import torch
+from accelerate import Accelerator
 from library.device_utils import init_ipex, clean_memory_on_device
 
 init_ipex()

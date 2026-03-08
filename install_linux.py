@@ -147,17 +147,6 @@ class LocalLinuxInstaller:
             print("    Install manually if needed: pip install torch torchvision")
             return True
 
-    def ensure_bitsandbytes_binaries(self):
-        bits_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
-        required = ["libbitsandbytes_cuda121.so", "libbitsandbytes_cuda121_nocublaslt.so"]
-        missing = [f for f in required if not os.path.exists(os.path.join(bits_dir, f))]
-        if missing:
-            print(f" ❌ Missing bitsandbytes binaries: {missing}")
-            print("    Please ensure these are in trainer/derrian_backend/sd_scripts/bitsandbytes/")
-            return False
-        print(" ✅ bitsandbytes CUDA 12.1 binaries present")
-        return True
-
     def check_aria2c(self):
         if not shutil.which("aria2c"):
             print(" ⚠️ aria2c not found")
@@ -270,8 +259,6 @@ class LocalLinuxInstaller:
         if not self.install_dependencies():
             return False
         self.install_pytorch_cuda121()
-        if not self.ensure_bitsandbytes_binaries():
-            return False
         self.apply_editable_installs()
 
         # =============== NEW: FRONTEND SETUP ===============

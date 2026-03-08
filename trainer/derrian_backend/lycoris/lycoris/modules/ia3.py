@@ -27,8 +27,6 @@ class IA3Module(LycorisBaseModule):
         dropout=0.0,
         rank_dropout=0.0,
         module_dropout=0.0,
-        lora_dropout=0.0,
-        aid_dropout=0.0,
         use_tucker=False,
         use_scalar=False,
         rank_dropout_scale=False,
@@ -48,8 +46,6 @@ class IA3Module(LycorisBaseModule):
             dropout,
             rank_dropout,
             module_dropout,
-            lora_dropout,
-            aid_dropout,
             rank_dropout_scale,
             bypass_mode,
             ggpo_beta,
@@ -101,9 +97,9 @@ class IA3Module(LycorisBaseModule):
     def make_weight(self, multiplier=1, shape=None, device=None, diff=False):
         weight = self.weight * multiplier + int(not diff)
         if self.train_input:
-            diff = self.org_weight * weight
+            diff = self.get_org_weight_for_compute(device).to(self.dtype, non_blocking=True) * weight
         else:
-            diff = self.org_weight.transpose(0, 1) * weight
+            diff = self.get_org_weight_for_compute(device).to(self.dtype, non_blocking=True).transpose(0, 1) * weight
             diff = diff.transpose(0, 1)
         if shape is not None:
             diff = diff.view(shape)
@@ -143,10 +139,10 @@ class IA3Module(LycorisBaseModule):
         if self.bypass_mode:
             return self.bypass_forward(x, self.multiplier)
         else:
-            weight = self.get_merged_weight(multiplier=self.multiplier)[0]
-            bias = (
-                None
-                if self.org_module[0].bias is None
-                else self.org_module[0].bias.data
-            )
+            weight = self.get_merged_weight(multiplier=self.multiplier, device=x.device)[0]
+
+            bias = self.get_org_bias_for_compute(x.device)
+            if bias is not None:
+                bias = bias.to(x.dtype, non_blocking=True)
+
             return self.op(x, weight, bias, **self.kw_dict)
