@@ -5,6 +5,7 @@
  * Extracted from file-service.ts patterns, used across all API routes.
  */
 
+import fs from 'fs';
 import path from 'path';
 
 // Project root: process.cwd() is frontend/, go up one level
@@ -26,11 +27,9 @@ const BROWSE_DIRS = [
 ].filter(Boolean);
 
 /**
- * Check if a resolved path is within any of the given allowed directories.
+ * Canonicalize a path by resolving symlinks for the existing portion
+ * and appending any not-yet-created tail segments.
  */
-import fs from 'fs';
-import path from 'path';
-
 function canonicalizeForCheck(inputPath: string): string {
   const resolved = path.resolve(inputPath);
   let cursor = resolved;
@@ -50,6 +49,9 @@ function canonicalizeForCheck(inputPath: string): string {
   return suffix.length ? path.join(realBase, ...suffix) : realBase;
 }
 
+/**
+ * Check if a resolved path is within any of the given allowed directories.
+ */
 function isWithin(resolvedPath: string, allowedDirs: string[]): boolean {
   const normalized = canonicalizeForCheck(resolvedPath);
   return allowedDirs.some(dir => {
@@ -61,9 +63,9 @@ function isWithin(resolvedPath: string, allowedDirs: string[]): boolean {
 
 /**
  * Validate that a path is within allowed directories.
- * Resolves the path, strips traversal, and checks confinement.
+ * Resolves the path, canonicalizes symlinks, and checks confinement.
  *
- * `@throws` Error if path is outside allowed directories
+ * @throws Error if path is outside allowed directories
  */
 function validateWithin(userPath: string, allowedDirs: string[], context: string): string {
   const resolved = canonicalizeForCheck(userPath);
@@ -71,7 +73,6 @@ function validateWithin(userPath: string, allowedDirs: string[], context: string
     throw new Error(`Access denied: ${context} path outside allowed directories`);
   }
   return resolved;
-}
 }
 
 // ========== Public API ==========

@@ -320,6 +320,14 @@ async def merge_lora(request: LoRAMergeRequest):
     Uses Kohya's merge scripts from vendored backend.
     """
     try:
+        # Security: confine all paths to output directory
+        try:
+            for lora in request.lora_inputs:
+                validate_path_within(lora["path"], [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert dict inputs to LoRAInput models
         lora_inputs = [
             LoRAInput(path=lora["path"], ratio=lora.get("ratio", 1.0))
@@ -346,6 +354,8 @@ async def merge_lora(request: LoRAMergeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LoRA merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -371,6 +381,14 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
     Uses Kohya's merge_models.py script from vendored backend.
     """
     try:
+        # Security: confine all paths to output directory
+        try:
+            for cp in request.checkpoint_inputs:
+                validate_path_within(cp["path"], [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert dict inputs to CheckpointInput models
         checkpoint_inputs = [
             CheckpointInput(path=cp["path"], ratio=cp.get("ratio", 1.0))
@@ -398,6 +416,8 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Checkpoint merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -424,6 +444,13 @@ async def upload_to_huggingface(request: HuggingFaceUploadRequest):
     Supports multiple files, remote folders, and pull request creation.
     """
     try:
+        # Security: confine uploaded files to output directory
+        try:
+            for file_path in request.selected_files:
+                validate_path_within(file_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: file path outside allowed directories")
+
         repo_id = f"{request.owner}/{request.repo_name}"
 
         service_request = ServiceHFRequest(

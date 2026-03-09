@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
-import path from 'path';
 import toml from '@iarna/toml';
+import { validateConfigPath } from '@/lib/node-services/path-validation';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +20,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const filePath = path.resolve(configPath);
+    // Security: confine to config directories
+    let filePath: string;
+    try {
+      filePath = validateConfigPath(configPath);
+    } catch {
+      return NextResponse.json(
+        { error: 'Access denied: path outside allowed directories' },
+        { status: 403 }
+      );
+    }
 
     try {
       await fs.access(filePath);
