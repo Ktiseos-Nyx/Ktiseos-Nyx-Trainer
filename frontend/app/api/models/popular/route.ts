@@ -1,6 +1,6 @@
 /**
  * Next.js API Route: GET /api/models/popular
- * Get a list of popular/recommended models and VAEs with direct download URLs
+ * Get a list of supported models and VAEs with direct download URLs
  *
  * Migrated from Python FastAPI: api/routes/models.py -> get_popular_models
  */
@@ -8,11 +8,11 @@
 import { NextResponse } from 'next/server';
 
 /**
- * Provide a fixed JSON payload listing popular/recommended models and VAEs with download metadata.
+ * Provide a fixed JSON payload listing supported models and VAEs with download metadata.
  *
  * The response contains:
  * - `success`: boolean set to `true`.
- * - `models`: an object mapping category keys (e.g., `sdxl`, `sd15`, `flux`, `sd3.5`, `chroma`, `anima`, `hunyuanimage`) to arrays of model entries. Each model entry includes `name`, `url`, `filename`, and `description`; some entries may include `manualOnly: true` and `repoUrl` for manual-download guidance or gated access notes.
+ * - `models`: an object mapping category keys (e.g., `sdxl`, `sd15`, `flux`, `sd3.5`, `chroma`, `anima`, `lumina`, `hunyuanimage`) to arrays of model entries. Each model entry includes `name`, `url`, `filename`, and `description`; some entries may include `manualOnly: true` and `repoUrl` for manual-download guidance or gated access notes.
  * - `vaes`: an array of VAE entries, each including `name`, `url`, `filename`, and `description`.
  *
  * @returns A JSON object with `success`, `models`, and `vaes` describing available models and VAEs and their download or manual-download instructions.
@@ -38,7 +38,7 @@ export async function GET() {
           name: 'Pony Diffusion V6 XL',
           url: 'https://civitai.com/api/download/models/290640',
           filename: 'ponyDiffusionV6XL_v6.safetensors',
-          description: 'Popular anime/cartoon model',
+          description: 'Anime/cartoon model from Civitai',
         },
       ],
       sd15: [
@@ -55,6 +55,12 @@ export async function GET() {
           url: 'https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors',
           filename: 'flux1-dev.safetensors',
           description: 'FLUX.1 development model — requires HuggingFace login & license acceptance',
+        },
+        {
+          name: 'FLUX.1 Schnell',
+          url: 'https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/flux1-schnell.safetensors',
+          filename: 'flux1-schnell.safetensors',
+          description: 'FLUX.1 fast inference model — Apache 2.0 license, no login required',
         },
       ],
       'sd3.5': [
@@ -93,6 +99,20 @@ export async function GET() {
           description: 'Qwen3 0.6B text encoder for Anima — required component',
         },
       ],
+      lumina: [
+        {
+          name: 'Lumina Image 2.0 (Diffusion Model)',
+          url: 'https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/diffusion_models/lumina_2_model_bf16.safetensors',
+          filename: 'lumina_2_model_bf16.safetensors',
+          description: 'Lumina Image 2.0 diffusion model (5.2GB) — 2B parameter flow-based DiT',
+        },
+        {
+          name: 'Lumina Gemma2 Text Encoder',
+          url: 'https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/text_encoders/gemma_2_2b_fp16.safetensors',
+          filename: 'gemma_2_2b_fp16.safetensors',
+          description: 'Gemma2 2B text encoder for Lumina — required component (5.2GB)',
+        },
+      ],
       hunyuanimage: [
         {
           name: 'HunyuanImage 3.0 (Manual Download)',
@@ -118,6 +138,12 @@ export async function GET() {
         description: 'Improved VAE for SD 1.5',
       },
       {
+        name: 'Flux VAE',
+        url: 'https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors',
+        filename: 'flux_ae.safetensors',
+        description: 'Flux autoencoder (335MB) — same VAE for both Dev and Schnell, from ungated Schnell repo',
+      },
+      {
         name: 'Anima VAE',
         url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors',
         filename: 'qwen_image_vae.safetensors',
@@ -128,6 +154,12 @@ export async function GET() {
         url: 'https://huggingface.co/lodestones/Chroma1-Base/resolve/main/vae/diffusion_pytorch_model.safetensors',
         filename: 'chroma_vae.safetensors',
         description: 'Chroma VAE from Lodestone — included in Chroma repos',
+      },
+      {
+        name: 'Lumina VAE',
+        url: 'https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/vae/ae.safetensors',
+        filename: 'lumina_ae.safetensors',
+        description: 'Lumina Image 2.0 autoencoder (335MB)',
       },
     ],
   });

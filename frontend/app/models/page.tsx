@@ -34,7 +34,7 @@ export default function ModelsPage() {
   const [vaes, setVaes] = useState<ModelFile[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Popular models
+  // Supported models
   const [popularModels, setPopularModels] = useState<PopularModelsResponse | null>(null);
 
   // Load files and popular models
@@ -207,7 +207,7 @@ export default function ModelsPage() {
                 <div className="text-sm text-cyan-100">
                   <p className="font-semibold mb-1">Quick Start:</p>
                   <p>
-                    Want a popular model? Scroll down to the <span className="text-cyan-400 font-semibold">Popular Models</span> section below and click "Use" on any model to auto-fill the download form.
+                    Want a supported model? Scroll down to the <span className="text-cyan-400 font-semibold">Supported Models</span> section below and click "Use" on any model to auto-fill the download form.
                   </p>
                 </div>
               </div>
@@ -326,12 +326,12 @@ export default function ModelsPage() {
               )}
             </div>
 
-            {/* Popular Models */}
+            {/* Supported Models */}
             {popularModels && (
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
                 <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
                   <Sparkles className="w-6 h-6 text-yellow-400" />
-                  Popular Models
+                  Supported Models
                 </h2>
 
                 <div className="space-y-4">
@@ -383,9 +383,9 @@ export default function ModelsPage() {
                     </div>
                   ))}
 
-                  {/* Popular VAEs */}
+                  {/* Supported VAEs */}
                   <div>
-                    <h3 className="text-lg font-semibold text-cyan-400 mb-2">VAES</h3>
+                    <h3 className="text-lg font-semibold text-cyan-400 mb-2">VAEs</h3>
                     <div className="space-y-2">
                       {(popularModels.vaes || []).map((vae: PopularModel, idx: number) => (
                         <div
