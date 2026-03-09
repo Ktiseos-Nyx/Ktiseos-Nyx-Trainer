@@ -10,10 +10,10 @@ import { settingsService } from '@/lib/node-services/settings-service';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { key: string } }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
-    const { key } = params;
+    const { key } = await params;
 
     // Validate key
     const validKeys = ['huggingface_token', 'civitai_api_key'];

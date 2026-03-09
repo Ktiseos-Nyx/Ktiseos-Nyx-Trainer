@@ -10,6 +10,11 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from services.core.validation import (
+    validate_path_within, validate_dataset_path, validate_output_path,
+    PROJECT_ROOT, DATASETS_DIR, OUTPUT_DIR,
+)
+from services.core.exceptions import ValidationError
 
 # Import new service
 from services import lora_service
@@ -64,6 +69,12 @@ async def calculate_steps(request: CalculatorRequest):
 
         if request.batch_size <= 0:
             raise HTTPException(status_code=400, detail="Batch size must be greater than zero")
+
+        # Security: confine to datasets directory
+        try:
+            validate_path_within(dataset_path, [DATASETS_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         if not os.path.exists(dataset_path):
             raise HTTPException(status_code=404, detail=f"Dataset path does not exist: {dataset_path}")
@@ -201,14 +212,11 @@ async def list_lora_files(request: ListLoraFilesRequest):
 
         directory = Path(request.directory)
 
-        # Security: Ensure directory is within project bounds
-        project_root = Path.cwd()
+        # Security: confine to output directory
         try:
-            directory = directory.resolve()
-            if not str(directory).startswith(str(project_root)):
-                raise HTTPException(status_code=403, detail="Access denied")
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid directory path")
+            directory = validate_path_within(str(directory), [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Create directory if it doesn't exist
         directory.mkdir(parents=True, exist_ok=True)
@@ -259,6 +267,13 @@ async def resize_lora(request: LoRAResizeRequest):
     Uses Kohya's resize_lora.py script from vendored backend.
     """
     try:
+        # Security: confine paths to output directory
+        try:
+            validate_path_within(request.input_path, [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert to service request
         service_request = ServiceResizeRequest(
             input_path=request.input_path,
@@ -281,6 +296,8 @@ async def resize_lora(request: LoRAResizeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LoRA resize error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -303,6 +320,14 @@ async def merge_lora(request: LoRAMergeRequest):
     Uses Kohya's merge scripts from vendored backend.
     """
     try:
+        # Security: confine all paths to output directory
+        try:
+            for lora in request.lora_inputs:
+                validate_path_within(lora["path"], [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert dict inputs to LoRAInput models
         lora_inputs = [
             LoRAInput(path=lora["path"], ratio=lora.get("ratio", 1.0))
@@ -329,6 +354,8 @@ async def merge_lora(request: LoRAMergeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LoRA merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -354,6 +381,14 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
     Uses Kohya's merge_models.py script from vendored backend.
     """
     try:
+        # Security: confine all paths to output directory
+        try:
+            for cp in request.checkpoint_inputs:
+                validate_path_within(cp["path"], [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert dict inputs to CheckpointInput models
         checkpoint_inputs = [
             CheckpointInput(path=cp["path"], ratio=cp.get("ratio", 1.0))
@@ -381,6 +416,8 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Checkpoint merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -407,6 +444,13 @@ async def upload_to_huggingface(request: HuggingFaceUploadRequest):
     Supports multiple files, remote folders, and pull request creation.
     """
     try:
+        # Security: confine uploaded files to output directory
+        try:
+            for file_path in request.selected_files:
+                validate_path_within(file_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: file path outside allowed directories")
+
         repo_id = f"{request.owner}/{request.repo_name}"
 
         service_request = ServiceHFRequest(

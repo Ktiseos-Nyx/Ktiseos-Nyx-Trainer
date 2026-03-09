@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { validateImagePath } from '@/lib/node-services/path-validation';
 
 interface UpdateTagsRequest {
   image_path: string;
@@ -33,9 +34,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Security: confine to datasets directory
+    let resolvedPath: string;
+    try {
+      resolvedPath = validateImagePath(image_path);
+    } catch {
+      return NextResponse.json(
+        { error: 'Access denied: path outside allowed directories' },
+        { status: 403 }
+      );
+    }
+
     // Verify image exists
     try {
-      await fs.stat(image_path);
+      await fs.stat(resolvedPath);
     } catch {
       return NextResponse.json(
         { error: `Image not found: ${image_path}` },
@@ -44,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get caption path
-    const captionPath = image_path.replace(path.extname(image_path), '.txt');
+    const captionPath = resolvedPath.replace(path.extname(resolvedPath), '.txt');
 
     // Join tags with comma separator
     const captionText = tags.join(', ');
@@ -55,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Tags updated successfully',
-      image_path,
+      image_path: resolvedPath,
       caption_path: captionPath,
       tags_count: tags.length,
     });

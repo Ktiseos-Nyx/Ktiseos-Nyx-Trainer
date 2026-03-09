@@ -1,0 +1,12 @@
+torch>=2.4.1
+toml>=0.10.2
+einops>=0.7.0
+tqdm>=4.67.1
+setuptools>=80.9.0
+coverage~=7.10.1
+parameterized~=0.9.0
+numpy~=2.3.2
+safetensors~=0.5.3
+diffusers~=0.34.0
+wheel~=0.45.1
+packaging~=25.0

@@ -22,23 +22,13 @@ export async function POST(request: NextRequest) {
     const configService = new ConfigService();
 
     // Generate TOMLs using the service
-    const result = await configService.generateTOMLs(config);
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          errors: result.errors,
-          message: 'Failed to generate training configuration',
-        },
-        { status: 400 }
-      );
-    }
+    const projectRoot = process.cwd().replace(/[\\/]frontend$/, '');
+    const result = await configService.generateTOMLs(config, projectRoot);
 
     return NextResponse.json({
       success: true,
-      dataset_config_path: result.datasetPath,
-      training_config_path: result.configPath,
+      dataset_config_path: result.dataset,
+      training_config_path: result.config,
       message: 'Training configuration generated successfully',
     });
   } catch (error) {

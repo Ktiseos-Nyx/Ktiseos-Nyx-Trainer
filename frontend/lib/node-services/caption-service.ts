@@ -12,6 +12,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { validateDatasetPath as validateDatasetPathSecurity, validateImagePath } from './path-validation';
 
 // ========== Types ==========
 
@@ -70,15 +71,18 @@ const DEFAULT_CAPTION_EXTENSION = '.txt';
 // ========== Helper Functions ==========
 
 /**
- * Validate dataset path exists and is a directory
+ * Validate dataset path is confined to datasets/ and exists as a directory
  */
 async function validateDatasetPath(datasetPath: string): Promise<string> {
+  // Security: confine to datasets directory
+  const resolved = validateDatasetPathSecurity(datasetPath);
+
   try {
-    const stats = await fs.stat(datasetPath);
+    const stats = await fs.stat(resolved);
     if (!stats.isDirectory()) {
       throw new Error('Path is not a directory');
     }
-    return path.resolve(datasetPath);
+    return resolved;
   } catch (error) {
     if (error instanceof Error && error.message.includes('ENOENT')) {
       throw new Error(`Dataset not found: ${datasetPath}`);
@@ -261,6 +265,10 @@ export class CaptionService {
           // Replace text
           let newCaption: string;
           if (request.use_regex) {
+            // Limit regex pattern length to mitigate ReDoS
+            if (request.find_text.length > 200) {
+              throw new Error('Regex pattern too long (max 200 characters)');
+            }
             const regex = new RegExp(request.find_text, 'g');
             newCaption = captionText.replace(regex, request.replace_text);
           } else {
@@ -300,7 +308,7 @@ export class CaptionService {
    */
   async readCaption(request: ReadCaptionRequest): Promise<CaptionReadResponse> {
     try {
-      const imagePath = path.resolve(request.image_path);
+      const imagePath = validateImagePath(request.image_path);
       const captionExt = request.caption_extension || DEFAULT_CAPTION_EXTENSION;
       const captionPath = imagePath.replace(path.extname(imagePath), captionExt);
 
@@ -327,7 +335,7 @@ export class CaptionService {
       return {
         success: false,
         image_path: request.image_path,
-        caption_path: path.resolve(request.image_path).replace(path.extname(request.image_path), request.caption_extension || DEFAULT_CAPTION_EXTENSION),
+        caption_path: '',
         caption_text: null,
         exists: false,
       };
@@ -339,7 +347,7 @@ export class CaptionService {
    */
   async writeCaption(request: WriteCaptionRequest): Promise<CaptionOperationResponse> {
     try {
-      const imagePath = path.resolve(request.image_path);
+      const imagePath = validateImagePath(request.image_path);
       const captionExt = request.caption_extension || DEFAULT_CAPTION_EXTENSION;
       const captionPath = imagePath.replace(path.extname(imagePath), captionExt);
 

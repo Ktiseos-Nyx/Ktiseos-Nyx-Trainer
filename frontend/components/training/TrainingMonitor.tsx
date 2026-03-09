@@ -143,7 +143,7 @@ export default function TrainingMonitor() {
       jobId,
       (data) => {
         if (data.type === 'log' && data.log) {
-          const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
+          const msg = data.log;
           if (msg) {
             setLogs((prev) => {
               const next = [...prev, msg];

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { validateDatasetPath } from '@/lib/node-services/path-validation';
 
 const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
 
@@ -31,9 +32,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Security: confine to datasets directory
+    let resolvedPath: string;
+    try {
+      resolvedPath = validateDatasetPath(datasetPath);
+    } catch {
+      return NextResponse.json(
+        { error: 'Access denied: path outside allowed directories' },
+        { status: 403 }
+      );
+    }
+
     // Validate dataset path exists
     try {
-      const stats = await fs.stat(datasetPath);
+      const stats = await fs.stat(resolvedPath);
       if (!stats.isDirectory()) {
         return NextResponse.json(
           { error: 'Path is not a directory' },
@@ -48,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all files in directory
-    const entries = await fs.readdir(datasetPath, { withFileTypes: true });
+    const entries = await fs.readdir(resolvedPath, { withFileTypes: true });
 
     // Filter to image files
     const imageFiles = entries
@@ -63,7 +75,7 @@ export async function GET(request: NextRequest) {
     const images: ImageWithTags[] = [];
 
     for (const imageName of imageFiles) {
-      const imagePath = path.join(datasetPath, imageName);
+      const imagePath = path.join(resolvedPath, imageName);
       const captionPath = imagePath.replace(path.extname(imagePath), '.txt');
 
       let tags: string[] = [];

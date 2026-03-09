@@ -273,40 +273,7 @@ class RemoteInstaller:
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
 
-        # Post-installation: Force correct CUDA 12 ONNX runtime
-        if success:
-            self.fix_onnx_runtime()
-
         return success
-
-    def fix_onnx_runtime(self):
-        """
-        Verify ONNX runtime is installed correctly.
-
-        Since requirements.txt now handles installation with --extra-index-url,
-        this method just verifies it worked.
-        """
-        self.logger.info("Verifying ONNX runtime installation...")
-        print("Verifying ONNX runtime installation...")
-
-        # Verify onnxruntime can be imported
-        verify_cmd = [
-            self.python_cmd,
-            "-c",
-            "import onnxruntime as ort; print(f'ONNX Runtime {ort.__version__} - Providers: {ort.get_available_providers()}')"
-        ]
-
-        success = self.run_command(verify_cmd, "Verifying ONNX runtime import")
-
-        if success:
-            self.logger.info("✅ ONNX runtime verification successful")
-            print("✅ ONNX runtime verification successful")
-        else:
-            error_msg = "❌ ONNX runtime verification failed - WD14 tagging may not work"
-            self.logger.error(error_msg)
-            print(error_msg)
-            print("   If tagging fails, manually install: pip install onnxruntime-gpu==1.17.1")
-            print("   With index: --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/")
 
     def check_system_dependencies(self):
         """Check and attempt to install required system packages like aria2c"""
@@ -402,163 +369,7 @@ class RemoteInstaller:
 
         # --- Platform-Specific Fixes ---
 
-        # --- PyTorch version file fix ---
-        self.logger.info("Checking if PyTorch version patch is needed...")
-        print("   - Checking if PyTorch version patch is needed...")
-        try:
-            import torch  # pyright: ignore[reportMissingImports]
-
-            pytorch_version = torch.__version__
-            self.logger.info("Detected PyTorch version: %s", pytorch_version)
-
-            if pytorch_version in ["2.0.0", "2.0.1"]:
-                self.logger.info("Applying patch for PyTorch %s...", pytorch_version)
-                print(f"   - Applying patch for PyTorch {pytorch_version}...")
-                fix_script_path = os.path.join(self.derrian_dir, "fix_torch.py")
-                if os.path.exists(fix_script_path):
-                    self.run_command([self.python_cmd, fix_script_path], "Applying PyTorch patch")
-            else:
-                info_msg = f"PyTorch version is {pytorch_version}. No patch needed."
-                self.logger.info(info_msg)
-                print(f"   - {info_msg}")
-        except ImportError:
-            warning_msg = "Could not import PyTorch. Skipping version patch check."
-            self.logger.warning(warning_msg)
-            print(f"   - {warning_msg}")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            error_msg = f"Error applying PyTorch patch: {e}"
-            self.logger.error(error_msg)
-            print(f"   -  {error_msg}")
-
         return True
-
-
-    def fix_cuda_symlinks(self):
-        """Auto-fix ONNX CUDA library symlink issues"""
-        self.logger.info("Checking for ONNX CUDA library symlink issues...")
-        print(" Checking for ONNX CUDA library symlink issues...")
-
-        try:
-            # Check multiple possible CUDA library locations
-            possible_cuda_dirs = [
-                "/usr/local/cuda/lib64",
-                "/usr/local/cuda-12/lib64",
-                "/usr/local/cuda-11/lib64",
-                "/opt/cuda/lib64",
-                "/usr/lib/x86_64-linux-gnu",  # Ubuntu/Debian system location
-            ]
-
-            cuda_lib_dir = None
-            for dir_path in possible_cuda_dirs:
-                if os.path.exists(dir_path):
-                    cuda_lib_dir = dir_path
-                    break
-
-            if not cuda_lib_dir:
-                self.logger.info("CUDA library directory not found. Skipping symlink fix.")
-                print("   - No CUDA installation detected. Skipping.")
-                return True
-
-            print(f"   Using CUDA library directory: {cuda_lib_dir}")
-
-            # Find available CUDA libraries - check for both libcublas and libcublasLt
-            import glob
-
-            # Check for all CUDA library types that ONNX needs
-            cuda_libraries = {
-                "libcublas": glob.glob(f"{cuda_lib_dir}/libcublas.so.*"),
-                "libcublasLt": glob.glob(f"{cuda_lib_dir}/libcublasLt.so.*"),
-                "libcufft": glob.glob(f"{cuda_lib_dir}/libcufft.so.*"),
-                "libcurand": glob.glob(f"{cuda_lib_dir}/libcurand.so.*"),
-                "libcusparse": glob.glob(f"{cuda_lib_dir}/libcusparse.so.*"),
-                "libcusolver": glob.glob(f"{cuda_lib_dir}/libcusolver.so.*"),
-                # Add critical CUDA runtime library that ONNX specifically needs
-                "libcudart": glob.glob(f"{cuda_lib_dir}/libcudart.so.*"),
-                # Add cuDNN libraries if available
-                "libcudnn": glob.glob(f"{cuda_lib_dir}/libcudnn.so.*"),
-            }
-
-            # Check if any libraries were found
-            found_libraries = {name: libs for name, libs in cuda_libraries.items() if libs}
-            if not found_libraries:
-                self.logger.info("No CUDA libraries found for ONNX symlink fix. Skipping.")
-                print("   - No CUDA libraries found. Skipping.")
-                return True
-
-            created_links = []
-
-            # ONNX commonly needed version targets - include specific versions ONNX looks for
-            common_versions = ["10", "11", "12", "11.0", "11.2", "11.8", "12.0", "12.1", "12.2"]
-
-            # Process each library type dynamically
-            for lib_name, lib_files in found_libraries.items():
-                lib_files.sort(reverse=True)  # Get latest version
-                latest_lib = lib_files[0]
-                version = latest_lib.split(".so.")[-1] if ".so." in latest_lib else "unknown"
-                print(f"   - Found {lib_name} version {version}")
-
-                # Generate symlink targets for this library
-                targets = []
-                for ver in common_versions:
-                    targets.extend(
-                        [f"{cuda_lib_dir}/{lib_name}.so.{ver}", f"/usr/lib/x86_64-linux-gnu/{lib_name}.so.{ver}"]
-                    )
-
-                created_links.extend(self._create_cuda_symlinks(latest_lib, targets))
-
-            if created_links:
-                self.logger.info("Created %d CUDA symlinks for ONNX compatibility", len(created_links))
-                print(f"    Created {len(created_links)} CUDA symlinks for ONNX compatibility")
-                return True
-            else:
-                print("   - All symlinks already exist or no symlinks needed")
-                return True
-
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            error_msg = f"Error fixing CUDA symlinks: {e}"
-            self.logger.error(error_msg)
-            print(f"   {error_msg}")
-            return False
-
-    def _create_cuda_symlinks(self, source_lib, target_list):
-        """Helper function to create CUDA library symlinks"""
-        created_links = []
-
-        for target in target_list:
-            try:
-                # Skip if symlink already exists and points correctly
-                if os.path.islink(target):
-                    if os.readlink(target) == source_lib:
-                        print(f"   Symlink already exists: {target} -> {source_lib}")
-                        continue
-                    else:
-                        # Remove bad symlink
-                        os.unlink(target)
-
-                # Skip if regular file exists (don't overwrite)
-                if os.path.exists(target) and not os.path.islink(target):
-                    print(f"   - Regular file exists, skipping: {target}")
-                    continue
-
-                # Create directory if needed (for /usr/lib paths)
-                target_dir = os.path.dirname(target)
-                if not os.path.exists(target_dir):
-                    print(f"   - Directory {target_dir} doesn't exist, skipping symlink")
-                    continue
-
-                # Create symlink
-                os.symlink(source_lib, target)
-                created_links.append(target)
-                print(f"   Created symlink: {target} -> {source_lib}")
-
-            except PermissionError:
-                print(f"   Permission denied creating symlink: {target}")
-                continue
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                print(f"   Failed to create symlink {target}: {e}")
-                continue
-
-        return created_links
 
     def check_already_installed(self):
         """Check if a previous installation exists. Returns True if we should proceed."""
@@ -636,12 +447,6 @@ class RemoteInstaller:
                 self.logger.warning(warning_msg)
                 print(f"{warning_msg}")
 
-            # Auto-fix ONNX CUDA symlink issues
-            if not self.fix_cuda_symlinks():
-                warning_msg = "CUDA symlink fixes failed (non-critical)."
-                self.logger.warning(warning_msg)
-                print(f"{warning_msg}")
-
             end_time = datetime.datetime.now()
             duration = end_time - start_time
 
@@ -691,8 +496,7 @@ The installer will:
   1. Verify vendored derrian_backend directory (Kohya SS + LyCORIS)
   2. Install system dependencies (aria2c)
   3. Install Python packages for training backend
-  4. Apply platform-specific fixes (CUDA, ONNX runtime)
-  5. Set up editable installs for development packages
+  4. Set up editable installs for development packages
 
 After installation:
   - VastAI: Services auto-start via supervisor (FastAPI + Next.js)

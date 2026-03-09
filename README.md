@@ -18,6 +18,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 - ✅ **Training execution** - End-to-end training verified on VastAI and RunPod (CAME optimizer, SDXL LoRA)
 - ✅ **Custom optimizers** - CAME working, Compass/standard optimizers (AdamW8bit, Prodigy, etc.) supported
 - ✅ **HuggingFace upload** - Direct upload from the web UI after training
+- ✅ **Security hardening** - Path traversal prevention across all API endpoints
 - 🐛 **Report issues** - [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
 
 > ⚠️ **ALPHA STAGE**: Core training works! Still polishing edges and testing more configurations. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
@@ -26,10 +27,21 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 ### Requirements
 
-- **GPU**: NVIDIA with CUDA 12.1+ (12GB VRAM minimum, 24GB for SDXL)
+- **GPU**: NVIDIA with CUDA 12.1+ (12GB VRAM minimum, 24GB recommended for SDXL)
 - **Python**: 3.10 or 3.11
 - **Node.js**: 18+
 - **Disk**: 50GB+ free space
+
+#### GPU Compatibility
+
+| GPU | Status | Notes |
+|-----|--------|-------|
+| **NVIDIA (CUDA 12.1+)** | Fully supported | Primary development and testing target |
+| **AMD (ROCm)** | Should work, community supported | Kohya SS supports ROCm. Install PyTorch with ROCm index: `pip install torch torchvision --index-url https://download.pytorch.org/whl/rocm6.2`. See [PyTorch ROCm docs](https://pytorch.org/get-started/locally/) for your version. |
+| **NVIDIA via ZLUDA** | Should work, community supported | For running CUDA workloads on non-CUDA hardware. See [ZLUDA project](https://github.com/vosen/ZLUDA) for setup instructions. |
+| **CPU-only** | Not recommended | Training will be extremely slow. Tagging/captioning will work but slowly. |
+
+> **Note on ROCm and ZLUDA:** These should work since the underlying Kohya SS backend supports them, but we develop and test exclusively on NVIDIA CUDA. We can't provide hands-on debugging for ROCm/ZLUDA issues, but we welcome community contributions, bug reports, and documentation from users running these setups. If you get it working, let us know so we can share your setup notes!
 
 📖 [Full Requirements & Installation Guide](documentation/INSTALLATION.md)
 

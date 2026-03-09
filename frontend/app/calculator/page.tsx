@@ -102,7 +102,7 @@ export default function CalculatorPage() {
                 >
                   {datasets.map((dataset) => (
                     <option key={dataset.path} value={dataset.path}>
-                      {dataset.name} ({dataset.image_count} images, {dataset.repeats}x repeats)
+                      {dataset.name} ({dataset.image_count} images)
                     </option>
                   ))}
                 </select>

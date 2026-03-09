@@ -16,11 +16,11 @@ starlette
 # Core Training & ML Dependencies
 # torch/torchvision removed - provided by base image (2.4.1/12.1)
 numpy>=1.24.0
-accelerate==0.33.0
+accelerate==1.6.0
 transformers==4.54.1
 safetensors==0.5.3
 diffusers[torch]==0.32.1
-bitsandbytes==0.45.5 # CRITICAL: Verify this version's wheel is CUDA 12.1 compatible
+bitsandbytes==0.45.5 # Officially supports CUDA up to 12.4 - just works via pip
 torch-fidelity==0.3.0
 einops==0.8.1
 pytorch-lightning==1.9.0
@@ -29,9 +29,9 @@ pytorch-lightning==1.9.0
 prodigyopt==1.1.2
 lion-pytorch==0.2.3
 dadaptation==3.2
-pytorch_optimizer==3.1.2
+pytorch_optimizer==3.9.0
 schedulefree==1.4
-prodigy-plus-schedule-free
+prodigy-plus-schedule-free==1.9.2
 came-pytorch
 
 # General Utilities

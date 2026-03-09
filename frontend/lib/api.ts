@@ -188,7 +188,7 @@ export interface DirectoryListing {
 }
 
 // Add these helper types at the top of lib/api.ts
-export type ModelType = 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
+export type ModelType = 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma' | 'Anima' | 'HunyuanImage';
 export type LoRAType =
   | 'LoRA'      // Standard LoRA
   | 'LoCon'     // LoRA with convolutions
@@ -200,7 +200,8 @@ export type LoRAType =
   | 'DyLoRA'    // Dynamic LoRA
   | 'GLoRA'     // Generalized LoRA
   | 'Diag-OFT'  // Diagonal Orthogonal Finetuning
-  | 'BOFT';     // Butterfly OFT
+  | 'BOFT'      // Butterfly OFT
+  | 'ABBA';     // Activation-Based Block Adaptation (LyCORIS v3.2.0+)
 export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME';
 export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
 
@@ -568,7 +569,7 @@ export interface TrainingConfig {
   // ========== PROJECT & MODEL SETUP ==========
   project_name: string;
   // ✅ FIX: Match the Zod Enum exactly
-  model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
+  model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma' | 'Anima' | 'HunyuanImage';
   training_mode?: 'lora' | 'checkpoint'; // Training mode: LoRA adapters (default) or full checkpoint
   pretrained_model_name_or_path: string;
   vae_path?: string;
@@ -720,6 +721,33 @@ export interface TrainingConfig {
   gemma2?: string;
   gemma2_max_token_length?: number;
 
+  // ========== ANIMA-SPECIFIC ==========
+  qwen3?: string;
+  llm_adapter_path?: string;
+  llm_adapter_lr?: number;
+  self_attn_lr?: number;
+  cross_attn_lr?: number;
+  mlp_lr?: number;
+  mod_lr?: number;
+  t5_tokenizer_path?: string;
+  qwen3_max_token_length?: number;
+  t5_max_token_length?: number;
+  unsloth_offload_checkpointing?: boolean;
+
+  // ========== HUNYUAN IMAGE-SPECIFIC ==========
+  text_encoder_path?: string;
+  byt5_path?: string;
+  fp8_scaled?: boolean;
+  fp8_vl?: boolean;
+  text_encoder_cpu?: boolean;
+
+  // ========== SHARED DiT FIELDS ==========
+  discrete_flow_shift?: number;
+  vae_chunk_size?: number;
+  vae_disable_cache?: boolean;
+  attn_mode?: string;
+  split_attn?: boolean;
+
   // ========== LOGGING ==========
   logging_dir?: string;
   log_with?: string;
@@ -736,7 +764,7 @@ export interface ValidationError {
 }
 
 export interface TrainingStartResponse {
-  success: bool;
+  success: boolean;
   message: string;
   job_id?: string;
   warnings?: string[];  // Deprecated

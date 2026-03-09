@@ -20,10 +20,10 @@ from pathlib import Path
 def run_command(cmd, shell=False):
     """Run command and return stdout, stderr, and return code."""
     try:
-        use_shell = shell or platform.system() == "Windows"
+        use_shell = shell  # Don't force shell=True on Windows; it breaks argument quoting
 
         if use_shell and isinstance(cmd, list):
-            cmd = " ".join(str(c) for c in cmd)
+            cmd = subprocess.list2cmdline([str(c) for c in cmd])
 
         result = subprocess.run(
             cmd,

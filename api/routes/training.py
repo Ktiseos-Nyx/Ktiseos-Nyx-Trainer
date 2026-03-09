@@ -154,6 +154,102 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
                 )
             )
 
+    # Chroma-specific validation (Flux variant without CLIP-L)
+    if config.model_type == "Chroma":
+        if not config.t5xxl_path:
+            errors.append(
+                ValidationError(
+                    field="t5xxl_path",
+                    message="T5-XXL path is required for Chroma training",
+                    severity="error",
+                )
+            )
+
+        if not config.ae_path:
+            errors.append(
+                ValidationError(
+                    field="ae_path",
+                    message="AutoEncoder path is required for Chroma training",
+                    severity="error",
+                )
+            )
+
+    # Anima-specific validation
+    if config.model_type == "Anima":
+        if not config.qwen3:
+            errors.append(
+                ValidationError(
+                    field="qwen3",
+                    message="Qwen3 model path is required for Anima training",
+                    severity="error",
+                )
+            )
+
+        if not config.ae_path:
+            errors.append(
+                ValidationError(
+                    field="ae_path",
+                    message="AutoEncoder (VAE) path is required for Anima training",
+                    severity="error",
+                )
+            )
+
+        if config.attn_mode and config.attn_mode not in ["torch", "xformers", "flash", "sageattn"]:
+            errors.append(
+                ValidationError(
+                    field="attn_mode",
+                    message=f"Invalid attention mode '{config.attn_mode}'. Must be torch, xformers, flash, or sageattn.",
+                    severity="error",
+                )
+            )
+
+        if config.attn_mode == "sageattn":
+            errors.append(
+                ValidationError(
+                    field="attn_mode",
+                    message="sageattn does not support training (inference only). Use torch, xformers, or flash instead.",
+                    severity="warning",
+                )
+            )
+
+    # HunyuanImage-specific validation
+    if config.model_type == "HunyuanImage":
+        if not config.text_encoder_path:
+            errors.append(
+                ValidationError(
+                    field="text_encoder_path",
+                    message="Qwen2.5-VL text encoder path is required for HunyuanImage training",
+                    severity="error",
+                )
+            )
+
+        if not config.byt5_path:
+            errors.append(
+                ValidationError(
+                    field="byt5_path",
+                    message="byT5 model path is required for HunyuanImage training",
+                    severity="error",
+                )
+            )
+
+        if config.training_mode != TrainingMode.LORA:
+            errors.append(
+                ValidationError(
+                    field="training_mode",
+                    message="HunyuanImage only supports LoRA training, not checkpoint/finetune.",
+                    severity="error",
+                )
+            )
+
+        if config.attn_mode and config.attn_mode not in ["torch", "xformers", "flash", "sageattn"]:
+            errors.append(
+                ValidationError(
+                    field="attn_mode",
+                    message=f"Invalid attention mode '{config.attn_mode}'. Must be torch, xformers, flash, or sageattn.",
+                    severity="error",
+                )
+            )
+
     return errors
 
 

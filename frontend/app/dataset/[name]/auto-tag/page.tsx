@@ -201,7 +201,7 @@ export default function AutoTagPage() {
       jobId,
       (data) => {
         if (data.type === 'log' && data.log) {
-          const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
+          const msg = data.log;
           if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
         } else if (data.type === 'progress' && data.progress !== undefined) {
           setProgress(data.progress as number);
@@ -314,7 +314,7 @@ export default function AutoTagPage() {
             response.job_id,
             (data) => {
               if (data.type === 'log' && data.log) {
-                const msg = typeof data.log === 'string' ? data.log : data.log.message || data.log.raw || '';
+                const msg = data.log;
                 if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
               } else if (data.type === 'progress' && data.progress !== undefined) {
                 setProgress(data.progress as number);

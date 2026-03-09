@@ -64,6 +64,7 @@ const defaultConfig: TrainingConfig = {
   caption_dropout_every_n_epochs: 0,
   keep_tokens_separator: ',',
   secondary_separator: ';',
+  caption_extension: '.txt',
   enable_wildcard: false,
   weighted_captions: false,
   enable_bucket: true,

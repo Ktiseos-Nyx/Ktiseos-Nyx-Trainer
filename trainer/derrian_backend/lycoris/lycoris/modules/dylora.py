@@ -28,8 +28,6 @@ class DyLoraModule(LycorisBaseModule):
         dropout=0.0,
         rank_dropout=0.0,
         module_dropout=0.0,
-        lora_dropout=0.0,
-        aid_dropout=0.0,
         use_tucker=False,
         block_size=4,
         use_scalar=False,
@@ -50,8 +48,6 @@ class DyLoraModule(LycorisBaseModule):
             dropout,
             rank_dropout,
             module_dropout,
-            lora_dropout,
-            aid_dropout,
             rank_dropout_scale,
             bypass_mode,
             ggpo_beta,
@@ -135,7 +131,13 @@ class DyLoraModule(LycorisBaseModule):
 
     def get_merged_weight(self, multiplier=1, shape=None, device=None, rank=None):
         diff, _ = self.get_diff_weight(multiplier, shape, device, rank)
-        return diff + self.org_weight, None
+
+        weight = self.get_org_weight_for_compute(diff.device)
+
+        if weight.dtype != diff.dtype:
+            weight = weight.to(diff.dtype)
+
+        return diff + weight, None
 
     def bypass_forward_diff(self, x, scale=1, rank=None):
         if rank is None:
@@ -158,9 +160,9 @@ class DyLoraModule(LycorisBaseModule):
             return self.bypass_forward(x, self.multiplier)
         else:
             weight = self.get_merged_weight(multiplier=self.multiplier)[0]
-            bias = (
-                None
-                if self.org_module[0].bias is None
-                else self.org_module[0].bias.data
-            )
+            
+            bias = self.get_org_bias_for_compute(x.device)
+            if bias is not None:
+                bias = bias.to(self.dtype, non_blocking=True).data
+
             return self.op(x, weight, bias, **self.kw_dict)

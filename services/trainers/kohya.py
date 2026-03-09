@@ -26,10 +26,7 @@ class KohyaTrainer(BaseTrainer):
     Kohya-ss training backend implementation.
 
     Uses Kohya's sd-scripts for training LoRA models across:
-    - SD 1.5
-    - SDXL
-    - Flux
-    - SD 3.5
+    - SD 1.5, SDXL, Flux, SD3, SD3.5, Lumina, Chroma, Anima, HunyuanImage
     """
 
     def __init__(self, config: TrainingConfig):
@@ -93,6 +90,10 @@ class KohyaTrainer(BaseTrainer):
             "--output_name",
             self.config.project_name,
         ]
+
+        # Chroma uses Flux scripts but needs --model_type chroma to switch behavior
+        if self.config.model_type == ModelType.CHROMA:
+            cmd.extend(["--model_type", "chroma"])
 
         logger.info(f"🚀 Launching Kohya Command: {' '.join(cmd)}")
 
@@ -170,12 +171,13 @@ class KohyaTrainer(BaseTrainer):
         except PathValidationError as e:
             errors.append(f"Invalid output path: {e}")
 
-        # Flux/SD3 specific validation
-        if self.config.model_type in [ModelType.FLUX, ModelType.SD3]:
-            if not self.config.clip_l_path:
-                errors.append("Flux/SD3 requires clip_l_path")
+        # Flux/SD3/SD3.5/Chroma specific validation
+        if self.config.model_type in [ModelType.FLUX, ModelType.SD3, ModelType.SD35, ModelType.CHROMA]:
+            # Chroma doesn't need CLIP-L (only T5XXL + AE)
+            if self.config.model_type != ModelType.CHROMA and not self.config.clip_l_path:
+                errors.append(f"{self.config.model_type} requires clip_l_path")
             if not self.config.t5xxl_path:
-                errors.append("Flux/SD3 requires t5xxl_path")
+                errors.append(f"{self.config.model_type} requires t5xxl_path")
 
         # Check sd_scripts exists
         if not self.sd_scripts_dir.exists():
@@ -260,6 +262,10 @@ class KohyaTrainer(BaseTrainer):
             self.config.project_name,
         ]
 
+        # Chroma uses Flux scripts but needs --model_type chroma to switch behavior
+        if self.config.model_type == ModelType.CHROMA:
+            cmd.extend(["--model_type", "chroma"])
+
         return cmd
 
     def get_script_path(self) -> Path:
@@ -286,8 +292,14 @@ class KohyaTrainer(BaseTrainer):
                 ModelType.SDXL: "sdxl_train.py",
                 ModelType.FLUX: "flux_train.py",
                 ModelType.SD3: "sd3_train.py",
+                ModelType.SD35: "sd3_train.py",  # SD3.5 uses same script as SD3
                 ModelType.LUMINA: "lumina_train.py",
+                ModelType.CHROMA: "flux_train.py",  # Chroma uses Flux scripts + --model_type chroma
+                ModelType.ANIMA: "anima_train.py",
+                # HunyuanImage: LoRA only - no checkpoint script
             }
+            if self.config.model_type == ModelType.HUNYUAN_IMAGE:
+                raise ValueError("HunyuanImage only supports LoRA training, not checkpoint/finetune")
             default_script = "fine_tune.py"
         else:
             # LoRA network training (default)
@@ -296,7 +308,11 @@ class KohyaTrainer(BaseTrainer):
                 ModelType.SDXL: "sdxl_train_network.py",
                 ModelType.FLUX: "flux_train_network.py",
                 ModelType.SD3: "sd3_train_network.py",
-                ModelType.LUMINA: "lumina_train_network.py",  # Fixed: was incorrectly using flux_train_network.py
+                ModelType.SD35: "sd3_train_network.py",  # SD3.5 uses same script as SD3
+                ModelType.LUMINA: "lumina_train_network.py",
+                ModelType.CHROMA: "flux_train_network.py",  # Chroma uses Flux scripts + --model_type chroma
+                ModelType.ANIMA: "anima_train_network.py",
+                ModelType.HUNYUAN_IMAGE: "hunyuan_image_train_network.py",
             }
             default_script = "train_network.py"
 
