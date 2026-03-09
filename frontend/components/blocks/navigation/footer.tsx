@@ -35,7 +35,7 @@ export function Footer() {
           </div>
 
           {/* Center: Made with love */}
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+          <div className="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
             <span>Made with</span>
             <Heart className="w-4 h-4 text-red-500 dark:text-red-400 fill-red-500 dark:fill-red-400" />
             <span>by the community</span>
