@@ -1168,7 +1168,7 @@ export const modelsAPI = {
     return handleResponse(response);
   },
 
-  popular: async () => {
+  popular: async (): Promise<PopularModelsResponse> => {
     const response = await fetch(`${API_BASE}/models/popular`);
     return handleResponse(response);
   },

@@ -350,20 +350,21 @@ export default function ModelsPage() {
                                 <p className="text-sm text-gray-400 mt-1">{model.description}</p>
                               </div>
                               {model.manualOnly ? (
-                                <a
-                                  href={model.repoUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  size="sm"
+                                  className="ml-4 text-yellow-400 border-yellow-400/50 hover:text-yellow-300"
                                 >
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="ml-4 text-yellow-400 border-yellow-400/50 hover:text-yellow-300"
+                                  <a
+                                    href={model.repoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                   >
                                     <ExternalLink className="w-4 h-4" />
                                     View Repo
-                                  </Button>
-                                </a>
+                                  </a>
+                                </Button>
                               ) : (
                                 <Button
                                   variant="ghost"
