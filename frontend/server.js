@@ -93,8 +93,9 @@ app.prepare().then(() => {
       const { pathname } = parsedUrl;
 
       // Handle Node.js API routes (new migration)
-      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/models/popular'];
-      const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix));
+      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings'];
+      const nodeApiExact = ['/api/models/popular'];
+      const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix)) || nodeApiExact.includes(pathname);
 
       if (isNodeApi) {
         // Let Next.js handle these routes

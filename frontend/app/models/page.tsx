@@ -207,7 +207,7 @@ export default function ModelsPage() {
                 <div className="text-sm text-cyan-100">
                   <p className="font-semibold mb-1">Quick Start:</p>
                   <p>
-                    Want a supported model? Scroll down to the <span className="text-cyan-400 font-semibold">Supported Models</span> section below and click "Use" on any model to auto-fill the download form.
+                    Want a supported model? Scroll down to the <span className="text-cyan-400 font-semibold">Supported Models</span> section below and click "Use" to auto-fill the download form, or "View Repo" for models that require manual download.
                   </p>
                 </div>
               </div>
