@@ -90,6 +90,7 @@ ipython_config.py
 node_modules/
 package-lock.json
 .next/
+*.tsbuildinfo
 dist/
 out/
 *.log
