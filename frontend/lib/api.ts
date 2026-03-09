@@ -1120,7 +1120,16 @@ export interface ModelFile {
 export interface PopularModel {
   name: string;
   url: string;
+  filename: string;
   description: string;
+  manualOnly?: boolean;
+  repoUrl?: string;
+}
+
+export interface PopularModelsResponse {
+  success: boolean;
+  models: Record<string, PopularModel[]>;
+  vaes: PopularModel[];
 }
 
 export const modelsAPI = {
@@ -1159,7 +1168,7 @@ export const modelsAPI = {
     return handleResponse(response);
   },
 
-  popular: async () => {
+  popular: async (): Promise<PopularModelsResponse> => {
     const response = await fetch(`${API_BASE}/models/popular`);
     return handleResponse(response);
   },

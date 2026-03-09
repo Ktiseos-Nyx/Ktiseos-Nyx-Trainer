@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { modelsAPI, ModelFile, PopularModel } from '@/lib/api';
+import { modelsAPI, ModelFile, PopularModel, PopularModelsResponse } from '@/lib/api';
 import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Link from 'next/link';
@@ -18,17 +18,6 @@ import {
 
 export type ModelType = 'sdxl' | 'sd15' | 'flux' | 'sd3.5' | 'chroma' | 'anima' | 'hunyuanimage' | 'lumina';
 
-/**
- * Render the Models & VAEs management page with download and manage tabs.
- *
- * The component provides a UI to:
- * - Download base models or VAEs from HuggingFace or Civitai by entering a URL and selecting type and model variant.
- * - Show download progress, success, and error states.
- * - Display a list of downloaded base models and VAEs with the ability to delete files.
- * - Present curated "Popular Models" and VAEs that auto-fill the download form (including optional model type).
- *
- * @returns The React element for the Models & VAEs page.
- */
 export default function ModelsPage() {
   const [activeTab, setActiveTab] = useState<'download' | 'manage'>('download');
 
@@ -46,7 +35,7 @@ export default function ModelsPage() {
   const [loading, setLoading] = useState(false);
 
   // Popular models
-  const [popularModels, setPopularModels] = useState<any>(null);
+  const [popularModels, setPopularModels] = useState<PopularModelsResponse | null>(null);
 
   // Load files and popular models
   useEffect(() => {
@@ -146,12 +135,12 @@ export default function ModelsPage() {
                 Download base models and VAEs from HuggingFace or Civitai
               </p>
             </div>
-            <Link href="/models/browse">
-              <Button className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+            <Button asChild className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+              <Link href="/models/browse">
                 <Search className="w-5 h-5" />
                 Browse Civitai
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
 
@@ -232,11 +221,11 @@ export default function ModelsPage() {
                 {/* Type Selection */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label id="download-type-label" className="block text-sm font-medium text-gray-300 mb-2">
                       Download Type
                     </label>
                     <Select value={downloadType} onValueChange={(value: 'model' | 'vae') => setDownloadType(value)}>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full" aria-labelledby="download-type-label">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -248,11 +237,11 @@ export default function ModelsPage() {
 
                   {downloadType === 'model' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label id="model-type-label" className="block text-sm font-medium text-gray-300 mb-2">
                         Model Type
                       </label>
                       <Select value={modelType} onValueChange={(value) => setModelType(value as ModelType)}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full" aria-labelledby="model-type-label">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -272,10 +261,11 @@ export default function ModelsPage() {
 
                 {/* URL Input */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="download-url" className="block text-sm font-medium text-gray-300 mb-2">
                     Download URL (HuggingFace or Civitai)
                   </label>
                   <Input
+                    id="download-url"
                     type="text"
                     value={downloadUrl}
                     onChange={(e) => setDownloadUrl(e.target.value)}
@@ -345,11 +335,11 @@ export default function ModelsPage() {
                 </h2>
 
                 <div className="space-y-4">
-                  {Object.entries(popularModels.models || {}).map(([type, modelsList]: [string, any]) => (
+                  {Object.entries(popularModels.models || {}).map(([type, modelsList]: [string, PopularModel[]]) => (
                     <div key={type}>
                       <h3 className="text-lg font-semibold text-cyan-400 mb-2 uppercase">{type}</h3>
                       <div className="space-y-2">
-                        {modelsList.map((model: any, idx: number) => (
+                        {modelsList.map((model: PopularModel, idx: number) => (
                           <div
                             key={idx}
                             className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 hover:border-cyan-500/50 transition-colors"
@@ -360,20 +350,21 @@ export default function ModelsPage() {
                                 <p className="text-sm text-gray-400 mt-1">{model.description}</p>
                               </div>
                               {model.manualOnly ? (
-                                <a
-                                  href={model.repoUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  size="sm"
+                                  className="ml-4 text-yellow-400 border-yellow-400/50 hover:text-yellow-300"
                                 >
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="ml-4 text-yellow-400 border-yellow-400/50 hover:text-yellow-300"
+                                  <a
+                                    href={model.repoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                   >
                                     <ExternalLink className="w-4 h-4" />
                                     View Repo
-                                  </Button>
-                                </a>
+                                  </a>
+                                </Button>
                               ) : (
                                 <Button
                                   variant="ghost"
@@ -463,6 +454,7 @@ export default function ModelsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${model.name}`}
                         onClick={() => handleDelete(model)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
@@ -508,6 +500,7 @@ export default function ModelsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${vae.name}`}
                         onClick={() => handleDelete(vae)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
