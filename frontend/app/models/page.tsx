@@ -18,6 +18,13 @@ import {
 
 export type ModelType = 'sdxl' | 'sd15' | 'flux' | 'sd3.5' | 'chroma' | 'anima' | 'hunyuanimage' | 'lumina';
 
+/**
+ * Render the Models & VAEs page that provides UI for downloading models/VAEs and managing local files.
+ *
+ * The page includes a download form (supports HuggingFace and Civitai links), a Popular Models section that can auto-fill the download form, and a Manage tab for listing and deleting downloaded models and VAEs.
+ *
+ * @returns A JSX element representing the Models & VAEs page.
+ */
 export default function ModelsPage() {
   const [activeTab, setActiveTab] = useState<'download' | 'manage'>('download');
 
