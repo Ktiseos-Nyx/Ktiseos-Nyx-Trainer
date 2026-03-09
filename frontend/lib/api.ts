@@ -1120,7 +1120,16 @@ export interface ModelFile {
 export interface PopularModel {
   name: string;
   url: string;
+  filename: string;
   description: string;
+  manualOnly?: boolean;
+  repoUrl?: string;
+}
+
+export interface PopularModelsResponse {
+  success: boolean;
+  models: Record<string, PopularModel[]>;
+  vaes: PopularModel[];
 }
 
 export const modelsAPI = {

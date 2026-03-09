@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { modelsAPI, ModelFile, PopularModel } from '@/lib/api';
+import { modelsAPI, ModelFile, PopularModel, PopularModelsResponse } from '@/lib/api';
 import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Link from 'next/link';
@@ -35,7 +35,7 @@ export default function ModelsPage() {
   const [loading, setLoading] = useState(false);
 
   // Popular models
-  const [popularModels, setPopularModels] = useState<any>(null);
+  const [popularModels, setPopularModels] = useState<PopularModelsResponse | null>(null);
 
   // Load files and popular models
   useEffect(() => {
@@ -335,11 +335,11 @@ export default function ModelsPage() {
                 </h2>
 
                 <div className="space-y-4">
-                  {Object.entries(popularModels.models || {}).map(([type, modelsList]: [string, any]) => (
+                  {Object.entries(popularModels.models || {}).map(([type, modelsList]: [string, PopularModel[]]) => (
                     <div key={type}>
                       <h3 className="text-lg font-semibold text-cyan-400 mb-2 uppercase">{type}</h3>
                       <div className="space-y-2">
-                        {modelsList.map((model: any, idx: number) => (
+                        {modelsList.map((model: PopularModel, idx: number) => (
                           <div
                             key={idx}
                             className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 hover:border-cyan-500/50 transition-colors"
