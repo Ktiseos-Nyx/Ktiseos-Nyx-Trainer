@@ -467,32 +467,6 @@ class LocalWindowsInstaller:
             else:
                 self.logger.debug("No setup.py found for %s at %s, skipping", name, path)
 
-        # Apply PyTorch patch if needed
-        self.logger.info("Checking if PyTorch version patch is needed...")
-        print("   - Checking if PyTorch version patch is needed...")
-        try:
-            import torch  # pyright: ignore
-
-            pytorch_version = torch.__version__
-            self.logger.info("Detected PyTorch version: %s", pytorch_version)
-            if pytorch_version in ["2.0.0", "2.0.1"]:
-                self.logger.info("Applying patch for PyTorch %s...", pytorch_version)
-                print(f"   - Applying patch for PyTorch {pytorch_version}...")
-                fix_script_path = os.path.join(self.derrian_dir, "fix_torch.py")
-                if os.path.exists(fix_script_path):
-                    self.run_command([self.python_cmd, fix_script_path], "Applying PyTorch patch")
-            else:
-                info_msg = f"PyTorch version is {pytorch_version}. No patch needed."
-                self.logger.info(info_msg)
-                print(f"   - {info_msg}")
-        except ImportError:
-            warning_msg = "Could not import PyTorch. Skipping version patch check."
-            self.logger.warning(warning_msg)
-            print(f"   - {warning_msg}")
-        except Exception as e:
-            error_msg = f"Error applying PyTorch patch: {e}"
-            self.logger.error(error_msg)
-            print(f"   - {error_msg}")
         return True
 
     def check_already_installed(self):

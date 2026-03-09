@@ -47,6 +47,14 @@ pause
 exit /b 1
 
 :RUN_DIAGNOSTIC
+
+REM Activate virtual environment if it exists (so packages are visible)
+if exist ".venv\Scripts\activate.bat" (
+    echo Activating virtual environment...
+    call .venv\Scripts\activate.bat
+    set PYTHON_CMD=python
+)
+
 echo Using Python: %PYTHON_CMD%
 echo.
 
