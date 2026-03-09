@@ -11,7 +11,7 @@ cd "$SCRIPT_DIR"
 PYTHON_CMD="python3"
 MIN_PYTHON_VERSION="3.10"
 VENV_DIR=".venv"
-INSTALLER_PY="install_linux.py"
+INSTALLER_PY="installer.py"
 USE_VENV=""
 AUTO_MODE=0
 
