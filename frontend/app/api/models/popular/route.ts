@@ -7,6 +7,16 @@
 
 import { NextResponse } from 'next/server';
 
+/**
+ * Provide a fixed JSON payload listing popular/recommended models and VAEs with download metadata.
+ *
+ * The response contains:
+ * - `success`: boolean set to `true`.
+ * - `models`: an object mapping category keys (e.g., `sdxl`, `sd15`, `flux`, `sd3.5`, `chroma`, `anima`, `hunyuanimage`) to arrays of model entries. Each model entry includes `name`, `url`, `filename`, and `description`; some entries may include `manualOnly: true` and `repoUrl` for manual-download guidance or gated access notes.
+ * - `vaes`: an array of VAE entries, each including `name`, `url`, `filename`, and `description`.
+ *
+ * @returns A JSON object with `success`, `models`, and `vaes` describing available models and VAEs and their download or manual-download instructions.
+ */
 export async function GET() {
   return NextResponse.json({
     success: true,
@@ -41,10 +51,56 @@ export async function GET() {
       ],
       flux: [
         {
-          name: 'FLUX.1 Dev',
+          name: 'FLUX.1 Dev (Gated)',
           url: 'https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/flux1-dev.safetensors',
           filename: 'flux1-dev.safetensors',
-          description: 'FLUX.1 development model',
+          description: 'FLUX.1 development model — requires HuggingFace login & license acceptance',
+        },
+      ],
+      'sd3.5': [
+        {
+          name: 'SD 3.5 Large (Gated)',
+          url: 'https://huggingface.co/stabilityai/stable-diffusion-3.5-large/resolve/main/sd3.5_large.safetensors',
+          filename: 'sd3.5_large.safetensors',
+          description: 'Stability AI SD 3.5 Large — may require HuggingFace login & license acceptance',
+        },
+      ],
+      chroma: [
+        {
+          name: 'Chroma1 Base',
+          url: 'https://huggingface.co/lodestones/Chroma1-Base/resolve/main/Chroma1-Base.safetensors',
+          filename: 'Chroma1-Base.safetensors',
+          description: 'Chroma base model by Lodestone — no CLIP-L needed, T5-XXL only',
+        },
+        {
+          name: 'Chroma1 HD',
+          url: 'https://huggingface.co/lodestones/Chroma1-HD/resolve/main/Chroma1-HD.safetensors',
+          filename: 'Chroma1-HD.safetensors',
+          description: 'Chroma HD model by Lodestone — higher resolution variant',
+        },
+      ],
+      anima: [
+        {
+          name: 'Anima Preview (Diffusion Model)',
+          url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-preview.safetensors',
+          filename: 'anima-preview.safetensors',
+          description: 'Anima diffusion model by Circlestone Labs — Qwen3 + T5 dual encoder architecture',
+        },
+        {
+          name: 'Anima Text Encoder (Qwen3 0.6B)',
+          url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors',
+          filename: 'qwen_3_06b_base.safetensors',
+          description: 'Qwen3 0.6B text encoder for Anima — required component',
+        },
+      ],
+      hunyuanimage: [
+        {
+          name: 'HunyuanImage 3.0 (Manual Download)',
+          url: '',
+          filename: '',
+          description: '168GB model (32 sharded files) — too large for web download. Run: huggingface-cli download tencent/HunyuanImage-3.0 --local-dir ./pretrained_model/hunyuanimage',
+          manualOnly: true,
+          repoUrl: 'https://huggingface.co/tencent/HunyuanImage-3.0',
         },
       ],
     },
@@ -60,6 +116,18 @@ export async function GET() {
         url: 'https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors',
         filename: 'vae-ft-mse-840000-ema-pruned.safetensors',
         description: 'Improved VAE for SD 1.5',
+      },
+      {
+        name: 'Anima VAE',
+        url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors',
+        filename: 'qwen_image_vae.safetensors',
+        description: 'Anima-specific VAE — does NOT use Flux VAE',
+      },
+      {
+        name: 'Chroma VAE',
+        url: 'https://huggingface.co/lodestones/Chroma1-Base/resolve/main/vae/diffusion_pytorch_model.safetensors',
+        filename: 'chroma_vae.safetensors',
+        description: 'Chroma VAE from Lodestone — included in Chroma repos',
       },
     ],
   });
