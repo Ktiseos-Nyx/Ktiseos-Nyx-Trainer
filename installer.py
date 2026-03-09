@@ -249,7 +249,7 @@ class RemoteInstaller:
         return True
 
     def install_dependencies(self):
-        """Install dependencies with uv → pip fallback"""
+        """Install Python dependencies from requirements file"""
         if self.skip_install:
             print("Skipping dependency installation (--skip-install flag)")
             self.logger.info("Skipping dependency installation due to --skip-install flag")
@@ -269,7 +269,6 @@ class RemoteInstaller:
 
         self.logger.info("Installing cloud dependencies from: %s", requirements_file)
 
-        # DO NOT add PyTorch index - VastAI has it pre-installed
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
 
@@ -288,7 +287,6 @@ class RemoteInstaller:
             self.logger.info("Detected system: %s", system)
 
             if system == "linux":
-                # Check if running as root (VastAI containers run as root)
                 is_root = os.geteuid() == 0 if hasattr(os, "geteuid") else False
                 sudo_prefix = "" if is_root else "sudo "
 
@@ -459,7 +457,7 @@ class RemoteInstaller:
                 "",
                 "Backend dependencies installed successfully!",
                 "   Next steps:",
-                "   - VastAI: Services will auto-start via supervisor",
+                "   - Cloud (VastAI/RunPod): Services start automatically",
                 "   - Local: Run ./start_services_local.sh to start the web UI",
                 "=" * 70,
             ]
@@ -499,7 +497,7 @@ The installer will:
   4. Set up editable installs for development packages
 
 After installation:
-  - VastAI: Services auto-start via supervisor (FastAPI + Next.js)
+  - Cloud (VastAI/RunPod): Services start automatically
   - Local: Run ./start_services_local.sh to start the web interface
 
 Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
