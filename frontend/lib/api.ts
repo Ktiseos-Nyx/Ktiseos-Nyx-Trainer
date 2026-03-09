@@ -79,7 +79,16 @@ export interface LogEntry {
   raw: string;
 }
 
-/** Extract a plain string from a LogEntry (object or already a string). */
+/**
+ * Normalize a log entry to a plain string.
+ *
+ * When passed a string, returns it unchanged. When passed a `LogEntry` object,
+ * returns `raw` if present, otherwise `message`, otherwise the JSON stringified
+ * representation of the object.
+ *
+ * @param log - A `LogEntry` object or an already-plain string
+ * @returns The extracted plain string representation of `log`
+ */
 function logEntryToString(log: LogEntry | string): string {
   if (typeof log === 'string') return log;
   return log.raw ?? log.message ?? JSON.stringify(log);

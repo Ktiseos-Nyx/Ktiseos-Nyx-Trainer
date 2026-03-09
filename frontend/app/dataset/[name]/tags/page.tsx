@@ -19,6 +19,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 
+/**
+ * Renders the dataset tag editor page for the dataset specified in the current route.
+ *
+ * Presents a tag library, bulk tag operations, per-image inline tag editors, card-size controls, and save controls.
+ *
+ * @returns A React element rendering the tag editor UI including tag library, bulk operations, and per-image tag editors.
+ */
 export default function DatasetTagsPage() {
   const params = useParams();
   const datasetName = params.name as string;
