@@ -338,7 +338,7 @@ export default function ModelsPage() {
                     <div key={type}>
                       <h3 className="text-lg font-semibold text-cyan-400 mb-2 uppercase">{type}</h3>
                       <div className="space-y-2">
-                        {modelsList.map((model: PopularModel, idx: number) => (
+                        {modelsList.map((model: any, idx: number) => (
                           <div
                             key={idx}
                             className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 hover:border-cyan-500/50 transition-colors"
@@ -348,15 +348,32 @@ export default function ModelsPage() {
                                 <h4 className="font-semibold text-white">{model.name}</h4>
                                 <p className="text-sm text-gray-400 mt-1">{model.description}</p>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => applyPopularUrl(model.url, 'model', type as ModelType)}
-                                className="ml-4 text-cyan-400 hover:text-cyan-300"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                                Use
-                              </Button>
+                              {model.manualOnly ? (
+                                <a
+                                  href={model.repoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="ml-4 text-yellow-400 border-yellow-400/50 hover:text-yellow-300"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                    View Repo
+                                  </Button>
+                                </a>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => applyPopularUrl(model.url, 'model', type as ModelType)}
+                                  className="ml-4 text-cyan-400 hover:text-cyan-300"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  Use
+                                </Button>
+                              )}
                             </div>
                           </div>
                         ))}

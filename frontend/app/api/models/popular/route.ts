@@ -85,10 +85,12 @@ export async function GET() {
       ],
       hunyuanimage: [
         {
-          name: 'HunyuanImage 3.0 (Manual Download Required)',
-          url: 'https://huggingface.co/tencent/HunyuanImage-3.0',
+          name: 'HunyuanImage 3.0 (Manual Download)',
+          url: '',
           filename: '',
-          description: 'Tencent HunyuanImage 3.0 — 168GB sharded model, use "huggingface-cli download" instead',
+          description: '168GB model (32 sharded files) — too large for web download. Run: huggingface-cli download tencent/HunyuanImage-3.0 --local-dir ./pretrained_model/hunyuanimage',
+          manualOnly: true,
+          repoUrl: 'https://huggingface.co/tencent/HunyuanImage-3.0',
         },
       ],
     },
