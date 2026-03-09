@@ -135,12 +135,12 @@ export default function ModelsPage() {
                 Download base models and VAEs from HuggingFace or Civitai
               </p>
             </div>
-            <Link href="/models/browse">
-              <Button className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+            <Button asChild className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+              <Link href="/models/browse">
                 <Search className="w-5 h-5" />
                 Browse Civitai
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
 
@@ -221,11 +221,11 @@ export default function ModelsPage() {
                 {/* Type Selection */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label id="download-type-label" className="block text-sm font-medium text-gray-300 mb-2">
                       Download Type
                     </label>
                     <Select value={downloadType} onValueChange={(value: 'model' | 'vae') => setDownloadType(value)}>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full" aria-labelledby="download-type-label">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -237,11 +237,11 @@ export default function ModelsPage() {
 
                   {downloadType === 'model' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label id="model-type-label" className="block text-sm font-medium text-gray-300 mb-2">
                         Model Type
                       </label>
                       <Select value={modelType} onValueChange={(value) => setModelType(value as ModelType)}>
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full" aria-labelledby="model-type-label">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -261,10 +261,11 @@ export default function ModelsPage() {
 
                 {/* URL Input */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="download-url" className="block text-sm font-medium text-gray-300 mb-2">
                     Download URL (HuggingFace or Civitai)
                   </label>
                   <Input
+                    id="download-url"
                     type="text"
                     value={downloadUrl}
                     onChange={(e) => setDownloadUrl(e.target.value)}
@@ -452,6 +453,7 @@ export default function ModelsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${model.name}`}
                         onClick={() => handleDelete(model)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
@@ -497,6 +499,7 @@ export default function ModelsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${vae.name}`}
                         onClick={() => handleDelete(vae)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
