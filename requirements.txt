@@ -16,7 +16,7 @@ starlette
 # Core Training & ML Dependencies
 # torch/torchvision removed - provided by base image (2.4.1/12.1)
 numpy>=1.24.0
-accelerate==1.6.0
+accelerate==1.13.0
 transformers==4.54.1
 safetensors==0.5.3
 diffusers[torch]==0.32.1
