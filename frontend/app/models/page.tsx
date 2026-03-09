@@ -93,9 +93,12 @@ export default function ModelsPage() {
     }
   };
 
-  const applyPopularUrl = (url: string, type: 'model' | 'vae' = 'model') => {
+  const applyPopularUrl = (url: string, type: 'model' | 'vae' = 'model', autoModelType?: string) => {
     setDownloadUrl(url);
     setDownloadType(type);
+    if (autoModelType) {
+      setModelType(autoModelType);
+    }
     setActiveTab('download');
   };
 
@@ -232,6 +235,10 @@ export default function ModelsPage() {
                         <option value="sd15">SD 1.5</option>
                         <option value="flux">Flux</option>
                         <option value="sd3.5">SD 3.5</option>
+                        <option value="chroma">Chroma</option>
+                        <option value="anima">Anima</option>
+                        <option value="hunyuanimage">HunyuanImage</option>
+                        <option value="lumina">Lumina</option>
                       </select>
                     </div>
                   )}
@@ -327,7 +334,7 @@ export default function ModelsPage() {
                                 <p className="text-sm text-gray-400 mt-1">{model.description}</p>
                               </div>
                               <button
-                                onClick={() => applyPopularUrl(model.url, 'model')}
+                                onClick={() => applyPopularUrl(model.url, 'model', type)}
                                 className="ml-4 flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-sm"
                               >
                                 <ExternalLink className="w-4 h-4" />
