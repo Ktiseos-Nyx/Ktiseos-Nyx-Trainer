@@ -110,7 +110,7 @@
     "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.23",
     "eslint": "^9.39.2",
-    "eslint-config-next": "^16.0.10",
+    "eslint-config-next": "^16.1.6",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
