@@ -120,7 +120,7 @@ export interface LogPoller {
  */
 export function pollJobLogs(
   jobId: string,
-  onLogs: (logs: LogEntry[]) => void,
+  onLogs: (logs: string[]) => void,
   onStatus: (status: string, progress?: number) => void,
   onError?: (error: Error) => void,
   intervalMs: number = 1000,
@@ -149,7 +149,7 @@ export function pollJobLogs(
       // but React can't render objects as children — extract plain strings first.
       if (data.logs && data.logs.length > 0) {
         const plainLogs = data.logs.map(logEntryToString);
-        onLogs(plainLogs as any);
+        onLogs(plainLogs);
         // Track last timestamp to avoid re-fetching
         lastTimestamp = data.logs[data.logs.length - 1].timestamp;
       }
@@ -482,7 +482,7 @@ export const datasetAPI = {
       jobId,
       (logs) => {
         for (const log of logs) {
-          onMessage({ type: 'log', log: logEntryToString(log) });
+          onMessage({ type: 'log', log });
         }
       },
       (status, progress) => {
@@ -567,7 +567,7 @@ export const captioningAPI = {
       jobId,
       (logs) => {
         for (const log of logs) {
-          onMessage({ type: 'log', log: logEntryToString(log) });
+          onMessage({ type: 'log', log });
         }
       },
       (status, progress) => {
