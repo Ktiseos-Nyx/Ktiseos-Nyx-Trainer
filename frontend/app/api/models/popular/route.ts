@@ -7,6 +7,16 @@
 
 import { NextResponse } from 'next/server';
 
+/**
+ * Provide a fixed JSON payload listing popular/recommended models and VAEs with download metadata.
+ *
+ * The response contains:
+ * - `success`: boolean set to `true`.
+ * - `models`: an object mapping category keys (e.g., `sdxl`, `sd15`, `flux`, `sd3.5`, `chroma`, `anima`, `hunyuanimage`) to arrays of model entries. Each model entry includes `name`, `url`, `filename`, and `description`; some entries may include `manualOnly: true` and `repoUrl` for manual-download guidance or gated access notes.
+ * - `vaes`: an array of VAE entries, each including `name`, `url`, `filename`, and `description`.
+ *
+ * @returns A JSON object with `success`, `models`, and `vaes` describing available models and VAEs and their download or manual-download instructions.
+ */
 export async function GET() {
   return NextResponse.json({
     success: true,
