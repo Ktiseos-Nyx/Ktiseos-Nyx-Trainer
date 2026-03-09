@@ -246,13 +246,13 @@ def main(args):
         escaped_tag_replacements = tag_replacements_arg.replace("\\,", "@@@@").replace("\\;", "####")
         tag_replacements = escaped_tag_replacements.split(";")
 
-        for tag_replacements_arg in tag_replacements:
-            tags = tag_replacements_arg.split(",")  # source, target
+        for replacement in tag_replacements:
+            pair = replacement.split(",")
             assert (
-                len(tags) == 2
+                len(pair) == 2
             ), f"tag replacement must be in the format of `source,target` / タグの置換は `置換元,置換先` の形式で指定してください: {args.tag_replacement}"
 
-            source, target = [tag.replace("@@@@", ",").replace("####", ";") for tag in tags]
+            source, target = [p.replace("@@@@", ",").replace("####", ";") for p in pair]
             logger.info(f"replacing tag: {source} -> {target}")
 
             if source in tags:
@@ -279,9 +279,9 @@ def main(args):
             character_tags = remove_underscore(character_tags)
             general_tags = remove_underscore(general_tags)
         if args.tag_replacement is not None:
-            process_tag_replacement(rating_tags, args.tag_replacement)
-            process_tag_replacement(general_tags, args.tag_replacement)
-            process_tag_replacement(character_tags, args.tag_replacement)
+            rating_tags = process_tag_replacement(rating_tags, args.tag_replacement)
+            general_tags = process_tag_replacement(general_tags, args.tag_replacement)
+            character_tags = process_tag_replacement(character_tags, args.tag_replacement)
     else:
         with open(os.path.join(model_location, TAG_JSON_FILE), "r", encoding="utf-8") as f:
             tag_mapping = json.load(f)
