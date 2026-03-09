@@ -19,6 +19,21 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 
+type CardSize = 'small' | 'medium' | 'large';
+
+const SIZE_CONFIG: Record<CardSize, { gridClasses: string; aspectRatio: number }> = {
+  small:  { gridClasses: 'gap-3 grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', aspectRatio: 1 },
+  medium: { gridClasses: 'gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3', aspectRatio: 4 / 5 },
+  large:  { gridClasses: 'gap-6 grid-cols-1 md:grid-cols-2', aspectRatio: 7 / 9 },
+};
+
+/**
+ * Renders the dataset tag editor page for the dataset specified in the current route.
+ *
+ * Presents a tag library, bulk tag operations, per-image inline tag editors, card-size controls, and save controls.
+ *
+ * @returns A React element rendering the tag editor UI including tag library, bulk operations, and per-image tag editors.
+ */
 export default function DatasetTagsPage() {
   const params = useParams();
   const datasetName = params.name as string;
@@ -32,7 +47,7 @@ export default function DatasetTagsPage() {
   const [bulkReplaceWith, setBulkReplaceWith] = useState('');
 
   // Card size preference (stored in localStorage)
-  const [cardSize, setCardSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [cardSize, setCardSize] = useState<CardSize>('medium');
 
   // Load card size preference from localStorage
   useEffect(() => {
@@ -359,16 +374,10 @@ export default function DatasetTagsPage() {
         </div>
 
         {/* Images with inline tag editors */}
-        <div className={`grid gap-6 ${
-          cardSize === 'small'
-            ? 'grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-            : cardSize === 'large'
-            ? 'grid-cols-1 md:grid-cols-2'
-            : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-        }`}>
+        <div className={`grid ${SIZE_CONFIG[cardSize].gridClasses}`}>
           {localImages.map((img) => (
             <div key={img.image_path} className="border rounded-lg overflow-hidden bg-card">
-              <AspectRatio ratio={7 / 9} className="bg-muted">
+              <AspectRatio ratio={SIZE_CONFIG[cardSize].aspectRatio} className="bg-muted">
                 <img
                   src={img.url || `/api/files/image/${datasetName}/${img.image_name}`}
                   alt={img.image_name}
