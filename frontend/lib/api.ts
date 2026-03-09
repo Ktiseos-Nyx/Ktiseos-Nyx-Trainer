@@ -79,6 +79,12 @@ export interface LogEntry {
   raw: string;
 }
 
+/** Extract a plain string from a LogEntry (object or already a string). */
+function logEntryToString(log: LogEntry | string): string {
+  if (typeof log === 'string') return log;
+  return log.raw ?? log.message ?? JSON.stringify(log);
+}
+
 export interface LogPollResponse {
   success: boolean;
   job_id: string;
@@ -130,8 +136,11 @@ export function pollJobLogs(
       if (stopped) return;
 
       // Deliver new logs
+      // Python backend returns LogEntry objects ({timestamp, level, message, raw}),
+      // but React can't render objects as children — extract plain strings first.
       if (data.logs && data.logs.length > 0) {
-        onLogs(data.logs);
+        const plainLogs = data.logs.map(logEntryToString);
+        onLogs(plainLogs as any);
         // Track last timestamp to avoid re-fetching
         lastTimestamp = data.logs[data.logs.length - 1].timestamp;
       }
@@ -464,7 +473,7 @@ export const datasetAPI = {
       jobId,
       (logs) => {
         for (const log of logs) {
-          onMessage({ type: 'log', log: log as any });
+          onMessage({ type: 'log', log: logEntryToString(log) });
         }
       },
       (status, progress) => {
@@ -549,7 +558,7 @@ export const captioningAPI = {
       jobId,
       (logs) => {
         for (const log of logs) {
-          onMessage({ type: 'log', log: log as any });
+          onMessage({ type: 'log', log: logEntryToString(log) });
         }
       },
       (status, progress) => {
@@ -848,7 +857,7 @@ export const trainingAPI = {
         // Deliver new logs
         if (data.logs && data.logs.length > 0) {
           for (const log of data.logs) {
-            onMessage({ type: 'log', log: log as any });
+            onMessage({ type: 'log', log: logEntryToString(log) });
           }
           // Use server's next_since for line-based pagination
           nextSince = data.next_since ?? (nextSince + data.logs.length);
