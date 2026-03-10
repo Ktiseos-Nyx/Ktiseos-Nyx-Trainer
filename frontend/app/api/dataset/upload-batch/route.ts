@@ -8,28 +8,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { getOrCreateDatasetsDir } from '@/lib/node-services/datasets';
 
-// Get datasets directory from environment or use default
-function getDatasetsDir(): string {
-  // Check common paths
-  const candidates = [
-    process.env.DATASETS_DIR,
-    '/workspace/Ktiseos-Nyx-Trainer/datasets',
-    path.join(process.cwd(), 'datasets'),
-  ];
-
-  for (const dir of candidates) {
-    if (dir) return dir;
-  }
-
-  return path.join(process.cwd(), 'datasets');
-}
-
+/**
+ * Handle POST uploads of multiple files into a named dataset directory.
+ *
+ * Accepts multipart/form-data with files under the `files` field and a `dataset_name`
+ * provided either in form-data (`dataset_name`) or the query string (`?dataset_name=...`).
+ * Files are saved into a sanitized dataset directory under the configured datasets root.
+ *
+ * @param request - The incoming NextRequest containing the multipart/form-data payload.
+ * @returns A JSON response. On success (`200`) returns `{ success: true, message, dataset_name, dataset_path, files_uploaded, uploaded_files, errors }`.
+ *          Returns `400` with `{ error: 'Missing dataset_name' }` if no dataset name is provided, or `{ error: 'No files provided' }` if no files are included.
+ *          Returns `500` with `{ error, detail }` for unexpected server errors.
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('files');
-    const datasetName = formData.get('dataset_name');
+    // Accept dataset_name from form-data body OR querystring (?dataset_name=foo)
+    // so Uppy's default XHR endpoint pattern works out of the box.
+    let datasetName: FormDataEntryValue | string | null = formData.get('dataset_name');
+    if (!datasetName) {
+      const qs = request.nextUrl.searchParams.get('dataset_name');
+      if (qs) datasetName = qs;
+    }
 
     if (!datasetName || typeof datasetName !== 'string') {
       return NextResponse.json(
@@ -47,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Sanitize dataset name
     const safeName = datasetName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const datasetPath = path.join(getDatasetsDir(), safeName);
+    const datasetPath = path.join(getOrCreateDatasetsDir(), safeName);
 
     // Create dataset directory if it doesn't exist
     await fs.mkdir(datasetPath, { recursive: true });
@@ -97,10 +100,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Increase body size limit for file uploads
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

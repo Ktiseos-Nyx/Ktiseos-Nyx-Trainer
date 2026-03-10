@@ -8,8 +8,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+import { getOrCreateDatasetsDir, IMAGE_EXTENSIONS } from '@/lib/node-services/datasets';
 
 interface DatasetInfo {
   path: string;
@@ -17,21 +16,6 @@ interface DatasetInfo {
   image_count: number;
   repeats: number;
   caption: string | null;
-}
-
-// Get datasets directory from environment or use default
-function getDatasetsDir(): string {
-  const candidates = [
-    process.env.DATASETS_DIR,
-    '/workspace/Ktiseos-Nyx-Trainer/datasets',
-    path.join(process.cwd(), 'datasets'),
-  ];
-
-  for (const dir of candidates) {
-    if (dir) return dir;
-  }
-
-  return path.join(process.cwd(), 'datasets');
 }
 
 /**
@@ -63,7 +47,7 @@ async function countImages(dirPath: string): Promise<number> {
     return entries.filter(entry => {
       if (!entry.isFile()) return false;
       const ext = path.extname(entry.name).toLowerCase();
-      return ALLOWED_IMAGE_EXTENSIONS.includes(ext);
+      return IMAGE_EXTENSIONS.includes(ext);
     }).length;
   } catch {
     return 0;
@@ -72,7 +56,7 @@ async function countImages(dirPath: string): Promise<number> {
 
 export async function GET() {
   try {
-    const datasetsDir = getDatasetsDir();
+    const datasetsDir = getOrCreateDatasetsDir();
 
     // Check if datasets directory exists
     try {
