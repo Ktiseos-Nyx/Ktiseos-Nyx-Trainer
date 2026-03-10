@@ -25,6 +25,18 @@ function getDatasetsDir(): string {
   return path.join(process.cwd(), 'datasets');
 }
 
+/**
+ * Handle POST uploads of multiple files into a named dataset directory.
+ *
+ * Accepts multipart/form-data with files under the `files` field and a `dataset_name`
+ * provided either in form-data (`dataset_name`) or the query string (`?dataset_name=...`).
+ * Files are saved into a sanitized dataset directory under the configured datasets root.
+ *
+ * @param request - The incoming NextRequest containing the multipart/form-data payload.
+ * @returns A JSON response. On success (`200`) returns `{ success: true, message, dataset_name, dataset_path, files_uploaded, uploaded_files, errors }`.
+ *          Returns `400` with `{ error: 'Missing dataset_name' }` if no dataset name is provided, or `{ error: 'No files provided' }` if no files are included.
+ *          Returns `500` with `{ error, detail }` for unexpected server errors.
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

@@ -7,12 +7,26 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ * Determine the base URL for the backend service.
+ *
+ * Uses the BACKEND_URL environment variable if present; otherwise returns
+ * http://127.0.0.1:<port> where the port is 8000 in development or BACKEND_PORT (default 18000) in production.
+ *
+ * @returns The base URL to use for backend requests.
+ */
 function backendBase(): string {
   const dev = process.env.NODE_ENV !== 'production';
   const defaultPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
   return process.env.BACKEND_URL || `http://127.0.0.1:${defaultPort}`;
 }
 
+/**
+ * Proxies multipart ZIP upload requests to the backend's /api/dataset/upload-zip endpoint and returns the backend response.
+ *
+ * @param request - Incoming Next.js request containing multipart form data (the uploaded ZIP)
+ * @returns A NextResponse containing the backend's JSON response (status mirrors the backend). If the backend returns non-OK, returns a JSON error with the backend status and truncated detail; if a proxy error occurs, returns a JSON error with status 500.
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

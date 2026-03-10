@@ -23,6 +23,16 @@ interface ImageWithTags {
   url?: string;
 }
 
+/**
+ * List images in a dataset directory and include parsed tags from accompanying `.txt` files.
+ *
+ * Expects a `dataset_path` query parameter. For each image file in the resolved dataset directory, attempts to read a sibling `.txt` caption file, splits its contents by commas, trims tokens, and sets `has_tags` to `true` when any non-empty tags are found.
+ *
+ * @param request - Incoming request containing the `dataset_path` query parameter
+ * @returns An object with:
+ *  - `images`: an array of ImageWithTags objects (`image_path`, `image_name`, `tags`, `has_tags`, optional `url`) and
+ *  - `total`: the number of images found
+ */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

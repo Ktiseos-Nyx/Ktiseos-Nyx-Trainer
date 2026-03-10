@@ -10,6 +10,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 
+/**
+ * Resolve the datasets root directory using an ordered set of configured and conventional locations.
+ *
+ * Prefers the `DATASETS_DIR` environment variable, then `/workspace/Ktiseos-Nyx-Trainer/datasets`,
+ * then `./datasets` and the sibling `../datasets` relative to the current working directory.
+ *
+ * @returns The first truthy candidate path selected as the datasets directory
+ */
 function getDatasetsDir(): string {
   const candidates = [
     process.env.DATASETS_DIR,
@@ -26,6 +34,11 @@ const NO_STORE = { headers: { 'Cache-Control': 'no-store' } };
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'];
 
+/**
+ * List datasets found in the configured datasets directory and report per-dataset image and caption counts.
+ *
+ * @returns On success, a JSON body `{ datasets, total }` where `datasets` is an array of objects with `name`, `path`, `image_count`, and `caption_count`, and `total` is the number of datasets; on failure, a JSON body `{ error: string }` with HTTP status 500.
+ */
 export async function GET(_request: NextRequest) {
   try {
     const datasetRoot = getDatasetsDir();

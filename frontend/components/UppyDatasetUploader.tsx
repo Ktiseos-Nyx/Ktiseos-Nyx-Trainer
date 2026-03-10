@@ -11,6 +11,17 @@ import '@uppy/core/dist/style.css';
 import '@uppy/dashboard/dist/style.css';
 import '@/styles/uppy-custom.css';
 
+/**
+ * Renders a dataset upload UI that lets users pick files and upload them to the backend using Uppy.
+ *
+ * The component provides a dataset name input, an Uppy Dashboard for selecting files, and informational cards.
+ * It enforces a 10 GB per-file limit and accepts images and archive formats (ZIP, TAR, 7z). Before each upload the
+ * dataset name is appended to the upload endpoint; if the dataset name is empty the upload is canceled and an error
+ * message is shown. Uploads are performed in batches (up to 5 concurrent uploads) and the component registers handlers
+ * for upload lifecycle events and closes the Uppy instance on unmount.
+ *
+ * @returns The React element for the dataset uploader UI.
+ */
 export default function UppyDatasetUploader() {
   const [datasetName, setDatasetName] = useState('');
 
