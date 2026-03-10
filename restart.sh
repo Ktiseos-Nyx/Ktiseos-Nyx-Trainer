@@ -53,7 +53,7 @@ sleep 3
 # Export BACKEND_PORT so upload-zip route (which reads process.env.BACKEND_PORT) can find FastAPI
 echo "🎨 Starting Next.js frontend on http://${HOST}:${FRONTEND_PORT}..."
 cd frontend
-PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT npm start &
+NODE_ENV=production PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT npm start &
 FRONTEND_PID=$!
 
 # Wait a moment for services to start

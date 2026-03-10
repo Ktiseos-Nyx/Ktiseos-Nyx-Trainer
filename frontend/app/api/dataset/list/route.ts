@@ -8,33 +8,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
-import fsSync from 'fs';
 import path from 'path';
-
-/**
- * Resolve the datasets root directory by checking an ordered set of locations.
- *
- * Returns the first candidate path that actually exists on disk, or null if none do.
- */
-function getDatasetsDir(): string | null {
-  const candidates = [
-    process.env.DATASETS_DIR,
-    '/workspace/Ktiseos-Nyx-Trainer/datasets',
-    path.join(process.cwd(), 'datasets'),
-    path.join(path.resolve(process.cwd(), '..'), 'datasets'),
-  ].filter(Boolean) as string[];
-
-  for (const dir of candidates) {
-    if (fsSync.existsSync(dir)) return dir;
-  }
-  return null;
-}
+import { getDatasetsDir, IMAGE_EXTENSIONS } from '@/lib/node-services/datasets';
 
 export const revalidate = 0;
 
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } };
-
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'];
 
 /**
  * List datasets found in the configured datasets directory and report per-dataset image and caption counts.

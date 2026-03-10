@@ -8,22 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-
-// Get datasets directory from environment or use default
-function getDatasetsDir(): string {
-  // Check common paths
-  const candidates = [
-    process.env.DATASETS_DIR,
-    '/workspace/Ktiseos-Nyx-Trainer/datasets',
-    path.join(process.cwd(), 'datasets'),
-  ];
-
-  for (const dir of candidates) {
-    if (dir) return dir;
-  }
-
-  return path.join(process.cwd(), 'datasets');
-}
+import { getOrCreateDatasetsDir } from '@/lib/node-services/datasets';
 
 /**
  * Handle POST uploads of multiple files into a named dataset directory.
@@ -65,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Sanitize dataset name
     const safeName = datasetName.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const datasetPath = path.join(getDatasetsDir(), safeName);
+    const datasetPath = path.join(getOrCreateDatasetsDir(), safeName);
 
     // Create dataset directory if it doesn't exist
     await fs.mkdir(datasetPath, { recursive: true });
@@ -115,10 +100,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Increase body size limit for file uploads
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

@@ -9,8 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
 import { validateDatasetPath } from '@/lib/node-services/path-validation';
-
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+import { IMAGE_EXTENSIONS } from '@/lib/node-services/datasets';
 
 // Opt out of Next.js static caching so the tag editor reflects saves immediately.
 export const revalidate = 0;
@@ -20,7 +19,6 @@ interface ImageWithTags {
   image_name: string;
   tags: string[];
   has_tags: boolean;
-  url?: string;
 }
 
 const NO_STORE = { headers: { 'Cache-Control': 'no-store' } };
@@ -71,7 +69,7 @@ export async function GET(request: NextRequest) {
       .filter(entry => {
         if (!entry.isFile()) return false;
         const ext = path.extname(entry.name).toLowerCase();
-        return ALLOWED_IMAGE_EXTENSIONS.includes(ext);
+        return IMAGE_EXTENSIONS.includes(ext);
       })
       .map(entry => entry.name);
 

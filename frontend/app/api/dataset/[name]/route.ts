@@ -9,23 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-
-// Get datasets directory from environment or use default
-function getDatasetsDir(): string {
-  const candidates = [
-    process.env.DATASETS_DIR,
-    '/workspace/Ktiseos-Nyx-Trainer/datasets',
-    path.join(process.cwd(), 'datasets'),
-  ];
-
-  for (const dir of candidates) {
-    if (dir) return dir;
-  }
-
-  return path.join(process.cwd(), 'datasets');
-}
-
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+import { getOrCreateDatasetsDir, IMAGE_EXTENSIONS } from '@/lib/node-services/datasets';
 
 interface RouteParams {
   params: Promise<{ name: string }>;
@@ -38,7 +22,7 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { name } = await params;
-    const datasetPath = path.join(getDatasetsDir(), name);
+    const datasetPath = path.join(getOrCreateDatasetsDir(), name);
 
     // Check if dataset exists
     try {
@@ -75,7 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         // Skip if can't stat
       }
 
-      if (ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
+      if (IMAGE_EXTENSIONS.includes(ext)) {
         imageCount++;
       } else if (ext === '.txt') {
         captionCount++;
@@ -105,7 +89,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { name } = await params;
-    const datasetPath = path.join(getDatasetsDir(), name);
+    const datasetPath = path.join(getOrCreateDatasetsDir(), name);
 
     // Check if dataset exists
     try {
