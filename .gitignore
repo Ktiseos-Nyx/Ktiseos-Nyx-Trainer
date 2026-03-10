@@ -19,6 +19,10 @@ tmp/
 .write_test_diagnostic
 diagnostics_*.json
 diagnostics_*.txt
+.development/   # AI vibe coded markdown files that waste tokens
+.plans/  # Stuff that the outside world doenst need to see 
+.plans
+.development
 
 # ----------------------------------------------------------------------------
 # Python
