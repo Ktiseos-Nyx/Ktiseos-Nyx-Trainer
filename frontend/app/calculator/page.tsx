@@ -13,6 +13,8 @@ export default function CalculatorPage() {
   const [result, setResult] = useState<CalculatorResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+
 
   // Load available datasets
   useEffect(() => {
