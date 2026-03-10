@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   description: "Professional LoRA training with modern web UI",
 };
 
+// Skip static prerendering — prevents dual React instance useContext crash on Windows
+// See: https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues/212
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: Readonly<{

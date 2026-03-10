@@ -126,10 +126,16 @@ provisioning_start() {
     # Validate Node.js version if found
     if [ "$SKIP_FRONTEND" != true ] && command -v node &> /dev/null; then
         CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-        if [ "$CURRENT_VERSION" -lt 18 ]; then
-            echo "  Node.js $CURRENT_VERSION is too old (need 18+)"
-            echo "   Frontend will be unavailable. Backend API will still work."
-            SKIP_FRONTEND=true
+        if [ "$CURRENT_VERSION" -lt 20 ]; then
+            echo "  Node.js $CURRENT_VERSION is too old (need 20+), installing v20.18.1..."
+            NODE_VERSION="v20.18.1"
+            curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" | tar -xJ -C /usr/local --strip-components=1
+            if ! command -v node &> /dev/null || [ "$(node --version | sed 's/v//' | cut -d. -f1)" -lt 20 ]; then
+                echo "  Node.js upgrade failed! Frontend will be unavailable."
+                SKIP_FRONTEND=true
+            else
+                echo "  Upgraded to Node.js $(node --version)"
+            fi
         else
             echo "  Node.js ready: $(node --version) at $(which node)"
             echo "  npm version: $(npm --version)"
