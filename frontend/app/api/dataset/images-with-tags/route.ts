@@ -12,6 +12,9 @@ import { validateDatasetPath } from '@/lib/node-services/path-validation';
 
 const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
 
+// Opt out of Next.js static caching so the tag editor reflects saves immediately.
+export const revalidate = 0;
+
 interface ImageWithTags {
   image_path: string;
   image_name: string;
@@ -104,10 +107,10 @@ export async function GET(request: NextRequest) {
     // Sort by name
     images.sort((a, b) => a.image_name.localeCompare(b.image_name));
 
-    return NextResponse.json({
-      images,
-      total: images.length,
-    });
+    return NextResponse.json(
+      { images, total: images.length },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(

@@ -8,10 +8,23 @@ echo "=========================================="
 echo "⚡ Quick Restart (Skipping Dependency Installation)..."
 echo "=========================================="
 
+# Auto-detect environment: if /workspace exists, we're on a remote GPU (VastAI/RunPod)
+if [ -d "/workspace" ]; then
+    HOST="0.0.0.0"
+    BACKEND_PORT="${BACKEND_PORT:-8000}"
+    FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+    echo "🌐 Detected remote GPU environment (binding to 0.0.0.0)"
+else
+    HOST="127.0.0.1"
+    BACKEND_PORT="8000"
+    FRONTEND_PORT="3000"
+    echo "💻 Detected local development environment"
+fi
+
 # Clean up existing processes
 echo "🧹 Cleaning up existing processes..."
-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+lsof -ti:$BACKEND_PORT | xargs kill -9 2>/dev/null || true
+lsof -ti:$FRONTEND_PORT | xargs kill -9 2>/dev/null || true
 pkill -f "uvicorn.*api.main" 2>/dev/null || true
 pkill -f "node.*next" 2>/dev/null || true
 
@@ -28,30 +41,33 @@ echo "🚀 Starting Services..."
 echo "=========================================="
 
 # Start FastAPI backend
-echo "🔧 Starting FastAPI backend on http://127.0.0.1:8000..."
+echo "🔧 Starting FastAPI backend on http://${HOST}:${BACKEND_PORT}..."
 cd "$(dirname "$0")"
-python -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload &
+python -m uvicorn api.main:app --host "$HOST" --port "$BACKEND_PORT" --reload &
 BACKEND_PID=$!
 
 # Give backend time to start
 sleep 3
 
 # Start Next.js frontend
-echo "🎨 Starting Next.js frontend on http://127.0.0.1:3000..."
+echo "🎨 Starting Next.js frontend on http://${HOST}:${FRONTEND_PORT}..."
 cd frontend
-npm run dev -- -H 127.0.0.1 &
+PORT=$FRONTEND_PORT npm start &
 FRONTEND_PID=$!
 
 # Wait a moment for services to start
 sleep 3
 
+DISPLAY_HOST="${HOST}"
+[ "$HOST" = "0.0.0.0" ] && DISPLAY_HOST="localhost"
+
 echo ""
 echo "=========================================="
 echo "✅ Services Started!"
 echo "=========================================="
-echo "📡 Backend:  http://127.0.0.1:8000"
-echo "🎨 Frontend: http://127.0.0.1:3000"
-echo "📊 API Docs: http://127.0.0.1:8000/docs"
+echo "📡 Backend:  http://${DISPLAY_HOST}:${BACKEND_PORT}"
+echo "🎨 Frontend: http://${DISPLAY_HOST}:${FRONTEND_PORT}"
+echo "📊 API Docs: http://${DISPLAY_HOST}:${BACKEND_PORT}/docs"
 echo ""
 echo "Backend PID:  $BACKEND_PID"
 echo "Frontend PID: $FRONTEND_PID"

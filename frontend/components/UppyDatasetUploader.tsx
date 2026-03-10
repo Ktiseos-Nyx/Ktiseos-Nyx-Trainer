@@ -31,7 +31,7 @@ export default function UppyDatasetUploader() {
       formData: true,
       fieldName: 'files',
       method: 'POST',
-      limit: 3,
+      limit: 5,
       timeout: 0, // Infinite timeout
     })
   );
@@ -125,7 +125,7 @@ export default function UppyDatasetUploader() {
             className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-2">
-            Files will be uploaded to: <code className="text-purple-400">dataset/{datasetName}/</code>
+            Files will be uploaded to: <code className="text-purple-400">datasets/{datasetName || '...'}/</code>
           </p>
         </div>
 
@@ -137,7 +137,7 @@ export default function UppyDatasetUploader() {
             proudlyDisplayPoweredByUppy={false}
             width="100%"
             height={500}
-            note="Images and ZIP files only, up to 500MB per file"
+            note="Images and ZIP files only, up to 10GB per file"
             metaFields={[
               { id: 'name', name: 'Name', placeholder: 'File name' },
             ]}
@@ -161,7 +161,7 @@ export default function UppyDatasetUploader() {
           <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
             <h3 className="text-purple-400 font-semibold mb-2">⚡ Fast Batches</h3>
             <p className="text-sm text-gray-400">
-              Uploads 10 files at a time for speed
+              Uploads 5 files at a time for speed
             </p>
           </div>
         </div>

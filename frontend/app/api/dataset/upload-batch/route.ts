@@ -29,7 +29,13 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const files = formData.getAll('files');
-    const datasetName = formData.get('dataset_name');
+    // Accept dataset_name from form-data body OR querystring (?dataset_name=foo)
+    // so Uppy's default XHR endpoint pattern works out of the box.
+    let datasetName: FormDataEntryValue | string | null = formData.get('dataset_name');
+    if (!datasetName) {
+      const qs = request.nextUrl.searchParams.get('dataset_name');
+      if (qs) datasetName = qs;
+    }
 
     if (!datasetName || typeof datasetName !== 'string') {
       return NextResponse.json(
