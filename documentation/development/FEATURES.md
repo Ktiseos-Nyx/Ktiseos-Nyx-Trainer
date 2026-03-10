@@ -190,10 +190,12 @@ Complete guide to all features in Ktiseos Nyx LoRA Trainer.
 |--------------|--------|-------|
 | **SD 1.5** | ✅ Stable | Fully supported, well-tested |
 | **SDXL** | ✅ Stable | 24GB VRAM recommended |
-| **Flux.1** | ⚠️ Experimental | Requires latest Kohya backend |
-| **SD3/SD3.5** | ⚠️ Experimental | Requires sd3 branch |
-| **Lumina** | ⚠️ Experimental | Basic support |
-| **Chroma** | ⚠️ Experimental | Minimal testing |
+| **Flux.1** | ⚠️ Experimental | Dev (gated) and Schnell (open) variants |
+| **SD3/SD3.5** | ⚠️ Experimental | Large variant available (gated) |
+| **Chroma** | ⚠️ Experimental | Base and HD variants, T5-XXL only (no CLIP-L) |
+| **Anima** | ⚠️ Experimental | Qwen3 + T5 dual encoder architecture |
+| **Lumina** | ⚠️ Experimental | 2B parameter flow-based DiT with Gemma2 encoder |
+| **HunyuanImage** | ⚠️ Experimental | 168GB sharded model, CLI download only |
 
 ### LoRA Type Comparison
 
@@ -328,19 +330,37 @@ Automatic step/epoch calculations:
 - Integrity verification
 - Resume partial downloads
 
-### Popular Models (Built-in Links)
+### Supported Models (Built-in Downloads)
 
 **SD1.5:**
 - RunwayML SD 1.5
-- Anything V3
 
 **SDXL:**
-- Stable Diffusion XL 1.0
-- Pony Diffusion V6 XL
+- SDXL Base 1.0
+- Illustrious XL
+- Pony Diffusion V6 XL (Civitai)
 
-**VAE:**
-- SD1.5 VAE
-- SDXL VAE
+**Flux.1:**
+- FLUX.1 Dev (gated)
+- FLUX.1 Schnell (Apache 2.0)
+
+**SD3.5:**
+- SD 3.5 Large (gated)
+
+**Chroma:**
+- Chroma1 Base, Chroma1 HD
+
+**Anima:**
+- Anima Preview (diffusion model + Qwen3 text encoder)
+
+**Lumina:**
+- Lumina Image 2.0 (diffusion model + Gemma2 text encoder)
+
+**HunyuanImage:**
+- HunyuanImage 3.0 (CLI download only — 168GB sharded)
+
+**VAEs:**
+- SDXL VAE, SD 1.5 VAE (MSE), Flux VAE, Anima VAE, Chroma VAE, Lumina VAE
 
 ## Platform Support
 
@@ -353,28 +373,23 @@ Automatic step/epoch calculations:
 | **Auto-Tag** | ✅ | ✅ | ✅ | ✅ |
 | **File Upload** | ✅ | ✅ | ✅ | ⚠️ |
 
-> Note: File upload on VastAI is currently limited - use Jupyter for dataset uploads.
-
 ### Cloud Deployment Features
 
 **VastAI:**
 - One-click deployment via template
 - Automatic setup with `vastai_setup.sh`
 - Supervisor-managed auto-restart
-- Port mapping (3000→13000, 8000→18000)
+- Caddy reverse proxy (ports 3000→13000, 8000→18000)
 
 **RunPod:**
-- Experimental support
-- Manual setup required
-- Use Linux installation scripts
+- Supported via `provision_runpod.sh`
+- Direct port binding (3000/8000)
+- Automatic setup with supervisor
 
 ## Coming Soon
 
 Features in development:
 
-- [ ] Improved file upload for VastAI
-- [ ] Stable Flux training support
-- [ ] SD3.5 UI integration
 - [ ] Advanced sampling during training
 - [ ] Multi-LoRA merging
 - [ ] Training resume from UI
