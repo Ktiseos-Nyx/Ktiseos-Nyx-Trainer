@@ -23,15 +23,18 @@ interface ImageWithTags {
   url?: string;
 }
 
+const NO_STORE = { headers: { 'Cache-Control': 'no-store' } };
+
+function jsonNoStore(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, { status, ...NO_STORE });
+}
+
 /**
  * List images in a dataset directory and include parsed tags from accompanying `.txt` files.
  *
- * Expects a `dataset_path` query parameter. For each image file in the resolved dataset directory, attempts to read a sibling `.txt` caption file, splits its contents by commas, trims tokens, and sets `has_tags` to `true` when any non-empty tags are found.
- *
- * @param request - Incoming request containing the `dataset_path` query parameter
- * @returns An object with:
- *  - `images`: an array of ImageWithTags objects (`image_path`, `image_name`, `tags`, `has_tags`, optional `url`) and
- *  - `total`: the number of images found
+ * Expects a `dataset_path` query parameter. For each image file in the resolved dataset directory,
+ * attempts to read a sibling `.txt` caption file, splits its contents by commas, trims tokens,
+ * and sets `has_tags` to `true` when any non-empty tags are found.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -39,10 +42,7 @@ export async function GET(request: NextRequest) {
     const datasetPath = searchParams.get('dataset_path');
 
     if (!datasetPath) {
-      return NextResponse.json(
-        { error: 'Missing dataset_path parameter' },
-        { status: 400 }
-      );
+      return jsonNoStore({ error: 'Missing dataset_path parameter' }, 400);
     }
 
     // Security: confine to datasets directory
@@ -50,26 +50,17 @@ export async function GET(request: NextRequest) {
     try {
       resolvedPath = validateDatasetPath(datasetPath);
     } catch {
-      return NextResponse.json(
-        { error: 'Access denied: path outside allowed directories' },
-        { status: 403 }
-      );
+      return jsonNoStore({ error: 'Access denied: path outside allowed directories' }, 403);
     }
 
     // Validate dataset path exists
     try {
       const stats = await fs.stat(resolvedPath);
       if (!stats.isDirectory()) {
-        return NextResponse.json(
-          { error: 'Path is not a directory' },
-          { status: 400 }
-        );
+        return jsonNoStore({ error: 'Path is not a directory' }, 400);
       }
     } catch {
-      return NextResponse.json(
-        { error: `Dataset not found: ${datasetPath}` },
-        { status: 404 }
-      );
+      return jsonNoStore({ error: `Dataset not found: ${datasetPath}` }, 404);
     }
 
     // Get all files in directory
@@ -117,15 +108,9 @@ export async function GET(request: NextRequest) {
     // Sort by name
     images.sort((a, b) => a.image_name.localeCompare(b.image_name));
 
-    return NextResponse.json(
-      { images, total: images.length },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
+    return jsonNoStore({ images, total: images.length });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { error: errorMessage, detail: errorMessage },
-      { status: 500 }
-    );
+    return jsonNoStore({ error: errorMessage, detail: errorMessage }, 500);
   }
 }

@@ -63,5 +63,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Proxy error', detail: msg }, { status: 500 });
   }
 }
-
-export const config = { api: { bodyParser: false } };

@@ -8,24 +8,26 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 
 /**
- * Resolve the datasets root directory using an ordered set of configured and conventional locations.
+ * Resolve the datasets root directory by checking an ordered set of locations.
  *
- * Prefers the `DATASETS_DIR` environment variable, then `/workspace/Ktiseos-Nyx-Trainer/datasets`,
- * then `./datasets` and the sibling `../datasets` relative to the current working directory.
- *
- * @returns The first truthy candidate path selected as the datasets directory
+ * Returns the first candidate path that actually exists on disk, or null if none do.
  */
-function getDatasetsDir(): string {
+function getDatasetsDir(): string | null {
   const candidates = [
     process.env.DATASETS_DIR,
     '/workspace/Ktiseos-Nyx-Trainer/datasets',
     path.join(process.cwd(), 'datasets'),
     path.join(path.resolve(process.cwd(), '..'), 'datasets'),
   ].filter(Boolean) as string[];
-  return candidates[0]!;
+
+  for (const dir of candidates) {
+    if (fsSync.existsSync(dir)) return dir;
+  }
+  return null;
 }
 
 export const revalidate = 0;
@@ -36,16 +38,11 @@ const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'];
 
 /**
  * List datasets found in the configured datasets directory and report per-dataset image and caption counts.
- *
- * @returns On success, a JSON body `{ datasets, total }` where `datasets` is an array of objects with `name`, `path`, `image_count`, and `caption_count`, and `total` is the number of datasets; on failure, a JSON body `{ error: string }` with HTTP status 500.
  */
 export async function GET(_request: NextRequest) {
   try {
     const datasetRoot = getDatasetsDir();
-
-    try {
-      await fs.access(datasetRoot);
-    } catch {
+    if (!datasetRoot) {
       return NextResponse.json({ datasets: [], total: 0 }, NO_STORE);
     }
 
