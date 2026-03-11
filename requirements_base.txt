@@ -74,11 +74,10 @@ watchdog>=4.0.0
 tensorboard
 
 # ONNX / Tagger Dependencies
-# Use Microsoft's CUDA 12 package index for proper GPU support
-# NOTE: --extra-index-url must be on separate line before the package
---extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+# onnxruntime-gpu 1.19+ ships with CUDA 12 + cuDNN 9 support on standard PyPI.
+# No extra-index-url needed (removed Microsoft CUDA 12 index — only had cuDNN 8 builds).
 onnx>=1.16.1  # Alerts #62, #64: Can't upgrade to 1.17.0 (needs protobuf 4.x, breaks transformers/diffusers). Low risk: trusted HF models only.
-onnxruntime-gpu==1.17.1
+onnxruntime-gpu>=1.19.0  # Needs >=1.19 for cuDNN 9 support (VastAI/RunPod containers ship cuDNN 9). See issue #229.
 protobuf>=3.20.2,<4  # CVE fixes: alerts #50, #51. Can't use 4.x (breaks ONNX 1.16/transformers/diffusers).
 
 # -- Essential Commented Dependencies (Now Active) --
