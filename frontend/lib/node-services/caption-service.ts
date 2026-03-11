@@ -12,7 +12,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { validateDatasetPath as validateDatasetPathSecurity, validateImagePath } from './path-validation';
+import { validateDatasetPath as validateDatasetPathSecurity, validateImagePath, DATASETS_DIR } from './path-validation';
 
 // ========== Types ==========
 
@@ -71,11 +71,17 @@ const DEFAULT_CAPTION_EXTENSION = '.txt';
 // ========== Helper Functions ==========
 
 /**
- * Validate dataset path is confined to datasets/ and exists as a directory
+ * Validate dataset path is confined to datasets/ and exists as a directory.
+ * Accepts bare dataset names (e.g. "AeronXvoor") by resolving them under DATASETS_DIR.
  */
 async function validateDatasetPath(datasetPath: string): Promise<string> {
+  // If just a bare name (no path separators), resolve under datasets dir
+  const fullPath = datasetPath.includes('/') || datasetPath.includes('\\')
+    ? datasetPath
+    : path.join(DATASETS_DIR, datasetPath);
+
   // Security: confine to datasets directory
-  const resolved = validateDatasetPathSecurity(datasetPath);
+  const resolved = validateDatasetPathSecurity(fullPath);
 
   try {
     const stats = await fs.stat(resolved);
