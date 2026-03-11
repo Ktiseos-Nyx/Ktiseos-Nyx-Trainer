@@ -31,7 +31,7 @@ lion-pytorch==0.2.3
 dadaptation==3.2
 pytorch_optimizer==3.9.0
 schedulefree==1.4
-prodigy-plus-schedule-free==1.9.2
+prodigy-plus-schedule-free==2.0.1
 came-pytorch
 
 # General Utilities
