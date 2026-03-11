@@ -77,7 +77,7 @@
     "motion": "^12.23.26",
     "next": "15.5.10",
     "next-themes": "^0.4.6",
-    "onnxruntime-node": "^1.23.2",
+    "onnxruntime-node": "^1.24.3",
     "react": "19.2.3",
     "react-aria-components": "^1.14.0",
     "react-dom": "19.2.3",
