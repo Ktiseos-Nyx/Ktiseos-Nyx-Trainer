@@ -12,6 +12,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { UseFormReturn, FieldValues, Path } from 'react-hook-form';
 import {
   FormControl,
@@ -312,11 +313,25 @@ export function SliderFormField<T extends FieldValues>({
 }
 
 /**
- * Combobox Field
+ * Combobox Field — supports both selecting from options AND typing custom values.
+ * Uses inputValue tracking so typed paths aren't erased on blur.
  */
 export function ComboboxFormField<T extends FieldValues>({
-  form, name, label, options, placeholder
+  form, name, label, description, options, placeholder
 }: any) {
+  // Initialize from current form value so hydrated/default values show up
+  const currentValue = form.getValues(name) ?? '';
+  const [inputValue, setInputValue] = useState(currentValue);
+
+  // Sync inputValue when form value changes externally (e.g., auto-defaults, presets)
+  const watchedValue = form.watch(name);
+  useEffect(() => {
+    if (watchedValue && watchedValue !== inputValue) {
+      setInputValue(watchedValue);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedValue]);
+
   return (
     <FormField
       control={form.control}
@@ -329,6 +344,14 @@ export function ComboboxFormField<T extends FieldValues>({
             onValueChange={(val: string) => {
               field.onChange(val);
               form.setValue(name, val, { shouldDirty: true });
+              setInputValue(val);
+            }}
+            inputValue={inputValue}
+            onInputValueChange={(val: string) => {
+              setInputValue(val);
+              // Sync typed text to form so custom paths are preserved
+              field.onChange(val);
+              form.setValue(name, val, { shouldDirty: true });
             }}
           >
             <ComboboxAnchor>
@@ -336,11 +359,13 @@ export function ComboboxFormField<T extends FieldValues>({
               <ComboboxTrigger />
             </ComboboxAnchor>
             <ComboboxContent>
+              <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
               {options.map((opt: any) => (
                 <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
               ))}
             </ComboboxContent>
           </Combobox>
+          {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}
