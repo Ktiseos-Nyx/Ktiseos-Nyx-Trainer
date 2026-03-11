@@ -324,12 +324,9 @@ export function ComboboxFormField<T extends FieldValues>({
   const [inputValue, setInputValue] = useState(currentValue);
 
   // Sync inputValue when form value changes externally (e.g., auto-defaults, presets)
-  const watchedValue = form.watch(name);
+  const watchedValue = (form.watch(name) ?? '') as string;
   useEffect(() => {
-    if (watchedValue && watchedValue !== inputValue) {
-      setInputValue(watchedValue);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setInputValue((prev) => (prev === watchedValue ? prev : watchedValue));
   }, [watchedValue]);
 
   return (
