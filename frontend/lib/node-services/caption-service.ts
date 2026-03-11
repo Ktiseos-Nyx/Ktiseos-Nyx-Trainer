@@ -75,10 +75,15 @@ const DEFAULT_CAPTION_EXTENSION = '.txt';
  * Accepts bare dataset names (e.g. "AeronXvoor") by resolving them under DATASETS_DIR.
  */
 async function validateDatasetPath(datasetPath: string): Promise<string> {
+  const trimmed = datasetPath.trim();
+  if (!trimmed || /^\.+$/.test(trimmed)) {
+    throw new Error('Invalid dataset path');
+  }
+
   // If just a bare name (no path separators), resolve under datasets dir
-  const fullPath = datasetPath.includes('/') || datasetPath.includes('\\')
-    ? datasetPath
-    : path.join(DATASETS_DIR, datasetPath);
+  const fullPath = trimmed.includes('/') || trimmed.includes('\\')
+    ? trimmed
+    : path.join(DATASETS_DIR, trimmed);
 
   // Security: confine to datasets directory
   const resolved = validateDatasetPathSecurity(fullPath);

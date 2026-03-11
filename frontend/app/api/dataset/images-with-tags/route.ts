@@ -43,10 +43,15 @@ export async function GET(request: NextRequest) {
       return jsonNoStore({ error: 'Missing dataset_path parameter' }, 400);
     }
 
+    const trimmedPath = datasetPath.trim();
+    if (!trimmedPath || /^\.+$/.test(trimmedPath)) {
+      return jsonNoStore({ error: 'Invalid dataset_path parameter' }, 400);
+    }
+
     // If just a bare name (no path separators), resolve under datasets dir
-    const fullPath = datasetPath.includes('/') || datasetPath.includes('\\')
-      ? datasetPath
-      : path.join(DATASETS_DIR, datasetPath);
+    const fullPath = trimmedPath.includes('/') || trimmedPath.includes('\\')
+      ? trimmedPath
+      : path.join(DATASETS_DIR, trimmedPath);
 
     // Security: confine to datasets directory
     let resolvedPath: string;
