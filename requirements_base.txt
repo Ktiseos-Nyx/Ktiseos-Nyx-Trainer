@@ -81,5 +81,5 @@ onnxruntime-gpu>=1.19.0  # Needs >=1.19 for cuDNN 9 support (VastAI/RunPod conta
 protobuf>=3.20.2,<4  # CVE fixes: alerts #50, #51. Can't use 4.x (breaks ONNX 1.16/transformers/diffusers).
 
 # -- Essential Commented Dependencies (Now Active) --
-timm==0.6.12 # Required for BLIP captioning
+timm==1.0.25 # Required for BLIP captioning
 fairscale==0.4.13 # Required for BLIP captioning
