@@ -272,7 +272,31 @@ class RemoteInstaller:
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
 
+        if success:
+            self.verify_onnx_runtime()
+
         return success
+
+    def verify_onnx_runtime(self):
+        """Verify ONNX runtime is installed and can see GPU providers."""
+        self.logger.info("Verifying ONNX runtime installation...")
+        print("Verifying ONNX runtime installation...")
+
+        verify_cmd = [
+            self.python_cmd,
+            "-c",
+            "import onnxruntime as ort; print(f'ONNX Runtime {ort.__version__} — Providers: {ort.get_available_providers()}')"
+        ]
+
+        success = self.run_command(verify_cmd, "Verifying ONNX runtime import")
+
+        if success:
+            self.logger.info("ONNX runtime verification successful")
+            print("ONNX runtime verification successful")
+        else:
+            self.logger.error("ONNX runtime verification failed — WD14 tagging may fall back to CPU")
+            print("ONNX runtime verification failed — WD14 tagging may fall back to CPU")
+            print("   If tagging is slow, try: pip install --upgrade onnxruntime-gpu")
 
     def check_system_dependencies(self):
         """Check and attempt to install required system packages like aria2c"""
