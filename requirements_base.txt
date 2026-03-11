@@ -60,7 +60,7 @@ matplotlib==3.10.1
 
 # Image/Data Handling
 Pillow>=10.3.0
-opencv-python==4.10.0.84
+opencv-python==4.13.0.92
 imageio>=2.34.1
 imageio-ffmpeg>=0.5.1
 pyarrow>=16.1.0
