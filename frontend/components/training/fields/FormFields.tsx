@@ -12,6 +12,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { UseFormReturn, FieldValues, Path } from 'react-hook-form';
 import {
   FormControl,
@@ -50,6 +51,20 @@ interface BaseFieldProps<T extends FieldValues> {
   placeholder?: string;
   disabled?: boolean;
   readOnly?: boolean;
+}
+
+// Add this right after the BaseFieldProps interface
+type FieldOption = {
+  value: string;
+  label: string;
+};
+
+interface SelectFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+  options: FieldOption[];
+}
+
+interface ComboboxFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+  options: FieldOption[];
 }
 
 /**
@@ -149,8 +164,8 @@ export function NumberFormField<T extends FieldValues>({
  */
 export function SelectFormField<T extends FieldValues>({
   form, name, label, description, options
-}: any) {
-  return (
+}: SelectFormFieldProps<T>) {
+  return (  // 👈 Return starts immediately
     <FormField
       control={form.control}
       name={name}
@@ -166,7 +181,7 @@ export function SelectFormField<T extends FieldValues>({
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
-              {options.map((opt: any) => (
+              {options.map((opt) => (  // ✅ Correct location: inside return
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
             </SelectContent>
@@ -312,11 +327,21 @@ export function SliderFormField<T extends FieldValues>({
 }
 
 /**
- * Combobox Field
+ * Combobox Field — supports both selecting from options AND typing custom values.
+ * Uses inputValue tracking so typed paths aren't erased on blur.
  */
 export function ComboboxFormField<T extends FieldValues>({
-  form, name, label, options, placeholder
-}: any) {
+  form, name, label, description, options, placeholder
+}: ComboboxFormFieldProps<T>) {
+  // ✅ Hooks at top level - perfect
+  const currentValue = form.getValues(name) ?? '';
+  const [inputValue, setInputValue] = useState(currentValue);
+
+  const watchedValue = (form.watch(name) ?? '') as string;
+  useEffect(() => {
+     setInputValue((prev) => (prev === watchedValue ? prev : watchedValue));
+  }, [watchedValue]);
+
   return (
     <FormField
       control={form.control}
@@ -329,6 +354,13 @@ export function ComboboxFormField<T extends FieldValues>({
             onValueChange={(val: string) => {
               field.onChange(val);
               form.setValue(name, val, { shouldDirty: true });
+              setInputValue(val);
+            }}
+            inputValue={inputValue}
+            onInputValueChange={(val: string) => {
+              setInputValue(val);
+              field.onChange(val);
+              form.setValue(name, val, { shouldDirty: true });
             }}
           >
             <ComboboxAnchor>
@@ -336,11 +368,13 @@ export function ComboboxFormField<T extends FieldValues>({
               <ComboboxTrigger />
             </ComboboxAnchor>
             <ComboboxContent>
-              {options.map((opt: any) => (
+              <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
+              {options.map((opt) => (  // ✅ Correct location: inside return
                 <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
               ))}
             </ComboboxContent>
           </Combobox>
+          {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}
