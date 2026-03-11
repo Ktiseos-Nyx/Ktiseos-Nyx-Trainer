@@ -185,6 +185,13 @@ provisioning_start() {
         chmod +x start_services_local.sh
     fi
 
+    # Fix onnxruntime-gpu for cuDNN 9 (some VastAI images ship cuDNN 9, but
+    # requirements.txt pins 1.17.1 which needs cuDNN 8).
+    if ! $PYTHON_CMD -c "import onnxruntime; print(onnxruntime.get_device())" 2>/dev/null | grep -q GPU; then
+        echo "  onnxruntime-gpu doesn't see CUDA — reinstalling for cuDNN 9..."
+        $PYTHON_CMD -m pip install --upgrade onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/ --no-cache-dir -q
+    fi
+
     # Configure git for root usage
     # shellcheck disable=SC2046
     git config --global --add safe.directory $(pwd)

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import { validateDatasetPath } from '@/lib/node-services/path-validation';
+import { validateDatasetPath, DATASETS_DIR } from '@/lib/node-services/path-validation';
 import { IMAGE_EXTENSIONS } from '@/lib/node-services/datasets';
 
 // Opt out of Next.js static caching so the tag editor reflects saves immediately.
@@ -43,10 +43,20 @@ export async function GET(request: NextRequest) {
       return jsonNoStore({ error: 'Missing dataset_path parameter' }, 400);
     }
 
+    const trimmedPath = datasetPath.trim();
+    if (!trimmedPath || /^\.+$/.test(trimmedPath)) {
+      return jsonNoStore({ error: 'Invalid dataset_path parameter' }, 400);
+    }
+
+    // If just a bare name (no path separators), resolve under datasets dir
+    const fullPath = trimmedPath.includes('/') || trimmedPath.includes('\\')
+      ? trimmedPath
+      : path.join(DATASETS_DIR, trimmedPath);
+
     // Security: confine to datasets directory
     let resolvedPath: string;
     try {
-      resolvedPath = validateDatasetPath(datasetPath);
+      resolvedPath = validateDatasetPath(fullPath);
     } catch {
       return jsonNoStore({ error: 'Access denied: path outside allowed directories' }, 403);
     }
