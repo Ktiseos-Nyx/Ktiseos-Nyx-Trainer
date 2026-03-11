@@ -53,6 +53,20 @@ interface BaseFieldProps<T extends FieldValues> {
   readOnly?: boolean;
 }
 
+// Add this right after the BaseFieldProps interface
+type FieldOption = {
+  value: string;
+  label: string;
+};
+
+interface SelectFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+  options: FieldOption[];
+}
+
+interface ComboboxFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+  options: FieldOption[];
+}
+
 /**
  * Text Input Field
  */
@@ -150,8 +164,8 @@ export function NumberFormField<T extends FieldValues>({
  */
 export function SelectFormField<T extends FieldValues>({
   form, name, label, description, options
-}: any) {
-  return (
+}: SelectFormFieldProps<T>) {
+  return (  // 👈 Return starts immediately
     <FormField
       control={form.control}
       name={name}
@@ -167,7 +181,7 @@ export function SelectFormField<T extends FieldValues>({
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
-              {options.map((opt: any) => (
+              {options.map((opt) => (  // ✅ Correct location: inside return
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
             </SelectContent>
@@ -318,15 +332,14 @@ export function SliderFormField<T extends FieldValues>({
  */
 export function ComboboxFormField<T extends FieldValues>({
   form, name, label, description, options, placeholder
-}: any) {
-  // Initialize from current form value so hydrated/default values show up
+}: ComboboxFormFieldProps<T>) {
+  // ✅ Hooks at top level - perfect
   const currentValue = form.getValues(name) ?? '';
   const [inputValue, setInputValue] = useState(currentValue);
 
-  // Sync inputValue when form value changes externally (e.g., auto-defaults, presets)
   const watchedValue = (form.watch(name) ?? '') as string;
   useEffect(() => {
-    setInputValue((prev) => (prev === watchedValue ? prev : watchedValue));
+     setInputValue((prev) => (prev === watchedValue ? prev : watchedValue));
   }, [watchedValue]);
 
   return (
@@ -346,7 +359,6 @@ export function ComboboxFormField<T extends FieldValues>({
             inputValue={inputValue}
             onInputValueChange={(val: string) => {
               setInputValue(val);
-              // Sync typed text to form so custom paths are preserved
               field.onChange(val);
               form.setValue(name, val, { shouldDirty: true });
             }}
@@ -357,7 +369,7 @@ export function ComboboxFormField<T extends FieldValues>({
             </ComboboxAnchor>
             <ComboboxContent>
               <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
-              {options.map((opt: any) => (
+              {options.map((opt) => (  // ✅ Correct location: inside return
                 <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
               ))}
             </ComboboxContent>
