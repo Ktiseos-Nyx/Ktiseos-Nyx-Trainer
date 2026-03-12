@@ -178,7 +178,7 @@ export const useTrainingStore = create<TrainingStore>()(
       },
     }),
     {
-      name: 'training-config',
+      name: 'training-config-store',
 
       // ✅ FIX 1: Safe storage wrapper (Handles Server vs Client)
       storage: createJSONStorage(() => {

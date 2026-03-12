@@ -340,8 +340,17 @@ export function ComboboxFormField<T extends FieldValues>({
   form, name, label, description, options, placeholder
 }: ComboboxFormFieldProps<T>) {
   // ✅ Hooks at top level - perfect
-  const currentValue = form.getValues(name) ?? '';
-  const [inputValue, setInputValue] = useState(currentValue);
+  const valueToLabel = useMemo(() => {
+  const map = new Map<string, string>();
+  options.forEach(opt => map.set(opt.value, opt.label));
+  return map;
+}, [options]);
+
+const initialValue = form.getValues(name) ?? '';
+const [displayText, setDisplayText] = useState(() => 
+  valueToLabel.get(initialValue) || initialValue
+);
+const [isSearching, setIsSearching] = useState(false);
 
   const watchedValue = (form.watch(name) ?? '') as string;
   useEffect(() => {
