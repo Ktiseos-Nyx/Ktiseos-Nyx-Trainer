@@ -34,12 +34,6 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
   const isHunyuanImage = modelType === 'HunyuanImage';
 
 
-useEffect(() => {
-  console.log('🔍 ProjectSetupCard - models:', models);
-  console.log('🔍 ProjectSetupCard - form value:', form.getValues('pretrained_model_name_or_path'));
-  console.log('🔍 ProjectSetupCard - models length:', models.length);
-  console.log('🔍 ProjectSetupCard - is models empty?', models.length === 0);
-}, [models]);
 
 
   return (

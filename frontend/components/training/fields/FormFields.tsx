@@ -176,9 +176,9 @@ export function SelectFormField<T extends FieldValues>({
           <Select
             value={field.value}
             onValueChange={(val: string) => {
-              field.onChange(val);
-              form.setValue(name, val as any, { shouldDirty: true });
-            }}
+			form.setValue(name, val as any, { shouldDirty: true, shouldValidate: false, shouldTouch: true });
+			setInputValue(val);
+}}
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
@@ -355,17 +355,15 @@ return (
         <Combobox
           value={field.value}
           onValueChange={(val: string) => {
-            field.onChange(val);
             // ✅ Add shouldValidate: false
-            form.setValue(name, val as any, { shouldDirty: true, shouldValidate: false });
+            form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
             setInputValue(val);
           }}
           inputValue={inputValue}
           onInputValueChange={(val: string) => {
             setInputValue(val);
-            field.onChange(val);
             // ✅ Add shouldValidate: false (CRITICAL!)
-            form.setValue(name, val as any, { shouldDirty: true, shouldValidate: false });
+            form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
           }}
           // ✅ FORCE preserve input on blur
           preserveInputOnBlur={true}
