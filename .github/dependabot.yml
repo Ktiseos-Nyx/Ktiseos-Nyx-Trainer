@@ -6,14 +6,23 @@ updates:
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
 
   # Root Python dependencies (our own requirements files)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
 
+  # Group React packages together so they update in lockstep
+   - package-ecosystem: "npm"
+    directory: "/frontend"
+    groups:
+    react-core:
+      patterns:
+        - "react"
+        - "react-dom"
+  
   # Vendored directories — disabled via empty ignore-all.
   # These are third-party code (Kohya SS + LyCORIS) committed as-is.
   # Updating them risks breaking the training pipeline.
@@ -21,13 +30,15 @@ updates:
   - package-ecosystem: "pip"
     directory: "/trainer/derrian_backend/lycoris"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     ignore:
       - dependency-name: "*"
 
   - package-ecosystem: "pip"
     directory: "/trainer/derrian_backend/sd_scripts"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     ignore:
       - dependency-name: "*"
+      
+         
