@@ -133,14 +133,18 @@ pretrained_model_name_or_path: z
   .min(1, 'Pretrained model path is required')
   .refine((val) => {
     const lower = val.toLowerCase();
-    return lower.endsWith('.safetensors') || 
-           lower.endsWith('.ckpt') || 
-           lower.endsWith('.pt') ||
-           val.includes('/') ||
-           val.includes('\\') ||
-           val.includes('huggingface');
+
+    // HuggingFace model IDs (e.g., "runwayml/stable-diffusion-v1-5")
+    if (val.includes('huggingface') || (val.includes('/') && !val.startsWith('/') && !val.startsWith('\\'))) {
+      return true;
+    }
+
+    // Local paths must have a valid model extension
+    return lower.endsWith('.safetensors') ||
+           lower.endsWith('.ckpt') ||
+           lower.endsWith('.pt');
   }, {
-    message: 'Model path must be a valid file path or HuggingFace model ID',
+    message: 'Model path must be a .safetensors, .ckpt, or .pt file, or a HuggingFace model ID (e.g., "org/model-name")',
   }),
 
   vae_path: z.string().optional(),
