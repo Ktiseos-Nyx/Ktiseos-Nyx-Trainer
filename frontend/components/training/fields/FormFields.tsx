@@ -161,7 +161,16 @@ export function NumberFormField<T extends FieldValues>({
 }
 
 /**
- * Select Dropdown Field
+ * Renders a form-connected select dropdown with label, optional description, and validation message.
+ *
+ * Binds the select value to the provided form control and synchronizes changes back to the form.
+ *
+ * @param form - React Hook Form instance controlling the field
+ * @param name - Field name within the form
+ * @param label - Visible label text for the select
+ * @param description - Optional help text displayed below the control
+ * @param options - Array of options to render; each option's `value` is used as the select value and `label` as the display text
+ * @returns The rendered select form field element
  */
 export function SelectFormField<T extends FieldValues>({
   form, name, label, description, options
@@ -328,8 +337,15 @@ export function SliderFormField<T extends FieldValues>({
 }
 
 /**
- * Combobox Field — supports both selecting from options AND typing custom values.
- * Uses manualFiltering + separate displayText/isSearching states to avoid race conditions.
+ * Render a form-connected combobox that lets users pick an option or enter a custom value.
+ *
+ * The component displays human-readable labels for known option values, filters options by label while the user types,
+ * and only commits a value to the form when an option is selected or the dropdown closes after typing a custom entry.
+ *
+ * @param form - The react-hook-form instance controlling this field
+ * @param name - The form field name to read and write the selected or typed value
+ * @param options - Array of selectable options; each option provides a `value` and `label` (and optional `description`)
+ * @returns A JSX element rendering the combobox form field wired to the provided form
  */
 export function ComboboxFormField<T extends FieldValues>({
   form, name, label, description, options, placeholder
