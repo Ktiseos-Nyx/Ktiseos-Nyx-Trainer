@@ -102,7 +102,7 @@
     }
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^20.19.27",
 	"@types/react": "^19.0.0",
 	"@types/react-dom": "^19.0.0",
