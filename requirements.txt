@@ -51,7 +51,7 @@ huggingface-hub>=0.34.3
 voluptuous>=0.15.2
 sentencepiece>=0.2.1
 wheel
-coverage==7.8.0
+coverage==7.13.4
 parameterized==0.9.0
 hpsv2==1.2.0
 narwhals==1.34.1
