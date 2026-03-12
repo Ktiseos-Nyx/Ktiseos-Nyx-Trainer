@@ -55,7 +55,7 @@ if not errorlevel 1 (
 )
 
 REM --- Check: Write permissions (can we actually write here?) ---
-echo test > "%~dp0.write_test" 2>nul
+copy /y nul "%~dp0_write_test_.tmp" >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Cannot write to project folder!
     echo         Path: %~dp0
@@ -72,10 +72,12 @@ if errorlevel 1 (
     echo.
     echo         Run 'diagnose.bat' to collect system info for a bug report.
     echo.
+	echo.		 DO NOT SUMMON EMET SELCH - Please For the Love of God.	
     pause
     exit /b 1
 ) else (
-    del "%~dp0.write_test" 2>nul
+    del "%~dp0_write_test_.tmp" >nul 2>&1
+)
 )
 
 REM --- Check: Ports already in use ---
