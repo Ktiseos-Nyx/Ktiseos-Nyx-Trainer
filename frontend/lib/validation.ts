@@ -128,12 +128,20 @@ export const TrainingConfigSchema = z.object({
 
   model_type: ModelTypeSchema,
 
-  pretrained_model_name_or_path: z
-    .string()
-    .min(1, 'Pretrained model path is required')
-    .refine((val) => val.endsWith('.safetensors') || val.endsWith('.ckpt') || val.includes('huggingface'), {
-      message: 'Model path must be a .safetensors or .ckpt file, or a HuggingFace model ID',
-    }),
+pretrained_model_name_or_path: z
+  .string()
+  .min(1, 'Pretrained model path is required')
+  .refine((val) => {
+    const lower = val.toLowerCase();
+    return lower.endsWith('.safetensors') || 
+           lower.endsWith('.ckpt') || 
+           lower.endsWith('.pt') ||
+           val.includes('/') ||
+           val.includes('\\') ||
+           val.includes('huggingface');
+  }, {
+    message: 'Model path must be a valid file path or HuggingFace model ID',
+  }),
 
   vae_path: z.string().optional(),
   clip_l_path: z.string().optional(),

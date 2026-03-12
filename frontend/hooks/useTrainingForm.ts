@@ -218,16 +218,17 @@ export function useTrainingForm(options: {
   autoSaveDelay?: number;
   validateOnChange?: boolean;
 } = {}) {
-  const { autoSave = true, autoSaveDelay = 500 } = options;
+  const { autoSave = true, autoSaveDelay = 500, validateOnChange = false } = options;
 
   const [isHydrated, setIsHydrated] = useState(false);
   const isHydratedRef = useRef(false);
 
   // Initialize form with hardcoded defaults (localStorage hydration happens in useEffect)
   const form = useForm<TrainingConfig>({
-    resolver: zodResolver(TrainingConfigSchema) as any,
-    defaultValues: defaultConfig,
-    shouldUnregister: false,
+  resolver: zodResolver(TrainingConfigSchema) as any,
+  defaultValues: defaultConfig,
+  shouldUnregister: false,
+	mode: validateOnChange ? "onChange" : "onSubmit",  // 👈 Dynamic mode
   });
 
   const formRef = useRef(form);

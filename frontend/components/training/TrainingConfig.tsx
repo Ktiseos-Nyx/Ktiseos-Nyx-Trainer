@@ -48,7 +48,7 @@ export default function TrainingConfigNew() {
   } = useTrainingForm({
     autoSave: true,
     autoSaveDelay: 500,
-    validateOnChange: true,
+    validateOnChange: false,  // 👈 Ensure this is false (or just remove the line)
   });
 
   // Fetch dropdown options AFTER hydration completes

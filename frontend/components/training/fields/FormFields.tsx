@@ -57,6 +57,7 @@ interface BaseFieldProps<T extends FieldValues> {
 type FieldOption = {
   value: string;
   label: string;
+  description?: string;  // 👈 Add this line
 };
 
 interface SelectFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
@@ -176,7 +177,7 @@ export function SelectFormField<T extends FieldValues>({
             value={field.value}
             onValueChange={(val: string) => {
               field.onChange(val);
-              form.setValue(name, val, { shouldDirty: true });
+              form.setValue(name, val as any, { shouldDirty: true });
             }}
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
@@ -342,42 +343,53 @@ export function ComboboxFormField<T extends FieldValues>({
      setInputValue((prev) => (prev === watchedValue ? prev : watchedValue));
   }, [watchedValue]);
 
-  return (
-    <FormField
-      control={form.control}
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>{label}</FormLabel>
-          <Combobox
-            value={field.value}
-            onValueChange={(val: string) => {
-              field.onChange(val);
-              form.setValue(name, val, { shouldDirty: true });
-              setInputValue(val);
-            }}
-            inputValue={inputValue}
-            onInputValueChange={(val: string) => {
-              setInputValue(val);
-              field.onChange(val);
-              form.setValue(name, val, { shouldDirty: true });
-            }}
-          >
-            <ComboboxAnchor>
-              <FormControl><ComboboxInput placeholder={placeholder} /></FormControl>
-              <ComboboxTrigger />
-            </ComboboxAnchor>
-            <ComboboxContent>
-              <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
-              {options.map((opt) => (  // ✅ Correct location: inside return
-                <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
-              ))}
-            </ComboboxContent>
-          </Combobox>
-          {description && <FormDescription>{description}</FormDescription>}
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
+  // Inside ComboboxFormField in FormFields.tsx
+
+return (
+  <FormField
+    control={form.control}
+    name={name}
+    render={({ field }) => (
+      <FormItem>
+        <FormLabel>{label}</FormLabel>
+        <Combobox
+          value={field.value}
+          onValueChange={(val: string) => {
+            field.onChange(val);
+            // ✅ Add shouldValidate: false
+            form.setValue(name, val as any, { shouldDirty: true, shouldValidate: false });
+            setInputValue(val);
+          }}
+          inputValue={inputValue}
+          onInputValueChange={(val: string) => {
+            setInputValue(val);
+            field.onChange(val);
+            // ✅ Add shouldValidate: false (CRITICAL!)
+            form.setValue(name, val as any, { shouldDirty: true, shouldValidate: false });
+          }}
+          // ✅ FORCE preserve input on blur
+          preserveInputOnBlur={true}
+          // ✅ OVERRIDE blur to prevent library reset
+          onBlur={(e) => {
+            e.preventDefault();
+            field.onBlur();
+          }}
+        >
+          <ComboboxAnchor>
+            <FormControl><ComboboxInput placeholder={placeholder} /></FormControl>
+            <ComboboxTrigger />
+          </ComboboxAnchor>
+          <ComboboxContent>
+            <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
+            {options.map((opt) => (
+              <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
+            ))}
+          </ComboboxContent>
+        </Combobox>
+        {description && <FormDescription>{description}</FormDescription>}
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+);
 }

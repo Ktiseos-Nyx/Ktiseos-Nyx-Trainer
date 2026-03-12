@@ -9,6 +9,7 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ComboboxFormField, TextFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
@@ -31,6 +32,14 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
   const isChroma = modelType === 'Chroma';
   const isAnima = modelType === 'Anima';
   const isHunyuanImage = modelType === 'HunyuanImage';
+
+
+useEffect(() => {
+  console.log('🔍 ProjectSetupCard - models:', models);
+  console.log('🔍 ProjectSetupCard - form value:', form.getValues('pretrained_model_name_or_path'));
+  console.log('🔍 ProjectSetupCard - models length:', models.length);
+  console.log('🔍 ProjectSetupCard - is models empty?', models.length === 0);
+}, [models]);
 
 
   return (
