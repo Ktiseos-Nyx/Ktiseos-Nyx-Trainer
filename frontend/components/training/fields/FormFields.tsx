@@ -12,8 +12,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { UseFormReturn, FieldValues, Path } from 'react-hook-form';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { UseFormReturn, FieldValues, Path, useWatch } from 'react-hook-form';
 import {
   FormControl,
   FormDescription,
@@ -53,13 +53,7 @@ interface BaseFieldProps<T extends FieldValues> {
   readOnly?: boolean;
 }
 
-/**
- * Represents a single option in a select or combobox field.
- *
- * `@property` value       - The underlying value submitted with the form.
- * `@property` label       - The human-readable display text.
- * `@property` description - Optional helper text shown beneath the option label.
- */
+// Add this right after the BaseFieldProps interface
 type FieldOption = {
   value: string;
   label: string;
@@ -167,7 +161,16 @@ export function NumberFormField<T extends FieldValues>({
 }
 
 /**
- * Select Dropdown Field
+ * Renders a form-connected select dropdown with label, optional description, and validation message.
+ *
+ * Binds the select value to the provided form control and synchronizes changes back to the form.
+ *
+ * @param form - React Hook Form instance controlling the field
+ * @param name - Field name within the form
+ * @param label - Visible label text for the select
+ * @param description - Optional help text displayed below the control
+ * @param options - Array of options to render; each option's `value` is used as the select value and `label` as the display text
+ * @returns The rendered select form field element
  */
 export function SelectFormField<T extends FieldValues>({
   form, name, label, description, options
@@ -182,8 +185,9 @@ export function SelectFormField<T extends FieldValues>({
           <Select
             value={field.value}
             onValueChange={(val: string) => {
-			form.setValue(name, val as any, { shouldDirty: true, shouldValidate: false, shouldTouch: true });
-}}
+              field.onChange(val);
+              form.setValue(name, val as any, { shouldDirty: true });
+            }}
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
@@ -333,77 +337,110 @@ export function SliderFormField<T extends FieldValues>({
 }
 
 /**
- * Combobox Field — supports both selecting from options AND typing custom values.
- * Uses inputValue tracking so typed paths aren't erased on blur.
+ * Render a form-connected combobox that lets users pick an option or enter a custom value.
+ *
+ * The component displays human-readable labels for known option values, filters options by label while the user types,
+ * and only commits a value to the form when an option is selected or the dropdown closes after typing a custom entry.
+ *
+ * @param form - The react-hook-form instance controlling this field
+ * @param name - The form field name to read and write the selected or typed value
+ * @param options - Array of selectable options; each option provides a `value` and `label` (and optional `description`)
+ * @returns A JSX element rendering the combobox form field wired to the provided form
  */
 export function ComboboxFormField<T extends FieldValues>({
   form, name, label, description, options, placeholder
 }: ComboboxFormFieldProps<T>) {
-  // ✅ Hooks at top level - perfect
-  const valueToLabel = useMemo(() => {
-  const map = new Map<string, string>();
-  options.forEach(opt => map.set(opt.value, opt.label));
-  return map;
-}, [options]);
 
-const initialValue = form.getValues(name) ?? '';
-const [displayText, setDisplayText] = useState(() => 
-  valueToLabel.get(initialValue) || initialValue
-);
-const [inputValue, setInputValue] = useState(() => 
-  valueToLabel.get(initialValue) || initialValue
-);
+  // Build a value→label lookup so we display filenames, not full paths
+  const valueToLabel = useMemo(
+    () => Object.fromEntries(options.map((o) => [o.value, o.label])),
+    [options]
+  );
 
-  const watchedValue = (form.watch(name) ?? '') as string;
+  const currentValue = (form.getValues(name) ?? '') as string;
+
+  // displayText = what the input shows (human-readable label or typed path)
+  const [displayText, setDisplayText] = useState(
+    valueToLabel[currentValue] ?? currentValue
+  );
+
+  // isSearching = true while the user is actively typing  Race Condition Testing
+  const [inputValue, setInputValue] = useState(() => 
+	valueToLabel.get(initialValue) || initialValue
+	);    
+
+  // Track last synced value to detect external changes (hydration, preset load)
+  const lastSyncedValue = useRef(currentValue);
+
+  // Filter by label when searching; show all options otherwise
+  const filteredOptions = useMemo(() => {
+    if (!isSearching || !displayText) return options;
+    const lower = displayText.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(lower));
+  }, [options, isSearching, displayText]);
+
+  // Sync external form value changes → displayText, but only when not typing
   useEffect(() => {
-     setInputValue((prev) => (prev === watchedValue ? prev : watchedValue));
-  }, [watchedValue]);
+    const formVal = (form.getValues(name) ?? '') as string;
+    if (!isSearching && formVal !== lastSyncedValue.current) {
+      lastSyncedValue.current = formVal;
+      setDisplayText(valueToLabel[formVal] ?? formVal);
+    }
+  });
 
-
-
-return (
-  <FormField
-    control={form.control}
-    name={name}
-    render={({ field }) => (
-      <FormItem>
-        <FormLabel>{label}</FormLabel>
-        <Combobox
-          value={field.value}
-          onValueChange={(val: string) => {
-            // ✅ Add shouldValidate: false
-            form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
-            setInputValue(val);
-          }}
-          inputValue={inputValue}
-          onInputValueChange={(val: string) => {
-            setInputValue(val);
-            // ✅ Add shouldValidate: false (CRITICAL!)
-            form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
-          }}
-          // ✅ FORCE preserve input on blur
-          preserveInputOnBlur={true}
-          // ✅ OVERRIDE blur to prevent library reset
-          onBlur={(e) => {
-            e.preventDefault();
-            field.onBlur();
-          }}
-        >
-          <ComboboxAnchor>
-            <FormControl><ComboboxInput placeholder={placeholder} /></FormControl>
-            <ComboboxTrigger />
-          </ComboboxAnchor>
-          <ComboboxContent>
-            <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
-            {options.map((opt) => (
-              <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
-            ))}
-          </ComboboxContent>
-        </Combobox>
-        {description && <FormDescription>{description}</FormDescription>}
-        <FormMessage />
-      </FormItem>
-    )}
-  />
-);
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <Combobox
+            value={field.value}
+            onValueChange={(val: string) => {
+              // User picked an item: store the value, display the label
+              form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
+              lastSyncedValue.current = val;
+              setDisplayText(valueToLabel[val] ?? val);
+              setIsSearching(false);
+            }}
+            inputValue={displayText}
+            onInputValueChange={(val: string) => {
+              // User is typing: update display only, don't commit to form yet
+              setDisplayText(val);
+              setIsSearching(true);
+            }}
+            onOpenChange={(open: boolean) => {
+              // When dropdown closes while typing a custom path, commit it
+              if (!open && isSearching) {
+                const isKnownOption = options.some(
+                  (o) => o.value === displayText || o.label === displayText
+                );
+                if (!isKnownOption && displayText) {
+                  form.setValue(name, displayText as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
+                  lastSyncedValue.current = displayText;
+                }
+                setIsSearching(false);
+              }
+            }}
+            preserveInputOnBlur={true}
+            manualFiltering={true}
+          >
+            <ComboboxAnchor>
+              <FormControl><ComboboxInput placeholder={placeholder} /></FormControl>
+              <ComboboxTrigger />
+            </ComboboxAnchor>
+            <ComboboxContent>
+              <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
+              {filteredOptions.map((opt) => (
+                <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
+              ))}
+            </ComboboxContent>
+          </Combobox>
+          {description && <FormDescription>{description}</FormDescription>}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
 }
