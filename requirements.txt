@@ -23,7 +23,7 @@ diffusers[torch]==0.32.1
 bitsandbytes==0.49.2 # Officially supports CUDA up to 12.4 - just works via pip
 torch-fidelity==0.3.0
 einops==0.8.2
-pytorch-lightning==1.9.0
+pytorch-lightning==2.6.1
 
 # Optimizers & Schedulers
 prodigyopt==1.1.2
