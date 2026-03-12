@@ -87,7 +87,7 @@
     "sharp": "^0.34.5",
     "sonner": "^2.0.7",
     "styled-jsx": "^5.1.7",
-    "tailwind-merge": "^2.6.0",
+    "tailwind-merge": "^3.5.0",
     "tailwind-variants": "^3.2.2",
     "tailwindcss-animate": "^1.0.7",
     "ws": "^8.19.0",
