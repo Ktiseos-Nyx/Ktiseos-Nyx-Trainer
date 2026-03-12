@@ -177,7 +177,6 @@ export function SelectFormField<T extends FieldValues>({
             value={field.value}
             onValueChange={(val: string) => {
 			form.setValue(name, val as any, { shouldDirty: true, shouldValidate: false, shouldTouch: true });
-			setInputValue(val);
 }}
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
