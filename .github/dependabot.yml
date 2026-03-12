@@ -15,14 +15,17 @@ updates:
       interval: "monthly"
 
   # Group React packages together so they update in lockstep
-   - package-ecosystem: "npm"
+  - package-ecosystem: "npm"
     directory: "/frontend"
+    schedule:
+      interval: "monthly"
     groups:
-    react-core:
-      patterns:
-        - "react"
-        - "react-dom"
-  
+      react-core:                   # 👈 Indented 2 spaces under 'groups'
+        patterns:
+          - "react"                # 👈 Indented 2 spaces under 'patterns'
+          - "react-dom"
+          
+          
   # Vendored directories — disabled via empty ignore-all.
   # These are third-party code (Kohya SS + LyCORIS) committed as-is.
   # Updating them risks breaking the training pipeline.
