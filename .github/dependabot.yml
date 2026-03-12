@@ -1,33 +1,34 @@
 # Dependabot configuration
-# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
 updates:
-  # Frontend npm dependencies
+  # Frontend npm dependencies (WITH React grouping)
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      react-core:
+        patterns:
+          - "react"
+          - "react-dom"
 
-  # Root Python dependencies (our own requirements files)
+  # Root Python dependencies
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
-
-  # Vendored directories — disabled via empty ignore-all.
-  # These are third-party code (Kohya SS + LyCORIS) committed as-is.
-  # Updating them risks breaking the training pipeline.
-  # See: https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues/195
+      interval: "monthly"
+  
+  # Vendored directories — disabled via ignore-all
   - package-ecosystem: "pip"
     directory: "/trainer/derrian_backend/lycoris"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     ignore:
       - dependency-name: "*"
 
   - package-ecosystem: "pip"
     directory: "/trainer/derrian_backend/sd_scripts"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     ignore:
       - dependency-name: "*"
