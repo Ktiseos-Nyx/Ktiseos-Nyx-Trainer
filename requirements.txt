@@ -55,7 +55,7 @@ coverage==7.8.0
 parameterized==0.9.0
 hpsv2==1.2.0
 narwhals==1.34.1
-matplotlib==3.10.1
+matplotlib==3.10.8
 
 
 # Image/Data Handling
