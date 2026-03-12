@@ -61,7 +61,6 @@ interface BaseFieldProps<T extends FieldValues> {
  * `@property` description - Optional helper text shown beneath the option label.
  */
 type FieldOption = {
-type FieldOption = {
   value: string;
   label: string;
   description?: string;  // 👈 Add this line

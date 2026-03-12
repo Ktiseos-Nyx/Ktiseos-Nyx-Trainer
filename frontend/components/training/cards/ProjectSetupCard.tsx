@@ -9,7 +9,6 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
-import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ComboboxFormField, TextFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
