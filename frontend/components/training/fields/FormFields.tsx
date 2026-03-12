@@ -350,7 +350,9 @@ const initialValue = form.getValues(name) ?? '';
 const [displayText, setDisplayText] = useState(() => 
   valueToLabel.get(initialValue) || initialValue
 );
-const [isSearching, setIsSearching] = useState(false);
+const [inputValue, setInputValue] = useState(() => 
+  valueToLabel.get(initialValue) || initialValue
+);
 
   const watchedValue = (form.watch(name) ?? '') as string;
   useEffect(() => {
