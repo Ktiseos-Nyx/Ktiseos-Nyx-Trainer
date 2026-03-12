@@ -78,7 +78,6 @@ if errorlevel 1 (
 ) else (
     del "%~dp0_write_test_.tmp" >nul 2>&1
 )
-)
 
 REM --- Check: Ports already in use ---
 netstat -ano 2>nul | findstr ":8000 " | findstr "LISTENING" >nul 2>&1
