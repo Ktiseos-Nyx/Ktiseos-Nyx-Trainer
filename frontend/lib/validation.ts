@@ -128,12 +128,24 @@ export const TrainingConfigSchema = z.object({
 
   model_type: ModelTypeSchema,
 
-  pretrained_model_name_or_path: z
-    .string()
-    .min(1, 'Pretrained model path is required')
-    .refine((val) => val.endsWith('.safetensors') || val.endsWith('.ckpt') || val.includes('huggingface'), {
-      message: 'Model path must be a .safetensors or .ckpt file, or a HuggingFace model ID',
-    }),
+pretrained_model_name_or_path: z
+  .string()
+  .min(1, 'Pretrained model path is required')
+  .refine((val) => {
+    const lower = val.toLowerCase();
+
+    // HuggingFace model IDs (e.g., "runwayml/stable-diffusion-v1-5")
+    if (val.includes('huggingface') || (val.includes('/') && !val.startsWith('/') && !val.startsWith('\\'))) {
+      return true;
+    }
+
+    // Local paths must have a valid model extension
+    return lower.endsWith('.safetensors') ||
+           lower.endsWith('.ckpt') ||
+           lower.endsWith('.pt');
+  }, {
+    message: 'Model path must be a .safetensors, .ckpt, or .pt file, or a HuggingFace model ID (e.g., "org/model-name")',
+  }),
 
   vae_path: z.string().optional(),
   clip_l_path: z.string().optional(),

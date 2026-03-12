@@ -16,7 +16,14 @@ import { Folder, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 
-// --- Define the props the Card now accepts ---
+/**
+ * Props for the {`@link` ProjectSetupCard} component.
+ *
+ * `@property` form   - React Hook Form instance typed to `TrainingConfig`. Not partial.
+ * `@property` models - Available checkpoint models as `{ value, label }` pairs.
+ * `@property` vaes   - Available VAE models as `{ value, label }` pairs.
+ * `@property` onSave - Optional callback triggered by the "Save Project" button.
+ */
 interface ProjectSetupCardProps {
   form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
   models: { value: string; label: string }[];
@@ -24,13 +31,28 @@ interface ProjectSetupCardProps {
   onSave?: () => void; // 👈 NEW
 }
 
-// --- Update the function signature ---
+/**
+ * Configuration card for basic project and model setup.
+ *
+ * Renders fields for project name, model type, base model path, and VAE path.
+ * Conditionally displays architecture-specific path fields based on the
+ * selected `model_type`:
+ * - **Flux / SD3 / SD3.5** — CLIP-L, CLIP-G, T5-XXL, AutoEncoder
+ * - **Chroma** — T5-XXL, AutoEncoder (no CLIP-L)
+ * - **Anima** — Qwen3, AutoEncoder, T5 Tokenizer, LLM Adapter
+ * - **HunyuanImage** — Qwen2.5-VL Text Encoder, byT5
+ *
+ * `@param` props - See {`@link` ProjectSetupCardProps}.
+ * `@returns` The rendered project setup card.
+ */
 export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
   const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
   const isChroma = modelType === 'Chroma';
   const isAnima = modelType === 'Anima';
   const isHunyuanImage = modelType === 'HunyuanImage';
+
+
 
 
   return (

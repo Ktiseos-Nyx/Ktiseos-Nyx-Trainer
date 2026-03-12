@@ -22,7 +22,25 @@ import {
   SavingTab,
 } from './tabs';
 
-
+/**
+ * Main training configuration page component.
+ *
+ * Renders a tabbed form covering all training settings (Setup, Dataset, LoRA,
+ * Learning, Performance, Advanced, Saving), a preset manager panel, a
+ * validation error banner, and action buttons for starting training, saving
+ * config to disk, and resetting to defaults.
+ *
+ * Responsibilities:
+ * - Waits for localStorage hydration via `useTrainingForm` before fetching
+ *   remote data, preventing default-value race conditions.
+ * - Fetches available models, VAEs, and datasets from the API post-hydration.
+ * - Sets smart per-field defaults on first mount only (`hasInitialized` guard).
+ * - Submits the validated config to the training API and tracks the returned job ID.
+ * - Delegates per-card saves to `handleCardSave`, which generates both
+ *   `dataset.toml` and `config.toml` via `configAPI.saveTraining`.
+ *
+ * `@returns` The rendered training configuration UI.
+ */
 export default function TrainingConfigNew() {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingJobId, setTrainingJobId] = useState<string | null>(null);
@@ -48,7 +66,7 @@ export default function TrainingConfigNew() {
   } = useTrainingForm({
     autoSave: true,
     autoSaveDelay: 500,
-    validateOnChange: true,
+    validateOnChange: false,  // 👈 Ensure this is false (or just remove the line)
   });
 
   // Fetch dropdown options AFTER hydration completes
