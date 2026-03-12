@@ -53,7 +53,14 @@ interface BaseFieldProps<T extends FieldValues> {
   readOnly?: boolean;
 }
 
-// Add this right after the BaseFieldProps interface
+/**
+ * Represents a single option in a select or combobox field.
+ *
+ * `@property` value       - The underlying value submitted with the form.
+ * `@property` label       - The human-readable display text.
+ * `@property` description - Optional helper text shown beneath the option label.
+ */
+type FieldOption = {
 type FieldOption = {
   value: string;
   label: string;

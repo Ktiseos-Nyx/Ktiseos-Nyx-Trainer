@@ -213,6 +213,31 @@ function writeStoredConfig(config: TrainingConfig): void {
   }
 }
 
+/**
+ * Custom hook for managing the training configuration form.
+ *
+ * Wraps React Hook Form with a Zod resolver, hydrates initial values from
+ * localStorage on mount, and optionally debounces auto-saves on every change.
+ * Validation mode is `"onChange"` when `validateOnChange` is `true`, and
+ * `"onSubmit"` otherwise (the default, to prevent mid-typing resets).
+ *
+ * `@param` options                  - Hook configuration options.
+ * `@param` options.autoSave         - Auto-save form state to localStorage on change. Defaults to `true`.
+ * `@param` options.autoSaveDelay    - Debounce delay in ms for auto-save. Defaults to `500`.
+ * `@param` options.validateOnChange - Run Zod validation on every keystroke when `true`. Defaults to `false`.
+ *
+ * `@returns`
+ * - `form`                - The RHF `UseFormReturn<TrainingConfig>` instance.
+ * - `config`              - Snapshot of current form values (for read-only consumers like `PresetManager`).
+ * - `isDirty`             - `true` when the form has changes not yet written to localStorage.
+ * - `isValid`             - `true` when all fields pass Zod validation.
+ * - `isHydrated`          - `true` once localStorage hydration has completed.
+ * - `syncToStore`         - Immediately flushes current values to localStorage (no debounce).
+ * - `loadPreset`          - Merges a partial config preset over current values and resets the form.
+ * - `onSubmit`            - Returns an RHF submit handler that syncs to localStorage before invoking the callback.
+ * - `getValidationErrors` - Returns a flat `{ field, message }[]` array of current validation errors.
+ * - `resetForm`           - Resets the form to `defaultConfig` and clears localStorage.
+ */
 export function useTrainingForm(options: {
   autoSave?: boolean;
   autoSaveDelay?: number;
