@@ -20,28 +20,27 @@ from pathlib import Path
 def run_command(cmd, shell=False):
     """Run command and return stdout, stderr, and return code."""
     try:
-        use_shell = shell  # Don't force shell=True on Windows; it breaks argument quoting
+        # On Windows, .cmd/.bat files need shell=True to execute
+        if platform.system() == "Windows" and not shell:
+            if isinstance(cmd, list) and cmd:
+                # Try to resolve the executable via PATHEXT (finds npm.cmd, etc.)
+                resolved = shutil.which(cmd[0])
+                if resolved:
+                    cmd = [resolved] + cmd[1:]
+                else:
+                    # Fall back to shell=True so cmd.exe handles .cmd resolution
+                    shell = True
 
-        if use_shell and isinstance(cmd, list):
+        if shell and isinstance(cmd, list):
             cmd = subprocess.list2cmdline([str(c) for c in cmd])
 
         result = subprocess.run(
             cmd,
-            shell=use_shell,
+            shell=shell,
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=30
         )
-        return {
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
-            "returncode": result.returncode,
-            "success": result.returncode == 0
-        }
-    except subprocess.TimeoutExpired:
-        return {"error": "Command timed out", "success": False}
-    except Exception as e:
-        return {"error": str(e), "success": False}
 
 
 def get_python_installations():
@@ -110,6 +109,7 @@ def check_install_location():
                 f"CRITICAL: Installed at drive root ({project_str}). "
                 "This can cause permission errors. Move to a user folder like "
                 f"C:\\Users\\{os.environ.get('USERNAME', 'YourName')}\\Projects\\Ktiseos-Nyx-Trainer"
+                "Fear not: using a non-OS mounted drive is usually safe, windows may cause UAC errors."
             )
 
         # Check for Program Files
@@ -273,7 +273,7 @@ def check_installer_files():
             installer_info[filename] = {"exists": False}
 
     # Check for install marker
-    marker = project_root / ".install_complete"
+    marker = project_root / "install_complete.marker"
     if marker.exists():
         try:
             installer_info[".install_complete"] = {

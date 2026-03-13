@@ -36,7 +36,7 @@ class RemoteInstaller:
         self.verbose = verbose
         self.skip_install = skip_install
         self.force = force
-        self.install_marker = os.path.join(self.project_root, ".install_complete")
+        self.install_marker = os.path.join(self.project_root, "install_complete.marker")
 
         # Setup logging
         self.setup_logging()
