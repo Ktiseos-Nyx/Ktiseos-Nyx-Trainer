@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 def run_command(cmd, shell=False):
-    """Run command and return stdout, stderr, and return code."""
+    """Run command and return dict with success, stdout, stderr, and returncode."""
     try:
         # On Windows, .cmd/.bat files need shell=True to execute
         if platform.system() == "Windows" and not shell:
@@ -41,6 +41,18 @@ def run_command(cmd, shell=False):
             text=True,
             timeout=30
         )
+        return {
+            "success": result.returncode == 0,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip(),
+            "returncode": result.returncode
+        }
+    except FileNotFoundError:
+        return {"success": False, "error": "Command not found", "stdout": "", "stderr": ""}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Command timed out", "stdout": "", "stderr": ""}
+    except Exception as e:
+        return {"success": False, "error": str(e), "stdout": "", "stderr": ""}
 
 
 def get_python_installations():
@@ -105,12 +117,22 @@ def check_install_location():
         # Check for drive root installs (C:\ProjectName, D:\ProjectName)
         parts = project_root.parts
         if len(parts) <= 2:
-            issues.append(
-                f"CRITICAL: Installed at drive root ({project_str}). "
-                "This can cause permission errors. Move to a user folder like "
-                f"C:\\Users\\{os.environ.get('USERNAME', 'YourName')}\\Projects\\Ktiseos-Nyx-Trainer"
-                "Fear not: using a non-OS mounted drive is usually safe, windows may cause UAC errors."
-            )
+            # Only flag as critical if on the OS drive (usually C:\)
+            os_drive = os.environ.get("SystemDrive", "C:")
+            if project_str.upper().startswith(os_drive.upper()):
+                issues.append(
+                    f"CRITICAL: Installed at OS drive root ({project_str}). "
+                    "This can cause UAC permission errors. Move to a user folder like "
+                    f"{os_drive}\\Users\\{os.environ.get('USERNAME', 'YourName')}\\Projects\\Ktiseos-Nyx-Trainer"
+                )
+            else:
+                drive_letter = parts[0].rstrip("\\")
+                issues.append(
+                    f"INFO: Installed at drive root ({project_str}). "
+                    "This is usually fine for non-OS drives. If you hit permission errors, "
+                    "try a subfolder like "
+                    f"{drive_letter}\\Projects\\Ktiseos-Nyx-Trainer"
+                )
 
         # Check for Program Files
         prog_files = os.environ.get("ProgramFiles", "C:\\Program Files")
@@ -140,7 +162,7 @@ def check_install_location():
                 )
 
     # Check write permissions
-    test_file = project_root / ".write_test_diagnostic"
+    test_file = project_root / "_write_test_diagnostic.tmp"
     try:
         test_file.write_text("test")
         test_file.unlink()

@@ -162,6 +162,7 @@ export default function AutoTagPage() {
   }, []);
 
   const MAX_LOGS = 500;
+  /** Append a timestamped message to the on-screen log, capping at MAX_LOGS entries. */
   const addLog = (msg: string) => {
     setLogs(prev => {
       const next = [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`];
@@ -169,24 +170,33 @@ export default function AutoTagPage() {
     });
   };
 
-  // Poll status
+  /** Poll the job status endpoint every second, updating progress and handling terminal states. */
   const startStatusPolling = (jobId: string) => {
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     statusIntervalRef.current = setInterval(async () => {
       try {
-        const status = await datasetAPI.getTaggingStatus(jobId);
-        setProgress(status.progress);
-        setCurrentImage(status.current_image);
-        setTotalImages(status.total_images);
-        if (status.status === 'completed') {
+        const response = await datasetAPI.getTaggingStatus(jobId);
+        // Backend returns { success, job: { status, progress, ... } }
+        const job = response.job ?? response;
+        if (job.progress != null) setProgress(job.progress);
+        if (job.current_image) setCurrentImage(job.current_image);
+        if (job.total_images) setTotalImages(job.total_images);
+        if (job.status === 'completed') {
           addLog('✅ Tagging completed successfully!');
           setTagging(false);
           if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
           setTimeout(loadDatasets, 1000);
-        } else if (status.status === 'failed') {
-          addLog(`❌ Tagging failed: ${status.error}`);
+        } else if (job.status === 'failed') {
+          addLog(`❌ Tagging failed: ${job.error}`);
           setTagging(false);
           if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
+        } else if (job.status === 'cancelled') {
+          addLog('🛑 Tagging was cancelled');
+          setTagging(false);
+          if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
         }
       } catch (err) {
         console.error('Status poll error:', err);
@@ -194,7 +204,7 @@ export default function AutoTagPage() {
     }, 1000);
   };
 
-  // HTTP polling for logs (replaces WebSocket which breaks through Caddy proxy)
+  /** Start HTTP log polling for a job (replaces WebSocket which breaks through Caddy proxy). */
   const connectLogs = (jobId: string) => {
     if (logPollerRef.current) logPollerRef.current.stop();
     logPollerRef.current = datasetAPI.pollTaggingLogs(
@@ -217,7 +227,7 @@ export default function AutoTagPage() {
     );
   };
 
-  // Start tagging/captioning
+  /** Validate inputs, start a WD14/BLIP/GIT tagging job, and begin status + log polling. */
   const handleStartTagging = async () => {
     if (!selectedDataset) {
       toast.warning('Please select a dataset');
@@ -339,18 +349,21 @@ export default function AutoTagPage() {
     }
   };
 
-  // Stop tagging
+  /** Request the backend to stop the active tagging job and reset the UI regardless of outcome. */
   const handleStopTagging = async () => {
     if (!jobId) return;
     try {
       addLog('🛑 Stopping...');
       await datasetAPI.stopTagging(jobId);
       addLog('✅ Stopped');
+    } catch (err) {
+      // Stop may fail if process already exited — that's fine, still reset UI
+      addLog(`⚠️ Stop request: ${err}`);
+    } finally {
+      // Always reset UI so user isn't stuck
       setTagging(false);
       if (logPollerRef.current) logPollerRef.current.stop();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-    } catch (err) {
-      addLog(`❌ Stop failed: ${err}`);
     }
   };
 

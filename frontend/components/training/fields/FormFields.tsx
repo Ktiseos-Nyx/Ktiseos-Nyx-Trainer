@@ -13,7 +13,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { UseFormReturn, FieldValues, Path, useWatch } from 'react-hook-form';
+import { UseFormReturn, FieldValues, Path } from 'react-hook-form';
 import {
   FormControl,
   FormDescription,
@@ -364,10 +364,8 @@ export function ComboboxFormField<T extends FieldValues>({
     valueToLabel[currentValue] ?? currentValue
   );
 
-  // isSearching = true while the user is actively typing  Race Condition Testing
-  const [inputValue, setInputValue] = useState(() => 
-	valueToLabel.get(initialValue) || initialValue
-	);    
+  // Tracks whether the user is actively typing (delays form commit until dropdown closes)
+  const [isSearching, setIsSearching] = useState(false);
 
   // Track last synced value to detect external changes (hydration, preset load)
   const lastSyncedValue = useRef(currentValue);
@@ -379,7 +377,10 @@ export function ComboboxFormField<T extends FieldValues>({
     return options.filter((o) => o.label.toLowerCase().includes(lower));
   }, [options, isSearching, displayText]);
 
-  // Sync external form value changes → displayText, but only when not typing
+  // Sync external form value changes → displayText, but only when not typing.
+  // Intentionally has no dependency array: polls getValues() each render to catch
+  // preset loads, hydration, and programmatic setValue() calls. The guard clause
+  // prevents unnecessary state updates (only fires when value actually changed).
   useEffect(() => {
     const formVal = (form.getValues(name) ?? '') as string;
     if (!isSearching && formVal !== lastSyncedValue.current) {
