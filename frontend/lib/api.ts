@@ -391,13 +391,13 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // ✅ MIGRATED: Uses Node.js /api/jobs/[id] endpoint
+  /** Fetch current status of a tagging job (progress, state, error). Returns `{ success, job }`. */
   getTaggingStatus: async (jobId: string) => {
     const response = await fetch(`${API_BASE}/jobs/${jobId}`);
     return handleResponse(response);
   },
 
-  // ✅ MIGRATED: Uses Node.js /api/jobs/[id]/stop endpoint
+  /** Send a stop signal (SIGTERM) to an active tagging job. */
   stopTagging: async (jobId: string) => {
     const response = await fetch(`${API_BASE}/jobs/${jobId}/stop`, {
       method: 'POST',
@@ -443,7 +443,7 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // ✅ MIGRATED: Uses Node.js /api/captions/add-trigger endpoint
+  /** Prepend or append a trigger word to every caption file in a dataset. */
   injectTriggerWord: async (datasetPath: string, triggerWord: string, position: 'start' | 'end' = 'start') => {
     const response = await fetch(`${API_BASE}/captions/add-trigger`, {
       method: 'POST',
@@ -1330,6 +1330,7 @@ export const civitaiAPI = {
 // ✅ MIGRATED: Uses Node.js /api/captions/* endpoints
 
 export const captionAPI = {
+  /** Prepend or append a trigger word to every caption file in a dataset directory. */
   addTrigger: async (params: {
     dataset_path: string;
     trigger_word: string;
@@ -1349,6 +1350,7 @@ export const captionAPI = {
     return handleResponse(response);
   },
 
+  /** Remove specified tags from all caption files in a dataset directory. */
   removeTags: async (params: {
     dataset_path: string;
     tags_to_remove: string[];
@@ -1364,6 +1366,7 @@ export const captionAPI = {
     return handleResponse(response);
   },
 
+  /** Find and replace text across all caption files in a dataset directory, with optional regex support. */
   replace: async (params: {
     dataset_path: string;
     find: string;

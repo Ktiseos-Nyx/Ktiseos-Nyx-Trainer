@@ -162,6 +162,7 @@ export default function AutoTagPage() {
   }, []);
 
   const MAX_LOGS = 500;
+  /** Append a timestamped message to the on-screen log, capping at MAX_LOGS entries. */
   const addLog = (msg: string) => {
     setLogs(prev => {
       const next = [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`];
@@ -169,7 +170,7 @@ export default function AutoTagPage() {
     });
   };
 
-  // Poll status
+  /** Poll the job status endpoint every second, updating progress and handling terminal states. */
   const startStatusPolling = (jobId: string) => {
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     statusIntervalRef.current = setInterval(async () => {
@@ -203,7 +204,7 @@ export default function AutoTagPage() {
     }, 1000);
   };
 
-  // HTTP polling for logs (replaces WebSocket which breaks through Caddy proxy)
+  /** Start HTTP log polling for a job (replaces WebSocket which breaks through Caddy proxy). */
   const connectLogs = (jobId: string) => {
     if (logPollerRef.current) logPollerRef.current.stop();
     logPollerRef.current = datasetAPI.pollTaggingLogs(
@@ -226,7 +227,7 @@ export default function AutoTagPage() {
     );
   };
 
-  // Start tagging/captioning
+  /** Validate inputs, start a WD14/BLIP/GIT tagging job, and begin status + log polling. */
   const handleStartTagging = async () => {
     if (!selectedDataset) {
       toast.warning('Please select a dataset');
@@ -348,7 +349,7 @@ export default function AutoTagPage() {
     }
   };
 
-  // Stop tagging
+  /** Request the backend to stop the active tagging job and reset the UI regardless of outcome. */
   const handleStopTagging = async () => {
     if (!jobId) return;
     try {

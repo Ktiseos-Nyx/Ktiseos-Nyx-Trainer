@@ -126,11 +126,12 @@ def check_install_location():
                     f"{os_drive}\\Users\\{os.environ.get('USERNAME', 'YourName')}\\Projects\\Ktiseos-Nyx-Trainer"
                 )
             else:
+                drive_letter = parts[0].rstrip("\\")
                 issues.append(
                     f"INFO: Installed at drive root ({project_str}). "
                     "This is usually fine for non-OS drives. If you hit permission errors, "
                     "try a subfolder like "
-                    f"{parts[0]}Users\\{os.environ.get('USERNAME', 'YourName')}\\Projects\\Ktiseos-Nyx-Trainer"
+                    f"{drive_letter}\\Projects\\Ktiseos-Nyx-Trainer"
                 )
 
         # Check for Program Files
