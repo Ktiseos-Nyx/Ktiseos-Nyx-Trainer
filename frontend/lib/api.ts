@@ -449,7 +449,7 @@ export const datasetAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: datasetPath,
+        dataset_dir: datasetPath,
         trigger_word: triggerWord,
         position
       }),
@@ -1335,13 +1335,15 @@ export const captionAPI = {
     trigger_word: string;
     position?: 'first' | 'last';
   }) => {
+    // Backend expects 'start'/'end', frontend uses 'first'/'last'
+    const backendPosition = params.position === 'last' ? 'end' : 'start';
     const response = await fetch(`${API_BASE}/captions/add-trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: params.dataset_path,
+        dataset_dir: params.dataset_path,
         trigger_word: params.trigger_word,
-        position: params.position || 'first',
+        position: backendPosition,
       }),
     });
     return handleResponse(response);
@@ -1355,7 +1357,7 @@ export const captionAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: params.dataset_path,
+        dataset_dir: params.dataset_path,
         tags_to_remove: params.tags_to_remove,
       }),
     });
@@ -1372,9 +1374,9 @@ export const captionAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: params.dataset_path,
-        find: params.find,
-        replace: params.replace,
+        dataset_dir: params.dataset_path,
+        find_text: params.find,
+        replace_text: params.replace,
         use_regex: params.use_regex || false,
       }),
     });

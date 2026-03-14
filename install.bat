@@ -10,8 +10,11 @@ set PYTHONIOENCODING=utf-8
 set USE_VENV=
 set VENV_DIR=.venv
 set AUTO_MODE=0
+set PASSTHROUGH_ARGS=
 
 REM Parse command-line arguments
+REM Bat-only flags (--venv, --no-venv, --auto) are consumed here.
+REM Everything else (--verbose, --force, etc.) is forwarded to Python.
 :PARSE_ARGS
 if "%~1"=="" goto :ARGS_DONE
 if /I "%~1"=="--venv" (
@@ -30,7 +33,8 @@ if /I "%~1"=="--auto" (
     shift
     goto :PARSE_ARGS
 )
-REM Keep other arguments like --verbose
+REM Forward other arguments (--verbose, --force, etc.) to Python
+set PASSTHROUGH_ARGS=%PASSTHROUGH_ARGS% %~1
 shift
 goto :PARSE_ARGS
 :ARGS_DONE
@@ -112,7 +116,7 @@ if "%USE_VENV%"=="1" (
     echo.
 
     REM Run installer with venv Python, passing through remaining args
-    "%VENV_DIR%\Scripts\python.exe" installer_windows_local.py %*
+    "%VENV_DIR%\Scripts\python.exe" installer_windows_local.py %PASSTHROUGH_ARGS%
 ) else (
     echo Running installer WITHOUT virtual environment...
     echo.
@@ -123,9 +127,9 @@ if "%USE_VENV%"=="1" (
     where py >nul 2>&1
     if errorlevel 1 (
         echo py launcher not found, using python command...
-        python installer_windows_local.py %*
+        python installer_windows_local.py %PASSTHROUGH_ARGS%
     ) else (
-        py -3 installer_windows_local.py %*
+        py -3 installer_windows_local.py %PASSTHROUGH_ARGS%
     )
 )
 

@@ -174,19 +174,28 @@ export default function AutoTagPage() {
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     statusIntervalRef.current = setInterval(async () => {
       try {
-        const status = await datasetAPI.getTaggingStatus(jobId);
-        setProgress(status.progress);
-        setCurrentImage(status.current_image);
-        setTotalImages(status.total_images);
-        if (status.status === 'completed') {
+        const response = await datasetAPI.getTaggingStatus(jobId);
+        // Backend returns { success, job: { status, progress, ... } }
+        const job = response.job ?? response;
+        if (job.progress != null) setProgress(job.progress);
+        if (job.current_image) setCurrentImage(job.current_image);
+        if (job.total_images) setTotalImages(job.total_images);
+        if (job.status === 'completed') {
           addLog('✅ Tagging completed successfully!');
           setTagging(false);
           if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
           setTimeout(loadDatasets, 1000);
-        } else if (status.status === 'failed') {
-          addLog(`❌ Tagging failed: ${status.error}`);
+        } else if (job.status === 'failed') {
+          addLog(`❌ Tagging failed: ${job.error}`);
           setTagging(false);
           if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
+        } else if (job.status === 'cancelled') {
+          addLog('🛑 Tagging was cancelled');
+          setTagging(false);
+          if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
         }
       } catch (err) {
         console.error('Status poll error:', err);
@@ -346,11 +355,14 @@ export default function AutoTagPage() {
       addLog('🛑 Stopping...');
       await datasetAPI.stopTagging(jobId);
       addLog('✅ Stopped');
+    } catch (err) {
+      // Stop may fail if process already exited — that's fine, still reset UI
+      addLog(`⚠️ Stop request: ${err}`);
+    } finally {
+      // Always reset UI so user isn't stuck
       setTagging(false);
       if (logPollerRef.current) logPollerRef.current.stop();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-    } catch (err) {
-      addLog(`❌ Stop failed: ${err}`);
     }
   };
 
