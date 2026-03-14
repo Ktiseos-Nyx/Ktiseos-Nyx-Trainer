@@ -9,9 +9,9 @@ export function Footer() {
   return (
     <footer className="border-t border-border bg-card">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-6 md:gap-8">
           {/* Left: Logo, Copyright & License */}
-          <div className="text-sm text-muted-foreground text-center md:text-left flex-shrink-0">
+          <div className="text-sm text-muted-foreground text-center md:text-left">
             <Link href="/" className="flex items-center gap-2 font-bold text-lg mb-2 justify-center md:justify-start">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 shadow-lg">
                 <Zap className="h-5 w-5 text-white" />
@@ -35,14 +35,14 @@ export function Footer() {
           </div>
 
           {/* Center: Made with love */}
-          <div className="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
             <span>Made with</span>
             <Heart className="w-4 h-4 text-red-500 dark:text-red-400 fill-red-500 dark:fill-red-400" />
             <span>by the community</span>
           </div>
 
           {/* Right: Social Icons */}
-          <div className="flex items-center justify-center md:justify-end gap-4 flex-shrink-0">
+          <div className="flex items-center justify-center md:justify-end gap-4">
             <a
               href="https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/"
               target="_blank"
