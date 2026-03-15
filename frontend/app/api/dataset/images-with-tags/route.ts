@@ -49,9 +49,26 @@ export async function GET(request: NextRequest) {
     }
 
     // If just a bare name (no path separators), resolve under datasets dir
-    const fullPath = trimmedPath.includes('/') || trimmedPath.includes('\\')
-      ? trimmedPath
-      : path.join(DATASETS_DIR, trimmedPath);
+    // Try datasets/ (plural) first, then dataset/ (singular)
+    let fullPath: string;
+    if (trimmedPath.includes('/') || trimmedPath.includes('\\')) {
+      fullPath = trimmedPath;
+    } else {
+      const pluralPath = path.join(DATASETS_DIR, trimmedPath);
+      const singularPath = path.join(path.resolve(DATASETS_DIR, '..', 'dataset'), trimmedPath);
+      try {
+        await fs.stat(pluralPath);
+        fullPath = pluralPath;
+      } catch {
+        try {
+          await fs.stat(singularPath);
+          fullPath = singularPath;
+        } catch {
+          // Fall through — validateDatasetPath will catch it
+          fullPath = pluralPath;
+        }
+      }
+    }
 
     // Security: confine to datasets directory
     let resolvedPath: string;

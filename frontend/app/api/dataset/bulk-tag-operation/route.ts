@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
-import { validateDatasetPath } from '@/lib/node-services/path-validation';
+import { validateDatasetPath, DATASETS_DIR } from '@/lib/node-services/path-validation';
 
 const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
 
@@ -45,10 +45,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve dataset name to full path if it's just a name (not an absolute path)
+    let datasetFullPath = dataset_path;
+    if (!path.isAbsolute(dataset_path)) {
+      // Try datasets/ first, then dataset/ (singular)
+      const pluralPath = path.join(DATASETS_DIR, dataset_path);
+      const singularPath = path.join(path.resolve(DATASETS_DIR, '..', 'dataset'), dataset_path);
+      try {
+        await fs.stat(pluralPath);
+        datasetFullPath = pluralPath;
+      } catch {
+        try {
+          await fs.stat(singularPath);
+          datasetFullPath = singularPath;
+        } catch {
+          // Fall through — validateDatasetPath will catch it
+          datasetFullPath = pluralPath;
+        }
+      }
+    }
+
     // Security: confine to datasets directory
     let resolvedPath: string;
     try {
-      resolvedPath = validateDatasetPath(dataset_path);
+      resolvedPath = validateDatasetPath(datasetFullPath);
     } catch {
       return NextResponse.json(
         { error: 'Access denied: path outside allowed directories' },

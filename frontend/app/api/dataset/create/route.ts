@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { getOrCreateDatasetsDir } from '@/lib/node-services/datasets';
+import { validateDatasetPath } from '@/lib/node-services/path-validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,9 +23,18 @@ export async function POST(request: NextRequest) {
 
     // Sanitize dataset name
     const safeName = name.replace(/[^a-z0-9_-]/gi, '_');
-    
-    const projectRoot = path.resolve(process.cwd(), '..');
-    const datasetPath = path.join(projectRoot, 'dataset', safeName);
+
+    const datasetPath = path.join(getOrCreateDatasetsDir(), safeName);
+
+    // Security: confine to datasets directory
+    try {
+      validateDatasetPath(datasetPath);
+    } catch {
+      return NextResponse.json(
+        { error: 'Access denied: path outside allowed directories' },
+        { status: 403 }
+      );
+    }
 
     // Check if already exists
     try {
