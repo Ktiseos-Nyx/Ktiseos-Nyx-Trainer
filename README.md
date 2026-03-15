@@ -19,6 +19,9 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 - ✅ **Custom optimizers** - CAME working, Compass/standard optimizers (AdamW8bit, Prodigy, etc.) supported
 - ✅ **HuggingFace upload** - Direct upload from the web UI after training
 - ✅ **Security hardening** - Path traversal prevention across all API endpoints
+- ✅ **Tag editor** - Bulk add/remove/replace operations on dataset captions
+- ✅ **Custom ports** - `--port` and `--backend-port` flags on local start scripts
+- 🔧 **In progress** - Bug fixes for form controls, cross-platform path handling, docstring coverage (~71%)
 - 🐛 **Report issues** - [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
 
 > ⚠️ **ALPHA STAGE**: Core training works! Still polishing edges and testing more configurations. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
@@ -104,9 +107,13 @@ python installer_local_linux.py
 venv\Scripts\activate   # Windows
 source venv/bin/activate  # Linux
 
-# Then start services
+# Then start services (defaults: frontend on 3000, backend on 8000)
 start_services_local.bat  # Windows
 ./start_services_local.sh # Linux
+
+# Use custom ports if defaults are taken
+start_services_local.bat --port 4000 --backend-port 9000
+./start_services_local.sh --port 4000 --backend-port 9000
 ```
 
 > 💡 **Pro tip:** Your terminal prompt will show `(venv)` when the virtual environment is active. If you don't see it, activate again!
@@ -131,7 +138,7 @@ python installer_local_linux.py
 ./start_services_local.sh
 ```
 
-**Access URLs:**
+**Access URLs** (default ports, customizable with `--port` / `--backend-port`):
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs

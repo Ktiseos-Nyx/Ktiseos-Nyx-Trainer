@@ -14,6 +14,42 @@ SETLOCAL EnableDelayedExpansion
 REM Define the virtual environment directory
 SET VENV_DIR=%~dp0.venv
 SET HAS_WARNINGS=0
+SET FRONTEND_PORT=3000
+SET BACKEND_PORT=8000
+
+REM --- Parse arguments ---
+REM Usage: start_services_local.bat [--port 3000] [--backend-port 8000]
+:parse_args
+if "%~1"=="" goto :args_done
+if /I "%~1"=="--port" (
+    SET FRONTEND_PORT=%~2
+    shift
+    shift
+    goto :parse_args
+)
+if /I "%~1"=="--backend-port" (
+    SET BACKEND_PORT=%~2
+    shift
+    shift
+    goto :parse_args
+)
+if /I "%~1"=="-h" goto :show_help
+if /I "%~1"=="--help" goto :show_help
+echo [ERROR] Unknown argument: %~1
+echo Run '%~nx0 --help' for usage.
+pause
+exit /b 1
+
+:show_help
+echo Usage: %~nx0 [--port FRONTEND_PORT] [--backend-port BACKEND_PORT]
+echo.
+echo   --port           Frontend port (default: 3000)
+echo   --backend-port   Backend API port (default: 8000)
+echo.
+echo Example: %~nx0 --port 4000 --backend-port 9000
+exit /b 0
+
+:args_done
 
 echo ==========================================
 echo Starting Ktiseos-Nyx-Trainer Services...
@@ -80,20 +116,22 @@ if errorlevel 1 (
 )
 
 REM --- Check: Ports already in use ---
-netstat -ano 2>nul | findstr ":8000 " | findstr "LISTENING" >nul 2>&1
+netstat -ano 2>nul | findstr ":!BACKEND_PORT! " | findstr "LISTENING" >nul 2>&1
 if not errorlevel 1 (
-    echo [WARNING] Port 8000 is already in use!
+    echo [WARNING] Port !BACKEND_PORT! is already in use!
     echo           Something is already listening there. The backend may fail to start.
-    echo           To find what's using it: netstat -ano ^| findstr ":8000"
+    echo           To find what's using it: netstat -ano ^| findstr ":!BACKEND_PORT!"
+    echo           Tip: use --backend-port to pick a different port.
     echo.
     SET HAS_WARNINGS=1
 )
 
-netstat -ano 2>nul | findstr ":3000 " | findstr "LISTENING" >nul 2>&1
+netstat -ano 2>nul | findstr ":!FRONTEND_PORT! " | findstr "LISTENING" >nul 2>&1
 if not errorlevel 1 (
-    echo [WARNING] Port 3000 is already in use!
+    echo [WARNING] Port !FRONTEND_PORT! is already in use!
     echo           Something is already listening there. The frontend may fail to start.
-    echo           To find what's using it: netstat -ano ^| findstr ":3000"
+    echo           To find what's using it: netstat -ano ^| findstr ":!FRONTEND_PORT!"
+    echo           Tip: use --port to pick a different port.
     echo.
     SET HAS_WARNINGS=1
 )
@@ -149,8 +187,8 @@ REM ====================================================================
 
 REM Start FastAPI backend
 if exist "api\" (
-    echo [Backend] Starting FastAPI backend on http://localhost:8000...
-    start "Ktiseos Backend" /MIN %PYTHON_EXE% -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
+    echo [Backend] Starting FastAPI backend on http://localhost:!BACKEND_PORT!...
+    start "Ktiseos Backend" /MIN %PYTHON_EXE% -m uvicorn api.main:app --host 127.0.0.1 --port !BACKEND_PORT! --reload
 )
 
 REM Start Next.js frontend
@@ -175,8 +213,8 @@ if exist "frontend\" (
             npm run build
             popd
         )
-        echo [Frontend] Starting Next.js frontend on http://localhost:3000...
-        start "Ktiseos Frontend" /MIN cmd /c "cd frontend && set NODE_ENV=production&& set PORT=3000&& set BACKEND_PORT=8000&& npm start"
+        echo [Frontend] Starting Next.js frontend on http://localhost:!FRONTEND_PORT!...
+        start "Ktiseos Frontend" /MIN cmd /c "cd frontend && set NODE_ENV=production&& set PORT=!FRONTEND_PORT!&& set BACKEND_PORT=!BACKEND_PORT!&& npm start"
     )
 )
 
@@ -185,8 +223,8 @@ echo ==========================================
 echo [SUCCESS] Local Services Started!
 echo ==========================================
 echo.
-echo   Access the UI at: http://localhost:3000
-echo   API Docs available at: http://localhost:8000/docs
+echo   Access the UI at: http://localhost:!FRONTEND_PORT!
+echo   API Docs available at: http://localhost:!BACKEND_PORT!/docs
 echo.
 echo [INFO] To stop services, close the minimized command windows
 echo        or press Ctrl+C in each one.
