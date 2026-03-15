@@ -22,12 +22,22 @@ REM Usage: start_services_local.bat [--port 3000] [--backend-port 8000]
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--port" (
+    if "%~2"=="" (
+        echo [ERROR] --port requires a port number.
+        pause
+        exit /b 1
+    )
     SET FRONTEND_PORT=%~2
     shift
     shift
     goto :parse_args
 )
 if /I "%~1"=="--backend-port" (
+    if "%~2"=="" (
+        echo [ERROR] --backend-port requires a port number.
+        pause
+        exit /b 1
+    )
     SET BACKEND_PORT=%~2
     shift
     shift

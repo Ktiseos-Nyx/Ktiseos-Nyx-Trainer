@@ -18,8 +18,16 @@ BACKEND_PORT=8000
 while [ $# -gt 0 ]; do
     case "$1" in
         --port)
+            if [ -z "$2" ] || [ "${2#-}" != "$2" ]; then
+                echo "[ERROR] --port requires a port number."
+                exit 1
+            fi
             FRONTEND_PORT="$2"; shift 2 ;;
         --backend-port)
+            if [ -z "$2" ] || [ "${2#-}" != "$2" ]; then
+                echo "[ERROR] --backend-port requires a port number."
+                exit 1
+            fi
             BACKEND_PORT="$2"; shift 2 ;;
         -h|--help)
             echo "Usage: $0 [--port FRONTEND_PORT] [--backend-port BACKEND_PORT]"
