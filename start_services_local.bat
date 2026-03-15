@@ -22,22 +22,16 @@ REM Usage: start_services_local.bat [--port 3000] [--backend-port 8000]
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--port" (
-    if "%~2"=="" (
-        echo [ERROR] --port requires a port number.
-        pause
-        exit /b 1
-    )
+    call :validate_port "--port" "%~2"
+    if errorlevel 1 exit /b 1
     SET FRONTEND_PORT=%~2
     shift
     shift
     goto :parse_args
 )
 if /I "%~1"=="--backend-port" (
-    if "%~2"=="" (
-        echo [ERROR] --backend-port requires a port number.
-        pause
-        exit /b 1
-    )
+    call :validate_port "--backend-port" "%~2"
+    if errorlevel 1 exit /b 1
     SET BACKEND_PORT=%~2
     shift
     shift
@@ -239,3 +233,34 @@ echo.
 echo [INFO] To stop services, close the minimized command windows
 echo        or press Ctrl+C in each one.
 echo.
+goto :eof
+
+REM --- Subroutine: validate a port value ---
+REM Usage: call :validate_port "flag_name" "value"
+:validate_port
+set "_vp_flag=%~1"
+set "_vp_val=%~2"
+if "%_vp_val%"=="" (
+    echo [ERROR] %_vp_flag% requires a port number.
+    pause
+    exit /b 1
+)
+REM Check numeric: set /a will evaluate to 0 for non-numeric strings
+set /a "_vp_num=%_vp_val%" 2>nul
+REM Compare string form to catch non-numeric input (set /a silently returns 0)
+if "%_vp_num%" NEQ "%_vp_val%" (
+    echo [ERROR] %_vp_flag% requires a numeric port ^(got: %_vp_val%^).
+    pause
+    exit /b 1
+)
+if %_vp_num% LSS 1 (
+    echo [ERROR] %_vp_flag% port must be between 1 and 65535 ^(got: %_vp_val%^).
+    pause
+    exit /b 1
+)
+if %_vp_num% GTR 65535 (
+    echo [ERROR] %_vp_flag% port must be between 1 and 65535 ^(got: %_vp_val%^).
+    pause
+    exit /b 1
+)
+exit /b 0

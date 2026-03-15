@@ -15,19 +15,28 @@ FRONTEND_PORT=3000
 BACKEND_PORT=8000
 
 # --- Parse arguments ---
+validate_port() {
+    local flag="$1" val="$2"
+    if [ -z "$val" ] || [ "${val#-}" != "$val" ]; then
+        echo "[ERROR] $flag requires a port number."
+        exit 1
+    fi
+    case "$val" in
+        *[!0-9]*) echo "[ERROR] $flag requires a numeric port (got: $val)."; exit 1 ;;
+    esac
+    if [ "$val" -lt 1 ] || [ "$val" -gt 65535 ]; then
+        echo "[ERROR] $flag port must be between 1 and 65535 (got: $val)."
+        exit 1
+    fi
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --port)
-            if [ -z "$2" ] || [ "${2#-}" != "$2" ]; then
-                echo "[ERROR] --port requires a port number."
-                exit 1
-            fi
+            validate_port "--port" "$2"
             FRONTEND_PORT="$2"; shift 2 ;;
         --backend-port)
-            if [ -z "$2" ] || [ "${2#-}" != "$2" ]; then
-                echo "[ERROR] --backend-port requires a port number."
-                exit 1
-            fi
+            validate_port "--backend-port" "$2"
             BACKEND_PORT="$2"; shift 2 ;;
         -h|--help)
             echo "Usage: $0 [--port FRONTEND_PORT] [--backend-port BACKEND_PORT]"
