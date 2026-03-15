@@ -12,8 +12,8 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { UseFormReturn, FieldValues, Path } from 'react-hook-form';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { UseFormReturn, FieldValues, Path, useWatch } from 'react-hook-form';
 import {
   FormControl,
   FormDescription,
@@ -339,13 +339,11 @@ export function SliderFormField<T extends FieldValues>({
 /**
  * Render a form-connected combobox that lets users pick an option or enter a custom value.
  *
- * The component displays human-readable labels for known option values, filters options by label while the user types,
- * and only commits a value to the form when an option is selected or the dropdown closes after typing a custom entry.
- *
- * @param form - The react-hook-form instance controlling this field
- * @param name - The form field name to read and write the selected or typed value
- * @param options - Array of selectable options; each option provides a `value` and `label` (and optional `description`)
- * @returns A JSX element rendering the combobox form field wired to the provided form
+ * Key design decisions to avoid race conditions:
+ * - useWatch (not polling) for reactive form value tracking
+ * - Only passes known option values to diceui's `value` prop (custom paths
+ *   use '' so diceui doesn't fight with the input on blur)
+ * - isTyping tracked via ref (not state) to avoid render-loop with useEffect
  */
 export function ComboboxFormField<T extends FieldValues>({
   form, name, label, description, options, placeholder
@@ -357,71 +355,80 @@ export function ComboboxFormField<T extends FieldValues>({
     [options]
   );
 
-  const currentValue = (form.getValues(name) ?? '') as string;
+  // useWatch: reactive, race-free observation of form value
+  const formValue = (useWatch({ control: form.control, name }) ?? '') as string;
 
   // displayText = what the input shows (human-readable label or typed path)
-  const [displayText, setDisplayText] = useState(
-    valueToLabel[currentValue] ?? currentValue
-  );
+  const [displayText, setDisplayText] = useState('');
 
-  // Tracks whether the user is actively typing (delays form commit until dropdown closes)
-  const [isSearching, setIsSearching] = useState(false);
+  // Ref (not state) — avoids re-render cycles with the sync useEffect
+  const isTypingRef = useRef(false);
 
-  // Track last synced value to detect external changes (hydration, preset load)
-  const lastSyncedValue = useRef(currentValue);
+  // Sync form value or options → displayText when NOT actively typing.
+  // Covers: hydration, preset loads, programmatic setValue, options loading.
+  useEffect(() => {
+    if (!isTypingRef.current) {
+      setDisplayText(valueToLabel[formValue] ?? formValue);
+    }
+  }, [formValue, valueToLabel]);
 
-  // Filter by label when searching; show all options otherwise
+  // Filter by label when typing; show all options otherwise
   const filteredOptions = useMemo(() => {
-    if (!isSearching || !displayText) return options;
+    if (!isTypingRef.current || !displayText) return options;
     const lower = displayText.toLowerCase();
     return options.filter((o) => o.label.toLowerCase().includes(lower));
-  }, [options, isSearching, displayText]);
+  }, [options, displayText]);
 
-  // Sync external form value changes → displayText, but only when not typing.
-  // Intentionally has no dependency array: polls getValues() each render to catch
-  // preset loads, hydration, and programmatic setValue() calls. The guard clause
-  // prevents unnecessary state updates (only fires when value actually changed).
-  useEffect(() => {
-    const formVal = (form.getValues(name) ?? '') as string;
-    if (!isSearching && formVal !== lastSyncedValue.current) {
-      lastSyncedValue.current = formVal;
-      setDisplayText(valueToLabel[formVal] ?? formVal);
+  // Only pass a value that matches a real option to diceui's value prop.
+  // Custom paths pass '' so diceui doesn't try to sync/clear the input.
+  const comboboxValue = useMemo(() => {
+    return options.some(o => o.value === formValue) ? formValue : '';
+  }, [formValue, options]);
+
+  // Commit whatever is in the input to the form
+  const commitInput = useCallback(() => {
+    if (!displayText) {
+      isTypingRef.current = false;
+      return;
     }
-  });
+    // If typed text matches an option's label, use that option's value
+    const matchedOption = options.find(
+      (o) => o.label.toLowerCase() === displayText.toLowerCase()
+    );
+    if (matchedOption) {
+      form.setValue(name, matchedOption.value as any, { shouldDirty: true, shouldTouch: true });
+      setDisplayText(matchedOption.label);
+    } else {
+      // Custom path — commit the raw text
+      form.setValue(name, displayText as any, { shouldDirty: true, shouldTouch: true });
+    }
+    isTypingRef.current = false;
+  }, [displayText, options, form, name]);
 
   return (
     <FormField
       control={form.control}
       name={name}
-      render={({ field }) => (
+      render={() => (
         <FormItem>
           <FormLabel>{label}</FormLabel>
           <Combobox
-            value={field.value}
+            value={comboboxValue}
             onValueChange={(val: string) => {
-              // User picked an item: store the value, display the label
-              form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
-              lastSyncedValue.current = val;
+              // User picked an item from the dropdown
+              form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true });
               setDisplayText(valueToLabel[val] ?? val);
-              setIsSearching(false);
+              isTypingRef.current = false;
             }}
             inputValue={displayText}
             onInputValueChange={(val: string) => {
-              // User is typing: update display only, don't commit to form yet
               setDisplayText(val);
-              setIsSearching(true);
+              isTypingRef.current = true;
             }}
             onOpenChange={(open: boolean) => {
-              // When dropdown closes while typing a custom path, commit it
-              if (!open && isSearching) {
-                const isKnownOption = options.some(
-                  (o) => o.value === displayText || o.label === displayText
-                );
-                if (!isKnownOption && displayText) {
-                  form.setValue(name, displayText as any, { shouldDirty: true, shouldTouch: true, shouldValidate: false });
-                  lastSyncedValue.current = displayText;
-                }
-                setIsSearching(false);
+              if (!open && isTypingRef.current) {
+                // Dropdown closed while user was typing — commit the input
+                commitInput();
               }
             }}
             preserveInputOnBlur={true}

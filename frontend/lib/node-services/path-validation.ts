@@ -12,7 +12,9 @@ import path from 'path';
 const PROJECT_ROOT = path.resolve(process.cwd(), '..');
 
 // Specific allowed directories for different operation types
+// Support both 'datasets' (plural) and 'dataset' (singular) directories
 const DATASETS_DIR = path.join(PROJECT_ROOT, 'datasets');
+const DATASET_DIR_ALT = path.join(PROJECT_ROOT, 'dataset');
 const OUTPUT_DIR = path.join(PROJECT_ROOT, 'output');
 const MODELS_DIR = path.join(PROJECT_ROOT, 'pretrained_model');
 const VAE_DIR = path.join(PROJECT_ROOT, 'vae');
@@ -77,14 +79,14 @@ function validateWithin(userPath: string, allowedDirs: string[], context: string
 
 // ========== Public API ==========
 
-/** Validate a dataset path (must be under datasets/) */
+/** Validate a dataset path (must be under datasets/ or dataset/) */
 export function validateDatasetPath(userPath: string): string {
-  return validateWithin(userPath, [DATASETS_DIR], 'Dataset');
+  return validateWithin(userPath, [DATASETS_DIR, DATASET_DIR_ALT], 'Dataset');
 }
 
-/** Validate an image path (must be under datasets/) */
+/** Validate an image path (must be under datasets/ or dataset/) */
 export function validateImagePath(userPath: string): string {
-  return validateWithin(userPath, [DATASETS_DIR], 'Image');
+  return validateWithin(userPath, [DATASETS_DIR, DATASET_DIR_ALT], 'Image');
 }
 
 /** Validate a config file path (must be under config/, presets/, or runtime_store/) */

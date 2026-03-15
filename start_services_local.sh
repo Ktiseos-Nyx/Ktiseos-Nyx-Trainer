@@ -167,7 +167,7 @@ if [ -d "frontend" ]; then
             (cd frontend && npm run build)
         fi
         echo "[Frontend] Starting Next.js frontend on http://localhost:3000..."
-        (cd frontend && npm start &)
+        (cd frontend && NODE_ENV=production PORT=3000 BACKEND_PORT=8000 npm start &)
     fi
 else
     echo "[Warning] Frontend directory not found - skipping frontend startup."

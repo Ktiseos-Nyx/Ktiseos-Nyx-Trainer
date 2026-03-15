@@ -176,7 +176,7 @@ if exist "frontend\" (
             popd
         )
         echo [Frontend] Starting Next.js frontend on http://localhost:3000...
-        start "Ktiseos Frontend" /MIN cmd /c "cd frontend && npm start"
+        start "Ktiseos Frontend" /MIN cmd /c "cd frontend && set NODE_ENV=production&& set PORT=3000&& set BACKEND_PORT=8000&& npm start"
     )
 )
 
