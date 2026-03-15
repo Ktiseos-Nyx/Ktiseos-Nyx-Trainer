@@ -1,6 +1,9 @@
 #!/bin/bash
 # Service Startup Script for Ktiseos-Nyx-Trainer (Local Unix)
 # This script activates the virtual environment and starts the backend/frontend.
+#
+# Usage: ./start_services_local.sh [--port 3000] [--backend-port 8000]
+#        ./start_services_local.sh -h | --help
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
@@ -8,6 +11,52 @@ set -e
 # --- Configuration ---
 VENV_DIR=".venv"
 HAS_WARNINGS=0
+FRONTEND_PORT=3000
+BACKEND_PORT=8000
+
+# --- Parse arguments ---
+validate_port() {
+    local flag="$1" val="$2"
+    if [ -z "$val" ] || [ "${val#-}" != "$val" ]; then
+        echo "[ERROR] $flag requires a port number."
+        exit 1
+    fi
+    case "$val" in
+        *[!0-9]*) echo "[ERROR] $flag requires a numeric port (got: $val)."; exit 1 ;;
+    esac
+    if [ "$val" -lt 1 ] || [ "$val" -gt 65535 ]; then
+        echo "[ERROR] $flag port must be between 1 and 65535 (got: $val)."
+        exit 1
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --port)
+            validate_port "--port" "$2"
+            FRONTEND_PORT="$2"; shift 2 ;;
+        --backend-port)
+            validate_port "--backend-port" "$2"
+            BACKEND_PORT="$2"; shift 2 ;;
+        -h|--help)
+            echo "Usage: $0 [--port FRONTEND_PORT] [--backend-port BACKEND_PORT]"
+            echo ""
+            echo "  --port           Frontend port (default: 3000)"
+            echo "  --backend-port   Backend API port (default: 8000)"
+            echo ""
+            echo "Example: $0 --port 4000 --backend-port 9000"
+            exit 0 ;;
+        *)
+            echo "[ERROR] Unknown argument: $1"
+            echo "Run '$0 --help' for usage."
+            exit 1 ;;
+    esac
+done
+
+if [ "$FRONTEND_PORT" = "$BACKEND_PORT" ]; then
+    echo "[ERROR] --port and --backend-port cannot be the same ($FRONTEND_PORT)."
+    exit 1
+fi
 
 # --- Main Script ---
 echo "=========================================="
@@ -77,17 +126,19 @@ else
 fi
 
 if [ -n "$PORT_CHECK_CMD" ]; then
-    if $PORT_CHECK_CMD 2>/dev/null | grep -q ":8000 "; then
-        echo "[WARNING] Port 8000 is already in use!"
+    if $PORT_CHECK_CMD 2>/dev/null | grep -q ":${BACKEND_PORT} "; then
+        echo "[WARNING] Port ${BACKEND_PORT} is already in use!"
         echo "          Something is already listening there. The backend may fail."
-        echo "          Check with: $PORT_CHECK_CMD 2>/dev/null | grep :8000"
+        echo "          Check with: $PORT_CHECK_CMD 2>/dev/null | grep :${BACKEND_PORT}"
+        echo "          Tip: use --backend-port to pick a different port."
         echo ""
         HAS_WARNINGS=1
     fi
-    if $PORT_CHECK_CMD 2>/dev/null | grep -q ":3000 "; then
-        echo "[WARNING] Port 3000 is already in use!"
+    if $PORT_CHECK_CMD 2>/dev/null | grep -q ":${FRONTEND_PORT} "; then
+        echo "[WARNING] Port ${FRONTEND_PORT} is already in use!"
         echo "          Something is already listening there. The frontend may fail."
-        echo "          Check with: $PORT_CHECK_CMD 2>/dev/null | grep :3000"
+        echo "          Check with: $PORT_CHECK_CMD 2>/dev/null | grep :${FRONTEND_PORT}"
+        echo "          Tip: use --port to pick a different port."
         echo ""
         HAS_WARNINGS=1
     fi
@@ -143,8 +194,8 @@ trap 'echo "\n[INFO] Shutting down services..."; pkill -P $$; exit' SIGINT
 
 # Start FastAPI backend in the background
 if [ -d "api" ]; then
-    echo "[Backend] Starting FastAPI backend on http://localhost:8000..."
-    $PYTHON_CMD -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload &
+    echo "[Backend] Starting FastAPI backend on http://localhost:${BACKEND_PORT}..."
+    $PYTHON_CMD -m uvicorn api.main:app --host 127.0.0.1 --port "$BACKEND_PORT" --reload &
 else
     echo "[Warning] API directory not found - skipping backend startup."
 fi
@@ -166,8 +217,8 @@ if [ -d "frontend" ]; then
             echo "[Frontend] No build found, running npm run build..."
             (cd frontend && npm run build)
         fi
-        echo "[Frontend] Starting Next.js frontend on http://localhost:3000..."
-        (cd frontend && NODE_ENV=production PORT=3000 BACKEND_PORT=8000 npm start) &
+        echo "[Frontend] Starting Next.js frontend on http://localhost:${FRONTEND_PORT}..."
+        (cd frontend && NODE_ENV=production PORT="$FRONTEND_PORT" BACKEND_PORT="$BACKEND_PORT" npm start) &
     fi
 else
     echo "[Warning] Frontend directory not found - skipping frontend startup."
@@ -178,8 +229,8 @@ echo "=========================================="
 echo "[SUCCESS] Local Services Started!"
 echo "=========================================="
 echo ""
-echo ">> Access the UI at: http://localhost:3000"
-echo ">> API Docs available at: http://localhost:8000/docs"
+echo ">> Access the UI at: http://localhost:${FRONTEND_PORT}"
+echo ">> API Docs available at: http://localhost:${BACKEND_PORT}/docs"
 echo ""
 echo "[INFO] Services are running in the background."
 echo "[INFO] Press CTRL+C in this terminal to stop all services."
