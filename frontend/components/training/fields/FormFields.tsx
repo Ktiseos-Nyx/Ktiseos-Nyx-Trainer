@@ -388,6 +388,7 @@ export function ComboboxFormField<T extends FieldValues>({
   // Commit whatever is in the input to the form
   const commitInput = useCallback(() => {
     if (!displayText) {
+      form.setValue(name, '' as any, { shouldDirty: true, shouldTouch: true });
       isTypingRef.current = false;
       return;
     }

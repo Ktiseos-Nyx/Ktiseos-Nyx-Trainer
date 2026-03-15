@@ -38,6 +38,6 @@ export function getOrCreateDatasetsDir(): string {
   const existing = getDatasetsDir();
   if (existing) return existing;
 
-  // Fall back to cwd/datasets and let the caller create it
-  return path.join(process.cwd(), 'datasets');
+  // Fall back to project-root/datasets (not frontend/datasets)
+  return path.join(path.resolve(process.cwd(), '..'), 'datasets');
 }
