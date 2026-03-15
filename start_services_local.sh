@@ -53,6 +53,11 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+if [ "$FRONTEND_PORT" = "$BACKEND_PORT" ]; then
+    echo "[ERROR] --port and --backend-port cannot be the same ($FRONTEND_PORT)."
+    exit 1
+fi
+
 # --- Main Script ---
 echo "=========================================="
 echo "Starting Ktiseos-Nyx-Trainer Services (Local)..."

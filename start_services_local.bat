@@ -55,6 +55,12 @@ exit /b 0
 
 :args_done
 
+if "!FRONTEND_PORT!"=="!BACKEND_PORT!" (
+    echo [ERROR] --port and --backend-port cannot be the same ^(!FRONTEND_PORT!^).
+    pause
+    exit /b 1
+)
+
 echo ==========================================
 echo Starting Ktiseos-Nyx-Trainer Services...
 echo ==========================================
