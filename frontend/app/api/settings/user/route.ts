@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
     const result = await settingsService.updateUserSettings({
       huggingface_token: body.huggingface_token,
       civitai_api_key: body.civitai_api_key,
+      extra_model_dirs: body.extra_model_dirs,
+      extra_vae_dirs: body.extra_vae_dirs,
     });
 
     if (!result.success) {

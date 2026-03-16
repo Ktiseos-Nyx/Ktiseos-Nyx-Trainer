@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { settingsService } from '@/lib/node-services/settings-service';
 
 interface ModelFile {
   name: string;
@@ -74,20 +75,44 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
   return files;
 }
 
+/**
+ * Merge model file arrays, deduplicating by absolute path.
+ */
+function mergeModelFiles(primary: ModelFile[], ...extras: ModelFile[][]): ModelFile[] {
+  const seen = new Set<string>(primary.map((f) => f.path));
+  const merged = [...primary];
+  for (const extra of extras) {
+    for (const file of extra) {
+      if (!seen.has(file.path)) {
+        seen.add(file.path);
+        merged.push(file);
+      }
+    }
+  }
+  merged.sort((a, b) => a.name.localeCompare(b.name));
+  return merged;
+}
+
 export async function GET() {
   try {
     const { modelDir, vaeDir, loraDir } = getModelDirs();
+    const { extra_model_dirs, extra_vae_dirs } = await settingsService.getExtraModelDirs();
 
-    const [models, vaes, loras] = await Promise.all([
+    const [models, vaes, loras, ...extraResults] = await Promise.all([
       listModelFiles(modelDir),
       listModelFiles(vaeDir),
       listModelFiles(loraDir),
+      ...extra_model_dirs.map((d) => listModelFiles(d)),
+      ...extra_vae_dirs.map((d) => listModelFiles(d)),
     ]);
+
+    const extraModelFiles = extraResults.slice(0, extra_model_dirs.length);
+    const extraVaeFiles = extraResults.slice(extra_model_dirs.length);
 
     return NextResponse.json({
       success: true,
-      models,
-      vaes,
+      models: mergeModelFiles(models, ...extraModelFiles),
+      vaes: mergeModelFiles(vaes, ...extraVaeFiles),
       loras,
       model_dir: modelDir,
       vae_dir: vaeDir,
