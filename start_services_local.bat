@@ -228,8 +228,11 @@ if exist "frontend\" (
         if "%REBUILD_FRONTEND%"=="1" (
             echo [Frontend] --rebuild-frontend: removing stale build...
             if exist "frontend\.next" rmdir /s /q "frontend\.next"
-        )
-        if not exist "frontend\.next" (
+            echo [Frontend] Building updated frontend...
+            pushd frontend
+            npm run build
+            popd
+        ) else if not exist "frontend\.next" (
             echo [Frontend] No build found, running npm run build...
             pushd frontend
             npm run build

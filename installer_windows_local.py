@@ -408,7 +408,7 @@ class LocalWindowsInstaller:
             except Exception as e:
                 self.logger.warning("Could not remove node_modules: %s", e)
 
-        if not os.path.exists(node_modules):
+        if self.force or not os.path.exists(node_modules):
             self.logger.info("Installing frontend dependencies...")
             print(" 📦 Installing frontend (Next.js) dependencies...")
             success = self.run_command(
@@ -452,7 +452,7 @@ class LocalWindowsInstaller:
             except Exception as e:
                 self.logger.warning("Could not remove .next directory: %s", e)
 
-        if not os.path.exists(build_dir):
+        if self.force or not os.path.exists(build_dir):
             self.logger.info("Building Next.js production frontend...")
             print(" 🏗️  Building Next.js production frontend...")
             success = self.run_command([npm_exe, "run", "build"], "Building Next.js app", cwd=frontend_dir)
