@@ -384,7 +384,7 @@ class LocalWindowsInstaller:
         return "npm"  # Fallback to string and pray
 
     def install_frontend_deps(self):
-        """Install frontend dependencies if node_modules is missing."""
+        """Install frontend dependencies if node_modules is missing (or --force)."""
         frontend_dir = os.path.join(self.project_root, "frontend")
         if not os.path.exists(frontend_dir):
             self.logger.info("Frontend directory not found. Skipping.")
@@ -399,6 +399,15 @@ class LocalWindowsInstaller:
             return False
 
         node_modules = os.path.join(frontend_dir, "node_modules")
+        if self.force and os.path.exists(node_modules):
+            # --force: wipe node_modules so package.json changes are picked up
+            self.logger.info("--force: removing existing node_modules for clean reinstall...")
+            print(" 🔄 --force: removing node_modules for clean reinstall...")
+            try:
+                shutil.rmtree(node_modules)
+            except Exception as e:
+                self.logger.warning("Could not remove node_modules: %s", e)
+
         if not os.path.exists(node_modules):
             self.logger.info("Installing frontend dependencies...")
             print(" 📦 Installing frontend (Next.js) dependencies...")
@@ -423,7 +432,7 @@ class LocalWindowsInstaller:
             return True
 
     def build_frontend(self):
-        """Build Next.js app if .next/ is missing."""
+        """Build Next.js app if .next/ is missing (or --force)."""
         frontend_dir = os.path.join(self.project_root, "frontend")
         if not os.path.exists(frontend_dir):
             self.logger.info("Frontend directory not found. Skipping build.")
@@ -433,6 +442,16 @@ class LocalWindowsInstaller:
         npm_exe = self.get_npm_executable()
 
         build_dir = os.path.join(frontend_dir, ".next")
+        if self.force and os.path.exists(build_dir):
+            # --force: wipe stale build so updated source is compiled fresh
+            # (git pull changes source but leaves old .next in place)
+            self.logger.info("--force: removing stale .next build for clean rebuild...")
+            print(" 🔄 --force: removing stale .next build...")
+            try:
+                shutil.rmtree(build_dir)
+            except Exception as e:
+                self.logger.warning("Could not remove .next directory: %s", e)
+
         if not os.path.exists(build_dir):
             self.logger.info("Building Next.js production frontend...")
             print(" 🏗️  Building Next.js production frontend...")
