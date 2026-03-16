@@ -140,7 +140,7 @@ async def delete_dataset(dataset_name: str):
         return {"success": True, "message": f"Dataset {dataset_name} deleted"}
     except Exception as e:
         logger.error("Failed to delete dataset: %s", e, exc_info=True)
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ========== WD14 Tagging ==========
