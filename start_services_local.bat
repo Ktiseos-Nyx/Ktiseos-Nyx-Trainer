@@ -16,9 +16,10 @@ SET VENV_DIR=%~dp0.venv
 SET HAS_WARNINGS=0
 SET FRONTEND_PORT=3000
 SET BACKEND_PORT=8000
+SET REBUILD_FRONTEND=0
 
 REM --- Parse arguments ---
-REM Usage: start_services_local.bat [--port 3000] [--backend-port 8000]
+REM Usage: start_services_local.bat [--port 3000] [--backend-port 8000] [--rebuild-frontend]
 :parse_args
 if "%~1"=="" goto :args_done
 if /I "%~1"=="--port" (
@@ -37,6 +38,11 @@ if /I "%~1"=="--backend-port" (
     shift
     goto :parse_args
 )
+if /I "%~1"=="--rebuild-frontend" (
+    SET REBUILD_FRONTEND=1
+    shift
+    goto :parse_args
+)
 if /I "%~1"=="-h" goto :show_help
 if /I "%~1"=="--help" goto :show_help
 echo [ERROR] Unknown argument: %~1
@@ -45,12 +51,14 @@ pause
 exit /b 1
 
 :show_help
-echo Usage: %~nx0 [--port FRONTEND_PORT] [--backend-port BACKEND_PORT]
+echo Usage: %~nx0 [--port FRONTEND_PORT] [--backend-port BACKEND_PORT] [--rebuild-frontend]
 echo.
-echo   --port           Frontend port (default: 3000)
-echo   --backend-port   Backend API port (default: 8000)
+echo   --port              Frontend port (default: 3000)
+echo   --backend-port      Backend API port (default: 8000)
+echo   --rebuild-frontend  Force a fresh frontend build (use after git pull)
 echo.
 echo Example: %~nx0 --port 4000 --backend-port 9000
+echo Example: %~nx0 --rebuild-frontend
 exit /b 0
 
 :args_done
@@ -216,8 +224,15 @@ if exist "frontend\" (
             npm install --legacy-peer-deps
             popd
         )
-        REM Check if .next build exists
-        if not exist "frontend\.next" (
+        REM Check if .next build exists (or --rebuild-frontend requested)
+        if "%REBUILD_FRONTEND%"=="1" (
+            echo [Frontend] --rebuild-frontend: removing stale build...
+            if exist "frontend\.next" rmdir /s /q "frontend\.next"
+            echo [Frontend] Building updated frontend...
+            pushd frontend
+            npm run build
+            popd
+        ) else if not exist "frontend\.next" (
             echo [Frontend] No build found, running npm run build...
             pushd frontend
             npm run build
