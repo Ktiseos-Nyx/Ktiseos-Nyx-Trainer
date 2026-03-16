@@ -30,15 +30,15 @@ log_file = logs_dir / f"app_{datetime.now().strftime('%Y%m%d')}.log"
 
 _log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-_file_handler = logging.FileHandler(log_file, encoding='utf-8', errors='replace')
-_file_handler.setFormatter(_log_formatter)
-
 _root_logger = logging.getLogger()
 _root_logger.setLevel(logging.INFO)
 
-# Only add if not already present (guards against double-attachment on reload)
+# Only construct and add the FileHandler if not already present (guards against
+# double-attachment on reload and avoids leaking file descriptors on each reload).
 if not any(isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', None) == str(log_file)
            for h in _root_logger.handlers):
+    _file_handler = logging.FileHandler(log_file, encoding='utf-8', errors='replace')
+    _file_handler.setFormatter(_log_formatter)
     _root_logger.addHandler(_file_handler)
 
 logger = logging.getLogger(__name__)

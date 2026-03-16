@@ -76,15 +76,32 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
 }
 
 /**
- * Merge model file arrays, deduplicating by absolute path.
+ * Canonicalize a path for deduplication — resolves symlinks via realpath,
+ * falling back to path.resolve if the file isn't accessible.
  */
-function mergeModelFiles(primary: ModelFile[], ...extras: ModelFile[][]): ModelFile[] {
-  const seen = new Set<string>(primary.map((f) => f.path));
+async function canonicalizePath(filePath: string): Promise<string> {
+  try {
+    return await fs.realpath(filePath);
+  } catch {
+    return path.resolve(filePath);
+  }
+}
+
+/**
+ * Merge model file arrays, deduplicating by canonical (realpath) path so
+ * symlinked directories pointing to the same physical file don't produce
+ * duplicate entries.
+ */
+async function mergeModelFiles(primary: ModelFile[], ...extras: ModelFile[][]): Promise<ModelFile[]> {
+  const seen = new Set<string>(
+    await Promise.all(primary.map((f) => canonicalizePath(f.path)))
+  );
   const merged = [...primary];
   for (const extra of extras) {
     for (const file of extra) {
-      if (!seen.has(file.path)) {
-        seen.add(file.path);
+      const canonical = await canonicalizePath(file.path);
+      if (!seen.has(canonical)) {
+        seen.add(canonical);
         merged.push(file);
       }
     }
@@ -109,10 +126,15 @@ export async function GET() {
     const extraModelFiles = extraResults.slice(0, extra_model_dirs.length);
     const extraVaeFiles = extraResults.slice(extra_model_dirs.length);
 
+    const [mergedModels, mergedVaes] = await Promise.all([
+      mergeModelFiles(models, ...extraModelFiles),
+      mergeModelFiles(vaes, ...extraVaeFiles),
+    ]);
+
     return NextResponse.json({
       success: true,
-      models: mergeModelFiles(models, ...extraModelFiles),
-      vaes: mergeModelFiles(vaes, ...extraVaeFiles),
+      models: mergedModels,
+      vaes: mergedVaes,
       loras,
       model_dir: modelDir,
       vae_dir: vaeDir,

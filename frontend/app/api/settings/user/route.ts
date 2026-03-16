@@ -40,6 +40,19 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    // Validate extra dir arrays — must be string[] if provided
+    for (const field of ['extra_model_dirs', 'extra_vae_dirs'] as const) {
+      const value = body[field];
+      if (value !== undefined) {
+        if (!Array.isArray(value) || !value.every((item: unknown) => typeof item === 'string')) {
+          return NextResponse.json(
+            { error: `${field} must be an array of strings` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     const result = await settingsService.updateUserSettings({
       huggingface_token: body.huggingface_token,
       civitai_api_key: body.civitai_api_key,
