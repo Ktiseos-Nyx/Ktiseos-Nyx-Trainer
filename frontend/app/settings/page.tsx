@@ -3,7 +3,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff } from 'lucide-react'
+import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff, Plus, Trash2, FolderOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { GradientCard } from '@/components/effects'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -40,6 +40,12 @@ export default function SettingsPage() {
   // File Management
   const [autoCleanup, setAutoCleanup] = useState(false)
   const [maxStorageGB, setMaxStorageGB] = useState(50)
+
+  // Extra model scan directories (stored on backend)
+  const [extraModelDirs, setExtraModelDirs] = useState<string[]>([])
+  const [extraVaeDirs, setExtraVaeDirs] = useState<string[]>([])
+  const [newModelDir, setNewModelDir] = useState('')
+  const [newVaeDir, setNewVaeDir] = useState('')
 
   // Storage info
   const [storageInfo, setStorageInfo] = useState<{
@@ -102,6 +108,8 @@ export default function SettingsPage() {
         if (data.success) {
           setHasHuggingfaceToken(data.settings.has_huggingface_token)
           setHasCivitaiApiKey(data.settings.has_civitai_api_key)
+          setExtraModelDirs(data.settings.extra_model_dirs ?? [])
+          setExtraVaeDirs(data.settings.extra_vae_dirs ?? [])
         }
       }
     } catch (error) {
@@ -121,9 +129,9 @@ export default function SettingsPage() {
         payload.civitai_api_key = civitaiApiKey
       }
 
-      if (Object.keys(payload).length === 0) {
-        return true // Nothing to save
-      }
+      // Always persist extra dirs (even empty arrays clear the list)
+      payload.extra_model_dirs = extraModelDirs
+      payload.extra_vae_dirs = extraVaeDirs
 
       const response = await fetch(`${API_BASE}/settings/user`, {
         method: 'POST',
@@ -539,6 +547,121 @@ export default function SettingsPage() {
 
             </div>
           </div>
+          </div>
+        </GradientCard>
+
+        {/* Model Directories */}
+        <GradientCard variant="aurora" intensity="subtle" className="mb-6">
+          <div className="p-6">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Model Directories</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Add extra folders to scan for models and VAEs. Anything found here will appear in the
+              training form dropdowns alongside models downloaded by the trainer.
+            </p>
+
+            {/* Extra Model Dirs */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-3">
+                Base Model Paths
+              </label>
+              <div className="space-y-2 mb-3">
+                {extraModelDirs.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No extra model directories added.</p>
+                )}
+                {extraModelDirs.map((dir, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-foreground flex-1 font-mono truncate">{dir}</span>
+                    <button
+                      onClick={() => setExtraModelDirs(extraModelDirs.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      aria-label="Remove directory"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newModelDir}
+                  onChange={(e) => setNewModelDir(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newModelDir.trim()) {
+                      setExtraModelDirs([...extraModelDirs, newModelDir.trim()])
+                      setNewModelDir('')
+                    }
+                  }}
+                  placeholder="/home/user/stable-diffusion-webui/models/Stable-diffusion"
+                  className="flex-1 px-3 py-2 text-sm bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+                <button
+                  onClick={() => {
+                    if (newModelDir.trim()) {
+                      setExtraModelDirs([...extraModelDirs, newModelDir.trim()])
+                      setNewModelDir('')
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Extra VAE Dirs */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-3">
+                VAE Paths
+              </label>
+              <div className="space-y-2 mb-3">
+                {extraVaeDirs.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No extra VAE directories added.</p>
+                )}
+                {extraVaeDirs.map((dir, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-foreground flex-1 font-mono truncate">{dir}</span>
+                    <button
+                      onClick={() => setExtraVaeDirs(extraVaeDirs.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      aria-label="Remove directory"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newVaeDir}
+                  onChange={(e) => setNewVaeDir(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newVaeDir.trim()) {
+                      setExtraVaeDirs([...extraVaeDirs, newVaeDir.trim()])
+                      setNewVaeDir('')
+                    }
+                  }}
+                  placeholder="/home/user/stable-diffusion-webui/models/VAE"
+                  className="flex-1 px-3 py-2 text-sm bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+                <button
+                  onClick={() => {
+                    if (newVaeDir.trim()) {
+                      setExtraVaeDirs([...extraVaeDirs, newVaeDir.trim()])
+                      setNewVaeDir('')
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+            </div>
           </div>
         </GradientCard>
 

@@ -16,6 +16,8 @@ import path from 'path';
 export interface UserSettings {
   huggingface_token?: string | null;
   civitai_api_key?: string | null;
+  extra_model_dirs?: string[];
+  extra_vae_dirs?: string[];
 }
 
 export interface SettingsResponse {
@@ -25,6 +27,8 @@ export interface SettingsResponse {
     civitai_api_key?: string | null;
     has_huggingface_token: boolean;
     has_civitai_api_key: boolean;
+    extra_model_dirs: string[];
+    extra_vae_dirs: string[];
   };
   message?: string;
   error?: string;
@@ -155,6 +159,8 @@ export class SettingsService {
           civitai_api_key: maskToken(settings.civitai_api_key),
           has_huggingface_token: Boolean(settings.huggingface_token),
           has_civitai_api_key: Boolean(settings.civitai_api_key),
+          extra_model_dirs: settings.extra_model_dirs ?? [],
+          extra_vae_dirs: settings.extra_vae_dirs ?? [],
         },
       };
     } catch (error) {
@@ -163,6 +169,17 @@ export class SettingsService {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  /**
+   * Get extra model/VAE scan directories for use by the model list scanner
+   */
+  async getExtraModelDirs(): Promise<{ extra_model_dirs: string[]; extra_vae_dirs: string[] }> {
+    const settings = await this.loadSettings();
+    return {
+      extra_model_dirs: settings.extra_model_dirs ?? [],
+      extra_vae_dirs: settings.extra_vae_dirs ?? [],
+    };
   }
 
   /**
@@ -190,6 +207,14 @@ export class SettingsService {
 
       if (updates.civitai_api_key !== undefined) {
         currentSettings.civitai_api_key = updates.civitai_api_key;
+      }
+
+      if (updates.extra_model_dirs !== undefined) {
+        currentSettings.extra_model_dirs = updates.extra_model_dirs;
+      }
+
+      if (updates.extra_vae_dirs !== undefined) {
+        currentSettings.extra_vae_dirs = updates.extra_vae_dirs;
       }
 
       const saved = await this.saveSettings(currentSettings);

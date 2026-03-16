@@ -19,23 +19,30 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Configure logging with file output (cross-platform: Windows, Linux, macOS)
+# NOTE: logging.basicConfig() is a no-op when uvicorn has already set up root logger
+# handlers. We attach directly to the root logger instead so the file handler
+# always gets added regardless of what uvicorn configured first.
 logs_dir = project_root / "logs"
 logs_dir.mkdir(exist_ok=True)
 
 # Create log filename with date (one file per day)
 log_file = logs_dir / f"app_{datetime.now().strftime('%Y%m%d')}.log"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        # File logs with Windows-safe encoding (replace problematic chars instead of crashing)
-        logging.FileHandler(log_file, encoding='utf-8', errors='replace'),
-        logging.StreamHandler()  # Terminal output (keep for live debugging)
-    ]
-)
+_log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+_root_logger = logging.getLogger()
+_root_logger.setLevel(logging.INFO)
+
+# Only construct and add the FileHandler if not already present (guards against
+# double-attachment on reload and avoids leaking file descriptors on each reload).
+if not any(isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', None) == str(log_file)
+           for h in _root_logger.handlers):
+    _file_handler = logging.FileHandler(log_file, encoding='utf-8', errors='replace')
+    _file_handler.setFormatter(_log_formatter)
+    _root_logger.addHandler(_file_handler)
+
 logger = logging.getLogger(__name__)
-logger.info(f"📝 Logging to: {log_file}")
+logger.info("Logging to: %s", log_file)
 
 # Create FastAPI app
 app = FastAPI(

@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import shutil
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -23,6 +23,8 @@ SETTINGS_FILE = os.path.join(SETTINGS_DIR, "user_settings.json")
 class UserSettings(BaseModel):
     huggingface_token: Optional[str] = None
     civitai_api_key: Optional[str] = None
+    extra_model_dirs: Optional[List[str]] = None
+    extra_vae_dirs: Optional[List[str]] = None
 
 
 def ensure_settings_dir():
@@ -141,7 +143,9 @@ async def get_user_settings():
                 "huggingface_token": mask_token(settings.get("huggingface_token")),
                 "civitai_api_key": mask_token(settings.get("civitai_api_key")),
                 "has_huggingface_token": bool(settings.get("huggingface_token")),
-                "has_civitai_api_key": bool(settings.get("civitai_api_key"))
+                "has_civitai_api_key": bool(settings.get("civitai_api_key")),
+                "extra_model_dirs": settings.get("extra_model_dirs", []),
+                "extra_vae_dirs": settings.get("extra_vae_dirs", []),
             }
         }
     except Exception as e:
@@ -163,6 +167,12 @@ async def update_user_settings(settings: UserSettings):
 
         if settings.civitai_api_key is not None:
             current_settings["civitai_api_key"] = settings.civitai_api_key
+
+        if settings.extra_model_dirs is not None:
+            current_settings["extra_model_dirs"] = settings.extra_model_dirs
+
+        if settings.extra_vae_dirs is not None:
+            current_settings["extra_vae_dirs"] = settings.extra_vae_dirs
 
         if save_settings(current_settings):
             return {
@@ -204,7 +214,7 @@ async def delete_setting_key(key: str):
         key: Either "huggingface_token" or "civitai_api_key"
     """
     try:
-        valid_keys = ["huggingface_token", "civitai_api_key"]
+        valid_keys = ["huggingface_token", "civitai_api_key", "extra_model_dirs", "extra_vae_dirs"]
         if key not in valid_keys:
             raise HTTPException(
                 status_code=400,

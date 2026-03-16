@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { settingsService } from '@/lib/node-services/settings-service';
 
 interface ModelFile {
   name: string;
@@ -74,20 +75,66 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
   return files;
 }
 
+/**
+ * Canonicalize a path for deduplication — resolves symlinks via realpath,
+ * falling back to path.resolve if the file isn't accessible.
+ */
+async function canonicalizePath(filePath: string): Promise<string> {
+  try {
+    return await fs.realpath(filePath);
+  } catch {
+    return path.resolve(filePath);
+  }
+}
+
+/**
+ * Merge model file arrays, deduplicating by canonical (realpath) path so
+ * symlinked directories pointing to the same physical file don't produce
+ * duplicate entries.
+ */
+async function mergeModelFiles(primary: ModelFile[], ...extras: ModelFile[][]): Promise<ModelFile[]> {
+  const seen = new Set<string>(
+    await Promise.all(primary.map((f) => canonicalizePath(f.path)))
+  );
+  const merged = [...primary];
+  for (const extra of extras) {
+    for (const file of extra) {
+      const canonical = await canonicalizePath(file.path);
+      if (!seen.has(canonical)) {
+        seen.add(canonical);
+        merged.push(file);
+      }
+    }
+  }
+  merged.sort((a, b) => a.name.localeCompare(b.name));
+  return merged;
+}
+
 export async function GET() {
   try {
     const { modelDir, vaeDir, loraDir } = getModelDirs();
+    const { extra_model_dirs, extra_vae_dirs } = await settingsService.getExtraModelDirs();
 
-    const [models, vaes, loras] = await Promise.all([
+    const [models, vaes, loras, ...extraResults] = await Promise.all([
       listModelFiles(modelDir),
       listModelFiles(vaeDir),
       listModelFiles(loraDir),
+      ...extra_model_dirs.map((d) => listModelFiles(d)),
+      ...extra_vae_dirs.map((d) => listModelFiles(d)),
+    ]);
+
+    const extraModelFiles = extraResults.slice(0, extra_model_dirs.length);
+    const extraVaeFiles = extraResults.slice(extra_model_dirs.length);
+
+    const [mergedModels, mergedVaes] = await Promise.all([
+      mergeModelFiles(models, ...extraModelFiles),
+      mergeModelFiles(vaes, ...extraVaeFiles),
     ]);
 
     return NextResponse.json({
       success: true,
-      models,
-      vaes,
+      models: mergedModels,
+      vaes: mergedVaes,
       loras,
       model_dir: modelDir,
       vae_dir: vaeDir,
