@@ -180,8 +180,9 @@ class LocalLinuxInstaller:
             return False
 
         # Check that Node.js meets the minimum version requirement (>=20.19.0)
+        resolved_node = shutil.which("node")
         try:
-            node_result = subprocess.run(["node", "--version"], capture_output=True, text=True)
+            node_result = subprocess.run([resolved_node, "--version"], capture_output=True, text=True)
             if node_result.returncode != 0:
                 diag = (node_result.stderr or node_result.stdout).strip()
                 print(f" ⚠️ Could not determine Node.js version: {diag}. Please ensure Node.js >=20.19.0 is installed.")
@@ -194,7 +195,7 @@ class LocalLinuxInstaller:
                 print(f" ⚠️ Node.js {version_str} is below the required version 20.19.0. Please upgrade (e.g., via nvm or system package).")
                 self.logger.warning("Node.js %s is below required version 20.19.0. Frontend setup skipped.", version_str)
                 return False
-        except Exception as node_err:
+        except (ValueError, IndexError, OSError, subprocess.SubprocessError) as node_err:
             print(f" ⚠️ Could not determine Node.js version: {node_err}. Please ensure Node.js >=20.19.0 is installed.")
             self.logger.warning("Could not determine Node.js version: %s. Frontend setup skipped.", node_err)
             return False

@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form } from '@/components/ui/form';
 import { useTrainingForm } from '@/hooks/useTrainingForm';
 import PresetManager from './PresetManager';
-import { trainingAPI, modelsAPI, configAPI } from '@/lib/api';
+import { trainingAPI, modelsAPI, configAPI, fileAPI } from '@/lib/api';
+import type { FileInfo } from '@/lib/api';
 import {
   SetupTab,
   DatasetTab,
@@ -21,12 +22,6 @@ import {
   AdvancedTab,
   SavingTab,
 } from './tabs';
-
-interface FileEntry {
-  name: string;
-  path: string;
-  type: 'file' | 'dir';
-}
 
 type ModelItem = { path: string; name: string };
 
@@ -92,26 +87,31 @@ export default function TrainingConfigNew() {
         setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
 
         // Workspace root is only needed for dataset listing and output_dir defaults
-        const workspaceRes = await fetch('/api/files/default-workspace');
-        const workspaceData = workspaceRes.ok ? await workspaceRes.json() : { path: '' };
-        const root = workspaceData.path;
+        let root = '';
+        try {
+          const workspaceData = await fileAPI.getDefaultWorkspace();
+          root = workspaceData.path || '';
+        } catch {
+          // workspace unavailable; proceed with empty root
+        }
         if (root) setWorkspaceRoot(root);
 
         // Try datasets then dataset
-        const datasetsData = { files: [] as FileEntry[] };
+        const datasetsData = { files: [] as FileInfo[] };
         if (root) {
-          let datasetsPath = `${root}/datasets`;
-          let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
-          if (!datasetsRes.ok) {
-            datasetsPath = `${root}/dataset`;
-            datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
-          }
-          if (datasetsRes.ok) {
-            const data = await datasetsRes.json();
+          try {
+            const data = await fileAPI.list(`${root}/datasets`);
             datasetsData.files = data.files || [];
+          } catch {
+            try {
+              const data = await fileAPI.list(`${root}/dataset`);
+              datasetsData.files = data.files || [];
+            } catch {
+              // neither path available
+            }
           }
         }
-        setDatasets(datasetsData.files.filter((f: FileEntry) => f.type === 'dir').map((dir: FileEntry) => ({ value: dir.path, label: dir.name })));
+        setDatasets(datasetsData.files.filter((f: FileInfo) => f.type === 'dir').map((dir: FileInfo) => ({ value: dir.path, label: dir.name })));
 
         // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
@@ -120,7 +120,7 @@ export default function TrainingConfigNew() {
                 form.setValue('pretrained_model_name_or_path', modelsData.models[0].path);
             }
             if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
-                const def = datasetsData.files.find((f: any) => f.type === 'dir');
+                const def = datasetsData.files.find((f: FileInfo) => f.type === 'dir');
                 if (def) form.setValue('train_data_dir', def.path);
             }
             hasInitialized.current = true;

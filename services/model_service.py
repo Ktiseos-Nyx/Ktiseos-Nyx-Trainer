@@ -337,6 +337,12 @@ class ModelService:
         logger.info("Attempting download with hf_hub_download (hf_xet)...")
         try:
             from huggingface_hub import hf_hub_download
+            from huggingface_hub.errors import (
+                LocalEntryNotFoundError,
+                RemoteEntryNotFoundError,
+                RepositoryNotFoundError,
+                RevisionNotFoundError,
+            )
 
             # Parse https://huggingface.co/{repo_id}/resolve/{revision}/{filepath}
             # or   https://huggingface.co/{repo_id}/blob/{revision}/{filepath}
@@ -377,7 +383,15 @@ class ModelService:
             logger.warning("hf_hub_download returned but file missing or empty")
             return False
 
-        except Exception as e:
+        except (
+            RepositoryNotFoundError,
+            RevisionNotFoundError,
+            RemoteEntryNotFoundError,
+            LocalEntryNotFoundError,
+            EnvironmentError,
+            OSError,
+            ValueError,
+        ) as e:
             logger.warning(f"hf_hub_download error: {e}")
             return False
 
