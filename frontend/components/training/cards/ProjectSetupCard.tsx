@@ -25,10 +25,11 @@ import { Save } from 'lucide-react';
  * `@property` onSave - Optional callback triggered by the "Save Project" button.
  */
 interface ProjectSetupCardProps {
-  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  form: UseFormReturn<TrainingConfig>;
   models: { value: string; label: string }[];
   vaes: { value: string; label: string }[];
-  onSave?: () => void; // 👈 NEW
+  textEncoders: { value: string; label: string }[];
+  onSave?: () => void;
 }
 
 /**
@@ -45,7 +46,7 @@ interface ProjectSetupCardProps {
  * `@param` props - See {`@link` ProjectSetupCardProps}.
  * `@returns` The rendered project setup card.
  */
-export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCardProps) {
+export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
   const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
   const isChroma = modelType === 'Chroma';
@@ -168,37 +169,41 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               {modelType} Specific Paths
             </div>
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="clip_l_path"
               label="CLIP-L Path"
               description="Required for Flux/SD3"
-              placeholder="/path/to/clip_l.safetensors"
+              placeholder="Select or type a CLIP-L path..."
+              options={textEncoders}
             />
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="clip_g_path"
               label="CLIP-G Path"
               description="Required for Flux/SD3"
-              placeholder="/path/to/clip_g.safetensors"
+              placeholder="Select or type a CLIP-G path..."
+              options={textEncoders}
             />
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="t5xxl_path"
               label="T5-XXL Path"
               description="Required for Flux/SD3"
-              placeholder="/path/to/t5xxl.safetensors"
+              placeholder="Select or type a T5-XXL path..."
+              options={textEncoders}
             />
 
             {modelType === 'Flux' && (
-              <TextFormField
+              <ComboboxFormField
                 form={form}
                 name="ae_path"
                 label="AutoEncoder Path"
                 description="Flux AutoEncoder (*.safetensors)"
-                placeholder="/path/to/ae.safetensors"
+                placeholder="Select or type an AE path..."
+                options={vaes}
               />
             )}
           </div>
@@ -212,20 +217,22 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               Chroma Specific Paths
             </div>
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="t5xxl_path"
               label="T5-XXL Path"
               description="Required for Chroma"
-              placeholder="/path/to/t5xxl.safetensors"
+              placeholder="Select or type a T5-XXL path..."
+              options={textEncoders}
             />
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="ae_path"
               label="AutoEncoder Path"
               description="Required for Chroma"
-              placeholder="/path/to/ae.safetensors"
+              placeholder="Select or type an AE path..."
+              options={vaes}
             />
           </div>
         )}
@@ -238,20 +245,22 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               Anima Specific Paths
             </div>
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="qwen3"
               label="Qwen3-0.6B Path"
               description="Required - safetensors file or directory"
-              placeholder="/path/to/qwen3-0.6b.safetensors"
+              placeholder="Select or type a Qwen3 path..."
+              options={textEncoders}
             />
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="ae_path"
               label="AutoEncoder (VAE) Path"
               description="Required for Anima"
-              placeholder="/path/to/ae.safetensors"
+              placeholder="Select or type an AE path..."
+              options={vaes}
             />
 
             <TextFormField
@@ -280,20 +289,22 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               HunyuanImage Specific Paths
             </div>
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="text_encoder_path"
               label="Qwen2.5-VL Text Encoder Path"
               description="Required - bfloat16 safetensors"
-              placeholder="/path/to/qwen2.5-vl.safetensors"
+              placeholder="Select or type a Qwen2.5-VL path..."
+              options={textEncoders}
             />
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="byt5_path"
               label="byT5 Path"
               description="Required - float16 safetensors"
-              placeholder="/path/to/byt5.safetensors"
+              placeholder="Select or type a byT5 path..."
+              options={textEncoders}
             />
           </div>
         )}

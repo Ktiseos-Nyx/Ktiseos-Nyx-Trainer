@@ -24,18 +24,19 @@ interface TabProps {
   form: UseFormReturn<TrainingConfig>; // Remove Partial here
   models?: { value: string; label: string }[];
   vaes?: { value: string; label: string }[];
+  textEncoders?: { value: string; label: string }[];
   datasets?: { value: string; label: string }[];
-	onSave?: () => void; // 👈 ADD THIS
+	onSave?: () => void;
 }
 
 /**
  * Setup Tab
  * Project information and model selection
  */
-export function SetupTab({ form, models = [], vaes = [], onSave }: TabProps) {
+export function SetupTab({ form, models = [], vaes = [], textEncoders = [], onSave }: TabProps) {
   return (
     <div className="space-y-6">
-      <ProjectSetupCard form={form} models={models} vaes={vaes} onSave={onSave} />
+      <ProjectSetupCard form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={onSave} />
     </div>
   );
 }
