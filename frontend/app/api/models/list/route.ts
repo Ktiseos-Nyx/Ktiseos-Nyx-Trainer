@@ -29,6 +29,31 @@ function getModelDirs(): { modelDir: string; vaeDir: string; loraDir: string } {
   };
 }
 
+// Common model subdirectories on cloud GPU providers (RunPod, VastAI, etc.)
+const CLOUD_MODEL_PATHS = [
+  '/workspace/models',
+  '/workspace/models/Stable-diffusion',
+  '/workspace/models/checkpoints',
+  '/workspace/models/unet',
+  '/workspace/ComfyUI/models/checkpoints',
+];
+
+const CLOUD_VAE_PATHS = [
+  '/workspace/models/vae',
+  '/workspace/models/VAE',
+  '/workspace/ComfyUI/models/vae',
+];
+
+const CLOUD_TEXT_ENCODER_PATHS = [
+  '/workspace/models/clip',
+  '/workspace/models/CLIP',
+  '/workspace/models/t5',
+  '/workspace/models/text_encoders',
+  '/workspace/models/text_encoder',
+  '/workspace/ComfyUI/models/clip',
+  '/workspace/ComfyUI/models/text_encoders',
+];
+
 const MODEL_EXTENSIONS = ['.safetensors', '.ckpt', '.pt', '.pth', '.bin'];
 
 /**
@@ -115,26 +140,37 @@ export async function GET() {
     const { modelDir, vaeDir, loraDir } = getModelDirs();
     const { extra_model_dirs, extra_vae_dirs } = await settingsService.getExtraModelDirs();
 
-    const [models, vaes, loras, ...extraResults] = await Promise.all([
-      listModelFiles(modelDir),
-      listModelFiles(vaeDir),
+    const allModelDirs = [modelDir, ...CLOUD_MODEL_PATHS, ...extra_model_dirs];
+    const allVaeDirs = [vaeDir, ...CLOUD_VAE_PATHS, ...extra_vae_dirs];
+    // Text encoders: scan dedicated dirs + the main model dir (some setups mix them)
+    const allTextEncoderDirs = [...CLOUD_TEXT_ENCODER_PATHS, modelDir];
+
+    const allResults = await Promise.all([
+      ...allModelDirs.map((d) => listModelFiles(d)),
+      ...allVaeDirs.map((d) => listModelFiles(d)),
+      ...allTextEncoderDirs.map((d) => listModelFiles(d)),
       listModelFiles(loraDir),
-      ...extra_model_dirs.map((d) => listModelFiles(d)),
-      ...extra_vae_dirs.map((d) => listModelFiles(d)),
     ]);
 
-    const extraModelFiles = extraResults.slice(0, extra_model_dirs.length);
-    const extraVaeFiles = extraResults.slice(extra_model_dirs.length);
+    const modelResults = allResults.slice(0, allModelDirs.length);
+    const vaeResults = allResults.slice(allModelDirs.length, allModelDirs.length + allVaeDirs.length);
+    const textEncoderResults = allResults.slice(
+      allModelDirs.length + allVaeDirs.length,
+      allModelDirs.length + allVaeDirs.length + allTextEncoderDirs.length
+    );
+    const loras = allResults[allResults.length - 1];
 
-    const [mergedModels, mergedVaes] = await Promise.all([
-      mergeModelFiles(models, ...extraModelFiles),
-      mergeModelFiles(vaes, ...extraVaeFiles),
+    const [mergedModels, mergedVaes, mergedTextEncoders] = await Promise.all([
+      mergeModelFiles(modelResults[0], ...modelResults.slice(1)),
+      mergeModelFiles(vaeResults[0], ...vaeResults.slice(1)),
+      mergeModelFiles(textEncoderResults[0], ...textEncoderResults.slice(1)),
     ]);
 
     return NextResponse.json({
       success: true,
       models: mergedModels,
       vaes: mergedVaes,
+      text_encoders: mergedTextEncoders,
       loras,
       model_dir: modelDir,
       vae_dir: vaeDir,

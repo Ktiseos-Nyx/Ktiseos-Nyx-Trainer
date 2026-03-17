@@ -337,24 +337,45 @@ def main(args):
                 available_providers = ort.get_available_providers()
                 logger.info(f"Available ONNX providers: {available_providers}")
 
-                if "CUDAExecutionProvider" in available_providers:
-                    logger.info("Attempting CUDA execution provider with enhanced configuration...")
+                if "TensorrtExecutionProvider" in available_providers:
+                    logger.info("Attempting TensorRT execution provider...")
+                    try:
+                        ort_sess = ort.InferenceSession(
+                            onnx_path,
+                            providers=["TensorrtExecutionProvider", "CUDAExecutionProvider"],
+                        )
+                        logger.info("✅ TensorRT execution provider initialized successfully")
+                    except Exception as trt_error:
+                        logger.warning(f"TensorRT provider failed: {str(trt_error)[:100]}...")
+                        logger.info("Falling back to CUDA provider...")
 
-                    # Dynamic CUDA provider options for cross-platform compatibility
+                        # Dynamic CUDA provider options for cross-platform compatibility
+                        cuda_provider_options = {"device_id": 0}
+                        safe_memory_limit = get_safe_gpu_memory_limit()
+                        if safe_memory_limit:
+                            cuda_provider_options["gpu_mem_limit"] = safe_memory_limit
+
+                        try:
+                            ort_sess = ort.InferenceSession(
+                                onnx_path,
+                                providers=[("CUDAExecutionProvider", cuda_provider_options)],
+                            )
+                            logger.info("✅ CUDA execution provider initialized successfully")
+                        except Exception as cuda_error:
+                            logger.warning(f"CUDA provider also failed: {str(cuda_error)[:100]}...")
+                            raise Exception("All GPU configurations failed, falling back to CPU")
+
+                elif "CUDAExecutionProvider" in available_providers:
+                    logger.info("Attempting CUDA execution provider...")
+
                     cuda_provider_options = {"device_id": 0}
-
-                    # Add dynamic GPU memory limit based on available VRAM
                     safe_memory_limit = get_safe_gpu_memory_limit()
                     if safe_memory_limit:
                         cuda_provider_options["gpu_mem_limit"] = safe_memory_limit
-                    # Removed aggressive cuDNN options that cause CUDA library conflicts
 
-                    # Basic session options for maximum compatibility
                     sess_options = ort.SessionOptions()
                     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
-                    # Removed aggressive options that may conflict with different ONNX/CUDA versions
 
-                    # Try creating session with comprehensive error handling
                     try:
                         ort_sess = ort.InferenceSession(
                             onnx_path,
@@ -363,21 +384,8 @@ def main(args):
                         )
                         logger.info("✅ CUDA execution provider initialized successfully")
                     except Exception as cuda_error:
-                        logger.warning(f"CUDA provider with options failed: {str(cuda_error)[:100]}...")
-                        logger.info("Trying CUDA provider with minimal options...")
-
-                        # Fallback: try minimal CUDA configuration
-                        try:
-                            minimal_cuda_options = {"device_id": 0}
-                            ort_sess = ort.InferenceSession(
-                                onnx_path,
-                                providers=[("CUDAExecutionProvider", minimal_cuda_options)],
-                                sess_options=ort.SessionOptions(),
-                            )
-                            logger.info("✅ CUDA execution provider with minimal config successful")
-                        except Exception as minimal_cuda_error:
-                            logger.warning(f"Minimal CUDA config also failed: {str(minimal_cuda_error)[:100]}...")
-                            raise Exception("All CUDA configurations failed, falling back to CPU")
+                        logger.warning(f"CUDA provider failed: {str(cuda_error)[:100]}...")
+                        raise Exception("All CUDA configurations failed, falling back to CPU")
 
                 elif "ROCMExecutionProvider" in available_providers:
                     logger.info("Attempting ROCm execution provider")

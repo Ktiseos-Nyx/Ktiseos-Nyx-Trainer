@@ -46,6 +46,7 @@ export default function TrainingConfigNew() {
   const [trainingJobId, setTrainingJobId] = useState<string | null>(null);
   const [models, setModels] = useState<{ value: string; label: string }[]>([]);
   const [vaes, setVaes] = useState<{ value: string; label: string }[]>([]);
+  const [textEncoders, setTextEncoders] = useState<{ value: string; label: string }[]>([]);
   const [datasets, setDatasets] = useState<{ value: string; label: string }[]>([]);
   const [workspaceRoot, setWorkspaceRoot] = useState<string>('');
 
@@ -85,6 +86,7 @@ export default function TrainingConfigNew() {
         const modelsData = await modelsAPI.list();
         setModels((modelsData.models || []).map((m: any) => ({ value: m.path, label: m.name })));
         setVaes((modelsData.vaes || []).map((v: any) => ({ value: v.path, label: v.name })));
+        setTextEncoders((modelsData.text_encoders || []).map((m: any) => ({ value: m.path, label: m.name })));
 
         // Try datasets then dataset
         let datasetsPath = `${root}/datasets`;
@@ -239,7 +241,7 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="lora"><LoRATab form={form as any} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="learning"><LearningTab form={form as any} onSave={handleCardSave} /></TabsContent>
