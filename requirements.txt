@@ -28,7 +28,7 @@ einops==0.8.2
 prodigyopt==1.1.2
 lion-pytorch==0.2.3
 dadaptation==3.2
-pytorch_optimizer==3.8.2 # 3.9.0 breaks CAME internal imports; lycoris pins 3.8.2 for same reason
+pytorch_optimizer==3.1.2 # pinned to derrian's original; init_group abstract method added in 3.6.0
 schedulefree==1.4
 prodigy-plus-schedule-free==1.9.2
 came-pytorch

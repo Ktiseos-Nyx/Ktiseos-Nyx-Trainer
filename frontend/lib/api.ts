@@ -1165,9 +1165,9 @@ export const modelsAPI = {
     return handleResponse(response);
   },
 
-  // ✅ MIGRATED: Uses Node.js /api/models/list endpoint
+  // Next.js route handler — scans local + cloud GPU paths for models/VAEs/text_encoders
   list: async () => {
-    const response = await fetch(`${API_BASE}/models/list`);
+    const response = await fetch('/api/models/list');
     return handleResponse(response);
   },
 

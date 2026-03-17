@@ -77,30 +77,37 @@ export default function TrainingConfigNew() {
 
     const fetchOptions = async () => {
       try {
-        const workspaceRes = await fetch('/api/files/default-workspace');
-        const workspaceData = workspaceRes.ok ? await workspaceRes.json() : { path: '' };
-        const root = workspaceData.path;
-        if (!root) return;
-        setWorkspaceRoot(root);
-
+        // Models/VAEs/text encoders are independent of workspace root — fetch always
         const modelsData = await modelsAPI.list();
         setModels((modelsData.models || []).map((m: any) => ({ value: m.path, label: m.name })));
         setVaes((modelsData.vaes || []).map((v: any) => ({ value: v.path, label: v.name })));
         setTextEncoders((modelsData.text_encoders || []).map((m: any) => ({ value: m.path, label: m.name })));
 
+        // Workspace root is only needed for dataset listing and output_dir defaults
+        const workspaceRes = await fetch('/api/files/default-workspace');
+        const workspaceData = workspaceRes.ok ? await workspaceRes.json() : { path: '' };
+        const root = workspaceData.path;
+        if (root) setWorkspaceRoot(root);
+
         // Try datasets then dataset
-        let datasetsPath = `${root}/datasets`;
-        let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
-        if (!datasetsRes.ok) {
-             datasetsPath = `${root}/dataset`;
-             datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
+        const datasetsData = { files: [] as any[] };
+        if (root) {
+          let datasetsPath = `${root}/datasets`;
+          let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
+          if (!datasetsRes.ok) {
+            datasetsPath = `${root}/dataset`;
+            datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
+          }
+          if (datasetsRes.ok) {
+            const data = await datasetsRes.json();
+            datasetsData.files = data.files || [];
+          }
         }
-        const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
-        setDatasets((datasetsData.files || []).filter((f: any) => f.type === 'dir').map((dir: any) => ({ value: dir.path, label: dir.name })));
+        setDatasets(datasetsData.files.filter((f: any) => f.type === 'dir').map((dir: any) => ({ value: dir.path, label: dir.name })));
 
         // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
-            if (!form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
+            if (root && !form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
             if (!form.getValues('pretrained_model_name_or_path') && modelsData.models?.length > 0) {
                 form.setValue('pretrained_model_name_or_path', modelsData.models[0].path);
             }
