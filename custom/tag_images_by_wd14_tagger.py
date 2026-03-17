@@ -344,7 +344,16 @@ def main(args):
                             onnx_path,
                             providers=["TensorrtExecutionProvider", "CUDAExecutionProvider"],
                         )
-                        logger.info("✅ TensorRT execution provider initialized successfully")
+                        # InferenceSession doesn't raise when TRT libs are missing —
+                        # it silently falls back to CUDA internally. Check what's active.
+                        active_providers = ort_sess.get_providers()
+                        if "TensorrtExecutionProvider" in active_providers:
+                            logger.info("✅ TensorRT execution provider initialized successfully")
+                        else:
+                            logger.info(
+                                f"TRT libs unavailable — session running on: {active_providers}. "
+                                "EP errors during inference are cosmetic; CUDA is handling ops."
+                            )
                     except Exception as trt_error:
                         logger.warning(f"TensorRT provider failed: {str(trt_error)[:100]}...")
                         logger.info("Falling back to CUDA provider...")
