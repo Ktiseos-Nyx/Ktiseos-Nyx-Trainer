@@ -28,6 +28,8 @@ interface FileEntry {
   type: 'file' | 'dir';
 }
 
+type ModelItem = { path: string; name: string };
+
 /**
  * Main training configuration page component.
  *
@@ -85,9 +87,9 @@ export default function TrainingConfigNew() {
       try {
         // Models/VAEs/text encoders are independent of workspace root — fetch always
         const modelsData = await modelsAPI.list();
-        setModels((modelsData.models || []).map((m: any) => ({ value: m.path, label: m.name })));
-        setVaes((modelsData.vaes || []).map((v: any) => ({ value: v.path, label: v.name })));
-        setTextEncoders((modelsData.text_encoders || []).map((m: any) => ({ value: m.path, label: m.name })));
+        setModels((modelsData.models || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+        setVaes((modelsData.vaes || []).map((v: ModelItem) => ({ value: v.path, label: v.name })));
+        setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
 
         // Workspace root is only needed for dataset listing and output_dir defaults
         const workspaceRes = await fetch('/api/files/default-workspace');

@@ -360,9 +360,14 @@ class ModelService:
                 local_dir=str(destination.parent),
             ))
 
-            # hf_hub_download may save with subpath (e.g. subfolder/model.safetensors);
-            # move to the flat destination if needed
+            # hf_hub_download may save with a subdirectory-prefixed path
+            # (e.g. local_dir/subfolder/model.safetensors); flatten to the
+            # caller-supplied destination.  Intentional: the destination name
+            # is chosen by the caller and we always want a single flat file.
             if downloaded_path != destination and downloaded_path.exists():
+                if destination.exists():
+                    logger.info("Replacing existing file at destination: %s", destination)
+                    destination.unlink()
                 shutil.move(str(downloaded_path), str(destination))
 
             if destination.exists() and destination.stat().st_size > 0:

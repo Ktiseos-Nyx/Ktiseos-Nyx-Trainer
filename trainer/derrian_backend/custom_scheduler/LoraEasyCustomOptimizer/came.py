@@ -128,6 +128,8 @@ class CAME(BaseOptimizer):
         for group in self.param_groups:
             group["step"] = 0
             for p in group["params"]:
+                if p.grad is None:
+                    continue
                 grad = p.grad
                 if grad.dtype in {torch.float16, torch.bfloat16}:
                     grad = grad.to(torch.float32)
