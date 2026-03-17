@@ -236,10 +236,20 @@ class ModelService:
         """
         # For HuggingFace URLs, use hf_hub_download which automatically uses
         # hf_xet (Rust Xet backend, adaptive concurrency) when available
-        if "huggingface.co" in url:
+        parsed_url = urlparse(url)
+        hostname = parsed_url.hostname or ""
+        is_huggingface = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
+
+        if is_huggingface:
             logger.info("HuggingFace URL detected - using hf_hub_download (hf_xet)")
             if self._try_hf_hub_download(url, destination, api_token):
                 return destination, DownloadMethod.HF_XET
+            # Normalize /blob/ page URLs to /resolve/ artifact URLs before falling
+            # back to generic download methods, so they receive the actual file URL
+            # rather than the HTML page, which would be silently treated as success.
+            if "/blob/" in url:
+                url = url.replace("/blob/", "/resolve/", 1)
+                logger.info(f"Normalized HF blob URL to resolve URL for generic fallback: {url}")
 
         # aria2c for Civitai and other direct URLs
         if shutil.which("aria2c"):
@@ -272,9 +282,10 @@ class ModelService:
             hostname = parsed.hostname or ""
 
             # Handle API tokens
+            is_hf_host = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
             if "civitai.com" in hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
-            elif "huggingface.co" in hostname and api_token:
+            elif is_hf_host and api_token:
                 header = f"Authorization: Bearer {api_token}"
 
             command = [
@@ -378,9 +389,11 @@ class ModelService:
             wget_args = ["wget", "-O", str(destination)]
 
             # Handle API tokens
-            if "civitai.com" in url and api_token and "hf" not in api_token:
+            wget_hostname = (urlparse(url).hostname or "")
+            is_hf_host = wget_hostname == "huggingface.co" or wget_hostname.endswith(".huggingface.co")
+            if "civitai.com" in wget_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
-            elif "huggingface.co" in url and api_token:
+            elif is_hf_host and api_token:
                 wget_args.extend(["--header", f"Authorization: Bearer {api_token}"])
 
             wget_args.append(download_url)
@@ -418,9 +431,11 @@ class ModelService:
             download_url = url
 
             # Handle API tokens
-            if "civitai.com" in url and api_token and "hf" not in api_token:
+            req_hostname = (urlparse(url).hostname or "")
+            is_hf_host = req_hostname == "huggingface.co" or req_hostname.endswith(".huggingface.co")
+            if "civitai.com" in req_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
-            elif "huggingface.co" in url and api_token:
+            elif is_hf_host and api_token:
                 headers["Authorization"] = f"Bearer {api_token}"
 
             response = requests.get(download_url, headers=headers, stream=True)

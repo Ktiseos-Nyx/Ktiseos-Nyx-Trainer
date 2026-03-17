@@ -179,6 +179,21 @@ class LocalLinuxInstaller:
             self.logger.warning("npm not found. Frontend setup skipped.")
             return False
 
+        # Check that Node.js meets the minimum version requirement (>=20.19.0)
+        try:
+            node_result = subprocess.run(["node", "--version"], capture_output=True, text=True)
+            version_str = node_result.stdout.strip().lstrip("v")
+            parts = version_str.split(".")
+            major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2].split("-")[0])
+            if (major, minor, patch) < (20, 19, 0):
+                print(f" ⚠️ Node.js {version_str} is below the required version 20.19.0. Please upgrade (e.g., via nvm or system package).")
+                self.logger.warning(f"Node.js {version_str} is below required version 20.19.0. Frontend setup skipped.")
+                return False
+        except Exception as node_err:
+            print(f" ⚠️ Could not determine Node.js version: {node_err}. Please ensure Node.js >=20.19.0 is installed.")
+            self.logger.warning(f"Could not determine Node.js version: {node_err}. Frontend setup skipped.")
+            return False
+
         node_modules = os.path.join(frontend_dir, "node_modules")
         if not os.path.exists(node_modules):
             print(" 📦 Installing frontend (Next.js) dependencies...")

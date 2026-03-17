@@ -349,10 +349,15 @@ def main(args):
                         active_providers = ort_sess.get_providers()
                         if "TensorrtExecutionProvider" in active_providers:
                             logger.info("✅ TensorRT execution provider initialized successfully")
-                        else:
+                        elif "CUDAExecutionProvider" in active_providers:
                             logger.info(
                                 f"TRT libs unavailable — session running on: {active_providers}. "
                                 "EP errors during inference are cosmetic; CUDA is handling ops."
+                            )
+                        else:
+                            logger.info(
+                                f"TRT libs unavailable — session running on: {active_providers}. "
+                                "CUDA is not available; ops may run on CPU or other EPs."
                             )
                     except Exception as trt_error:
                         logger.warning(f"TensorRT provider failed: {str(trt_error)[:100]}...")

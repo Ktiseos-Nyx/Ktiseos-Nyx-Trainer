@@ -22,6 +22,12 @@ import {
   SavingTab,
 } from './tabs';
 
+interface FileEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'dir';
+}
+
 /**
  * Main training configuration page component.
  *
@@ -90,7 +96,7 @@ export default function TrainingConfigNew() {
         if (root) setWorkspaceRoot(root);
 
         // Try datasets then dataset
-        const datasetsData = { files: [] as any[] };
+        const datasetsData = { files: [] as FileEntry[] };
         if (root) {
           let datasetsPath = `${root}/datasets`;
           let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
@@ -103,7 +109,7 @@ export default function TrainingConfigNew() {
             datasetsData.files = data.files || [];
           }
         }
-        setDatasets(datasetsData.files.filter((f: any) => f.type === 'dir').map((dir: any) => ({ value: dir.path, label: dir.name })));
+        setDatasets(datasetsData.files.filter((f: FileEntry) => f.type === 'dir').map((dir: FileEntry) => ({ value: dir.path, label: dir.name })));
 
         // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
@@ -248,13 +254,13 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="lora"><LoRATab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="learning"><LearningTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="performance"><PerformanceTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="advanced"><AdvancedTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="saving"><SavingTab form={form as any} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="setup"><SetupTab form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="dataset"><DatasetTab form={form} datasets={datasets} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="lora"><LoRATab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="learning"><LearningTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="performance"><PerformanceTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="advanced"><AdvancedTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="saving"><SavingTab form={form} onSave={handleCardSave} /></TabsContent>
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">
