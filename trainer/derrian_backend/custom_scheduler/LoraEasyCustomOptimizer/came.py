@@ -72,6 +72,46 @@ class CAME(BaseOptimizer):
     def __str__(self) -> str:
         return "CAME"
 
+    def init_group(self, group: DEFAULTS, **kwargs) -> None:
+        """Initialize optimizer state for a parameter group (required by BaseOptimizer >= 3.6.0)."""
+        for p in group["params"]:
+            if p.grad is None:
+                continue
+
+            grad = p.grad
+            if grad.dtype in {torch.float16, torch.bfloat16}:
+                grad = grad.to(torch.float32)
+
+            state = self.state[p]
+            if len(state) > 0:
+                continue
+
+            grad_shape: Tuple[int, ...] = grad.shape
+            factored: bool = self.get_options(grad_shape)
+
+            state["exp_avg"] = torch.zeros_like(p)
+
+            if factored:
+                state["exp_avg_sq_row"] = torch.zeros(
+                    grad_shape[:-1], dtype=grad.dtype, device=grad.device
+                )
+                state["exp_avg_sq_col"] = torch.zeros(
+                    grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
+                )
+                state["exp_avg_res_row"] = torch.zeros(
+                    grad_shape[:-1], dtype=grad.dtype, device=grad.device
+                )
+                state["exp_avg_res_col"] = torch.zeros(
+                    grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
+                )
+            else:
+                state["exp_avg_sq"] = torch.zeros_like(grad)
+
+            if group["ams_bound"]:
+                state["exp_avg_sq_hat"] = torch.zeros_like(grad)
+
+            state["RMS"] = 0.0
+
     @torch.no_grad()
     def reset(self):
         for group in self.param_groups:
