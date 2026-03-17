@@ -175,7 +175,7 @@ class LocalLinuxInstaller:
             return True
 
         if not shutil.which("npm"):
-            print(" ⚠️ npm not found. Please install Node.js 18+ (e.g., via nvm or system package).")
+            print(" ⚠️ npm not found. Please install Node.js 20.19+ or 22 LTS (e.g., via nvm or system package).")
             self.logger.warning("npm not found. Frontend setup skipped.")
             return False
 
