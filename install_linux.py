@@ -175,8 +175,29 @@ class LocalLinuxInstaller:
             return True
 
         if not shutil.which("npm"):
-            print(" ⚠️ npm not found. Please install Node.js 18+ (e.g., via nvm or system package).")
+            print(" ⚠️ npm not found. Please install Node.js 20.19+ or 22 LTS (e.g., via nvm or system package).")
             self.logger.warning("npm not found. Frontend setup skipped.")
+            return False
+
+        # Check that Node.js meets the minimum version requirement (>=20.19.0)
+        resolved_node = shutil.which("node")
+        try:
+            node_result = subprocess.run([resolved_node, "--version"], capture_output=True, text=True)
+            if node_result.returncode != 0:
+                diag = (node_result.stderr or node_result.stdout).strip()
+                print(f" ⚠️ Could not determine Node.js version: {diag}. Please ensure Node.js >=20.19.0 is installed.")
+                self.logger.warning("Could not determine Node.js version: %s. Frontend setup skipped.", diag)
+                return False
+            version_str = node_result.stdout.strip().lstrip("v")
+            parts = version_str.split(".")
+            major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2].split("-")[0])
+            if (major, minor, patch) < (20, 19, 0):
+                print(f" ⚠️ Node.js {version_str} is below the required version 20.19.0. Please upgrade (e.g., via nvm or system package).")
+                self.logger.warning("Node.js %s is below required version 20.19.0. Frontend setup skipped.", version_str)
+                return False
+        except (ValueError, IndexError, OSError, subprocess.SubprocessError) as node_err:
+            print(f" ⚠️ Could not determine Node.js version: {node_err}. Please ensure Node.js >=20.19.0 is installed.")
+            self.logger.warning("Could not determine Node.js version: %s. Frontend setup skipped.", node_err)
             return False
 
         node_modules = os.path.join(frontend_dir, "node_modules")

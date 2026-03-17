@@ -21,7 +21,7 @@ sentencepiece~=0.2.1
 dadaptation~=3.2
 wandb~=0.22.0
 came-pytorch~=0.1.3
-pytorch_optimizer==3.8.2 # Has applied breaking changes in patches, thus pinned
+pytorch_optimizer==3.1.2 # pinned to derrian's original; init_group abstract method added in 3.6.0
 wheel~=0.45.1
 ninja~=1.13.0
 cmake~=4.1.0

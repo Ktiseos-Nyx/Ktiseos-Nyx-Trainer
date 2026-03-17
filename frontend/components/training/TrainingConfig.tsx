@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form } from '@/components/ui/form';
 import { useTrainingForm } from '@/hooks/useTrainingForm';
 import PresetManager from './PresetManager';
-import { trainingAPI, modelsAPI, configAPI } from '@/lib/api';
+import { trainingAPI, modelsAPI, configAPI, fileAPI } from '@/lib/api';
+import type { FileInfo } from '@/lib/api';
 import {
   SetupTab,
   DatasetTab,
@@ -21,6 +22,8 @@ import {
   AdvancedTab,
   SavingTab,
 } from './tabs';
+
+type ModelItem = { path: string; name: string };
 
 /**
  * Main training configuration page component.
@@ -77,35 +80,47 @@ export default function TrainingConfigNew() {
 
     const fetchOptions = async () => {
       try {
-        const workspaceRes = await fetch('/api/files/default-workspace');
-        const workspaceData = workspaceRes.ok ? await workspaceRes.json() : { path: '' };
-        const root = workspaceData.path;
-        if (!root) return;
-        setWorkspaceRoot(root);
-
+        // Models/VAEs/text encoders are independent of workspace root — fetch always
         const modelsData = await modelsAPI.list();
-        setModels((modelsData.models || []).map((m: any) => ({ value: m.path, label: m.name })));
-        setVaes((modelsData.vaes || []).map((v: any) => ({ value: v.path, label: v.name })));
-        setTextEncoders((modelsData.text_encoders || []).map((m: any) => ({ value: m.path, label: m.name })));
+        setModels((modelsData.models || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+        setVaes((modelsData.vaes || []).map((v: ModelItem) => ({ value: v.path, label: v.name })));
+        setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+
+        // Workspace root is only needed for dataset listing and output_dir defaults
+        let root = '';
+        try {
+          const workspaceData = await fileAPI.getDefaultWorkspace();
+          root = workspaceData.path || '';
+        } catch {
+          // workspace unavailable; proceed with empty root
+        }
+        if (root) setWorkspaceRoot(root);
 
         // Try datasets then dataset
-        let datasetsPath = `${root}/datasets`;
-        let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
-        if (!datasetsRes.ok) {
-             datasetsPath = `${root}/dataset`;
-             datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
+        const datasetsData = { files: [] as FileInfo[] };
+        if (root) {
+          try {
+            const data = await fileAPI.list(`${root}/datasets`);
+            datasetsData.files = data.files || [];
+          } catch {
+            try {
+              const data = await fileAPI.list(`${root}/dataset`);
+              datasetsData.files = data.files || [];
+            } catch {
+              // neither path available
+            }
+          }
         }
-        const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
-        setDatasets((datasetsData.files || []).filter((f: any) => f.type === 'dir').map((dir: any) => ({ value: dir.path, label: dir.name })));
+        setDatasets(datasetsData.files.filter((f: FileInfo) => f.type === 'dir').map((dir: FileInfo) => ({ value: dir.path, label: dir.name })));
 
         // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
-            if (!form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
+            if (root && !form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
             if (!form.getValues('pretrained_model_name_or_path') && modelsData.models?.length > 0) {
                 form.setValue('pretrained_model_name_or_path', modelsData.models[0].path);
             }
             if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
-                const def = datasetsData.files.find((f: any) => f.type === 'dir');
+                const def = datasetsData.files.find((f: FileInfo) => f.type === 'dir');
                 if (def) form.setValue('train_data_dir', def.path);
             }
             hasInitialized.current = true;
@@ -241,13 +256,13 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="lora"><LoRATab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="learning"><LearningTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="performance"><PerformanceTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="advanced"><AdvancedTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="saving"><SavingTab form={form as any} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="setup"><SetupTab form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="dataset"><DatasetTab form={form} datasets={datasets} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="lora"><LoRATab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="learning"><LearningTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="performance"><PerformanceTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="advanced"><AdvancedTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="saving"><SavingTab form={form} onSave={handleCardSave} /></TabsContent>
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">
