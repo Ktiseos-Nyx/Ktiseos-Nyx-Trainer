@@ -2,7 +2,7 @@
 # Service Startup Script for Ktiseos-Nyx-Trainer (Vast.ai / Cloud Deployment)
 # This script starts both the FastAPI backend and Next.js frontend, binding to 0.0.0.0
 
-set -e
+# Note: no set -e — frontend build failures must not abort backend startup
 
 echo "=========================================="
 echo "🚀 Starting Ktiseos-Nyx-Trainer Services (Vast.ai/Cloud)..."
@@ -39,63 +39,55 @@ else
     echo "   Create /api/main.py with FastAPI app"
 fi
 
-# Start Next.js frontend (if frontend directory exists)
+# Start Next.js frontend
 if [ -d "frontend" ]; then
-    # Try to find Node.js in common locations if not in PATH
-    if ! command -v node &> /dev/null; then
-        echo "   Node.js not in PATH, searching common locations..."
-        for node_path in /opt/nvm/versions/node/*/bin /usr/bin /usr/local/bin ~/.nvm/versions/node/*/bin; do
-            if [ -f "$node_path/node" ]; then
-                echo "   Found Node.js at: $node_path/node"
-                export PATH="$node_path:$PATH"
-                break
-            fi
-        done
+    FRONTEND_PORT="${FRONTEND_PORT:-13000}"
+
+    # If .next/ is missing, run the Python frontend installer to build it.
+    # install_frontend.py handles Node.js auto-upgrade, npm install, and build.
+    if [ ! -d "frontend/.next" ]; then
+        echo "🎨 No frontend build found — running install_frontend.py..."
+        if [ -f "install_frontend.py" ]; then
+            python install_frontend.py || echo "⚠️  Frontend setup failed — backend-only mode."
+        else
+            echo "⚠️  install_frontend.py not found — frontend unavailable."
+        fi
     fi
 
-    # Check if Node.js and npm are available
-    if command -v node &> /dev/null && command -v npm &> /dev/null; then
-        FRONTEND_PORT="${FRONTEND_PORT:-13000}"
-        echo "🎨 Starting Next.js frontend on port $FRONTEND_PORT..."
+    # Start if build now exists
+    if [ -d "frontend/.next" ] && command -v node &> /dev/null; then
+        # Read the minimum required Node version from install_frontend.py (single source of truth).
+        # Importing the module is safe: main() is guarded by __name__ == "__main__".
+        # Falls back to the known minimum if the script is absent or the parse fails.
+        _min_ver=$(python -c "import sys; sys.path.insert(0,'.'); from install_frontend import MIN_NODE_VERSION; print('%d.%d' % MIN_NODE_VERSION[:2])" 2>/dev/null)
+        MIN_NODE_MAJOR=$(echo "${_min_ver:-20.19}" | cut -d. -f1)
+        MIN_NODE_MINOR=$(echo "${_min_ver:-20.19}" | cut -d. -f2)
 
-        # Load NVM (if available, for local setup consistency)
-        export NVM_DIR="$HOME/.nvm"
-        # shellcheck disable=SC1091
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-        cd frontend
-
-        # Check if build exists
-        if [ ! -d ".next" ]; then
-            echo "   ⚠️  No build found, running npm run build first..."
-            # Ensure node_modules exists (may need install if lockfile was platform-specific)
-            if [ ! -d "node_modules" ] || [ ! -d "node_modules/next" ]; then
-                echo "   📦 node_modules missing or incomplete, installing..."
-                rm -f package-lock.json
-                npm install --legacy-peer-deps || npm install --legacy-peer-deps --force || true
-            fi
-            npm run build || {
-                echo "❌ Frontend build failed - skipping frontend startup"
+        # Validate Node version meets the requirement before launching server.js
+        NODE_VER=$(node --version 2>/dev/null | sed 's/^v//')
+        NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
+        NODE_MINOR=$(echo "$NODE_VER" | cut -d. -f2)
+        if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ] || \
+           { [ "$NODE_MAJOR" -eq "$MIN_NODE_MAJOR" ] && [ "${NODE_MINOR:-0}" -lt "$MIN_NODE_MINOR" ]; }; then
+            echo "⚠️  Node.js ${NODE_VER} does not meet >=${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}.0 requirement — aborting frontend startup."
+            echo "   Run: python install_frontend.py --force"
+        else
+            echo "🎨 Starting Next.js frontend on port $FRONTEND_PORT..."
+            if cd frontend; then
+                PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js &
+                FRONTEND_PID=$!
+                echo "   Frontend PID: $FRONTEND_PID"
                 cd ..
-                echo "⚠️  Frontend unavailable. Backend API will still work on port $BACKEND_PORT."
-                echo ""
-            }
-        fi
-
-        # Use production start mode, not development (only if build succeeded)
-        if [ -d ".next" ]; then
-            PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production npm run start &
-            FRONTEND_PID=$!
-            echo "   Frontend PID: $FRONTEND_PID"
-            cd ..
+            else
+                echo "⚠️  Cannot cd to frontend/ — skipping frontend startup."
+            fi
         fi
     else
-        echo "⚠️  Node.js/npm not found - skipping frontend startup"
-        echo "   Frontend unavailable. Backend API will still work on port ${BACKEND_PORT:-18000}."
+        echo "⚠️  Frontend unavailable. Backend API will still work on port ${BACKEND_PORT:-18000}."
+        echo "   To build: python install_frontend.py"
     fi
 else
     echo "⚠️  Frontend directory not found - skipping frontend startup"
-    echo "   Create /frontend with Next.js app"
 fi
 
 echo ""

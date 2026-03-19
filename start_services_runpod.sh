@@ -85,7 +85,7 @@ if [ -d "frontend" ] && command -v node &> /dev/null; then
         cd ..
     else
         echo "  No frontend build found. Run provision_runpod.sh first, or:"
-        echo "   cd frontend && npm install --legacy-peer-deps && npm run build && cd .."
+        echo "   python install_frontend.py"
     fi
 else
     echo "  Frontend not available (missing directory or Node.js)"
