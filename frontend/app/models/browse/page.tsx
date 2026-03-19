@@ -100,10 +100,11 @@ export default function CivitaiBrowsePage() {
   // Abort controller — cancel any in-flight browse request before starting a new one
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Abort on unmount so navigation isn't blocked by in-flight requests
+  // Cleanup on unmount: cancel in-flight requests and disconnect scroll observer
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+      observer.current?.disconnect();
     };
   }, []);
 
@@ -217,24 +218,31 @@ export default function CivitaiBrowsePage() {
     }
   }, [searchQuery, searchMode, selectedSort, selectedPeriod, allowNSFW, selectedType, selectedBaseModel]);
 
-  // Initial load (now works with or without API key)
+  // Initial load — re-runs when filters or hasApiKey change.
+  // loadModels is intentionally omitted from deps: its own deps are a strict
+  // subset of this list, so this effect already fires whenever loadModels
+  // would have changed. Including loadModels would cause a re-fetch on every
+  // reference change and re-introduce the infinite loop.
   useEffect(() => {
-    // Only load if we've finished checking for API key
     if (hasApiKey !== null) {
       setPage(1);
-      cursorRef.current = null; // Reset cursor when filters change
+      cursorRef.current = null;
       setModels([]);
       setHasMore(true);
       loadModels(1, false);
     }
-  }, [searchQuery, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, browsingLevel, hasApiKey, loadModels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, browsingLevel, hasApiKey]);
 
-  // Load more on page change
+  // Infinite scroll — load next page when the sentinel enters the viewport.
+  // loadModels is intentionally omitted: page resets to 1 whenever filters
+  // change (filter effect above), so this effect only fires on genuine scroll.
   useEffect(() => {
     if (page > 1) {
       loadModels(page, true);
     }
-  }, [page, loadModels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   // Handle search
   const handleSearch = () => {
