@@ -82,3 +82,4 @@ protobuf>=3.20.2,<4  # CVE fixes: alerts #50, #51. Can't use 4.x (breaks ONNX 1.
 # -- Essential Commented Dependencies (Now Active) --
 timm==0.6.12 # Required for BLIP captioning
 fairscale==0.4.13 # Required for BLIP captioning
+pyasn1>=0.6.3 # not directly required, pinned by Snyk to avoid a vulnerability
