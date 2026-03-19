@@ -97,6 +97,16 @@ export default function CivitaiBrowsePage() {
     return (modelLevel & browsingLevel) !== 0;
   };
 
+  // Abort controller — cancel any in-flight browse request before starting a new one
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Abort on unmount so navigation isn't blocked by in-flight requests
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   // Infinite scroll
   const observer = useRef<IntersectionObserver | null>(null);
   const lastModelRef = useCallback(
@@ -139,6 +149,11 @@ export default function CivitaiBrowsePage() {
 
   // Load models
   const loadModels = useCallback(async (pageNum: number, append: boolean = false) => {
+    // Cancel any previous in-flight request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+
     try {
       setLoading(true);
 
@@ -170,7 +185,7 @@ export default function CivitaiBrowsePage() {
       if (selectedType !== 'All') params.types = selectedType;
       if (selectedBaseModel !== 'All') params.baseModel = selectedBaseModel;
 
-      const response = await civitaiAPI.browse(params);
+      const response = await civitaiAPI.browse({ ...params, signal });
 
       if (response.success) {
         const newModels = response.data.items || [];
@@ -194,10 +209,11 @@ export default function CivitaiBrowsePage() {
         setHasMore(newModels.length === 20 && (metadata.nextCursor || pageNum < 100));
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') return; // request was intentionally cancelled — finally still runs but skips setLoading
       console.error('Failed to load models:', err);
       toast.error(`Failed to load models: ${err.message}`);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [searchQuery, searchMode, selectedSort, selectedPeriod, allowNSFW, selectedType, selectedBaseModel]);
 

@@ -1257,6 +1257,7 @@ export interface CivitaiBrowseParams {
   sort?: string;
   period?: string;
   nsfw?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface CivitaiTag {
@@ -1281,7 +1282,9 @@ export const civitaiAPI = {
     if (params.period) queryParams.append('period', params.period);
     if (params.nsfw !== undefined) queryParams.append('nsfw', params.nsfw.toString());
 
-    const response = await fetch(`${API_BASE}/civitai/models?${queryParams}`);
+    const response = await fetch(`${API_BASE}/civitai/models?${queryParams}`, {
+      signal: params.signal,
+    });
     return handleResponse(response);
   },
 
