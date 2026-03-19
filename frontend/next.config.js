@@ -12,6 +12,11 @@ const nextConfig = {
   // ✅ FIX: Don't bundle native Node.js addons
   serverExternalPackages: ['onnxruntime-node', 'sharp'],
 
+  // Image optimization — cap disk cache to prevent unbounded growth (CVE fix)
+  images: {
+    maximumDiskCacheSize: 512 * 1024 * 1024, // 512 MB
+  },
+
   // 🚀 PERFORMANCE
   compress: true,
   productionBrowserSourceMaps: false,
