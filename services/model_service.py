@@ -335,6 +335,7 @@ class ModelService:
         """
         import re
         logger.info("Attempting download with hf_hub_download (hf_xet)...")
+
         try:
             from huggingface_hub import hf_hub_download
             from huggingface_hub.errors import (
@@ -343,7 +344,11 @@ class ModelService:
                 RepositoryNotFoundError,
                 RevisionNotFoundError,
             )
+        except ImportError as e:
+            logger.warning("huggingface_hub not available or missing error classes: %s", e)
+            return False
 
+        try:
             # Parse https://huggingface.co/{repo_id}/resolve/{revision}/{filepath}
             # or   https://huggingface.co/{repo_id}/blob/{revision}/{filepath}
             match = re.match(
