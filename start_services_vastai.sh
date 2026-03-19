@@ -56,12 +56,22 @@ if [ -d "frontend" ]; then
 
     # Start if build now exists
     if [ -d "frontend/.next" ] && command -v node &> /dev/null; then
-        echo "🎨 Starting Next.js frontend on port $FRONTEND_PORT..."
-        cd frontend
-        PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js &
-        FRONTEND_PID=$!
-        echo "   Frontend PID: $FRONTEND_PID"
-        cd ..
+        # Validate Node version meets >=20.19.0 requirement before launching server.js
+        NODE_VER=$(node --version 2>/dev/null | sed 's/^v//')
+        NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
+        NODE_MINOR=$(echo "$NODE_VER" | cut -d. -f2)
+        if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt 20 ] || \
+           { [ "$NODE_MAJOR" -eq 20 ] && [ "${NODE_MINOR:-0}" -lt 19 ]; }; then
+            echo "⚠️  Node.js ${NODE_VER} does not meet >=20.19.0 requirement — aborting frontend startup."
+            echo "   Run: python install_frontend.py --force"
+        else
+            echo "🎨 Starting Next.js frontend on port $FRONTEND_PORT..."
+            cd frontend
+            PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js &
+            FRONTEND_PID=$!
+            echo "   Frontend PID: $FRONTEND_PID"
+            cd ..
+        fi
     else
         echo "⚠️  Frontend unavailable. Backend API will still work on port ${BACKEND_PORT:-18000}."
         echo "   To build: python install_frontend.py"

@@ -215,6 +215,10 @@ class FrontendInstaller:
         finally:
             archive_path.unlink(missing_ok=True)
 
+        # Update PATH to prefer the freshly installed Node binary
+        node_bin = str(Path(NODE_INSTALL_DIR) / "bin")
+        os.environ["PATH"] = node_bin + os.pathsep + os.environ.get("PATH", "")
+
         # Verify
         version = self._parse_node_version()
         if version and version >= MIN_NODE_VERSION:
@@ -301,7 +305,6 @@ class FrontendInstaller:
                 cmd,
                 f"npm install {extra_flag}",
                 cwd=self.frontend_dir,
-                allow_failure=True,
             )
             if success:
                 return True
@@ -315,15 +318,16 @@ class FrontendInstaller:
     # ------------------------------------------------------------------ #
 
     def build(self) -> bool:
+        if self.skip_build:
+            self.logger.info(
+                ".next/ exists and --skip-build set — skipping build."
+            )
+            print(" .next/ already built — skipping (use --force to rebuild).")
+            return True
+
         next_dir = self.frontend_dir / ".next"
 
         if next_dir.exists() and not self.force:
-            if self.skip_build:
-                self.logger.info(
-                    ".next/ exists and --skip-build set — skipping build."
-                )
-                print(" .next/ already built — skipping (use --force to rebuild).")
-                return True
             # .next exists but no --skip-build: still rebuild to pick up
             # any code changes since the last build.
             self.logger.info(".next/ exists but --skip-build not set — rebuilding.")

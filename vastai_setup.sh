@@ -85,9 +85,10 @@ provisioning_start() {
     echo ""
     echo "🎨 Setting up frontend..."
     if [ -f "install_frontend.py" ]; then
-        $PYTHON_CMD install_frontend.py
+        $PYTHON_CMD install_frontend.py && FRONTEND_ENABLED=1 || FRONTEND_ENABLED=0
     else
         echo "⚠️  install_frontend.py not found - skipping frontend setup"
+        FRONTEND_ENABLED=0
     fi
 
     # Make startup scripts executable
@@ -163,12 +164,20 @@ BACKEND_PID=$!
 
 # Give backend a moment to start
 sleep 2
+EOL
+
+    if [ "$FRONTEND_ENABLED" = "1" ]; then
+        cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
 
 # Start frontend (using custom server with WebSocket proxy)
 echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 cd frontend || exit 1
 PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
 FRONTEND_PID=$!
+EOL
+    fi
+
+    cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
 
 # Wait for both processes
 wait $BACKEND_PID $FRONTEND_PID

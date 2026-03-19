@@ -77,7 +77,14 @@ provisioning_start() {
         # shellcheck disable=SC2164
         cd /workspace/Ktiseos-Nyx-Trainer
         git config --file $GIT_CONFIG_GLOBAL --add safe.directory "$(pwd)"
-        git pull || echo "  Git pull failed, continuing with existing code"
+        PULL_OUTPUT=$(git pull 2>&1)
+        PULL_EXIT=$?
+        echo "$PULL_OUTPUT"
+        if [ $PULL_EXIT -ne 0 ]; then
+            echo "  Git pull failed, continuing with existing code"
+        elif ! echo "$PULL_OUTPUT" | grep -q "Already up to date"; then
+            PULLED=true
+        fi
     else
         echo "  Cloning repository..."
         # shellcheck disable=SC2164
@@ -119,7 +126,11 @@ provisioning_start() {
     echo ""
     echo "  Setting up frontend..."
     if [ -f "install_frontend.py" ]; then
-        $PYTHON_CMD install_frontend.py
+        if [ "$PULLED" = "true" ]; then
+            $PYTHON_CMD install_frontend.py --force
+        else
+            $PYTHON_CMD install_frontend.py
+        fi
     else
         echo "  install_frontend.py not found - skipping frontend setup"
         SKIP_FRONTEND=true
