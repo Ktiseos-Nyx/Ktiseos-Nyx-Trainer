@@ -50,7 +50,10 @@ export default function CivitaiBrowsePage() {
   const [models, setModels] = useState<CivitaiModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [cursor, setCursor] = useState<string | null>(null);
+  // cursor is only consumed inside loadModels, not rendered — use a ref to
+  // avoid re-creating the loadModels callback every time the cursor changes,
+  // which would retrigger the filter useEffect and cause an infinite loop.
+  const cursorRef = useRef<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [totalResults, setTotalResults] = useState(0);
 
@@ -157,8 +160,8 @@ export default function CivitaiBrowsePage() {
           params.username = searchQuery;
         }
 
-        if (cursor && append) {
-          params.cursor = cursor;
+        if (cursorRef.current && append) {
+          params.cursor = cursorRef.current;
         }
       } else {
         params.page = pageNum;
@@ -174,7 +177,7 @@ export default function CivitaiBrowsePage() {
         const metadata = response.data.metadata || {};
 
         // Update cursor for next request
-        setCursor(metadata.nextCursor || null);
+        cursorRef.current = metadata.nextCursor || null;
 
         if (append) {
           // Deduplicate models by ID to prevent React key warnings
@@ -196,14 +199,14 @@ export default function CivitaiBrowsePage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, searchMode, cursor, selectedSort, selectedPeriod, allowNSFW, selectedType, selectedBaseModel]);
+  }, [searchQuery, searchMode, selectedSort, selectedPeriod, allowNSFW, selectedType, selectedBaseModel]);
 
   // Initial load (now works with or without API key)
   useEffect(() => {
     // Only load if we've finished checking for API key
     if (hasApiKey !== null) {
       setPage(1);
-      setCursor(null); // Reset cursor when filters change
+      cursorRef.current = null; // Reset cursor when filters change
       setModels([]);
       setHasMore(true);
       loadModels(1, false);
