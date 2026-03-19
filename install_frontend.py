@@ -179,7 +179,7 @@ class FrontendInstaller:
         # Pick the highest semver — lexicographic sort fails for e.g. v9 > v22
         best = max(
             candidates,
-            key=lambda p: tuple(int(x) for x in os.path.basename(os.path.dirname(p)).lstrip("v").split(".")),
+            key=lambda p: tuple(int(x.split("-")[0]) for x in os.path.basename(os.path.dirname(p)).lstrip("v").split(".")),
         )
         self.logger.info("Found NVM Node.js at %s — adding to PATH", best)
         os.environ["PATH"] = best + os.pathsep + os.environ.get("PATH", "")
