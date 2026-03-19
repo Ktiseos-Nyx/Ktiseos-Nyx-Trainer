@@ -69,7 +69,7 @@ class FrontendInstaller:
         log_file = logs_dir / f"app_{datestamp}.log"
 
         formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s",
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
@@ -177,12 +177,23 @@ class FrontendInstaller:
             return
 
         # Pick the highest semver — lexicographic sort fails for e.g. v9 > v22
-        best = max(
-            candidates,
-            key=lambda p: tuple(int(x.split("-")[0]) for x in os.path.basename(os.path.dirname(p)).lstrip("v").split(".")),
-        )
+        best = max(candidates, key=lambda p: self._parse_semver(os.path.basename(os.path.dirname(p))))
         self.logger.info("Found NVM Node.js at %s — adding to PATH", best)
         os.environ["PATH"] = best + os.pathsep + os.environ.get("PATH", "")
+
+    @staticmethod
+    def _parse_semver(version_str: str) -> Tuple[int, int, int]:
+        """Parse a semver string like 'v22.14.0' or 'v22.14.0-beta' into a tuple of ints.
+
+        Strips a leading 'v' and pre-release suffixes (e.g. '-beta') before
+        converting each component to an int so comparisons are numeric.
+        """
+        parts = version_str.lstrip("v").split(".")
+        return (
+            int(parts[0].split("-")[0]) if len(parts) > 0 else 0,
+            int(parts[1].split("-")[0]) if len(parts) > 1 else 0,
+            int(parts[2].split("-")[0]) if len(parts) > 2 else 0,
+        )
 
     def _parse_node_version(self) -> Optional[Tuple[int, int, int]]:
         """Return the active Node.js version tuple, or None if unavailable."""
@@ -195,13 +206,7 @@ class FrontendInstaller:
             )
             if result.returncode != 0:
                 return None
-            version_str = result.stdout.strip().lstrip("v")
-            parts = version_str.split(".")
-            return (
-                int(parts[0]),
-                int(parts[1]),
-                int(parts[2].split("-")[0]),
-            )
+            return self._parse_semver(result.stdout.strip())
         except (ValueError, IndexError, OSError, subprocess.SubprocessError):
             return None
 
@@ -283,9 +288,12 @@ class FrontendInstaller:
         RunPod). This method always upgrades rather than failing so provisioning
         can proceed unattended.
         """
-        # Discover NVM-managed Node.js that isn't in PATH yet (RunPod / VastAI)
-        self._discover_nvm_node()
+        # Check for an existing node before mutating PATH.  Only fall back to
+        # NVM discovery if no node is found or the detected version is too old.
         version = self._parse_node_version()
+        if version is None or version < MIN_NODE_VERSION:
+            self._discover_nvm_node()
+            version = self._parse_node_version()
 
         if version is None:
             self.logger.warning(
