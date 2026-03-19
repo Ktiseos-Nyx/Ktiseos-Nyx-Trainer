@@ -56,21 +56,31 @@ if [ -d "frontend" ]; then
 
     # Start if build now exists
     if [ -d "frontend/.next" ] && command -v node &> /dev/null; then
-        # Validate Node version meets >=20.19.0 requirement before launching server.js
+        # Read the minimum required Node version from install_frontend.py (single source of truth).
+        # Importing the module is safe: main() is guarded by __name__ == "__main__".
+        # Falls back to the known minimum if the script is absent or the parse fails.
+        _min_ver=$(python -c "import sys; sys.path.insert(0,'.'); from install_frontend import MIN_NODE_VERSION; print('%d.%d' % MIN_NODE_VERSION[:2])" 2>/dev/null)
+        MIN_NODE_MAJOR=$(echo "${_min_ver:-20.19}" | cut -d. -f1)
+        MIN_NODE_MINOR=$(echo "${_min_ver:-20.19}" | cut -d. -f2)
+
+        # Validate Node version meets the requirement before launching server.js
         NODE_VER=$(node --version 2>/dev/null | sed 's/^v//')
         NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
         NODE_MINOR=$(echo "$NODE_VER" | cut -d. -f2)
-        if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt 20 ] || \
-           { [ "$NODE_MAJOR" -eq 20 ] && [ "${NODE_MINOR:-0}" -lt 19 ]; }; then
-            echo "⚠️  Node.js ${NODE_VER} does not meet >=20.19.0 requirement — aborting frontend startup."
+        if [ -z "$NODE_MAJOR" ] || [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ] || \
+           { [ "$NODE_MAJOR" -eq "$MIN_NODE_MAJOR" ] && [ "${NODE_MINOR:-0}" -lt "$MIN_NODE_MINOR" ]; }; then
+            echo "⚠️  Node.js ${NODE_VER} does not meet >=${MIN_NODE_MAJOR}.${MIN_NODE_MINOR}.0 requirement — aborting frontend startup."
             echo "   Run: python install_frontend.py --force"
         else
             echo "🎨 Starting Next.js frontend on port $FRONTEND_PORT..."
-            cd frontend
-            PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js &
-            FRONTEND_PID=$!
-            echo "   Frontend PID: $FRONTEND_PID"
-            cd ..
+            if cd frontend; then
+                PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js &
+                FRONTEND_PID=$!
+                echo "   Frontend PID: $FRONTEND_PID"
+                cd ..
+            else
+                echo "⚠️  Cannot cd to frontend/ — skipping frontend startup."
+            fi
         fi
     else
         echo "⚠️  Frontend unavailable. Backend API will still work on port ${BACKEND_PORT:-18000}."

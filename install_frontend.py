@@ -202,11 +202,18 @@ class FrontendInstaller:
         try:
             with tarfile.open(archive_path, "r:xz") as tf:
                 # Strip the top-level node-vX.Y.Z-linux-x64/ directory
+                install_root = Path(NODE_INSTALL_DIR).resolve()
                 members = []
                 for m in tf.getmembers():
                     parts = Path(m.name).parts
                     if len(parts) > 1:
                         m.name = str(Path(*parts[1:]))
+                        # Skip entries that would escape the install directory
+                        try:
+                            (install_root / m.name).resolve().relative_to(install_root)
+                        except ValueError:
+                            self.logger.warning("Skipping unsafe tar entry: %s", m.name)
+                            continue
                         members.append(m)
                 tf.extractall(NODE_INSTALL_DIR, members=members)
         except (tarfile.TarError, OSError) as e:
@@ -319,10 +326,8 @@ class FrontendInstaller:
 
     def build(self) -> bool:
         if self.skip_build:
-            self.logger.info(
-                ".next/ exists and --skip-build set — skipping build."
-            )
-            print(" .next/ already built — skipping (use --force to rebuild).")
+            self.logger.info("Skipping build: --skip-build flag is set.")
+            print(" Skipping build (--skip-build flag is set).")
             return True
 
         next_dir = self.frontend_dir / ".next"

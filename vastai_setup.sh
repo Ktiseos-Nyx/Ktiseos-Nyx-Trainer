@@ -49,7 +49,14 @@ provisioning_start() {
         # shellcheck disable=SC2164
         cd /workspace/Ktiseos-Nyx-Trainer
         git config --file $GIT_CONFIG_GLOBAL --add safe.directory "$(pwd)"
-        git pull || echo "⚠️ Git pull failed, continuing with existing code"
+        PULL_OUTPUT=$(git pull 2>&1)
+        PULL_EXIT=$?
+        echo "$PULL_OUTPUT"
+        if [ $PULL_EXIT -ne 0 ]; then
+            echo "⚠️ Git pull failed, continuing with existing code"
+        elif ! echo "$PULL_OUTPUT" | grep -q "Already up to date"; then
+            PULLED=true
+        fi
     else
         echo "📥 Cloning repository (fallback for bare provisioning)..."
         # shellcheck disable=SC2164
@@ -85,7 +92,11 @@ provisioning_start() {
     echo ""
     echo "🎨 Setting up frontend..."
     if [ -f "install_frontend.py" ]; then
-        $PYTHON_CMD install_frontend.py && FRONTEND_ENABLED=1 || FRONTEND_ENABLED=0
+        if [ "$PULLED" = "true" ]; then
+            $PYTHON_CMD install_frontend.py --force && FRONTEND_ENABLED=1 || FRONTEND_ENABLED=0
+        else
+            $PYTHON_CMD install_frontend.py && FRONTEND_ENABLED=1 || FRONTEND_ENABLED=0
+        fi
     else
         echo "⚠️  install_frontend.py not found - skipping frontend setup"
         FRONTEND_ENABLED=0
@@ -179,8 +190,8 @@ EOL
 
     cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
 
-# Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+# Wait for backend; also wait for frontend if it was started
+wait $BACKEND_PID ${FRONTEND_PID:+$FRONTEND_PID}
 EOL
 
     chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
