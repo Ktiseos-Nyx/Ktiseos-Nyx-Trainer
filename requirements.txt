@@ -71,6 +71,7 @@ setuptools>=78.1.1
 wandb>=0.17.0
 watchdog>=4.0.0
 tensorboard
+pyasn1>=0.6.2  # not directly required; pinned to fix CVE (tensorboard→google-auth→pyasn1-modules/rsa→pyasn1)
 
 # ONNX / Tagger Dependencies
 # onnxruntime-gpu 1.19+ ships with CUDA 12 + cuDNN 9 support on standard PyPI.
