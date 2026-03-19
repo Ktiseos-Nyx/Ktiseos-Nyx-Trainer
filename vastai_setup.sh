@@ -63,117 +63,31 @@ provisioning_start() {
     PYTHON_CMD=$(which python || which python3)
     echo "🐍 Using Python: $PYTHON_CMD"
 
-    # Check Node.js version (Next.js requires 18.18+)
-    echo "📦 Checking Node.js installation..."
-
-    # Try to find Node.js in common locations if not in PATH
-    if ! command -v node &> /dev/null; then
-        echo "   Node.js not in PATH, searching common locations..."
-        NODE_FOUND=false
-
-        for node_path in /opt/nvm/versions/node/*/bin /usr/bin /usr/local/bin ~/.nvm/versions/node/*/bin; do
-            if [ -f "$node_path/node" ]; then
-                echo "   Found Node.js at: $node_path/node"
-                export PATH="$node_path:$PATH"
-                NODE_FOUND=true
-                break
-            fi
-        done
-
-        if [ "$NODE_FOUND" = false ]; then
-            echo "⚠️  WARNING: Node.js not found!"
-            echo "   Frontend will be unavailable (Next.js requires Node.js 18+)"
-            echo "   Backend API will still work normally."
-            echo ""
-            echo "   Continuing with backend-only setup..."
-            SKIP_FRONTEND=true
-        fi
-    fi
-
-    # Validate Node.js version if found
-    if [ "$SKIP_FRONTEND" != true ] && command -v node &> /dev/null; then
-        CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-        if [ "$CURRENT_VERSION" -lt 20 ]; then
-            echo "⚠️  Node.js $CURRENT_VERSION is too old (need 20+), upgrading..."
-            NODE_VERSION="v20.18.1"
-            curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" | tar -xJ -C /usr/local --strip-components=1
-            if ! command -v node &> /dev/null || [ "$(node --version | sed 's/v//' | cut -d. -f1)" -lt 20 ]; then
-                echo "⚠️  Node.js upgrade failed! Frontend will be unavailable."
-                echo "   Backend API will still work normally."
-                SKIP_FRONTEND=true
-            else
-                echo "✅ Upgraded to Node.js $(node --version)"
-            fi
-        else
-            echo "✅ Node.js $CURRENT_VERSION ready: $(node --version) at $(which node)"
-            echo "✅ npm version: $(npm --version)"
-        fi
-    fi
-
     # Run unified installer (handles all backend dependencies and setup)
-    echo "🔧 Running installer..."
+    echo "🔧 Running backend installer..."
     if [ -f "installer.py" ]; then
         $PYTHON_CMD installer.py
     else
         echo "⚠️  installer.py not found - falling back to manual dependency installation"
-        # Fallback: Install dependencies manually
         echo "🐍 Installing all dependencies..."
         $PYTHON_CMD -m pip install --upgrade pip -v
-        # Use VastAI-specific requirements (no PyTorch - pre-installed in base image)
         if [ -f "requirements_cloud.txt" ]; then
-            # First try to resolve any version conflicts
             $PYTHON_CMD -m pip install --upgrade setuptools wheel -v
-            # Install with conflict resolution (verbose for debugging)
             $PYTHON_CMD -m pip install -r requirements_cloud.txt --no-cache-dir -v
         elif [ -f "requirements.txt" ]; then
-            # Fallback to old requirements.txt if cloud version doesn't exist yet
             echo "⚠️  requirements_cloud.txt not found, using requirements.txt"
             $PYTHON_CMD -m pip install -r requirements.txt --no-cache-dir -v
         fi
     fi
 
-    # Setup Next.js Frontend
-    if [ -d "frontend" ] && [ "$SKIP_FRONTEND" != true ]; then
-        if command -v node &> /dev/null && command -v npm &> /dev/null; then
-            echo "🎨 Setting up Next.js frontend..."
-            # shellcheck disable=SC2164
-            cd frontend
-
-            # Ensure Node.js is available
-            export NVM_DIR="$HOME/.nvm"
-            # shellcheck disable=SC1091
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-            # Check node version and install dependencies
-            echo "Node version: $(node --version)"
-            echo "NPM version: $(npm --version)"
-
-            echo "   Installing npm packages..."
-            # Remove stale lockfile from different OS to avoid platform-specific dep errors
-            # (e.g. lightningcss-win32-x64-msvc fails on Linux)
-            if [ -f "package-lock.json" ]; then
-                echo "   Removing package-lock.json (regenerating for this platform)..."
-                rm -f package-lock.json
-            fi
-            npm install --legacy-peer-deps || npm install --legacy-peer-deps --force || {
-                echo "⚠️  npm install failed, continuing anyway..."
-            }
-
-            # Build for production
-            echo "🏗️  Building Next.js app..."
-            npm run build || {
-                echo "⚠️  Frontend build failed, services may not work correctly"
-            }
-
-            # shellcheck disable=SC2103
-            cd ..
-        else
-            echo "⚠️  Node.js/npm not available - skipping frontend setup"
-        fi
-    elif [ "$SKIP_FRONTEND" = true ]; then
-        echo "⏭️  Skipping frontend setup (Node.js not available)"
+    # Setup Next.js Frontend via Python installer
+    # (handles Node.js auto-upgrade, npm install, and build in one place)
+    echo ""
+    echo "🎨 Setting up frontend..."
+    if [ -f "install_frontend.py" ]; then
+        $PYTHON_CMD install_frontend.py
     else
-        echo "⚠️  Frontend directory not found - skipping Next.js setup"
+        echo "⚠️  install_frontend.py not found - skipping frontend setup"
     fi
 
     # Make startup scripts executable

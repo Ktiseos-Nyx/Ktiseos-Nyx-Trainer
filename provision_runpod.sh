@@ -91,60 +91,9 @@ provisioning_start() {
     PYTHON_CMD=$(which python || which python3)
     echo "  Using Python: $PYTHON_CMD"
 
-    # Check Node.js version (Next.js requires 18.18+)
-    echo ""
-    echo "  Checking Node.js installation..."
-    SKIP_FRONTEND=false
-
-    if ! command -v node &> /dev/null; then
-        echo "   Node.js not in PATH, searching common locations..."
-        NODE_FOUND=false
-
-        for node_path in /opt/nvm/versions/node/*/bin /usr/bin /usr/local/bin ~/.nvm/versions/node/*/bin; do
-            if [ -f "$node_path/node" ]; then
-                echo "   Found Node.js at: $node_path/node"
-                export PATH="$node_path:$PATH"
-                NODE_FOUND=true
-                break
-            fi
-        done
-
-        if [ "$NODE_FOUND" = false ]; then
-            echo "  Node.js not found - installing system-wide..."
-            # Install directly to /usr/local so it's always in PATH (survives restarts)
-            NODE_VERSION="v20.18.1"
-            curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" | tar -xJ -C /usr/local --strip-components=1
-            if ! command -v node &> /dev/null; then
-                echo "  Node.js installation failed! Frontend will be unavailable."
-                SKIP_FRONTEND=true
-            else
-                echo "  Installed Node.js $(node --version) to /usr/local/bin"
-            fi
-        fi
-    fi
-
-    # Validate Node.js version if found
-    if [ "$SKIP_FRONTEND" != true ] && command -v node &> /dev/null; then
-        CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-        if [ "$CURRENT_VERSION" -lt 20 ]; then
-            echo "  Node.js $CURRENT_VERSION is too old (need 20+), installing v20.18.1..."
-            NODE_VERSION="v20.18.1"
-            curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" | tar -xJ -C /usr/local --strip-components=1
-            if ! command -v node &> /dev/null || [ "$(node --version | sed 's/v//' | cut -d. -f1)" -lt 20 ]; then
-                echo "  Node.js upgrade failed! Frontend will be unavailable."
-                SKIP_FRONTEND=true
-            else
-                echo "  Upgraded to Node.js $(node --version)"
-            fi
-        else
-            echo "  Node.js ready: $(node --version) at $(which node)"
-            echo "  npm version: $(npm --version)"
-        fi
-    fi
-
     # Run unified installer (handles all backend dependencies and setup)
     echo ""
-    echo "  Running installer..."
+    echo "  Running backend installer..."
     if [ -f "installer.py" ]; then
         $PYTHON_CMD installer.py
     else
@@ -165,42 +114,15 @@ provisioning_start() {
         fi
     fi
 
-    # Setup Next.js Frontend
-    if [ -d "frontend" ] && [ "$SKIP_FRONTEND" != true ]; then
-        if command -v node &> /dev/null && command -v npm &> /dev/null; then
-            echo ""
-            echo "  Setting up Next.js frontend..."
-            # shellcheck disable=SC2164
-            cd frontend
-
-            export NVM_DIR="$HOME/.nvm"
-            # shellcheck disable=SC1091
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-            echo "   Installing npm packages..."
-            # Remove stale lockfile from different OS to avoid platform-specific dep errors
-            if [ -f "package-lock.json" ]; then
-                echo "   Removing package-lock.json (regenerating for this platform)..."
-                rm -f package-lock.json
-            fi
-            npm install --legacy-peer-deps || npm install --legacy-peer-deps --force || {
-                echo "  npm install failed, continuing anyway..."
-            }
-
-            echo "   Building Next.js app..."
-            npm run build || {
-                echo "  Frontend build failed, services may not work correctly"
-            }
-
-            # shellcheck disable=SC2103
-            cd ..
-        else
-            echo "  Node.js/npm not available - skipping frontend setup"
-        fi
-    elif [ "$SKIP_FRONTEND" = true ]; then
-        echo "  Skipping frontend setup (Node.js not available)"
+    # Setup Next.js Frontend via Python installer
+    # (handles Node.js auto-upgrade, npm install, and build in one place)
+    echo ""
+    echo "  Setting up frontend..."
+    if [ -f "install_frontend.py" ]; then
+        $PYTHON_CMD install_frontend.py
     else
-        echo "  Frontend directory not found - skipping Next.js setup"
+        echo "  install_frontend.py not found - skipping frontend setup"
+        SKIP_FRONTEND=true
     fi
 
     # Verify onnxruntime-gpu can see the GPU (requirements now use >=1.19 which
