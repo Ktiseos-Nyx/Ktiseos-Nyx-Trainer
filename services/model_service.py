@@ -342,20 +342,24 @@ class ModelService:
             logger.warning("huggingface_hub not available: %s", e)
             return False
 
-        # Import specific exception types — fall back to base Exception for any
+        # Import specific exception types — fall back to OSError for any
         # that don't exist in the installed huggingface_hub version
+        try:
+            from huggingface_hub.errors import HfHubHTTPError
+        except ImportError:
+            HfHubHTTPError = OSError  # type: ignore[misc,assignment]
         try:
             from huggingface_hub.errors import RepositoryNotFoundError
         except ImportError:
-            RepositoryNotFoundError = Exception  # type: ignore[misc,assignment]
+            RepositoryNotFoundError = OSError  # type: ignore[misc,assignment]
         try:
             from huggingface_hub.errors import RevisionNotFoundError
         except ImportError:
-            RevisionNotFoundError = Exception  # type: ignore[misc,assignment]
+            RevisionNotFoundError = OSError  # type: ignore[misc,assignment]
         try:
             from huggingface_hub.errors import LocalEntryNotFoundError
         except ImportError:
-            LocalEntryNotFoundError = Exception  # type: ignore[misc,assignment]
+            LocalEntryNotFoundError = OSError  # type: ignore[misc,assignment]
 
         try:
             # Parse https://huggingface.co/{repo_id}/resolve/{revision}/{filepath}
@@ -398,13 +402,13 @@ class ModelService:
             return False
 
         except (
+            HfHubHTTPError,
             RepositoryNotFoundError,
             RevisionNotFoundError,
             LocalEntryNotFoundError,
             EnvironmentError,
             OSError,
             ValueError,
-            Exception,
         ) as e:
             logger.warning(f"hf_hub_download error: {e}")
             return False

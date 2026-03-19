@@ -10,7 +10,7 @@ Key behaviours:
   - Never exits on an old Node version — auto-downloads the correct LTS instead.
   - Idempotent: skips npm install if node_modules/ exists (unless --force).
   - Skips build if .next/ exists (unless --force).
-  - Always logs to logs/frontend_install_<timestamp>.log.
+  - Always logs to logs/app_YYYYMMDD.log (e.g. logs/app_20250101.log).
 
 Usage:
   python install_frontend.py               # Normal install + build
@@ -176,9 +176,11 @@ class FrontendInstaller:
         if not candidates:
             return
 
-        # Sort so we try the highest version last → prepend the best one
-        candidates.sort()
-        best = candidates[-1]
+        # Pick the highest semver — lexicographic sort fails for e.g. v9 > v22
+        best = max(
+            candidates,
+            key=lambda p: tuple(int(x) for x in os.path.basename(os.path.dirname(p)).lstrip("v").split(".")),
+        )
         self.logger.info("Found NVM Node.js at %s — adding to PATH", best)
         os.environ["PATH"] = best + os.pathsep + os.environ.get("PATH", "")
 

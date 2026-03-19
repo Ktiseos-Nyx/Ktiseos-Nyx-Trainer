@@ -524,7 +524,7 @@ After installation:
   - Cloud (VastAI/RunPod): Services start automatically
   - Local: Run ./start_services_local.sh to start the web interface
 
-Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
+Logs are automatically saved to logs/app_YYYYMMDD.log for debugging.
         """,
     )
 

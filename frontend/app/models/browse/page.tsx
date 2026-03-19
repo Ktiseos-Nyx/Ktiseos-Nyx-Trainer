@@ -232,7 +232,7 @@ export default function CivitaiBrowsePage() {
       loadModels(1, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, browsingLevel, hasApiKey]);
+  }, [searchQuery, searchMode, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, hasApiKey]);
 
   // Infinite scroll — load next page when the sentinel enters the viewport.
   // loadModels is intentionally omitted: page resets to 1 whenever filters
@@ -541,11 +541,11 @@ export default function CivitaiBrowsePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Model Type */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-model-type" className="block text-sm font-medium text-foreground mb-2">
                   Model Type
                 </label>
                 <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                  <SelectTrigger aria-labelledby="label-model-type" className="w-full focus:ring-2 focus:ring-cyan-500">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -560,11 +560,11 @@ export default function CivitaiBrowsePage() {
 
               {/* Base Model */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-base-model" className="block text-sm font-medium text-foreground mb-2">
                   Base Model
                 </label>
                 <Select value={selectedBaseModel} onValueChange={setSelectedBaseModel}>
-                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                  <SelectTrigger aria-labelledby="label-base-model" className="w-full focus:ring-2 focus:ring-cyan-500">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -583,11 +583,11 @@ export default function CivitaiBrowsePage() {
 
               {/* Sort */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-sort-by" className="block text-sm font-medium text-foreground mb-2">
                   Sort By
                 </label>
                 <Select value={selectedSort} onValueChange={setSelectedSort}>
-                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                  <SelectTrigger aria-labelledby="label-sort-by" className="w-full focus:ring-2 focus:ring-cyan-500">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -602,11 +602,11 @@ export default function CivitaiBrowsePage() {
 
               {/* Period */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-time-period" className="block text-sm font-medium text-foreground mb-2">
                   Time Period
                 </label>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                  <SelectTrigger aria-labelledby="label-time-period" className="w-full focus:ring-2 focus:ring-cyan-500">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
