@@ -149,6 +149,38 @@ class FrontendInstaller:
     #  Node.js detection and installation                                  #
     # ------------------------------------------------------------------ #
 
+    def _discover_nvm_node(self) -> None:
+        """
+        Prepend the highest-version NVM-managed Node.js bin dir to PATH.
+
+        RunPod and VastAI base images ship Node.js under /opt/nvm (or ~/.nvm)
+        but do NOT add it to PATH automatically, so shutil.which("node") comes
+        up empty even though Node is present.  Walk the same glob patterns the
+        old bash provisioning scripts used and pick the newest version found.
+        """
+        import glob as _glob
+
+        search_patterns = [
+            "/opt/nvm/versions/node/*/bin",
+            os.path.expanduser("~/.nvm/versions/node/*/bin"),
+        ]
+
+        candidates = []
+        for pattern in search_patterns:
+            for bin_dir in _glob.glob(pattern):
+                node_bin = os.path.join(bin_dir, "node")
+                if os.path.isfile(node_bin) and os.access(node_bin, os.X_OK):
+                    candidates.append(bin_dir)
+
+        if not candidates:
+            return
+
+        # Sort so we try the highest version last → prepend the best one
+        candidates.sort()
+        best = candidates[-1]
+        self.logger.info("Found NVM Node.js at %s — adding to PATH", best)
+        os.environ["PATH"] = best + os.pathsep + os.environ.get("PATH", "")
+
     def _parse_node_version(self) -> Optional[Tuple[int, int, int]]:
         """Return the active Node.js version tuple, or None if unavailable."""
         resolved = shutil.which("node")
@@ -248,6 +280,8 @@ class FrontendInstaller:
         RunPod). This method always upgrades rather than failing so provisioning
         can proceed unattended.
         """
+        # Discover NVM-managed Node.js that isn't in PATH yet (RunPod / VastAI)
+        self._discover_nvm_node()
         version = self._parse_node_version()
 
         if version is None:
