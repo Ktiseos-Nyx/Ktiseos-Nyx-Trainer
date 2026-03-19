@@ -335,15 +335,45 @@ class ModelService:
         """
         import re
         logger.info("Attempting download with hf_hub_download (hf_xet)...")
+
         try:
             from huggingface_hub import hf_hub_download
-            from huggingface_hub.errors import (
-                LocalEntryNotFoundError,
-                RemoteEntryNotFoundError,
-                RepositoryNotFoundError,
-                RevisionNotFoundError,
-            )
+        except ImportError as e:
+            logger.warning("huggingface_hub not available: %s", e)
+            return False
 
+        # Import specific exception types — try huggingface_hub.errors (>=0.26)
+        # then huggingface_hub.utils (older releases), then fall back to OSError.
+        try:
+            from huggingface_hub.errors import HfHubHTTPError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import HfHubHTTPError  # type: ignore[no-redef]
+            except ImportError:
+                HfHubHTTPError = OSError  # type: ignore[misc,assignment]
+        try:
+            from huggingface_hub.errors import RepositoryNotFoundError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import RepositoryNotFoundError  # type: ignore[no-redef]
+            except ImportError:
+                RepositoryNotFoundError = OSError  # type: ignore[misc,assignment]
+        try:
+            from huggingface_hub.errors import RevisionNotFoundError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import RevisionNotFoundError  # type: ignore[no-redef]
+            except ImportError:
+                RevisionNotFoundError = OSError  # type: ignore[misc,assignment]
+        try:
+            from huggingface_hub.errors import LocalEntryNotFoundError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import LocalEntryNotFoundError  # type: ignore[no-redef]
+            except ImportError:
+                LocalEntryNotFoundError = OSError  # type: ignore[misc,assignment]
+
+        try:
             # Parse https://huggingface.co/{repo_id}/resolve/{revision}/{filepath}
             # or   https://huggingface.co/{repo_id}/blob/{revision}/{filepath}
             match = re.match(
@@ -384,9 +414,9 @@ class ModelService:
             return False
 
         except (
+            HfHubHTTPError,
             RepositoryNotFoundError,
             RevisionNotFoundError,
-            RemoteEntryNotFoundError,
             LocalEntryNotFoundError,
             EnvironmentError,
             OSError,

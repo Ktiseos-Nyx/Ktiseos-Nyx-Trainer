@@ -355,10 +355,11 @@ def main(args):
                                 "EP errors during inference are cosmetic; CUDA is handling ops."
                             )
                         else:
-                            logger.info(
-                                f"TRT libs unavailable — session running on: {active_providers}. "
-                                "CUDA is not available; ops may run on CPU or other EPs."
+                            logger.warning(
+                                f"TRT libs unavailable and CUDA also failed in combined session "
+                                f"(active: {active_providers}). Retrying with CUDA-only provider..."
                             )
+                            raise Exception("TRT+CUDA combined session fell through to CPU — retrying CUDA alone")
                     except Exception as trt_error:
                         logger.warning(f"TensorRT provider failed: {str(trt_error)[:100]}...")
                         logger.info("Falling back to CUDA provider...")

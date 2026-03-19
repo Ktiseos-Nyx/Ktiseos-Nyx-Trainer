@@ -60,9 +60,9 @@ class RemoteInstaller:
         logs_dir = os.path.join(self.project_root, "logs")
         os.makedirs(logs_dir, exist_ok=True)
 
-        # Generate timestamp for log file
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = os.path.join(logs_dir, f"installer_{timestamp}.log")
+        # Use the same daily log file as the app so all output is centralized
+        datestamp = datetime.datetime.now().strftime("%Y%m%d")
+        log_file = os.path.join(logs_dir, f"app_{datestamp}.log")
 
         # Configure logging
         log_level = logging.DEBUG if self.verbose else logging.INFO
@@ -524,7 +524,7 @@ After installation:
   - Cloud (VastAI/RunPod): Services start automatically
   - Local: Run ./start_services_local.sh to start the web interface
 
-Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
+Logs are automatically saved to logs/app_YYYYMMDD.log for debugging.
         """,
     )
 

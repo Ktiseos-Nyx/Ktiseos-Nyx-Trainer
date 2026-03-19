@@ -29,6 +29,14 @@ import {
   Lock,
 } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -42,7 +50,10 @@ export default function CivitaiBrowsePage() {
   const [models, setModels] = useState<CivitaiModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [cursor, setCursor] = useState<string | null>(null);
+  // cursor is only consumed inside loadModels, not rendered — use a ref to
+  // avoid re-creating the loadModels callback every time the cursor changes,
+  // which would retrigger the filter useEffect and cause an infinite loop.
+  const cursorRef = useRef<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [totalResults, setTotalResults] = useState(0);
 
@@ -86,6 +97,17 @@ export default function CivitaiBrowsePage() {
     return (modelLevel & browsingLevel) !== 0;
   };
 
+  // Abort controller — cancel any in-flight browse request before starting a new one
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount: cancel in-flight requests and disconnect scroll observer
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      observer.current?.disconnect();
+    };
+  }, []);
+
   // Infinite scroll
   const observer = useRef<IntersectionObserver | null>(null);
   const lastModelRef = useCallback(
@@ -128,6 +150,11 @@ export default function CivitaiBrowsePage() {
 
   // Load models
   const loadModels = useCallback(async (pageNum: number, append: boolean = false) => {
+    // Cancel any previous in-flight request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
+
     try {
       setLoading(true);
 
@@ -149,8 +176,8 @@ export default function CivitaiBrowsePage() {
           params.username = searchQuery;
         }
 
-        if (cursor && append) {
-          params.cursor = cursor;
+        if (cursorRef.current && append) {
+          params.cursor = cursorRef.current;
         }
       } else {
         params.page = pageNum;
@@ -159,14 +186,14 @@ export default function CivitaiBrowsePage() {
       if (selectedType !== 'All') params.types = selectedType;
       if (selectedBaseModel !== 'All') params.baseModel = selectedBaseModel;
 
-      const response = await civitaiAPI.browse(params);
+      const response = await civitaiAPI.browse({ ...params, signal });
 
       if (response.success) {
         const newModels = response.data.items || [];
         const metadata = response.data.metadata || {};
 
         // Update cursor for next request
-        setCursor(metadata.nextCursor || null);
+        cursorRef.current = metadata.nextCursor || null;
 
         if (append) {
           // Deduplicate models by ID to prevent React key warnings
@@ -183,31 +210,39 @@ export default function CivitaiBrowsePage() {
         setHasMore(newModels.length === 20 && (metadata.nextCursor || pageNum < 100));
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') return; // request was intentionally cancelled — finally still runs but skips setLoading
       console.error('Failed to load models:', err);
       toast.error(`Failed to load models: ${err.message}`);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, [searchQuery, searchMode, cursor, selectedSort, selectedPeriod, allowNSFW, selectedType, selectedBaseModel]);
+  }, [searchQuery, searchMode, selectedSort, selectedPeriod, allowNSFW, selectedType, selectedBaseModel]);
 
-  // Initial load (now works with or without API key)
+  // Initial load — re-runs when filters or hasApiKey change.
+  // loadModels is intentionally omitted from deps: its own deps are a strict
+  // subset of this list, so this effect already fires whenever loadModels
+  // would have changed. Including loadModels would cause a re-fetch on every
+  // reference change and re-introduce the infinite loop.
   useEffect(() => {
-    // Only load if we've finished checking for API key
     if (hasApiKey !== null) {
       setPage(1);
-      setCursor(null); // Reset cursor when filters change
+      cursorRef.current = null;
       setModels([]);
       setHasMore(true);
       loadModels(1, false);
     }
-  }, [searchQuery, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, browsingLevel, hasApiKey, loadModels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, searchMode, selectedType, selectedBaseModel, selectedSort, selectedPeriod, allowNSFW, hasApiKey]);
 
-  // Load more on page change
+  // Infinite scroll — load next page when the sentinel enters the viewport.
+  // loadModels is intentionally omitted: page resets to 1 whenever filters
+  // change (filter effect above), so this effect only fires on genuine scroll.
   useEffect(() => {
     if (page > 1) {
       loadModels(page, true);
     }
-  }, [page, loadModels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   // Handle search
   const handleSearch = () => {
@@ -506,79 +541,82 @@ export default function CivitaiBrowsePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Model Type */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-model-type" className="block text-sm font-medium text-foreground mb-2">
                   Model Type
                 </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {modelTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger aria-labelledby="label-model-type" className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modelTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Base Model */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-base-model" className="block text-sm font-medium text-foreground mb-2">
                   Base Model
                 </label>
-                <select
-                  value={selectedBaseModel}
-                  onChange={(e) => setSelectedBaseModel(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {baseModels.map((model, index) => (
-                    <option
-                      key={`${model.value}-${index}`}
-                      value={model.value}
-                      disabled={model.disabled}
-                      className={model.disabled ? 'text-muted-foreground' : ''}
-                    >
-                      {model.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedBaseModel} onValueChange={setSelectedBaseModel}>
+                  <SelectTrigger aria-labelledby="label-base-model" className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {baseModels.map((model, index) =>
+                      model.disabled ? (
+                        <SelectSeparator key={`sep-${index}`} />
+                      ) : (
+                        <SelectItem key={`${model.value}-${index}`} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Sort */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-sort-by" className="block text-sm font-medium text-foreground mb-2">
                   Sort By
                 </label>
-                <select
-                  value={selectedSort}
-                  onChange={(e) => setSelectedSort(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {sortOptions.map((sort) => (
-                    <option key={sort} value={sort}>
-                      {sort}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedSort} onValueChange={setSelectedSort}>
+                  <SelectTrigger aria-labelledby="label-sort-by" className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortOptions.map((sort) => (
+                      <SelectItem key={sort} value={sort}>
+                        {sort}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Period */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <label id="label-time-period" className="block text-sm font-medium text-foreground mb-2">
                   Time Period
                 </label>
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {periodOptions.map((period) => (
-                    <option key={period} value={period}>
-                      {period}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger aria-labelledby="label-time-period" className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periodOptions.map((period) => (
+                      <SelectItem key={period} value={period}>
+                        {period}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* NSFW API Toggle */}
