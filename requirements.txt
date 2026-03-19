@@ -68,7 +68,6 @@ imagesize>=1.4.1
 setuptools>=78.1.1
 
 # Monitoring & Logging
-pyasn1>=0.6.3  # not directly required; pinned to fix CVE DoS in pyasn1<0.6.3 (transitive dependency)
 wandb>=0.17.0
 watchdog>=4.0.0
 tensorboard
