@@ -64,8 +64,9 @@ class FrontendInstaller:
         logs_dir = self.project_root / "logs"
         logs_dir.mkdir(exist_ok=True)
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = logs_dir / f"frontend_install_{timestamp}.log"
+        # Use the same daily log file as the app so all output is centralized
+        datestamp = datetime.datetime.now().strftime("%Y%m%d")
+        log_file = logs_dir / f"app_{datestamp}.log"
 
         formatter = logging.Formatter(
             "%(asctime)s - %(levelname)s - %(message)s",
