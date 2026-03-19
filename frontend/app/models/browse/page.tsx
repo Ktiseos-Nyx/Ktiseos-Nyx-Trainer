@@ -29,6 +29,14 @@ import {
   Lock,
 } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -509,17 +517,18 @@ export default function CivitaiBrowsePage() {
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Model Type
                 </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {modelTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modelTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Base Model */}
@@ -527,22 +536,22 @@ export default function CivitaiBrowsePage() {
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Base Model
                 </label>
-                <select
-                  value={selectedBaseModel}
-                  onChange={(e) => setSelectedBaseModel(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {baseModels.map((model, index) => (
-                    <option
-                      key={`${model.value}-${index}`}
-                      value={model.value}
-                      disabled={model.disabled}
-                      className={model.disabled ? 'text-muted-foreground' : ''}
-                    >
-                      {model.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedBaseModel} onValueChange={setSelectedBaseModel}>
+                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {baseModels.map((model, index) =>
+                      model.disabled ? (
+                        <SelectSeparator key={`sep-${index}`} />
+                      ) : (
+                        <SelectItem key={`${model.value}-${index}`} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Sort */}
@@ -550,17 +559,18 @@ export default function CivitaiBrowsePage() {
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Sort By
                 </label>
-                <select
-                  value={selectedSort}
-                  onChange={(e) => setSelectedSort(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {sortOptions.map((sort) => (
-                    <option key={sort} value={sort}>
-                      {sort}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedSort} onValueChange={setSelectedSort}>
+                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sortOptions.map((sort) => (
+                      <SelectItem key={sort} value={sort}>
+                        {sort}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Period */}
@@ -568,17 +578,18 @@ export default function CivitaiBrowsePage() {
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Time Period
                 </label>
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500"
-                >
-                  {periodOptions.map((period) => (
-                    <option key={period} value={period}>
-                      {period}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger className="w-full focus:ring-2 focus:ring-cyan-500">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periodOptions.map((period) => (
+                      <SelectItem key={period} value={period}>
+                        {period}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* NSFW API Toggle */}
