@@ -290,13 +290,24 @@ class FrontendInstaller:
             print(" node_modules/ already present — skipping npm install.")
             return True
 
-        # Remove stale package-lock.json generated on a different OS (e.g.
-        # Windows lock file committed from dev machine would cause Linux build
-        # failures due to platform-specific native deps like lightningcss).
+        # Remove package-lock.json only when it was generated on a different OS.
+        # CRLF line endings reliably indicate a Windows-generated lock file which
+        # would cause Linux build failures (platform-specific native deps like
+        # lightningcss resolve differently per OS).
         lock_file = self.frontend_dir / "package-lock.json"
         if lock_file.exists():
-            self.logger.info("Removing stale package-lock.json (regenerating for this platform).")
-            lock_file.unlink()
+            try:
+                is_foreign_platform = b"\r\n" in lock_file.read_bytes()
+            except OSError:
+                is_foreign_platform = False
+            if is_foreign_platform:
+                self.logger.info(
+                    "Removing Windows-generated package-lock.json "
+                    "(CRLF line endings detected — regenerating for this platform)."
+                )
+                lock_file.unlink()
+            else:
+                self.logger.info("package-lock.json matches current platform — keeping it.")
 
         npm = shutil.which("npm")
         if not npm:
@@ -332,10 +343,10 @@ class FrontendInstaller:
 
         next_dir = self.frontend_dir / ".next"
 
-        if next_dir.exists() and not self.force:
-            # .next exists but no --skip-build: still rebuild to pick up
+        if next_dir.exists():
+            # .next exists but --skip-build not set: still rebuild to pick up
             # any code changes since the last build.
-            self.logger.info(".next/ exists but --skip-build not set — rebuilding.")
+            self.logger.info(".next/ exists — rebuilding.")
 
         npm = shutil.which("npm")
         if not npm:
