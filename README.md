@@ -8,7 +8,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 ---
 
-## 🚧 **ALPHA - March 2026**
+## 🚧 ALPHA - March 2026
 
 **Active development.** The web UI (Next.js + FastAPI) is functional but expect rough edges.
 
@@ -20,11 +20,14 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 - ✅ **HuggingFace upload** - Direct upload from the web UI after training
 - ✅ **Security hardening** - Path traversal prevention across all API endpoints
 - ✅ **Tag editor** - Bulk add/remove/replace operations on dataset captions
+- ✅ **Model browser** - Browse and download models directly from Civitai
 - ✅ **Custom ports** - `--port` and `--backend-port` flags on local start scripts
 - 🔧 **In progress** - Bug fixes for form controls, cross-platform path handling, docstring coverage (~71%)
 - 🐛 **Report issues** - [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
 
 > ⚠️ **ALPHA STAGE**: Core training works! Still polishing edges and testing more configurations. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
+
+---
 
 ## Quick Start
 
@@ -32,7 +35,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 - **GPU**: NVIDIA with CUDA 12.1+ (12GB VRAM minimum, 24GB recommended for SDXL)
 - **Python**: 3.10 or 3.11
-- **Node.js**: 18+
+- **Node.js**: 20.19+ (22.x recommended — the installer will handle this automatically if missing)
 - **Disk**: 50GB+ free space
 
 #### GPU Compatibility
@@ -46,9 +49,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 > **Note on ROCm and ZLUDA:** These should work since the underlying Kohya SS backend supports them, but we develop and test exclusively on NVIDIA CUDA. We can't provide hands-on debugging for ROCm/ZLUDA issues, but we welcome community contributions, bug reports, and documentation from users running these setups. If you get it working, let us know so we can share your setup notes!
 
-📖 [Full Requirements & Installation Guide](documentation/INSTALLATION.md)
-
-#### 🚨 WHERE YOU INSTALL MATTERS — READ THIS
+#### 🚨 WHERE YOU INSTALL MATTERS — READ THIS (Windows)
 
 > **DO NOT install this project in any of these locations:**
 > - `C:\` (root of any drive)
@@ -67,22 +68,16 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 >
 > If you're thinking "but I always install stuff to `C:\`" — consider that this project manages files, runs scripts, and creates virtual environments. You really don't want a rogue process with write access to your system root. Your user folder exists for a reason!
 
-#### 🛡️ STRONGLY RECOMMENDED: Use a Virtual Environment
+---
 
-**Quick venv setup:**
+### Installation
+
+The installers will ask if you want a virtual environment. **Say yes** — it keeps this project's packages isolated and makes troubleshooting much easier. The venv is created as `.venv/` in the project folder.
 
 **Windows:**
 ```bat
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
-
-REM Create virtual environment
-python -m venv venv
-
-REM Activate it (you'll do this EVERY TIME you open a new terminal)
-venv\Scripts\activate
-
-REM Now install - packages stay in the venv
 install.bat
 ```
 
@@ -90,102 +85,62 @@ install.bat
 ```bash
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
 cd Ktiseos-Nyx-Trainer
-
-# Create virtual environment
-python3 -m venv venv
-
-# Activate it (you'll do this EVERY TIME you open a new terminal)
-source venv/bin/activate
-
-# Now install - packages stay in the venv
-python installer_local_linux.py
+./install.sh
 ```
 
-**Starting the app with venv:**
-```bash
-# Activate venv first
-venv\Scripts\activate   # Windows
-source venv/bin/activate  # Linux
+> 💡 Both scripts will interactively prompt about virtual environments. You can also pass `--venv` or `--no-venv` to skip the prompt, and `--auto` to run fully unattended.
 
-# Then start services (defaults: frontend on 3000, backend on 8000)
-start_services_local.bat  # Windows
-./start_services_local.sh # Linux
+**Cloud Deployment:** Use the VastAI or RunPod deploy buttons above — auto-configures on launch. Training has been verified end-to-end on both platforms.
+
+> 💰 **New to RunPod?** [Sign up with this link](https://runpod.io?ref=yx1lcptf) for bonus credits to get started.
+
+---
+
+### Starting the App
+
+```bash
+# Default ports: frontend on 3000, backend on 8000
+start_services_local.bat   # Windows
+./start_services_local.sh  # Linux
 
 # Use custom ports if defaults are taken
 start_services_local.bat --port 4000 --backend-port 9000
 ./start_services_local.sh --port 4000 --backend-port 9000
+
+# Restart without a full reinstall
+restart.bat   # Windows
+./restart.sh  # Linux
 ```
 
-> 💡 **Pro tip:** Your terminal prompt will show `(venv)` when the virtual environment is active. If you don't see it, activate again!
-
----
-
-### Installation (Without venv - not recommended)
-
-**Windows:**
-```bat
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
-install.bat
-start_services_local.bat
-```
-
-**Linux:**
-```bash
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
-python installer_local_linux.py
-./start_services_local.sh
-```
-
-**Access URLs** (default ports, customizable with `--port` / `--backend-port`):
+**Access URLs:**
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 
-**Cloud Deployment:** Use the VastAI or RunPod deploy buttons above - auto-configures on launch. Training has been verified end-to-end on both platforms.
+> 💡 If you used a venv, activate it first (`source .venv/bin/activate` on Linux, `.venv\Scripts\activate` on Windows) before starting — or just re-run the start script, which handles it.
 
-> 💰 **New to RunPod?** [Sign up with this link](https://runpod.io?ref=yx1lcptf) for bonus credits to get started.
+---
 
-### Updating to Latest Version
+### Updating
 
 **DO NOT delete the folder and re-clone.** This creates orphaned cache files and Python environment shims that cause installation issues.
 
-**Proper update process:**
-
+**Normal update:**
 ```bash
-# Navigate to your installation directory
 cd Ktiseos-Nyx-Trainer
-
-# Get latest changes
 git pull
 
-# If you have a virtual environment, reactivate it
-venv\Scripts\activate   # Windows
-source venv/bin/activate  # Linux
-
-# Update dependencies
-install.bat             # Windows
-./install.sh            # Linux
+# Re-run the installer to pick up dependency changes
+install.bat            # Windows
+./install.sh           # Linux
 ```
 
-**Why not delete and re-clone?**
-- Leaves behind hidden cache directories (`__pycache__`, `.venv`)
-- Creates orphaned Python shims in system directories
-- Forces re-download of all dependencies
-- May cause version conflicts with cached packages
-
-**Having issues?** Just re-run the installer - it's safe to run multiple times and will preserve your datasets/models.
-
-### Clean Reinstall
-
-If things are truly broken and you need a fresh start, use the clean slate script instead of deleting and re-cloning:
-
+**When things are broken and reinstalling didn't fix it:**
 ```bash
 # Preview what will be deleted (nothing is removed)
 python clean_slate.py --dry-run
 
-# Delete build artifacts, venvs, node_modules, caches
+# Delete build artifacts, venvs, node_modules, caches (keeps your models/datasets/outputs)
 python clean_slate.py
 
 # Skip confirmation prompt
@@ -195,8 +150,7 @@ python clean_slate.py --yes
 python clean_slate.py --nuclear
 ```
 
-This removes build artifacts and dependencies while **preserving your models, datasets, and outputs** by default. After running it, just re-run the installer:
-
+After `clean_slate.py`, just re-run the installer:
 ```bat
 REM Windows
 install.bat
@@ -205,17 +159,19 @@ REM Linux
 ./install.sh
 ```
 
-**When to use this vs. `git pull`:**
+**When to use what:**
 - `git pull` + re-run installer = normal updates (do this first)
 - `clean_slate.py` = something is broken and reinstalling didn't fix it
 - `clean_slate.py --nuclear` = scorched earth, start completely over
+
+---
 
 ## What It Does
 
 **Dataset Preparation:**
 - Upload datasets via drag-and-drop interface
 - Auto-tag images with WD14 models
-- Edit captions with batch operations
+- Edit captions with batch operations (bulk add/remove/replace)
 - Image gallery with filtering
 
 **Training Configuration:**
@@ -223,22 +179,32 @@ REM Linux
 - Support for SDXL, SD1.5, Flux, SD3/SD3.5, Lumina
 - Multiple LoRA types: Standard, LoCon, LoHa, LoKr, DoRA
 - Real-time validation and progress monitoring
+- Preset system with form persistence
+
+**Model Browser:**
+- Browse Civitai directly from the UI — search by keyword, tag, or creator
+- Filter by model type, base model, sort order, and time period
+- Download models directly into your local model folders
 
 **Utilities:**
 - LoRA resizing and metadata editing
-- HuggingFace uploads
-- Model downloads from Civitai/HuggingFace
+- HuggingFace uploads direct from the web UI
+- Model downloads from Civitai and HuggingFace
 
-📖 [Full Feature List](documentation/FEATURES.md) • [In-App Documentation](http://localhost:3000/docs) (when running)
+---
 
 ## Documentation
 
-- 📘 [Installation Guide](documentation/INSTALLATION.md) - Detailed setup for all platforms
-- 🚀 [Deployment Guide](documentation/DEPLOYMENT.md) - VastAI and RunPod deployment
-- 🔧 [Troubleshooting](documentation/guides/troubleshooting.md) - Common issues and solutions
-- 💻 [Development Setup](documentation/DEVELOPMENT_ENVIRONMENTS.md) - Contributing and local dev
-- ✨ [Features](documentation/FEATURES.md) - Complete feature documentation
+> 📝 Several guides are still being written. What exists is listed below — links that aren't here don't exist yet.
+
+- 📘 [Installation Guide](documentation/installation/INSTALLATION.md) - Detailed setup for all platforms
 - 📊 [Development Status](STATUS.md) - Current progress and roadmap
+- 📖 [General Guides](documentation/guides/general/README.md) - General usage documentation
+- 🔧 Contributing and security: [CONTRIBUTING.md](CONTRIBUTING.md) • [SECURITY.md](SECURITY.md)
+
+Deployment guides, troubleshooting, and feature documentation are in progress.
+
+---
 
 ## Support
 
@@ -247,23 +213,23 @@ REM Linux
 - [Discord Server](https://discord.gg/HhBSM9gBY) - Community support and discussion
 
 **Before Requesting Help:**
-- Check [Troubleshooting Guide](documentation/guides/troubleshooting.md)
-- Review [Support Guidelines](documentation/guides/troubleshooting.md#support-guidelines--boundaries)
-- Include error messages, logs, and system info
+- Check [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) for known problems
+- Include error messages, logs (`logs/app_YYYYMMDD.log`), and system info
 
 **Installation Issues:**
 
-If installation fails, run the diagnostic tool to collect system information:
-
+Run the diagnostic tool to collect system information:
 ```bat
-# Windows
+REM Windows
 diagnose.bat
 
-# Linux/WSL
+REM Linux/WSL
 ./diagnose.sh
 ```
 
 Attach the generated `diagnostics_*.txt` file to your issue report.
+
+---
 
 ## Credits & Acknowledgements
 
