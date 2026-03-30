@@ -3,7 +3,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText, FolderOpen, Settings, Upload, Calculator, Wrench, Download, Zap, BookOpen, Info } from 'lucide-react';
+import { FolderOpen, Settings, Upload, Calculator, Wrench, Download, Zap, BookOpen, Info } from 'lucide-react';
 
 // --- DASHBOARD COMPONENT ---
 export default function Dashboard() {

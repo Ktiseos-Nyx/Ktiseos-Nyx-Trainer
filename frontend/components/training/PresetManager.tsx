@@ -141,7 +141,7 @@ export default function PresetManager({
 
     try {
       // Try saving to server first
-      const result = await presetsAPI.save({
+      await presetsAPI.save({
         name: newPresetName,
         description: newPresetDescription || 'Custom preset',
         model_type: currentConfig.model_type,

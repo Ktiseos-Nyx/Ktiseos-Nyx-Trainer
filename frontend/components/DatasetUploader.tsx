@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { zipSync } from 'fflate';
 import { toast } from 'sonner';
-import { datasetAPI, fileAPI, API_BASE } from '@/lib/api';
+import { datasetAPI, API_BASE } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface UploadedFile {

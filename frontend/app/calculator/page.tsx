@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { utilitiesAPI, CalculatorResponse, DatasetInfo } from '@/lib/api';
-import { Calculator, FolderOpen, Info, Zap, Clock, TrendingUp, Home } from 'lucide-react';
+import { Calculator, Zap, Clock, TrendingUp, Home } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 
 export default function CalculatorPage() {

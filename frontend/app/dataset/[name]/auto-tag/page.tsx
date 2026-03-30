@@ -6,14 +6,8 @@ import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig, LogPolle
 import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 
 // Unified model definitions
@@ -212,7 +206,7 @@ export default function AutoTagPage() {
       (data) => {
         if (data.type === 'log' && data.log) {
           const msg = data.log;
-          if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+          setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
         } else if (data.type === 'progress' && data.progress !== undefined) {
           setProgress(data.progress as number);
         } else if (data.type === 'status') {
@@ -1161,9 +1155,12 @@ export default function AutoTagPage() {
         {showLogs && (
           <div className="mt-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <button
+              <div
                 onClick={() => setShowLogs(!showLogs)}
-                className="w-full px-6 py-4 flex items-center justify-between bg-accent/50 hover:bg-accent"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowLogs(v => !v); }}
+                role="button"
+                tabIndex={0}
+                className="w-full px-6 py-4 flex items-center justify-between bg-accent/50 hover:bg-accent cursor-pointer"
               >
                 <div className="flex items-center gap-2 font-semibold">
                   <Terminal className="w-5 h-5" />
@@ -1183,7 +1180,7 @@ export default function AutoTagPage() {
                   )}
                   <ChevronUp className="w-5 h-5" />
                 </div>
-              </button>
+              </div>
               <div className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
                 {logs.length === 0 ? (
                   <div className="text-muted-foreground">No logs yet...</div>

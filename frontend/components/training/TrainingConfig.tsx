@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { CardTitle } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
 import { useTrainingForm } from '@/hooks/useTrainingForm';
 import PresetManager from './PresetManager';
