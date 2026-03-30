@@ -1156,31 +1156,28 @@ export default function AutoTagPage() {
         {showLogs && (
           <div className="mt-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <button
-                onClick={() => setLogsExpanded(v => !v)}
-                aria-expanded={logsExpanded}
-                aria-controls="auto-tag-logs-body"
-                className="w-full px-6 py-4 flex items-center justify-between bg-accent/50 hover:bg-accent"
-              >
-                <div className="flex items-center gap-2 font-semibold">
-                  <Terminal className="w-5 h-5" />
-                  Process Logs {jobId && <span className="text-xs text-muted-foreground">({jobId})</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                  {logs.length > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setLogs([]);
-                      }}
-                      className="p-1 hover:bg-accent-foreground/10 rounded"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
+              <div className="flex items-center bg-accent/50 hover:bg-accent">
+                <button
+                  onClick={() => setLogsExpanded(v => !v)}
+                  aria-expanded={logsExpanded}
+                  aria-controls="auto-tag-logs-body"
+                  className="flex-1 px-6 py-4 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Terminal className="w-5 h-5" />
+                    Process Logs {jobId && <span className="text-xs text-muted-foreground">({jobId})</span>}
+                  </div>
                   {logsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </div>
-              </button>
+                </button>
+                {logs.length > 0 && (
+                  <button
+                    onClick={() => setLogs([])}
+                    className="p-1 mr-4 hover:bg-accent-foreground/10 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               {logsExpanded && (
                 <div id="auto-tag-logs-body" className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
                   {logs.length === 0 ? (
