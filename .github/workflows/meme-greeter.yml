@@ -1,0 +1,15 @@
+name: Greet With A Random Meme
+
+on:
+  issues:
+    types: [opened, reopened]
+
+jobs:
+  meme:
+    name: Drop a meme on new issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Meme on issues
+        uses: deep5050/memes-on-issues-action@main
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
