@@ -995,8 +995,8 @@ function MaskInput(props: MaskInputProps) {
   const onValueChange = React.useCallback(
     (event: React.ChangeEvent<InputElement>) => {
       const inputValue = event.target.value;
-      let newValue = inputValue;
-      let unmaskedValue = inputValue;
+      let newValue: string;
+      let unmaskedValue: string;
 
       if (composing) {
         if (!isControlled) setInternalValue(inputValue);

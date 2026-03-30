@@ -320,7 +320,7 @@ export default function AutoTagPage() {
             (data) => {
               if (data.type === 'log' && data.log) {
                 const msg = data.log;
-                if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+                setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
               } else if (data.type === 'progress' && data.progress !== undefined) {
                 setProgress(data.progress as number);
               }
