@@ -1181,20 +1181,18 @@ export default function AutoTagPage() {
                       <X className="w-4 h-4" />
                     </button>
                   )}
-                  {showLogs ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  <ChevronUp className="w-5 h-5" />
                 </div>
               </button>
-              {showLogs && (
-                <div className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
-                  {logs.length === 0 ? (
-                    <div className="text-muted-foreground">No logs yet...</div>
-                  ) : (
-                    logs.map((log, idx) => (
-                      <div key={idx} className="py-1">{log}</div>
-                    ))
-                  )}
-                </div>
-              )}
+              <div className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+                {logs.length === 0 ? (
+                  <div className="text-muted-foreground">No logs yet...</div>
+                ) : (
+                  logs.map((log, idx) => (
+                    <div key={idx} className="py-1">{log}</div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

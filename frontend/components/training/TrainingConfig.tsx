@@ -111,7 +111,7 @@ export default function TrainingConfigNew() {
             }
           }
         }
-        setDatasets(datasetsData.files.filter((f: FileInfo) => f.type === 'dir').map((dir: FileInfo) => ({ value: dir.path, label: dir.name })));
+        setDatasets((datasetsData.files || []).filter((f: FileInfo) => f.type === 'dir').map((dir: FileInfo) => ({ value: dir.path, label: dir.name })));
 
         // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
