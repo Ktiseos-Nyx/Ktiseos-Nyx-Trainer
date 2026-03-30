@@ -114,8 +114,9 @@ export default function AutoTagPage() {
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [totalImages, setTotalImages] = useState<number | null>(null);
 
-  // Log viewer
+  // Log viewer — showLogs mounts the card; logsExpanded controls body visibility
   const [showLogs, setShowLogs] = useState(false);
+  const [logsExpanded, setLogsExpanded] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
   const logPollerRef = useRef<LogPoller | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -1155,12 +1156,11 @@ export default function AutoTagPage() {
         {showLogs && (
           <div className="mt-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div
-                onClick={() => setShowLogs(!showLogs)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowLogs(v => !v); }}
-                role="button"
-                tabIndex={0}
-                className="w-full px-6 py-4 flex items-center justify-between bg-accent/50 hover:bg-accent cursor-pointer"
+              <button
+                onClick={() => setLogsExpanded(v => !v)}
+                aria-expanded={logsExpanded}
+                aria-controls="auto-tag-logs-body"
+                className="w-full px-6 py-4 flex items-center justify-between bg-accent/50 hover:bg-accent"
               >
                 <div className="flex items-center gap-2 font-semibold">
                   <Terminal className="w-5 h-5" />
@@ -1178,18 +1178,20 @@ export default function AutoTagPage() {
                       <X className="w-4 h-4" />
                     </button>
                   )}
-                  <ChevronUp className="w-5 h-5" />
+                  {logsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </div>
-              </div>
-              <div className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
-                {logs.length === 0 ? (
-                  <div className="text-muted-foreground">No logs yet...</div>
-                ) : (
-                  logs.map((log, idx) => (
-                    <div key={idx} className="py-1">{log}</div>
-                  ))
-                )}
-              </div>
+              </button>
+              {logsExpanded && (
+                <div id="auto-tag-logs-body" className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+                  {logs.length === 0 ? (
+                    <div className="text-muted-foreground">No logs yet...</div>
+                  ) : (
+                    logs.map((log, idx) => (
+                      <div key={idx} className="py-1">{log}</div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
