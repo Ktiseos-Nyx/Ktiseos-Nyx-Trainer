@@ -17,7 +17,7 @@ export function useInterval(
   }, [])
 
   useEffect(() => {
-    if (!(typeof delay === 'number') || delay < 0) {
+    if (typeof delay !== 'number' || delay < 0) {
       return
     }
 

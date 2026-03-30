@@ -8,7 +8,6 @@ import {
   CheckCircle,
   XCircle,
   Loader,
-  Tags,
   FolderPlus,
   Link as LinkIcon,
   FileArchive,

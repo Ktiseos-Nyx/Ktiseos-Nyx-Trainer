@@ -6,7 +6,6 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
-import { Form } from '@/components/ui/form';
 import type { TrainingConfig } from '@/lib/api';
 import { ProjectSetupCard } from '../cards/ProjectSetupCard';
 import { DatasetCard } from '../cards/DatasetCard';

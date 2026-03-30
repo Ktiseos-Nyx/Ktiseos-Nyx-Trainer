@@ -7,7 +7,7 @@ import { Home, Database } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { toast } from 'sonner';
 import { datasetAPI, DatasetInfo } from '@/lib/api';
-import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Edit, Zap, Info, Loader2 } from 'lucide-react';
+import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Zap, Info, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
