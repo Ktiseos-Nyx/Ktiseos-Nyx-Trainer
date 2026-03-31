@@ -6,6 +6,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import fs from 'fs'; 
 import fs from 'fs/promises';
 import path from 'path';
 import { settingsService } from '@/lib/node-services/settings-service';
@@ -29,29 +30,29 @@ function getModelDirs(): { modelDir: string; vaeDir: string; loraDir: string } {
   };
 }
 
-// Common model subdirectories on cloud GPU providers (RunPod, VastAI, etc.)
-const CLOUD_MODEL_PATHS = [
-  '/workspace/models',
-  '/workspace/models/Stable-diffusion',
-  '/workspace/models/checkpoints',
-  '/workspace/models/unet',
-  '/workspace/ComfyUI/models/checkpoints',
+/**
+ * Common model subdirectories RELATIVE to project root
+ * These are scanned in addition to the main pretrained_model/ directory
+ * Works on Vast, RunPod, Local, Docker without hardcoding absolute paths
+ */
+const RELATIVE_MODEL_PATHS = [
+  'pretrained_model',           // Default location
+  'models/Stable-diffusion',    // Common ComfyUI/SD-webui layout
+  'models/checkpoints',         // Alternative ComfyUI layout
+  'models/unet',                // Some Flux setups
 ];
 
-const CLOUD_VAE_PATHS = [
-  '/workspace/models/vae',
-  '/workspace/models/VAE',
-  '/workspace/ComfyUI/models/vae',
+const RELATIVE_VAE_PATHS = [
+  'vae',                        // Default location
+  'models/vae',                 // ComfyUI layout
+  'models/VAE',                 // Case variant
 ];
 
-const CLOUD_TEXT_ENCODER_PATHS = [
-  '/workspace/models/clip',
-  '/workspace/models/CLIP',
-  '/workspace/models/t5',
-  '/workspace/models/text_encoders',
-  '/workspace/models/text_encoder',
-  '/workspace/ComfyUI/models/clip',
-  '/workspace/ComfyUI/models/text_encoders',
+const RELATIVE_TEXT_ENCODER_PATHS = [
+  'text_encoders',              // Default
+  'models/clip',                // ComfyUI
+  'models/CLIP',                // Case variant
+  'models/t5',                  // T5-specific
 ];
 
 const MODEL_EXTENSIONS = ['.safetensors', '.ckpt', '.pt', '.pth', '.bin'];
@@ -63,14 +64,14 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
   const files: ModelFile[] = [];
 
   try {
-    const stats = await fs.stat(dirPath);
+    const stats = await fsPromises.stat(dirPath);
     if (!stats.isDirectory()) return files;
   } catch {
     // Directory doesn't exist
     return files;
   }
 
-  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  const entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
 
   for (const entry of entries) {
     if (!entry.isFile()) continue;
@@ -81,7 +82,7 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
     const filePath = path.join(dirPath, entry.name);
 
     try {
-      const stats = await fs.stat(filePath);
+      const stats = await fsPromises.stat(filePath);
       files.push({
         name: entry.name,
         path: filePath,
