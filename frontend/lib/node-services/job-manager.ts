@@ -547,6 +547,59 @@ export interface TaggingJobConfig {
 }
 
 /**
+ * Prepend custom activation tags to every caption file in a directory.
+ *
+ * The WD14 tagger's --always_first_tags flag only reorders tags the model
+ * already predicted. Custom trigger words not in WD14's vocabulary (e.g.
+ * "my_character_v1") are never output by the tagger and so must be injected
+ * via post-processing — mirroring what tagging_service.py._apply_activation_tags
+ * does on the Python side.
+ *
+ * Tags already present in a caption are deduplicated (removed then re-prepended)
+ * so they appear exactly once at the front.
+ */
+async function applyActivationTags(
+  inputDir: string,
+  activationTagsStr: string,
+  captionExt: string
+): Promise<void> {
+  const activationTags = activationTagsStr
+    .split(',')
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  if (activationTags.length === 0) return;
+
+  let entries: string[];
+  try {
+    entries = await fs.promises.readdir(inputDir);
+  } catch (err) {
+    console.error(`[applyActivationTags] Cannot read dir ${inputDir}: ${err}`);
+    return;
+  }
+
+  const captionFiles = entries.filter(e => e.endsWith(captionExt));
+
+  for (const file of captionFiles) {
+    const filePath = path.join(inputDir, file);
+    try {
+      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const existingTags = content.split(',').map((t: string) => t.trim()).filter(Boolean);
+      // Remove any activation tags already in the file to avoid duplicates
+      const filteredTags = existingTags.filter((t: string) => !activationTags.includes(t));
+      const newContent = [...activationTags, ...filteredTags].join(', ');
+      await fs.promises.writeFile(filePath, newContent, 'utf-8');
+    } catch (err) {
+      console.error(`[applyActivationTags] Failed to process ${filePath}: ${err}`);
+    }
+  }
+
+  console.log(
+    `[applyActivationTags] Injected [${activationTags.join(', ')}] into ${captionFiles.length} caption file(s) in ${inputDir}`
+  );
+}
+
+/**
  * Create and start a tagging job using the Python WD14 tagger.
  * Always passes --onnx for GPU-accelerated inference.
  */
@@ -628,6 +681,32 @@ export async function createTaggingJob(
 
   const jobId = jobManager.createJob('tagging', pythonPath, args, projectRoot);
   jobManager.startJob(jobId);
+
+  // Post-process: inject activation tags into every caption file after the tagger exits.
+  // --always_first_tags only reorders tags the model already found; custom trigger words
+  // not in WD14's vocabulary must be prepended by reading/modifying the .txt files directly.
+  if (config.alwaysFirstTags) {
+    const captionExt = config.captionExtension || '.txt';
+    const inputDir = config.inputDir;
+    const tagsStr = config.alwaysFirstTags;
+
+    const cleanup = () => {
+      jobManager.events.off('complete', onComplete);
+      jobManager.events.off('error', onError);
+    };
+    const onComplete = async (completedJobId: string) => {
+      if (completedJobId !== jobId) return;
+      cleanup();
+      await applyActivationTags(inputDir, tagsStr, captionExt);
+    };
+    const onError = (completedJobId: string) => {
+      if (completedJobId !== jobId) return;
+      cleanup();
+    };
+
+    jobManager.events.on('complete', onComplete);
+    jobManager.events.on('error', onError);
+  }
 
   return jobId;
 }
