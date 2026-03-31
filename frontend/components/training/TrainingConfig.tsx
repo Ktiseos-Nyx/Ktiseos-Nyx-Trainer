@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Play, Save, RotateCcw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { Play, Save, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
 import { useTrainingForm } from '@/hooks/useTrainingForm';
 import PresetManager from './PresetManager';
@@ -111,7 +110,7 @@ export default function TrainingConfigNew() {
             }
           }
         }
-        setDatasets(datasetsData.files.filter((f: FileInfo) => f.type === 'dir').map((dir: FileInfo) => ({ value: dir.path, label: dir.name })));
+        setDatasets((datasetsData.files || []).filter((f: FileInfo) => f.type === 'dir').map((dir: FileInfo) => ({ value: dir.path, label: dir.name })));
 
         // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {

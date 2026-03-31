@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { utilitiesAPI, LoRAFile } from '@/lib/api';
-import { Wrench, Upload, FolderOpen, CheckCircle, XCircle, Loader2, Minimize2, Home } from 'lucide-react';
+import { Wrench, FolderOpen, CheckCircle, XCircle, Loader2, Minimize2, Home } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 
 export default function UtilitiesPage() {

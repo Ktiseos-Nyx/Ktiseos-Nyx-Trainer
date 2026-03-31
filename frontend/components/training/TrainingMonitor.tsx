@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { trainingAPI, LogPoller } from '@/lib/api';
-import { Activity, Save, Clock, Zap, TrendingUp } from 'lucide-react';
+import { Activity, Clock, Zap, TrendingUp } from 'lucide-react';
 
 interface TrainingStatus {
   is_training: boolean;
@@ -144,12 +144,10 @@ export default function TrainingMonitor() {
       (data) => {
         if (data.type === 'log' && data.log) {
           const msg = data.log;
-          if (msg) {
-            setLogs((prev) => {
-              const next = [...prev, msg];
-              return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
-            });
-          }
+          setLogs((prev) => {
+            const next = [...prev, msg];
+            return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+          });
         } else if (data.type === 'progress' && data.progress !== undefined) {
           setStatus((prev) => ({
             ...prev,

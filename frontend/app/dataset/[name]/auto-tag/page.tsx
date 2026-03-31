@@ -6,14 +6,8 @@ import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig, LogPolle
 import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 
 // Unified model definitions
@@ -120,8 +114,9 @@ export default function AutoTagPage() {
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [totalImages, setTotalImages] = useState<number | null>(null);
 
-  // Log viewer
+  // Log viewer — showLogs mounts the card; logsExpanded controls body visibility
   const [showLogs, setShowLogs] = useState(false);
+  const [logsExpanded, setLogsExpanded] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
   const logPollerRef = useRef<LogPoller | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -212,7 +207,7 @@ export default function AutoTagPage() {
       (data) => {
         if (data.type === 'log' && data.log) {
           const msg = data.log;
-          if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+          setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
         } else if (data.type === 'progress' && data.progress !== undefined) {
           setProgress(data.progress as number);
         } else if (data.type === 'status') {
@@ -325,7 +320,7 @@ export default function AutoTagPage() {
             (data) => {
               if (data.type === 'log' && data.log) {
                 const msg = data.log;
-                if (msg) setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+                setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
               } else if (data.type === 'progress' && data.progress !== undefined) {
                 setProgress(data.progress as number);
               }
@@ -1161,31 +1156,30 @@ export default function AutoTagPage() {
         {showLogs && (
           <div className="mt-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <button
-                onClick={() => setShowLogs(!showLogs)}
-                className="w-full px-6 py-4 flex items-center justify-between bg-accent/50 hover:bg-accent"
-              >
-                <div className="flex items-center gap-2 font-semibold">
-                  <Terminal className="w-5 h-5" />
-                  Process Logs {jobId && <span className="text-xs text-muted-foreground">({jobId})</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                  {logs.length > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setLogs([]);
-                      }}
-                      className="p-1 hover:bg-accent-foreground/10 rounded"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                  {showLogs ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </div>
-              </button>
-              {showLogs && (
-                <div className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+              <div className="flex items-center bg-accent/50 hover:bg-accent">
+                <button
+                  onClick={() => setLogsExpanded(v => !v)}
+                  aria-expanded={logsExpanded}
+                  aria-controls="auto-tag-logs-body"
+                  className="flex-1 px-6 py-4 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Terminal className="w-5 h-5" />
+                    Process Logs {jobId && <span className="text-xs text-muted-foreground">({jobId})</span>}
+                  </div>
+                  {logsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {logs.length > 0 && (
+                  <button
+                    onClick={() => setLogs([])}
+                    className="p-1 mr-4 hover:bg-accent-foreground/10 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {logsExpanded && (
+                <div id="auto-tag-logs-body" className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
                   {logs.length === 0 ? (
                     <div className="text-muted-foreground">No logs yet...</div>
                   ) : (

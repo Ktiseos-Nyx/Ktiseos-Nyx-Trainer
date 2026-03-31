@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 
 interface GradientCardProps {
   children: React.ReactNode
-  variant?: 'dusk' | 'cotton-candy' | 'watermelon' | 'ocean' | 'shadow'
+  variant?: 'dusk' | 'cotton-candy' | 'watermelon' | 'ocean' | 'shadow' | 'aurora'
   intensity?: 'subtle' | 'medium' | 'vibrant'
   className?: string
 }
@@ -40,6 +40,11 @@ export function GradientCard({
       medium: 'bg-card/70 backdrop-blur-sm',
       vibrant: 'bg-card backdrop-blur-sm',
     },
+    aurora: {
+      subtle: 'bg-card/50 backdrop-blur-sm',
+      medium: 'bg-card/70 backdrop-blur-sm',
+      vibrant: 'bg-card backdrop-blur-sm',
+    },
   }
 
   // Simple theme-aware borders
@@ -49,6 +54,7 @@ export function GradientCard({
     watermelon: 'border-border',
     ocean: 'border-border',
     shadow: 'border-border',
+    aurora: 'border-border',
   }
 
   // Simple accessible shadows
@@ -74,6 +80,11 @@ export function GradientCard({
       vibrant: 'shadow-lg',
     },
     shadow: {
+      subtle: 'shadow-sm',
+      medium: 'shadow-md',
+      vibrant: 'shadow-lg',
+    },
+    aurora: {
       subtle: 'shadow-sm',
       medium: 'shadow-md',
       vibrant: 'shadow-lg',

@@ -1,4 +1,6 @@
-import React, { useRef, createContext, useContext, useCallback } from "react"
+'use client'
+
+import React, { useRef, createContext, useCallback } from "react"
 import {
   motion,
   AnimatePresence,
@@ -27,13 +29,6 @@ interface BorderGlideContextType {
 
 const BorderGlideContext = createContext<BorderGlideContextType | undefined>(undefined)
 
-const useBorderGlideContext = () => {
-  const context = useContext(BorderGlideContext)
-  if (!context) {
-    throw new Error("BorderGlide components must be used within BorderGlide")
-  }
-  return context
-}
 
 const MovingBorder: React.FC<{
   children: React.ReactNode

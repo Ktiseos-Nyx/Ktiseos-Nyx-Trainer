@@ -151,7 +151,7 @@ export default function SettingsPage() {
       }
 
             // === SAFER ERROR BLOCK ===
-      let errorMessage = "Unknown Error";
+      let errorMessage: string;
       try {
           const errorData = await response.json();
           errorMessage = errorData.detail || JSON.stringify(errorData);

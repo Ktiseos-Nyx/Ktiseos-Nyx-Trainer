@@ -19,9 +19,7 @@ import {
   Filter,
   X,
   Heart,
-  Eye,
   Star,
-  ChevronDown,
   Loader2,
   Home,
   AlertTriangle,
@@ -90,12 +88,6 @@ export default function CivitaiBrowsePage() {
     return (browsingLevel & level) !== 0;
   };
 
-  const matchBrowsingLevel = (modelLevel: number) => {
-    // If browsing level is 0, show everything
-    if (browsingLevel === 0) return true;
-    // Check if model's level matches any enabled browsing levels
-    return (modelLevel & browsingLevel) !== 0;
-  };
 
   // Abort controller — cancel any in-flight browse request before starting a new one
   const abortControllerRef = useRef<AbortController | null>(null);

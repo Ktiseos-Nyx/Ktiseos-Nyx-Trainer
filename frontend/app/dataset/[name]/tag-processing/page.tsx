@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Home, Database, Sparkles, Plus, Minus, Replace, ArrowLeft, ArrowRight } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';

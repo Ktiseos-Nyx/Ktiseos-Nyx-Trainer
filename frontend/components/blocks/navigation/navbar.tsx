@@ -14,7 +14,6 @@ import {
   Info,
   Settings as SettingsIcon,
   FolderOpen,
-  Edit,
   Tags,
   Calculator as CalculatorIcon,
   Package,

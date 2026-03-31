@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, Settings, LucideIcon } from 'lucide-react';
+import { ArrowRight, LucideIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { BackgroundBeamsWithCollision } from '@/components/ui/background-beams-with-collision';
 

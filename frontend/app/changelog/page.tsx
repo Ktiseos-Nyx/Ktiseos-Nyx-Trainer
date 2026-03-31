@@ -2,7 +2,7 @@
 
 import { Home, FileText, Github, Calendar, GitCommit, Sparkles, Bug, Wrench, Zap } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 interface ChangelogEntry {
   version: string;

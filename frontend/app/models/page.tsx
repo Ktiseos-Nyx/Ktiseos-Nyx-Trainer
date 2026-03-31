@@ -83,9 +83,6 @@ export default function ModelsPage() {
       setDownloadError(null);
       setDownloadResult(null);
 
-      // Extract filename from URL for better UX
-      const filename = downloadUrl.split('/').pop() || 'file';
-
       const result = await modelsAPI.download(downloadUrl, downloadType, modelType);
 
       setDownloadResult(result);
