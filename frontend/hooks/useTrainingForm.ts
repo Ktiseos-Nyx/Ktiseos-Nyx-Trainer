@@ -450,8 +450,8 @@ export const trainingPresets: Record<string, {
     },
   },
   rgb_glitch_locon_dora: {
-    name: 'RGB Glitch Style (LoCon DoRA)',
-    description: 'LoCon+DoRA style LoRA, inverse alpha/dim ratio (alpha > dim), huge effective batch (6×6=36). NOTE: Original used ADOPTAOScheduleFree optimizer — map to AdamW until that package is sourced.',
+    name: "xRikishi's DoRA + ADOPTAO",
+    description: "xRikishi's LoCon+DoRA style LoRA. Inverse alpha/dim ratio (alpha > dim), huge effective batch (6×6=36). NOTE: Original used ADOPTAOScheduleFree optimizer — mapped to AdamW until that package is sourced.",
     config: {
       model_type: 'SDXL',
       resolution: 1024,
