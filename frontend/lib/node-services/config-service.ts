@@ -325,11 +325,16 @@ export async function generateConfigTOML(
   args.network_dim = config.network_dim;
   args.network_alpha = config.network_alpha;
 
-  if (config.conv_dim && config.conv_dim > 0) {
-    args.conv_dim = config.conv_dim;
-  }
-  if (config.conv_alpha && config.conv_alpha > 0) {
-    args.conv_alpha = config.conv_alpha;
+  // conv_dim/conv_alpha only apply to LyCORIS types that train conv layers
+  // Guard against stale localStorage values bleeding through when lora_type is plain LoRA
+  const LYCORIS_CONV_TYPES = ['LoCon', 'LoHa', 'LoKR', 'LoKr', 'DoRA'];
+  if (LYCORIS_CONV_TYPES.includes(config.lora_type)) {
+    if (config.conv_dim && config.conv_dim > 0) {
+      args.conv_dim = config.conv_dim;
+    }
+    if (config.conv_alpha && config.conv_alpha > 0) {
+      args.conv_alpha = config.conv_alpha;
+    }
   }
 
   if (config.network_dropout && config.network_dropout > 0) {
@@ -418,20 +423,12 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     max_grad_norm: config.max_grad_norm,
     weight_decay: config.weight_decay,
     max_token_length: config.max_token_length,
-    clip_skip: config.clip_skip,
     weighted_captions: config.weighted_captions,
     no_token_padding: config.no_token_padding,
     save_model_as: config.save_model_as,
     save_precision: config.save_precision,
     no_metadata: config.no_metadata,
-    save_every_n_epochs: config.save_every_n_epochs || 0,
-    save_every_n_steps: config.save_every_n_steps || 0,
-    save_last_n_epochs: config.save_last_n_epochs || 0,
-    save_last_n_epochs_state: config.save_last_n_epochs_state || 0,
-    save_last_n_steps_state: config.save_last_n_steps_state || 0,
     save_state: config.save_state || false,
-    sample_every_n_epochs: config.sample_every_n_epochs || 0,
-    sample_every_n_steps: config.sample_every_n_steps || 0,
     sample_sampler: config.sample_sampler || 'euler_a',
     mixed_precision: config.mixed_precision,
     gradient_checkpointing: config.gradient_checkpointing,
@@ -455,6 +452,37 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     prior_loss_weight: config.prior_loss_weight,
   };
 
+  // clip_skip: SD15 only (SDXL=1 is default and can be omitted; FLUX/SD3/LUMINA don't support it)
+  if (config.model_type === 'SD15') {
+    args.clip_skip = config.clip_skip;
+  }
+  // SDXL forces clip_skip=1; writing it is safe but redundant — omit to let Kohya use its default
+
+  // Save checkpoints — only write if non-zero (0 means disabled/not set)
+  if (config.save_every_n_epochs && config.save_every_n_epochs > 0) {
+    args.save_every_n_epochs = config.save_every_n_epochs;
+  }
+  if (config.save_every_n_steps && config.save_every_n_steps > 0) {
+    args.save_every_n_steps = config.save_every_n_steps;
+  }
+  if (config.save_last_n_epochs && config.save_last_n_epochs > 0) {
+    args.save_last_n_epochs = config.save_last_n_epochs;
+  }
+  if (config.save_last_n_epochs_state && config.save_last_n_epochs_state > 0) {
+    args.save_last_n_epochs_state = config.save_last_n_epochs_state;
+  }
+  if (config.save_last_n_steps_state && config.save_last_n_steps_state > 0) {
+    args.save_last_n_steps_state = config.save_last_n_steps_state;
+  }
+
+  // Sample images — only write if non-zero
+  if (config.sample_every_n_epochs && config.sample_every_n_epochs > 0) {
+    args.sample_every_n_epochs = config.sample_every_n_epochs;
+  }
+  if (config.sample_every_n_steps && config.sample_every_n_steps > 0) {
+    args.sample_every_n_steps = config.sample_every_n_steps;
+  }
+
   // Performance/Memory
   if (config.cache_text_encoder_outputs_to_disk) {
     args.cache_text_encoder_outputs_to_disk = true;
@@ -471,11 +499,11 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     args.bucket_reso_steps = config.bucket_reso_steps;
   }
 
-  // Timestep control
-  if (config.min_timestep !== undefined && config.min_timestep !== null) {
+  // Timestep control — only write non-default values (defaults: min=0, max=1000)
+  if (config.min_timestep != null && config.min_timestep > 0) {
     args.min_timestep = config.min_timestep;
   }
-  if (config.max_timestep !== undefined && config.max_timestep !== null) {
+  if (config.max_timestep != null && config.max_timestep < 1000) {
     args.max_timestep = config.max_timestep;
   }
 
