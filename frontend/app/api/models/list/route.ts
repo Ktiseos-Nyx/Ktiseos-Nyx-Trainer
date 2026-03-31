@@ -24,12 +24,16 @@ interface ModelFile {
  * Works on Vast, RunPod, Local, Docker without breaking any environment
  */
 function getProjectRoot(): string {
-  // 1. Env var override (cloud deployments)
-  if (process.env.WORKSPACE_DIR) {
-    return process.env.WORKSPACE_DIR;
-  }
-  if (process.env.PROJECT_ROOT) {
-    return process.env.PROJECT_ROOT;
+  // 1. Env var override (cloud deployments) — validate before trusting
+  for (const envVar of ['WORKSPACE_DIR', 'PROJECT_ROOT']) {
+    const envVal = process.env[envVar];
+    if (!envVal) continue;
+    try {
+      if (fsSync.existsSync(path.join(envVal, 'pretrained_model'))) {
+        return envVal;
+      }
+    } catch {}
+    // Env var set but marker not found — fall through to auto-detection
   }
 
   // 2. Smart detection: prefer parent if it has the pretrained_model dir

@@ -651,7 +651,9 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
  * ../, or with model file extensions).
  */
 function isHuggingFaceId(p: string): boolean {
-  if (p.includes('huggingface')) return true;
+  // Match explicit HF URLs (https://huggingface.co/... or huggingface.co/...)
+  if (/^https?:\/\/(www\.)?huggingface\.co\//i.test(p)) return true;
+  if (/^huggingface\.co(\/|$)/i.test(p)) return true;
   if (path.isAbsolute(p)) return false;
   if (p.startsWith('./') || p.startsWith('../')) return false;
   if (/\.(safetensors|ckpt|pt|pth|bin)$/i.test(p)) return false;
