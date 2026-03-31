@@ -282,8 +282,10 @@ export async function generateDatasetTOML(
   const subsets: any[] = [];
   const subset: any = {};
 
-  // Get absolute dataset path (resolve against projectRoot, not cwd)
-  let datasetAbsPath = resolveConfigPath(config.train_data_dir, projectRoot);
+  // Get absolute dataset path (always local — resolve directly, not via resolveConfigPath)
+  let datasetAbsPath = path.isAbsolute(config.train_data_dir)
+    ? config.train_data_dir
+    : path.resolve(projectRoot, config.train_data_dir);
 
   // CRITICAL FIX: Use relative path from sd_scripts directory
   // Training scripts run from trainer/derrian_backend/sd_scripts/
@@ -681,8 +683,10 @@ async function validatePaths(config: TrainingConfig, projectRoot: string): Promi
     }
   }
 
-  // Check dataset directory (always local, never an HF ID)
-  const datasetPath = resolveConfigPath(config.train_data_dir, projectRoot);
+  // Check dataset directory (always local — resolve directly, not via resolveConfigPath)
+  const datasetPath = path.isAbsolute(config.train_data_dir)
+    ? config.train_data_dir
+    : path.resolve(projectRoot, config.train_data_dir);
   try {
     await fs.access(datasetPath);
     const files = await fs.readdir(datasetPath);
@@ -693,8 +697,10 @@ async function validatePaths(config: TrainingConfig, projectRoot: string): Promi
     errors.push(`Training dataset directory not found: ${datasetPath}`);
   }
 
-  // Check output directory parent exists
-  const outputPath = resolveConfigPath(config.output_dir, projectRoot);
+  // Check output directory parent exists (always local)
+  const outputPath = path.isAbsolute(config.output_dir)
+    ? config.output_dir
+    : path.resolve(projectRoot, config.output_dir);
   const outputParent = path.dirname(outputPath);
   try {
     await fs.access(outputParent);
