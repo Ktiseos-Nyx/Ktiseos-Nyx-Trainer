@@ -83,9 +83,10 @@ export default function TrainingConfigNew() {
       setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
       toast.success('Models refreshed successfully');
       return modelsData;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       toast.error('Failed to refresh models', {
-        description: error.message || 'Could not load models from server',
+        description: message || 'Could not load models from server',
       });
       throw error;
     } finally {
