@@ -145,9 +145,8 @@ export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onR
 
         {/* --- BASE MODEL PATH + REFRESH --- */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Base Model Path</span>
-            {onRefreshModels && (
+          {onRefreshModels && (
+            <div className="flex items-center justify-end">
               <Button
                 type="button"
                 variant="ghost"
@@ -159,11 +158,12 @@ export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onR
                 <RefreshCw className={`h-3 w-3 ${isRefreshingModels ? 'animate-spin' : ''}`} />
                 {isRefreshingModels ? 'Refreshing…' : 'Refresh models'}
               </Button>
-            )}
-          </div>
+            </div>
+          )}
           <ComboboxFormField
             form={form}
             name="pretrained_model_name_or_path"
+            label="Base Model Path"
             description="Select a model from your /models/stable-diffusion folder"
             placeholder="Select or type a model path..."
             options={models}

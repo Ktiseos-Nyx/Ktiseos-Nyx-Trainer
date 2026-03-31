@@ -81,7 +81,13 @@ export default function TrainingConfigNew() {
       setModels((modelsData.models || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
       setVaes((modelsData.vaes || []).map((v: ModelItem) => ({ value: v.path, label: v.name })));
       setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+      toast.success('Models refreshed successfully');
       return modelsData;
+    } catch (error: any) {
+      toast.error('Failed to refresh models', {
+        description: error.message || 'Could not load models from server',
+      });
+      throw error;
     } finally {
       setIsRefreshingModels(false);
     }

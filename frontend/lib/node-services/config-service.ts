@@ -282,8 +282,10 @@ export async function generateDatasetTOML(
   const subsets: any[] = [];
   const subset: any = {};
 
-  // Get absolute dataset path
-  let datasetAbsPath = path.resolve(config.train_data_dir);
+  // Resolve dataset path against projectRoot
+  const datasetAbsPath = path.isAbsolute(config.train_data_dir)
+    ? config.train_data_dir
+    : path.resolve(projectRoot, config.train_data_dir);
 
   // CRITICAL FIX: Use relative path from sd_scripts directory
   // Training scripts run from trainer/derrian_backend/sd_scripts/
@@ -313,7 +315,7 @@ export async function generateConfigTOML(
   await validatePaths(config, projectRoot);
 
   // 1. Get base training args
-  const args = getTrainingArguments(config);
+  const args = getTrainingArguments(config, projectRoot);
 
   // 2. Add network args (LoRA settings) directly into same dict
   const networkConfig = getNetworkConfig(config);
@@ -393,12 +395,26 @@ function getNetworkConfig(config: TrainingConfig): any {
 /**
  * Map TrainingConfig to Kohya CLI argument keys
  */
-function getTrainingArguments(config: TrainingConfig): any {
-  // Use POSIX paths (forward slashes) for all paths
+function getTrainingArguments(config: TrainingConfig, projectRoot?: string): any {
+  // Helper to resolve paths: leave HF IDs unchanged, resolve relative paths against projectRoot
+  const resolvePath = (p: string): string => {
+    if (!p) return p;
+    // Check if it's a HuggingFace ID or remote URI
+    if (p.includes('huggingface') || (!path.isAbsolute(p) && p.includes('/'))) {
+      return p; // Leave HF IDs unchanged
+    }
+    // Resolve relative paths against projectRoot if provided
+    if (projectRoot && !path.isAbsolute(p)) {
+      return path.resolve(projectRoot, p).replace(/\\/g, '/');
+    }
+    // Use POSIX paths (forward slashes) for absolute paths
+    return path.resolve(p).replace(/\\/g, '/');
+  };
+
   const args: any = {
-    pretrained_model_name_or_path: path.resolve(config.pretrained_model_name_or_path).replace(/\\/g, '/'),
+    pretrained_model_name_or_path: resolvePath(config.pretrained_model_name_or_path),
     max_train_epochs: config.max_train_epochs,
-    output_dir: path.resolve(config.output_dir).replace(/\\/g, '/'),
+    output_dir: resolvePath(config.output_dir),
     output_name: config.output_name,
     seed: config.seed,
     unet_lr: config.unet_lr,
@@ -489,7 +505,7 @@ function getTrainingArguments(config: TrainingConfig): any {
     args.save_state_on_train_end = true;
   }
   if (config.resume_from_state) {
-    args.resume = path.resolve(config.resume_from_state).replace(/\\/g, '/');
+    args.resume = resolvePath(config.resume_from_state);
   }
 
   // Logging
@@ -505,16 +521,16 @@ function getTrainingArguments(config: TrainingConfig): any {
 
   // Optional paths (use POSIX format)
   if (config.vae_path) {
-    args.vae = path.resolve(config.vae_path).replace(/\\/g, '/');
+    args.vae = resolvePath(config.vae_path);
   }
   if (config.continue_from_lora) {
-    args.network_weights = path.resolve(config.continue_from_lora).replace(/\\/g, '/');
+    args.network_weights = resolvePath(config.continue_from_lora);
   }
   if (config.sample_prompts) {
-    args.sample_prompts = path.resolve(config.sample_prompts).replace(/\\/g, '/');
+    args.sample_prompts = resolvePath(config.sample_prompts);
   }
   if (config.logging_dir) {
-    args.logging_dir = path.resolve(config.logging_dir).replace(/\\/g, '/');
+    args.logging_dir = resolvePath(config.logging_dir);
   }
   if (config.log_with) {
     args.log_with = config.log_with;
@@ -578,13 +594,13 @@ function getTrainingArguments(config: TrainingConfig): any {
   // Flux specifics
   if (config.model_type === 'FLUX') {
     if (config.ae_path) {
-      args.ae = path.resolve(config.ae_path).replace(/\\/g, '/');
+      args.ae = resolvePath(config.ae_path);
     }
     if (config.clip_l_path) {
-      args.clip_l = path.resolve(config.clip_l_path).replace(/\\/g, '/');
+      args.clip_l = resolvePath(config.clip_l_path);
     }
     if (config.t5xxl_path) {
-      args.t5xxl = path.resolve(config.t5xxl_path).replace(/\\/g, '/');
+      args.t5xxl = resolvePath(config.t5xxl_path);
     }
     if (config.t5xxl_max_token_length) {
       args.t5xxl_max_token_length = config.t5xxl_max_token_length;
@@ -612,26 +628,26 @@ function getTrainingArguments(config: TrainingConfig): any {
   // SD3 specifics
   if (config.model_type === 'SD3') {
     if (config.clip_l_path) {
-      args.clip_l = path.resolve(config.clip_l_path).replace(/\\/g, '/');
+      args.clip_l = resolvePath(config.clip_l_path);
     }
     if (config.clip_g_path) {
-      args.clip_g = path.resolve(config.clip_g_path).replace(/\\/g, '/');
+      args.clip_g = resolvePath(config.clip_g_path);
     }
     if (config.t5xxl_path) {
-      args.t5xxl = path.resolve(config.t5xxl_path).replace(/\\/g, '/');
+      args.t5xxl = resolvePath(config.t5xxl_path);
     }
   }
 
   // Lumina specifics
   if (config.model_type === 'LUMINA') {
     if (config.gemma2) {
-      args.gemma2 = path.resolve(config.gemma2).replace(/\\/g, '/');
+      args.gemma2 = resolvePath(config.gemma2);
     }
     if (config.gemma2_max_token_length) {
       args.gemma2_max_token_length = config.gemma2_max_token_length;
     }
     if (config.ae_path) {
-      args.ae = path.resolve(config.ae_path).replace(/\\/g, '/');
+      args.ae = resolvePath(config.ae_path);
     }
   }
 
@@ -641,9 +657,10 @@ function getTrainingArguments(config: TrainingConfig): any {
 /**
  * Returns true for HuggingFace model IDs like "owner/repo-name".
  * These are downloaded at training time and cannot be checked as local paths.
+ * Matches the broader validation used in frontend/lib/validation.ts.
  */
 function isHuggingFaceId(p: string): boolean {
-  return !path.isAbsolute(p) && /^[a-zA-Z0-9][\w.-]*\/[\w.-]+$/.test(p);
+  return p.includes('huggingface') || (!path.isAbsolute(p) && p.includes('/'));
 }
 
 /**
