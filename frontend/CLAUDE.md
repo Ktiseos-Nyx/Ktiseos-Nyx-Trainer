@@ -51,7 +51,7 @@ npm run lint
 ## Architecture Overview
 
 ### Tech Stack
-- **Framework**: Next.js 15.4.7 (App Router, React 19 RC)
+- **Framework**: Next.js 15.5.14 (App Router, React 19 stable)
 - **Language**: TypeScript 5.4+
 - **Styling**: Tailwind CSS v4 with CSS custom properties for theming
 - **UI Components**: shadcn/ui ecosystem (Radix UI primitives)
@@ -298,17 +298,10 @@ Training config types are defined in `lib/api.ts` as `TrainingConfig` interface.
 
 ## Known Issues & Quirks
 
-### React 19 RC Overrides
+### React 19 Overrides
 
-Package.json uses React 19 RC with overrides for framer-motion compatibility:
-```json
-"overrides": {
-  "framer-motion": {
-    "react": "19.0.0-rc-66855b96-20241106",
-    "react-dom": "19.0.0-rc-66855b96-20241106"
-  }
-}
-```
+Package.json pins React 19.2.4 stable with overrides to ensure consistent
+versions across all dependencies (framer-motion, etc.).
 
 ### Tailwind v4 Migration
 
@@ -361,4 +354,4 @@ The frontend provides:
 3. **Use shadcn/ui components** - Check `SHADCN_COMPONENTS.md` before building custom
 4. **TypeScript everywhere** - No plain JavaScript files
 5. **API client centralization** - All backend calls through `lib/api.ts`
-6. **Security updates** - Currently at 0 vulnerabilities (Next.js 15.4.7)
+6. **Security updates** - Next.js 15.5.14 (CVE-2026-27980, 29057, 33671, 33228 patched)

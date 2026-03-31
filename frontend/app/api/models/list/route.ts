@@ -6,7 +6,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
+import fsSync from 'fs';              // 👈 Sync fs for existsSync
+import fs from 'fs/promises';         // 👈 Async fs for stat/readdir (renamed from default)
 import path from 'path';
 import { settingsService } from '@/lib/node-services/settings-service';
 
@@ -18,40 +19,84 @@ interface ModelFile {
   modified: number;
 }
 
-// Get model directories from environment or use defaults
-function getModelDirs(): { modelDir: string; vaeDir: string; loraDir: string } {
-  const baseDir = process.env.WORKSPACE_DIR || process.cwd();
+/**
+ * Smart project root detection
+ * Works on Vast, RunPod, Local, Docker without breaking any environment
+ */
+function getProjectRoot(): string {
+  // 1. Env var override (cloud deployments) — validate before trusting
+  for (const envVar of ['WORKSPACE_DIR', 'PROJECT_ROOT']) {
+    const envVal = process.env[envVar];
+    if (!envVal) continue;
+    try {
+      if (fsSync.existsSync(path.join(envVal, 'pretrained_model'))) {
+        return envVal;
+      }
+    } catch {}
+    // Env var set but marker not found — fall through to auto-detection
+  }
 
+  // 2. Smart detection: prefer parent if it has the pretrained_model dir
+  //    (Next.js cwd is frontend/, but models live in the parent)
+  const cwd = process.cwd();
+  const parent = path.resolve(cwd, '..');
+
+  try {
+    if (fsSync.existsSync(path.join(parent, 'pretrained_model'))) {
+      return parent;
+    }
+  } catch {}
+
+  // Check if cwd itself has pretrained_model (running from project root)
+  try {
+    if (fsSync.existsSync(path.join(cwd, 'pretrained_model'))) {
+      return cwd;
+    }
+  } catch {}
+
+  // 3. Fallback: if parent has package.json, it's likely the monorepo root
+  try {
+    if (fsSync.existsSync(path.join(parent, 'package.json'))) {
+      return parent;
+    }
+  } catch {}
+
+  return cwd;
+}
+
+// Get model directories from environment or use defaults
+function getModelDirs(projectRoot: string): { modelDir: string; vaeDir: string; loraDir: string } {
   return {
-    modelDir: process.env.PRETRAINED_MODEL_DIR || path.join(baseDir, 'pretrained_model'),
-    vaeDir: process.env.VAE_DIR || path.join(baseDir, 'vae'),
-    loraDir: process.env.OUTPUT_DIR || path.join(baseDir, 'output'),
+    modelDir: process.env.PRETRAINED_MODEL_DIR || path.join(projectRoot, 'pretrained_model'),
+    vaeDir: process.env.VAE_DIR || path.join(projectRoot, 'vae'),
+    loraDir: process.env.OUTPUT_DIR || path.join(projectRoot, 'output'),
   };
 }
 
-// Common model subdirectories on cloud GPU providers (RunPod, VastAI, etc.)
-const CLOUD_MODEL_PATHS = [
-  '/workspace/models',
-  '/workspace/models/Stable-diffusion',
-  '/workspace/models/checkpoints',
-  '/workspace/models/unet',
-  '/workspace/ComfyUI/models/checkpoints',
+/**
+ * Common model subdirectories RELATIVE to project root
+ * These are scanned in addition to the main pretrained_model/ directory
+ * Works on Vast, RunPod, Local, Docker without hardcoding absolute paths
+ */
+// Extra model dirs to scan (relative to project root).
+// NOTE: pretrained_model/ and vae/ are already scanned as modelDir/vaeDir
+// via getModelDirs() — don't duplicate them here.
+const RELATIVE_MODEL_PATHS = [
+  'models/Stable-diffusion',    // Common ComfyUI/SD-webui layout
+  'models/checkpoints',         // Alternative ComfyUI layout
+  'models/unet',                // Some Flux setups
 ];
 
-const CLOUD_VAE_PATHS = [
-  '/workspace/models/vae',
-  '/workspace/models/VAE',
-  '/workspace/ComfyUI/models/vae',
+const RELATIVE_VAE_PATHS = [
+  'models/vae',                 // ComfyUI layout
+  'models/VAE',                 // Case variant
 ];
 
-const CLOUD_TEXT_ENCODER_PATHS = [
-  '/workspace/models/clip',
-  '/workspace/models/CLIP',
-  '/workspace/models/t5',
-  '/workspace/models/text_encoders',
-  '/workspace/models/text_encoder',
-  '/workspace/ComfyUI/models/clip',
-  '/workspace/ComfyUI/models/text_encoders',
+const RELATIVE_TEXT_ENCODER_PATHS = [
+  'text_encoders',              // Default
+  'models/clip',                // ComfyUI
+  'models/CLIP',                // Case variant
+  'models/t5',                  // T5-specific
 ];
 
 const MODEL_EXTENSIONS = ['.safetensors', '.ckpt', '.pt', '.pth', '.bin'];
@@ -63,7 +108,7 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
   const files: ModelFile[] = [];
 
   try {
-    const stats = await fs.stat(dirPath);
+    const stats = await fs.stat(dirPath); // 👈 Uses async 'fs' (fs/promises)
     if (!stats.isDirectory()) return files;
   } catch {
     // Directory doesn't exist
@@ -106,7 +151,7 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
  */
 async function canonicalizePath(filePath: string): Promise<string> {
   try {
-    return await fs.realpath(filePath);
+    return await fs.realpath(filePath); // 👈 Uses async 'fs'
   } catch {
     return path.resolve(filePath);
   }
@@ -135,15 +180,44 @@ async function mergeModelFiles(primary: ModelFile[], ...extras: ModelFile[][]): 
   return merged;
 }
 
+/**
+ * Helper: Resolve relative paths to absolute, filtering out non-existent dirs
+ */
+function resolveRelativePaths(relativePaths: string[], baseDir: string): string[] {
+  return relativePaths
+    .map(p => path.join(baseDir, p))
+    .filter(p => {
+      try {
+        return fsSync.existsSync(p); // 👈 Uses sync fsSync
+      } catch {
+        return false;
+      }
+    });
+}
+
 export async function GET() {
   try {
-    const { modelDir, vaeDir, loraDir } = getModelDirs();
+    const projectRoot = getProjectRoot();
+    const { modelDir, vaeDir, loraDir } = getModelDirs(projectRoot);
     const { extra_model_dirs, extra_vae_dirs } = await settingsService.getExtraModelDirs();
 
-    const allModelDirs = [modelDir, ...CLOUD_MODEL_PATHS, ...extra_model_dirs];
-    const allVaeDirs = [vaeDir, ...CLOUD_VAE_PATHS, ...extra_vae_dirs];
-    // Text encoders: scan dedicated dirs + the main model dir (some setups mix them)
-    const allTextEncoderDirs = [...CLOUD_TEXT_ENCODER_PATHS, modelDir];
+    // Resolve relative paths to absolute, filter out non-existent dirs
+    const allModelDirs = [
+      modelDir,
+      ...resolveRelativePaths(RELATIVE_MODEL_PATHS, projectRoot),
+      ...extra_model_dirs,
+    ];
+    
+    const allVaeDirs = [
+      vaeDir,
+      ...resolveRelativePaths(RELATIVE_VAE_PATHS, projectRoot),
+      ...extra_vae_dirs,
+    ];
+    
+    const allTextEncoderDirs = [
+      ...resolveRelativePaths(RELATIVE_TEXT_ENCODER_PATHS, projectRoot),
+      modelDir, // Also scan main model dir for mixed setups
+    ];
 
     const allResults = await Promise.all([
       ...allModelDirs.map((d) => listModelFiles(d)),

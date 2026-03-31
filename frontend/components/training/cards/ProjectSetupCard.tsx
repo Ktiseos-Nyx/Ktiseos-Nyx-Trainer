@@ -144,9 +144,9 @@ export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onR
         />
 
         {/* --- BASE MODEL PATH + REFRESH --- */}
-        <div className="space-y-2">
+        <div>
           {onRefreshModels && (
-            <div className="flex items-center justify-end">
+            <div className="flex justify-end mb-1">
               <Button
                 type="button"
                 variant="ghost"

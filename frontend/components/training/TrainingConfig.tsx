@@ -88,7 +88,6 @@ export default function TrainingConfigNew() {
       toast.error('Failed to refresh models', {
         description: message || 'Could not load models from server',
       });
-      throw error;
     } finally {
       setIsRefreshingModels(false);
     }
