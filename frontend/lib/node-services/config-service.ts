@@ -201,7 +201,7 @@ export async function generateDatasetTOML(
   sdScriptsDir: string
 ): Promise<string> {
   // Validate paths first
-  await validatePaths(config);
+  await validatePaths(config, projectRoot);
 
   const doc: any = {};
 
@@ -310,7 +310,7 @@ export async function generateConfigTOML(
   projectRoot: string
 ): Promise<string> {
   // Validate paths first
-  await validatePaths(config);
+  await validatePaths(config, projectRoot);
 
   // 1. Get base training args
   const args = getTrainingArguments(config);
@@ -641,11 +641,12 @@ function getTrainingArguments(config: TrainingConfig): any {
 /**
  * Validate critical paths exist before TOML generation
  */
-async function validatePaths(config: TrainingConfig): Promise<void> {
+async function validatePaths(config: TrainingConfig, projectRoot: string): Promise<void> {
   const errors: string[] = [];
+  const resolvePath = (p: string) => path.isAbsolute(p) ? p : path.resolve(projectRoot, p);
 
   // Check base model
-  const modelPath = path.resolve(config.pretrained_model_name_or_path);
+  const modelPath = resolvePath(config.pretrained_model_name_or_path);
   try {
     await fs.access(modelPath);
   } catch {
@@ -653,7 +654,7 @@ async function validatePaths(config: TrainingConfig): Promise<void> {
   }
 
   // Check dataset directory
-  const datasetPath = path.resolve(config.train_data_dir);
+  const datasetPath = resolvePath(config.train_data_dir);
   try {
     await fs.access(datasetPath);
     const files = await fs.readdir(datasetPath);
@@ -665,7 +666,7 @@ async function validatePaths(config: TrainingConfig): Promise<void> {
   }
 
   // Check output directory parent exists
-  const outputPath = path.resolve(config.output_dir);
+  const outputPath = resolvePath(config.output_dir);
   const outputParent = path.dirname(outputPath);
   try {
     await fs.access(outputParent);
@@ -676,7 +677,7 @@ async function validatePaths(config: TrainingConfig): Promise<void> {
   // Optional paths (warn but don't fail)
   if (config.vae_path) {
     try {
-      await fs.access(path.resolve(config.vae_path));
+      await fs.access(resolvePath(config.vae_path));
     } catch {
       console.warn(`VAE path specified but not found: ${config.vae_path}`);
     }
@@ -684,7 +685,7 @@ async function validatePaths(config: TrainingConfig): Promise<void> {
 
   if (config.continue_from_lora) {
     try {
-      await fs.access(path.resolve(config.continue_from_lora));
+      await fs.access(resolvePath(config.continue_from_lora));
     } catch {
       errors.push(`LoRA to continue from not found: ${config.continue_from_lora}`);
     }
