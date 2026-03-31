@@ -394,13 +394,15 @@ function getNetworkConfig(config: TrainingConfig): any {
  * Map TrainingConfig to Kohya CLI argument keys
  */
 function getTrainingArguments(config: TrainingConfig, projectRoot: string): any {
-  // Resolve paths against projectRoot, leave HF IDs unchanged, normalize to POSIX slashes
+  // Model paths: HF IDs pass through, local paths resolve against projectRoot
   const rp = (p: string) => resolveConfigPath(p, projectRoot).replace(/\\/g, '/');
+  // Always-local paths (output, logs, etc.): always resolve, never treat as HF ID
+  const rpLocal = (p: string) => (path.isAbsolute(p) ? p : path.resolve(projectRoot, p)).replace(/\\/g, '/');
 
   const args: any = {
     pretrained_model_name_or_path: rp(config.pretrained_model_name_or_path),
     max_train_epochs: config.max_train_epochs,
-    output_dir: rp(config.output_dir),
+    output_dir: rpLocal(config.output_dir),
     output_name: config.output_name,
     seed: config.seed,
     unet_lr: config.unet_lr,
@@ -491,7 +493,7 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     args.save_state_on_train_end = true;
   }
   if (config.resume_from_state) {
-    args.resume = rp(config.resume_from_state);
+    args.resume = rpLocal(config.resume_from_state);
   }
 
   // Logging
@@ -513,10 +515,10 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     args.network_weights = rp(config.continue_from_lora);
   }
   if (config.sample_prompts) {
-    args.sample_prompts = rp(config.sample_prompts);
+    args.sample_prompts = rpLocal(config.sample_prompts);
   }
   if (config.logging_dir) {
-    args.logging_dir = rp(config.logging_dir);
+    args.logging_dir = rpLocal(config.logging_dir);
   }
   if (config.log_with) {
     args.log_with = config.log_with;
@@ -642,12 +644,17 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
 
 /**
  * Returns true for HuggingFace model IDs or URLs.
- * Matches "owner/repo", "org/repo/subfolder", and URLs containing "huggingface".
- * These are downloaded at training time and cannot be checked as local paths.
- * Matches the broader validation used in frontend/lib/validation.ts.
+ * Matches "owner/repo-name" style HF IDs (exactly two segments) and
+ * URLs containing "huggingface". Rejects local paths (absolute, ./,
+ * ../, or with model file extensions).
  */
 function isHuggingFaceId(p: string): boolean {
-  return p.includes('huggingface') || (!path.isAbsolute(p) && p.includes('/'));
+  if (p.includes('huggingface')) return true;
+  if (path.isAbsolute(p)) return false;
+  if (p.startsWith('./') || p.startsWith('../')) return false;
+  if (/\.(safetensors|ckpt|pt|pth|bin)$/i.test(p)) return false;
+  // HF IDs are "owner/repo" — exactly two segments, no deeper nesting
+  return /^[a-zA-Z0-9][\w.-]*\/[\w.-]+$/.test(p);
 }
 
 /**
