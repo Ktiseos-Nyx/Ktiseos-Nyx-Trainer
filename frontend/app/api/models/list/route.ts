@@ -6,8 +6,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import fs from 'fs'; 
-import fs from 'fs/promises';
+import fsSync from 'fs';              // 👈 Sync fs for existsSync
+import fs from 'fs/promises';         // 👈 Async fs for stat/readdir (renamed from default)
 import path from 'path';
 import { settingsService } from '@/lib/node-services/settings-service';
 
@@ -19,14 +19,49 @@ interface ModelFile {
   modified: number;
 }
 
+/**
+ * Smart project root detection
+ * Works on Vast, RunPod, Local, Docker without breaking any environment
+ */
+function getProjectRoot(): string {
+  // 1. Env var override (cloud deployments)
+  if (process.env.WORKSPACE_DIR) {
+    return process.env.WORKSPACE_DIR;
+  }
+  if (process.env.PROJECT_ROOT) {
+    return process.env.PROJECT_ROOT;
+  }
+
+  // 2. Smart detection: look for package.json (works anywhere)
+  const cwd = process.cwd();
+  
+  // Check if cwd itself has package.json (local dev from root)
+  try {
+    if (fsSync.existsSync(path.join(cwd, 'package.json'))) {
+      return cwd;
+    }
+  } catch {}
+  
+  // Check if parent has package.json (Next.js running from frontend/)
+  try {
+    const parent = path.resolve(cwd, '..');
+    if (fsSync.existsSync(path.join(parent, 'package.json'))) {
+      return parent;
+    }
+  } catch {}
+  
+  // 3. Fallback: assume cwd is root (graceful degradation)
+  return cwd;
+}
+
 // Get model directories from environment or use defaults
 function getModelDirs(): { modelDir: string; vaeDir: string; loraDir: string } {
-  const baseDir = process.env.WORKSPACE_DIR || process.cwd();
+  const projectRoot = getProjectRoot(); // ✅ Smart detection
 
   return {
-    modelDir: process.env.PRETRAINED_MODEL_DIR || path.join(baseDir, 'pretrained_model'),
-    vaeDir: process.env.VAE_DIR || path.join(baseDir, 'vae'),
-    loraDir: process.env.OUTPUT_DIR || path.join(baseDir, 'output'),
+    modelDir: process.env.PRETRAINED_MODEL_DIR || path.join(projectRoot, 'pretrained_model'),
+    vaeDir: process.env.VAE_DIR || path.join(projectRoot, 'vae'),
+    loraDir: process.env.OUTPUT_DIR || path.join(projectRoot, 'output'),
   };
 }
 
@@ -64,14 +99,14 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
   const files: ModelFile[] = [];
 
   try {
-    const stats = await fsPromises.stat(dirPath);
+    const stats = await fs.stat(dirPath); // 👈 Uses async 'fs' (fs/promises)
     if (!stats.isDirectory()) return files;
   } catch {
     // Directory doesn't exist
     return files;
   }
 
-  const entries = await fsPromises.readdir(dirPath, { withFileTypes: true });
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
   for (const entry of entries) {
     if (!entry.isFile()) continue;
@@ -82,7 +117,7 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
     const filePath = path.join(dirPath, entry.name);
 
     try {
-      const stats = await fsPromises.stat(filePath);
+      const stats = await fs.stat(filePath);
       files.push({
         name: entry.name,
         path: filePath,
@@ -107,7 +142,7 @@ async function listModelFiles(dirPath: string): Promise<ModelFile[]> {
  */
 async function canonicalizePath(filePath: string): Promise<string> {
   try {
-    return await fs.realpath(filePath);
+    return await fs.realpath(filePath); // 👈 Uses async 'fs'
   } catch {
     return path.resolve(filePath);
   }
@@ -136,15 +171,46 @@ async function mergeModelFiles(primary: ModelFile[], ...extras: ModelFile[][]): 
   return merged;
 }
 
+/**
+ * Helper: Resolve relative paths to absolute, filtering out non-existent dirs
+ */
+function resolveRelativePaths(relativePaths: string[], baseDir: string): string[] {
+  return relativePaths
+    .map(p => path.join(baseDir, p))
+    .filter(p => {
+      try {
+        return fsSync.existsSync(p); // 👈 Uses sync fsSync
+      } catch {
+        return false;
+      }
+    });
+}
+
 export async function GET() {
   try {
     const { modelDir, vaeDir, loraDir } = getModelDirs();
     const { extra_model_dirs, extra_vae_dirs } = await settingsService.getExtraModelDirs();
+    
+    // Get project root for relative path resolution
+    const projectRoot = getProjectRoot();
 
-    const allModelDirs = [modelDir, ...CLOUD_MODEL_PATHS, ...extra_model_dirs];
-    const allVaeDirs = [vaeDir, ...CLOUD_VAE_PATHS, ...extra_vae_dirs];
-    // Text encoders: scan dedicated dirs + the main model dir (some setups mix them)
-    const allTextEncoderDirs = [...CLOUD_TEXT_ENCODER_PATHS, modelDir];
+    // Resolve relative paths to absolute, filter out non-existent dirs
+    const allModelDirs = [
+      modelDir,
+      ...resolveRelativePaths(RELATIVE_MODEL_PATHS, projectRoot),
+      ...extra_model_dirs,
+    ];
+    
+    const allVaeDirs = [
+      vaeDir,
+      ...resolveRelativePaths(RELATIVE_VAE_PATHS, projectRoot),
+      ...extra_vae_dirs,
+    ];
+    
+    const allTextEncoderDirs = [
+      ...resolveRelativePaths(RELATIVE_TEXT_ENCODER_PATHS, projectRoot),
+      modelDir, // Also scan main model dir for mixed setups
+    ];
 
     const allResults = await Promise.all([
       ...allModelDirs.map((d) => listModelFiles(d)),
