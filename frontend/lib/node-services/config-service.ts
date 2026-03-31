@@ -639,18 +639,28 @@ function getTrainingArguments(config: TrainingConfig): any {
 }
 
 /**
+ * Returns true for HuggingFace model IDs like "owner/repo-name".
+ * These are downloaded at training time and cannot be checked as local paths.
+ */
+function isHuggingFaceId(p: string): boolean {
+  return !path.isAbsolute(p) && /^[a-zA-Z0-9][\w.-]*\/[\w.-]+$/.test(p);
+}
+
+/**
  * Validate critical paths exist before TOML generation
  */
 async function validatePaths(config: TrainingConfig, projectRoot: string): Promise<void> {
   const errors: string[] = [];
   const resolvePath = (p: string) => path.isAbsolute(p) ? p : path.resolve(projectRoot, p);
 
-  // Check base model
-  const modelPath = resolvePath(config.pretrained_model_name_or_path);
-  try {
-    await fs.access(modelPath);
-  } catch {
-    errors.push(`Base model not found: ${modelPath}`);
+  // Check base model — skip if it's a HuggingFace model ID (downloaded at train time)
+  if (!isHuggingFaceId(config.pretrained_model_name_or_path)) {
+    const modelPath = resolvePath(config.pretrained_model_name_or_path);
+    try {
+      await fs.access(modelPath);
+    } catch {
+      errors.push(`Base model not found: ${modelPath}`);
+    }
   }
 
   // Check dataset directory
@@ -683,7 +693,7 @@ async function validatePaths(config: TrainingConfig, projectRoot: string): Promi
     }
   }
 
-  if (config.continue_from_lora) {
+  if (config.continue_from_lora && !isHuggingFaceId(config.continue_from_lora)) {
     try {
       await fs.access(resolvePath(config.continue_from_lora));
     } catch {
