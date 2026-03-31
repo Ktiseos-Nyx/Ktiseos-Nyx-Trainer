@@ -32,32 +32,36 @@ function getProjectRoot(): string {
     return process.env.PROJECT_ROOT;
   }
 
-  // 2. Smart detection: look for package.json (works anywhere)
+  // 2. Smart detection: prefer parent if it has the pretrained_model dir
+  //    (Next.js cwd is frontend/, but models live in the parent)
   const cwd = process.cwd();
-  
-  // Check if cwd itself has package.json (local dev from root)
+  const parent = path.resolve(cwd, '..');
+
   try {
-    if (fsSync.existsSync(path.join(cwd, 'package.json'))) {
+    if (fsSync.existsSync(path.join(parent, 'pretrained_model'))) {
+      return parent;
+    }
+  } catch {}
+
+  // Check if cwd itself has pretrained_model (running from project root)
+  try {
+    if (fsSync.existsSync(path.join(cwd, 'pretrained_model'))) {
       return cwd;
     }
   } catch {}
-  
-  // Check if parent has package.json (Next.js running from frontend/)
+
+  // 3. Fallback: if parent has package.json, it's likely the monorepo root
   try {
-    const parent = path.resolve(cwd, '..');
     if (fsSync.existsSync(path.join(parent, 'package.json'))) {
       return parent;
     }
   } catch {}
-  
-  // 3. Fallback: assume cwd is root (graceful degradation)
+
   return cwd;
 }
 
 // Get model directories from environment or use defaults
-function getModelDirs(): { modelDir: string; vaeDir: string; loraDir: string } {
-  const projectRoot = getProjectRoot(); // ✅ Smart detection
-
+function getModelDirs(projectRoot: string): { modelDir: string; vaeDir: string; loraDir: string } {
   return {
     modelDir: process.env.PRETRAINED_MODEL_DIR || path.join(projectRoot, 'pretrained_model'),
     vaeDir: process.env.VAE_DIR || path.join(projectRoot, 'vae'),
@@ -70,15 +74,16 @@ function getModelDirs(): { modelDir: string; vaeDir: string; loraDir: string } {
  * These are scanned in addition to the main pretrained_model/ directory
  * Works on Vast, RunPod, Local, Docker without hardcoding absolute paths
  */
+// Extra model dirs to scan (relative to project root).
+// NOTE: pretrained_model/ and vae/ are already scanned as modelDir/vaeDir
+// via getModelDirs() — don't duplicate them here.
 const RELATIVE_MODEL_PATHS = [
-  'pretrained_model',           // Default location
   'models/Stable-diffusion',    // Common ComfyUI/SD-webui layout
   'models/checkpoints',         // Alternative ComfyUI layout
   'models/unet',                // Some Flux setups
 ];
 
 const RELATIVE_VAE_PATHS = [
-  'vae',                        // Default location
   'models/vae',                 // ComfyUI layout
   'models/VAE',                 // Case variant
 ];
@@ -188,11 +193,9 @@ function resolveRelativePaths(relativePaths: string[], baseDir: string): string[
 
 export async function GET() {
   try {
-    const { modelDir, vaeDir, loraDir } = getModelDirs();
-    const { extra_model_dirs, extra_vae_dirs } = await settingsService.getExtraModelDirs();
-    
-    // Get project root for relative path resolution
     const projectRoot = getProjectRoot();
+    const { modelDir, vaeDir, loraDir } = getModelDirs(projectRoot);
+    const { extra_model_dirs, extra_vae_dirs } = await settingsService.getExtraModelDirs();
 
     // Resolve relative paths to absolute, filter out non-existent dirs
     const allModelDirs = [
