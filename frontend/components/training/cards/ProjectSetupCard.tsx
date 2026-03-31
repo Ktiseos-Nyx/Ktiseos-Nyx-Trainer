@@ -12,7 +12,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ComboboxFormField, TextFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
-import { Folder, Sparkles } from 'lucide-react';
+import { Folder, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 
@@ -30,6 +30,8 @@ interface ProjectSetupCardProps {
   vaes: { value: string; label: string }[];
   textEncoders: { value: string; label: string }[];
   onSave?: () => void;
+  onRefreshModels?: () => Promise<unknown>;
+  isRefreshingModels?: boolean;
 }
 
 /**
@@ -46,7 +48,7 @@ interface ProjectSetupCardProps {
  * `@param` props - See {`@link` ProjectSetupCardProps}.
  * `@returns` The rendered project setup card.
  */
-export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave }: ProjectSetupCardProps) {
+export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onRefreshModels, isRefreshingModels }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
   const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
   const isChroma = modelType === 'Chroma';
@@ -141,15 +143,32 @@ export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave }: P
 
         />
 
-        {/* --- REPLACEMENT FOR BASE MODEL PATH --- */}
-        <ComboboxFormField
-          form={form}
-          name="pretrained_model_name_or_path"
-          label="Base Model Path"
-          description="Select a model from your /models/stable-diffusion folder"
-          placeholder="Select or type a model path..."
-          options={models}
-        />
+        {/* --- BASE MODEL PATH + REFRESH --- */}
+        <div className="space-y-2">
+          {onRefreshModels && (
+            <div className="flex items-center justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRefreshModels}
+                disabled={isRefreshingModels}
+                className="h-7 gap-1 text-xs text-muted-foreground"
+              >
+                <RefreshCw className={`h-3 w-3 ${isRefreshingModels ? 'animate-spin' : ''}`} />
+                {isRefreshingModels ? 'Refreshing…' : 'Refresh models'}
+              </Button>
+            </div>
+          )}
+          <ComboboxFormField
+            form={form}
+            name="pretrained_model_name_or_path"
+            label="Base Model Path"
+            description="Select a model from your /models/stable-diffusion folder"
+            placeholder="Select or type a model path..."
+            options={models}
+          />
+        </div>
 
         {/* --- REPLACEMENT FOR VAE PATH --- */}
         <ComboboxFormField

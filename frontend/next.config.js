@@ -2,6 +2,11 @@
 const path = require('path');
 
 const nextConfig = {
+  // ✅ CVE-2026-27980: Cap image optimization disk cache (added in Next.js 15.5.14)
+  images: {
+    maximumDiskCacheSize: 500 * 1024 * 1024, // 500 MB
+  },
+
   // ✅ FIX: Allow massive uploads (2GB limit)
   experimental: {
     serverActions: {

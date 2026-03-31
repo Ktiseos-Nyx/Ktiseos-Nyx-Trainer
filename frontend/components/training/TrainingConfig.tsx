@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Save, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -72,6 +72,28 @@ export default function TrainingConfigNew() {
     validateOnChange: false,  // 👈 Ensure this is false (or just remove the line)
   });
 
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+
+  const refreshModels = useCallback(async () => {
+    setIsRefreshingModels(true);
+    try {
+      const modelsData = await modelsAPI.list();
+      setModels((modelsData.models || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+      setVaes((modelsData.vaes || []).map((v: ModelItem) => ({ value: v.path, label: v.name })));
+      setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+      toast.success('Models refreshed successfully');
+      return modelsData;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error('Failed to refresh models', {
+        description: message || 'Could not load models from server',
+      });
+      throw error;
+    } finally {
+      setIsRefreshingModels(false);
+    }
+  }, []);
+
   // Fetch dropdown options AFTER hydration completes
   useEffect(() => {
     // Wait for localStorage hydration before fetching options
@@ -79,11 +101,7 @@ export default function TrainingConfigNew() {
 
     const fetchOptions = async () => {
       try {
-        // Models/VAEs/text encoders are independent of workspace root — fetch always
-        const modelsData = await modelsAPI.list();
-        setModels((modelsData.models || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
-        setVaes((modelsData.vaes || []).map((v: ModelItem) => ({ value: v.path, label: v.name })));
-        setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+        const modelsData = await refreshModels();
 
         // Workspace root is only needed for dataset listing and output_dir defaults
         let root = '';
@@ -115,7 +133,7 @@ export default function TrainingConfigNew() {
         // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
             if (root && !form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
-            if (!form.getValues('pretrained_model_name_or_path') && modelsData.models?.length > 0) {
+            if (!form.getValues('pretrained_model_name_or_path') && modelsData?.models?.length > 0) {
                 form.setValue('pretrained_model_name_or_path', modelsData.models[0].path);
             }
             if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
@@ -255,7 +273,7 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="setup"><SetupTab form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="setup"><SetupTab form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} onRefreshModels={refreshModels} isRefreshingModels={isRefreshingModels} /></TabsContent>
                   <TabsContent value="dataset"><DatasetTab form={form} datasets={datasets} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="lora"><LoRATab form={form} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="learning"><LearningTab form={form} onSave={handleCardSave} /></TabsContent>

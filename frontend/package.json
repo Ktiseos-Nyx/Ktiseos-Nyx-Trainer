@@ -75,7 +75,7 @@
     "lexical": "^0.39.0",
     "lucide-react": "^0.561.0",
     "motion": "^12.23.26",
-    "next": "15.5.13",
+    "next": "15.5.14",
     "next-themes": "^0.4.6",
     "onnxruntime-node": "^1.23.2",
     "react": "19.2.4",
@@ -99,7 +99,9 @@
     "react-dom": "$react-dom",
     "shadcn": {
       "@modelcontextprotocol/sdk": "^1.24.0"
-    }
+    },
+    "flatted": ">=3.4.2",
+    "picomatch": ">=2.3.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

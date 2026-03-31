@@ -26,16 +26,18 @@ interface TabProps {
   textEncoders?: { value: string; label: string }[];
   datasets?: { value: string; label: string }[];
 	onSave?: () => void;
+  onRefreshModels?: () => Promise<unknown>;
+  isRefreshingModels?: boolean;
 }
 
 /**
  * Setup Tab
  * Project information and model selection
  */
-export function SetupTab({ form, models = [], vaes = [], textEncoders = [], onSave }: TabProps) {
+export function SetupTab({ form, models = [], vaes = [], textEncoders = [], onSave, onRefreshModels, isRefreshingModels }: TabProps) {
   return (
     <div className="space-y-6">
-      <ProjectSetupCard form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={onSave} />
+      <ProjectSetupCard form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={onSave} onRefreshModels={onRefreshModels} isRefreshingModels={isRefreshingModels} />
     </div>
   );
 }

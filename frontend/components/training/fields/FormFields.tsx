@@ -46,7 +46,7 @@ import {
 interface BaseFieldProps<T extends FieldValues> {
   form: UseFormReturn<T>;
   name: Path<T>;
-  label: string;
+  label?: string;
   description?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -86,7 +86,7 @@ export function TextFormField<T extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
             <Input
               placeholder={placeholder}
@@ -133,7 +133,7 @@ export function NumberFormField<T extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
             <Input
               type="number"
@@ -181,7 +181,7 @@ export function SelectFormField<T extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <Select
             value={field.value}
             onValueChange={(val: string) => {
@@ -232,7 +232,7 @@ export function CheckboxFormField<T extends FieldValues>({
             />
           </FormControl>
           <div className="space-y-1 leading-none">
-            <FormLabel>{label}</FormLabel>
+            {label && <FormLabel>{label}</FormLabel>}
             {description && <FormDescription>{description}</FormDescription>}
           </div>
           <FormMessage />
@@ -262,7 +262,7 @@ export function TextareaFormField<T extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
             <Textarea
               placeholder={placeholder}
@@ -309,7 +309,7 @@ export function SliderFormField<T extends FieldValues>({
       render={({ field }) => (
         <FormItem>
           <div className="flex items-center justify-between">
-            <FormLabel>{label}</FormLabel>
+            {label && <FormLabel>{label}</FormLabel>}
             <span className="text-sm text-muted-foreground">
               {field.value ?? min}
             </span>
@@ -412,7 +412,7 @@ export function ComboboxFormField<T extends FieldValues>({
       name={name}
       render={() => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <Combobox
             value={comboboxValue}
             onValueChange={(val: string) => {
