@@ -171,11 +171,11 @@ export default function CheckpointTrainingConfig() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SD1.5">Stable Diffusion 1.5</SelectItem>
+                  <SelectItem value="SD15">Stable Diffusion 1.5</SelectItem>
                   <SelectItem value="SDXL">Stable Diffusion XL</SelectItem>
-                  <SelectItem value="Flux">Flux</SelectItem>
+                  <SelectItem value="FLUX">Flux</SelectItem>
                   <SelectItem value="SD3">Stable Diffusion 3</SelectItem>
-                  <SelectItem value="Lumina">Lumina</SelectItem>
+                  <SelectItem value="LUMINA">Lumina</SelectItem>
                 </SelectContent>
               </Select>
             </div>

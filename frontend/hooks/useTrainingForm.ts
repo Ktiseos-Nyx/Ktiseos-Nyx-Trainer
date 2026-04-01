@@ -309,6 +309,11 @@ export function useTrainingForm(options: {
     const currentValues = form.getValues();
     const fullConfig = { ...currentValues, ...preset } as TrainingConfig;
 
+    // Normalize legacy model_type strings that predate the enum casing fix
+    if ((fullConfig.model_type as string) === 'SD1.5') fullConfig.model_type = 'SD15';
+    if ((fullConfig.model_type as string) === 'Flux') fullConfig.model_type = 'FLUX';
+    if ((fullConfig.model_type as string) === 'Lumina') fullConfig.model_type = 'LUMINA';
+
     // Update form and save to localStorage
     form.reset(fullConfig, { keepDefaultValues: false, keepDirty: false, keepValues: false });
     writeStoredConfig(fullConfig);
