@@ -147,7 +147,7 @@ export default function DatasetUploader() {
         await handleUploadZipped(imageFiles);
       } else {
         // Local mode: upload individually with per-file progress
-        await handleUploadIndividual(imageFiles);
+        await handleBatchUpload(imageFiles);
       }
 
       toast.success('Upload complete!');
@@ -168,13 +168,15 @@ export default function DatasetUploader() {
   };
 
   // Upload all files in a single batch request (avoids per-file round-trip overhead)
-  const handleUploadIndividual = async (imageFiles: UploadedFile[]) => {
+  const handleBatchUpload = async (imageFiles: UploadedFile[]) => {
     if (imageFiles.length === 0) return;
+
+    const imageFileSet = new Set(imageFiles.map(f => f.file));
 
     // Mark all as uploading at once
     setFiles(prev =>
       prev.map(f =>
-        imageFiles.some(img => img.file === f.file) ? { ...f, status: 'uploading' } : f
+        imageFileSet.has(f.file) ? { ...f, status: 'uploading' } : f
       )
     );
 
@@ -183,7 +185,7 @@ export default function DatasetUploader() {
 
       setFiles(prev =>
         prev.map(f =>
-          imageFiles.some(img => img.file === f.file)
+          imageFileSet.has(f.file)
             ? { ...f, status: 'success', progress: 100 }
             : f
         )
@@ -191,7 +193,7 @@ export default function DatasetUploader() {
     } catch (err) {
       setFiles(prev =>
         prev.map(f =>
-          imageFiles.some(img => img.file === f.file)
+          imageFileSet.has(f.file)
             ? { ...f, status: 'error', error: String(err) }
             : f
         )

@@ -9,7 +9,7 @@ import { z } from 'zod/v4';
  * Model type enumeration
  */
 // FIX: Changed errorMap to 'message' based on your TS error
-export const ModelTypeSchema = z.enum(['SD1.5', 'SDXL', 'Flux', 'SD3', 'SD3.5', 'Lumina', 'Chroma', 'Anima', 'HunyuanImage'], {
+export const ModelTypeSchema = z.enum(['SD15', 'SDXL', 'FLUX', 'SD3', 'SD3.5', 'LUMINA', 'Chroma', 'Anima', 'HunyuanImage'], {
   message: 'Please select a valid model type',
 });
 

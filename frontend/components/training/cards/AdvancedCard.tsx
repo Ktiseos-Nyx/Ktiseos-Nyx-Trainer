@@ -20,9 +20,9 @@ interface AdvancedCardProps {
 
 export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
   const modelType = form.watch('model_type');
-  const isFlux = modelType === 'Flux';
+  const isFlux = modelType === 'FLUX';
   const isChroma = modelType === 'Chroma';
-  const isLumina = modelType === 'Lumina';
+  const isLumina = modelType === 'LUMINA';
   const isAnima = modelType === 'Anima';
   const isHunyuanImage = modelType === 'HunyuanImage';
   // SD2 check kept for future support - currently no SD2 in ModelType enum

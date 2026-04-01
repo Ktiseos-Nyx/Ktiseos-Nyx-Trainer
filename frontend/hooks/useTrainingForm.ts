@@ -10,9 +10,38 @@ import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TrainingConfigSchema } from '@/lib/validation';
-import type { TrainingConfig } from '@/lib/api';
+import type { ModelType, TrainingConfig } from '@/lib/api';
 
 const STORAGE_KEY = 'training-config';
+
+/** Migrate legacy model_type strings to current enum casing. Returns undefined for unknown values. */
+export function normalizeModelType(value: string): ModelType | undefined {
+  switch (value) {
+    case 'SD15':
+    case 'SDXL':
+    case 'FLUX':
+    case 'SD3':
+    case 'SD3.5':
+    case 'LUMINA':
+    case 'Chroma':
+    case 'Anima':
+    case 'HunyuanImage':
+      return value as ModelType;
+    case 'SD1.5': return 'SD15';
+    case 'Flux':  return 'FLUX';
+    case 'Lumina': return 'LUMINA';
+    default: return undefined;
+  }
+}
+
+const SD_ONLY_MODEL_TYPES = new Set<ModelType>(['SD15', 'SDXL']);
+
+/** Strip fields that only apply to SD1.x/SDXL when loading a non-SD config. */
+function sanitizeModelFamilyFields(config: Partial<TrainingConfig>): void {
+  if (!config.model_type || SD_ONLY_MODEL_TYPES.has(config.model_type)) return;
+  delete config.clip_skip;
+  delete config.clip_skip_value;
+}
 
 /**
  * Default training configuration values
@@ -196,6 +225,8 @@ function readStoredConfig(): TrainingConfig | null {
     // Merge with defaults to fill any missing fields
     const merged = { ...defaultConfig, ...config };
     coerceNumericFields(merged);
+    merged.model_type = normalizeModelType(merged.model_type) ?? defaultConfig.model_type;
+    sanitizeModelFamilyFields(merged);
     return merged;
   } catch (e) {
     console.error('Failed to read training config from localStorage:', e);
@@ -309,6 +340,12 @@ export function useTrainingForm(options: {
     const currentValues = form.getValues();
     const fullConfig = { ...currentValues, ...preset } as TrainingConfig;
 
+    // Normalize legacy model_type strings; fall back to default if unrecognized
+    fullConfig.model_type = normalizeModelType(fullConfig.model_type) ?? defaultConfig.model_type;
+
+    // Strip SD-only fields that must not carry into non-SD model families
+    sanitizeModelFamilyFields(fullConfig);
+
     // Update form and save to localStorage
     form.reset(fullConfig, { keepDefaultValues: false, keepDirty: false, keepValues: false });
     writeStoredConfig(fullConfig);
@@ -417,7 +454,7 @@ export const trainingPresets: Record<string, {
     name: 'SD1.5 Character',
     description: 'Classic SD1.5 character training',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 512,
       network_dim: 32,
       network_alpha: 32,
@@ -435,7 +472,7 @@ export const trainingPresets: Record<string, {
     name: 'Flux (Experimental)',
     description: 'Experimental Flux.1 training',
     config: {
-      model_type: 'Flux',
+      model_type: 'FLUX',
       resolution: 1024,
       network_dim: 16,
       network_alpha: 16,
@@ -557,7 +594,7 @@ export const trainingPresets: Record<string, {
     name: "Lah's Cutedoodle (SD1.5)",
     description: "Lah's cute doodle style on SD1.5/AnythingV5. dim 64/32, 768px, constant scheduler, adaptive_noise_scale=0.00357 (1/10 of noise_offset). Stopped at epoch 8/10.",
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 768,
       network_dim: 64,
       network_alpha: 32,
@@ -638,7 +675,7 @@ export const trainingPresets: Record<string, {
     name: 'Anything v4.5 (SD1.5 — Historical 2023)',
     description: 'June 2023 Anything v4.5 LoRA. HISTORICAL — alpha 128 / dim 32 (4:1 inverse, very aggressive scaling). Only ran 1/20 epochs (2 min) — likely a test or crash. Kept as historical curiosity.',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 512,
       network_dim: 32,
       network_alpha: 128,
@@ -656,7 +693,7 @@ export const trainingPresets: Record<string, {
     name: 'Pastel Style (SD 2.1 — Historical)',
     description: 'Feb 2023 Platdiffusion/SD 2.1 pastel style LoRA. HISTORICAL — predates standardized metadata. dim 96/alpha 12 (1:8 ratio), UNet 2× TE LR, 512px. WARNING: SD 2.1 not in model type enum — needs v2=true and OpenCLIP ViT-H. Use SD1.5 slot as workaround.',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 512,
       network_dim: 96,
       network_alpha: 12,
@@ -866,7 +903,7 @@ export const trainingPresets: Record<string, {
     name: "Enigmata's Character (SD1.5)",
     description: 'Published character LoRA by Enigmata (Igawa Asagi). SD1.5 base at 720px, large dim 64/32, higher LR 2e-4, balanced multi-subset repeats by outfit rarity.',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 720,
       network_dim: 64,
       network_alpha: 32,
@@ -909,7 +946,7 @@ export const trainingPresets: Record<string, {
     name: 'Experimental Hard Bake Style (Flux)',
     description: "Flux.1 D style LoRA using lora_flux. Same dim:2/alpha:16 ratio as Chroma preset — frozen TE, AdamW8Bit. The parallel experiment to the Chroma version.",
     config: {
-      model_type: 'Flux',
+      model_type: 'FLUX',
       resolution: 1024,
       network_module: 'networks.lora_flux',
       network_dim: 2,
@@ -1103,7 +1140,7 @@ export const trainingPresets: Record<string, {
     name: 'AI Character Style (Flux DoRA)',
     description: 'Flux Dev DoRA via LyCORIS — tiny 18-image dataset, 100 epochs, polynomial scheduler, aggressive pyramid noise.',
     config: {
-      model_type: 'Flux',
+      model_type: 'FLUX',
       resolution: 1024,
       lora_type: 'DoRA',
       network_module: 'lycoris.kohya',
