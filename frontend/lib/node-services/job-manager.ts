@@ -561,7 +561,8 @@ export interface TaggingJobConfig {
 async function applyActivationTags(
   inputDir: string,
   activationTagsStr: string,
-  captionExt: string
+  captionExt: string,
+  recursive = false
 ): Promise<void> {
   const activationTags = activationTagsStr
     .split(',')
@@ -570,18 +571,29 @@ async function applyActivationTags(
 
   if (activationTags.length === 0) return;
 
-  let entries: string[];
-  try {
-    entries = await fs.promises.readdir(inputDir);
-  } catch (err) {
-    console.error(`[applyActivationTags] Cannot read dir ${inputDir}: ${err}`);
-    return;
+  async function collectCaptionFiles(dir: string): Promise<string[]> {
+    let entries: fs.Dirent[];
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch (err) {
+      console.error(`[applyActivationTags] Cannot read dir ${dir}: ${err}`);
+      return [];
+    }
+    const files: string[] = [];
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory() && recursive) {
+        files.push(...await collectCaptionFiles(fullPath));
+      } else if (entry.isFile() && entry.name.endsWith(captionExt)) {
+        files.push(fullPath);
+      }
+    }
+    return files;
   }
 
-  const captionFiles = entries.filter(e => e.endsWith(captionExt));
+  const captionFiles = await collectCaptionFiles(inputDir);
 
-  for (const file of captionFiles) {
-    const filePath = path.join(inputDir, file);
+  for (const filePath of captionFiles) {
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
       const existingTags = content.split(',').map((t: string) => t.trim()).filter(Boolean);
@@ -693,19 +705,25 @@ export async function createTaggingJob(
     const cleanup = () => {
       jobManager.events.off('complete', onComplete);
       jobManager.events.off('error', onError);
+      jobManager.events.off('status', onStatus);
     };
     const onComplete = async (completedJobId: string) => {
       if (completedJobId !== jobId) return;
       cleanup();
-      await applyActivationTags(inputDir, tagsStr, captionExt);
+      await applyActivationTags(inputDir, tagsStr, captionExt, config.recursive);
     };
     const onError = (completedJobId: string) => {
       if (completedJobId !== jobId) return;
       cleanup();
     };
+    const onStatus = (statusJobId: string, status: JobStatus) => {
+      if (statusJobId !== jobId || status !== 'cancelled') return;
+      cleanup();
+    };
 
     jobManager.events.on('complete', onComplete);
     jobManager.events.on('error', onError);
+    jobManager.events.on('status', onStatus);
   }
 
   return jobId;
