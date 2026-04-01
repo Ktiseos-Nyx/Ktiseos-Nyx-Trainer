@@ -167,31 +167,36 @@ export default function DatasetUploader() {
     }
   };
 
-  // Upload files individually (local/low-latency mode)
+  // Upload all files in a single batch request (avoids per-file round-trip overhead)
   const handleUploadIndividual = async (imageFiles: UploadedFile[]) => {
-    for (const fileObj of imageFiles) {
+    if (imageFiles.length === 0) return;
+
+    // Mark all as uploading at once
+    setFiles(prev =>
+      prev.map(f =>
+        imageFiles.some(img => img.file === f.file) ? { ...f, status: 'uploading' } : f
+      )
+    );
+
+    try {
+      await datasetAPI.uploadBatch(imageFiles.map(f => f.file), datasetName);
+
       setFiles(prev =>
         prev.map(f =>
-          f.file === fileObj.file ? { ...f, status: 'uploading' } : f
+          imageFiles.some(img => img.file === f.file)
+            ? { ...f, status: 'success', progress: 100 }
+            : f
         )
       );
-
-      try {
-        await datasetAPI.uploadBatch([fileObj.file], datasetName);
-
-        setFiles(prev =>
-          prev.map(f =>
-            f.file === fileObj.file ? { ...f, status: 'success', progress: 100 } : f
-          )
-        );
-      } catch (err) {
-        setFiles(prev =>
-          prev.map(f =>
-            f.file === fileObj.file ? { ...f, status: 'error', error: String(err) } : f
-          )
-        );
-        throw err;
-      }
+    } catch (err) {
+      setFiles(prev =>
+        prev.map(f =>
+          imageFiles.some(img => img.file === f.file)
+            ? { ...f, status: 'error', error: String(err) }
+            : f
+        )
+      );
+      throw err;
     }
   };
 
