@@ -14,14 +14,33 @@ import type { ModelType, TrainingConfig } from '@/lib/api';
 
 const STORAGE_KEY = 'training-config';
 
-/** Migrate legacy model_type strings to current enum casing. */
-export function normalizeModelType(value: string): ModelType {
+/** Migrate legacy model_type strings to current enum casing. Returns undefined for unknown values. */
+export function normalizeModelType(value: string): ModelType | undefined {
   switch (value) {
+    case 'SD15':
+    case 'SDXL':
+    case 'FLUX':
+    case 'SD3':
+    case 'SD3.5':
+    case 'LUMINA':
+    case 'Chroma':
+    case 'Anima':
+    case 'HunyuanImage':
+      return value as ModelType;
     case 'SD1.5': return 'SD15';
     case 'Flux':  return 'FLUX';
     case 'Lumina': return 'LUMINA';
-    default: return value as ModelType;
+    default: return undefined;
   }
+}
+
+const SD_ONLY_MODEL_TYPES = new Set<ModelType>(['SD15', 'SDXL']);
+
+/** Strip fields that only apply to SD1.x/SDXL when loading a non-SD config. */
+function sanitizeModelFamilyFields(config: Partial<TrainingConfig>): void {
+  if (!config.model_type || SD_ONLY_MODEL_TYPES.has(config.model_type)) return;
+  delete config.clip_skip;
+  delete config.clip_skip_value;
 }
 
 /**
@@ -206,7 +225,8 @@ function readStoredConfig(): TrainingConfig | null {
     // Merge with defaults to fill any missing fields
     const merged = { ...defaultConfig, ...config };
     coerceNumericFields(merged);
-    merged.model_type = normalizeModelType(merged.model_type);
+    merged.model_type = normalizeModelType(merged.model_type) ?? defaultConfig.model_type;
+    sanitizeModelFamilyFields(merged);
     return merged;
   } catch (e) {
     console.error('Failed to read training config from localStorage:', e);
@@ -320,14 +340,11 @@ export function useTrainingForm(options: {
     const currentValues = form.getValues();
     const fullConfig = { ...currentValues, ...preset } as TrainingConfig;
 
-    // Normalize legacy model_type strings that predate the enum casing fix
-    fullConfig.model_type = normalizeModelType(fullConfig.model_type);
+    // Normalize legacy model_type strings; fall back to default if unrecognized
+    fullConfig.model_type = normalizeModelType(fullConfig.model_type) ?? defaultConfig.model_type;
 
     // Strip SD-only fields that must not carry into non-SD model families
-    if (fullConfig.model_type === 'FLUX' || fullConfig.model_type === 'SD3' || fullConfig.model_type === 'SD3.5') {
-      delete (fullConfig as Partial<TrainingConfig>).clip_skip;
-      delete (fullConfig as Partial<TrainingConfig>).clip_skip_value;
-    }
+    sanitizeModelFamilyFields(fullConfig);
 
     // Update form and save to localStorage
     form.reset(fullConfig, { keepDefaultValues: false, keepDirty: false, keepValues: false });
