@@ -10,9 +10,19 @@ import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TrainingConfigSchema } from '@/lib/validation';
-import type { TrainingConfig } from '@/lib/api';
+import type { ModelType, TrainingConfig } from '@/lib/api';
 
 const STORAGE_KEY = 'training-config';
+
+/** Migrate legacy model_type strings to current enum casing. */
+export function normalizeModelType(value: string): ModelType {
+  switch (value) {
+    case 'SD1.5': return 'SD15';
+    case 'Flux':  return 'FLUX';
+    case 'Lumina': return 'LUMINA';
+    default: return value as ModelType;
+  }
+}
 
 /**
  * Default training configuration values
@@ -196,6 +206,7 @@ function readStoredConfig(): TrainingConfig | null {
     // Merge with defaults to fill any missing fields
     const merged = { ...defaultConfig, ...config };
     coerceNumericFields(merged);
+    merged.model_type = normalizeModelType(merged.model_type);
     return merged;
   } catch (e) {
     console.error('Failed to read training config from localStorage:', e);
@@ -310,9 +321,13 @@ export function useTrainingForm(options: {
     const fullConfig = { ...currentValues, ...preset } as TrainingConfig;
 
     // Normalize legacy model_type strings that predate the enum casing fix
-    if ((fullConfig.model_type as string) === 'SD1.5') fullConfig.model_type = 'SD15';
-    if ((fullConfig.model_type as string) === 'Flux') fullConfig.model_type = 'FLUX';
-    if ((fullConfig.model_type as string) === 'Lumina') fullConfig.model_type = 'LUMINA';
+    fullConfig.model_type = normalizeModelType(fullConfig.model_type);
+
+    // Strip SD-only fields that must not carry into non-SD model families
+    if (fullConfig.model_type === 'FLUX' || fullConfig.model_type === 'SD3' || fullConfig.model_type === 'SD3.5') {
+      delete (fullConfig as Partial<TrainingConfig>).clip_skip;
+      delete (fullConfig as Partial<TrainingConfig>).clip_skip_value;
+    }
 
     // Update form and save to localStorage
     form.reset(fullConfig, { keepDefaultValues: false, keepDirty: false, keepValues: false });
