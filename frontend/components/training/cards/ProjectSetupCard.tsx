@@ -50,7 +50,7 @@ interface ProjectSetupCardProps {
  */
 export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onRefreshModels, isRefreshingModels }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
-  const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
+  const needsFluxPaths = modelType === 'FLUX' || modelType === 'SD3' || modelType === 'SD3.5';
   const isChroma = modelType === 'Chroma';
   const isAnima = modelType === 'Anima';
   const isHunyuanImage = modelType === 'HunyuanImage';
@@ -100,12 +100,12 @@ export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onR
               description: '1024x1024 resolution, most popular',
             },
             {
-              value: 'SD1.5',
+              value: 'SD15',
               label: 'SD 1.5',
               description: '512x512 resolution, classic',
             },
             {
-              value: 'Flux',
+              value: 'FLUX',
               label: 'Flux',
               description: 'Experimental, high quality',
             },
@@ -120,7 +120,7 @@ export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onR
               description: 'Newest Stability AI release',
             },
             {
-              value: 'Lumina',
+              value: 'LUMINA',
               label: 'Lumina',
               description: 'Experimental architecture',
             },
@@ -215,7 +215,7 @@ export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onR
               options={textEncoders}
             />
 
-            {modelType === 'Flux' && (
+            {modelType === 'FLUX' && (
               <ComboboxFormField
                 form={form}
                 name="ae_path"

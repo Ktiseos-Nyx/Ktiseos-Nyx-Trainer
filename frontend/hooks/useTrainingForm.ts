@@ -417,7 +417,7 @@ export const trainingPresets: Record<string, {
     name: 'SD1.5 Character',
     description: 'Classic SD1.5 character training',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 512,
       network_dim: 32,
       network_alpha: 32,
@@ -435,7 +435,7 @@ export const trainingPresets: Record<string, {
     name: 'Flux (Experimental)',
     description: 'Experimental Flux.1 training',
     config: {
-      model_type: 'Flux',
+      model_type: 'FLUX',
       resolution: 1024,
       network_dim: 16,
       network_alpha: 16,
@@ -557,7 +557,7 @@ export const trainingPresets: Record<string, {
     name: "Lah's Cutedoodle (SD1.5)",
     description: "Lah's cute doodle style on SD1.5/AnythingV5. dim 64/32, 768px, constant scheduler, adaptive_noise_scale=0.00357 (1/10 of noise_offset). Stopped at epoch 8/10.",
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 768,
       network_dim: 64,
       network_alpha: 32,
@@ -638,7 +638,7 @@ export const trainingPresets: Record<string, {
     name: 'Anything v4.5 (SD1.5 — Historical 2023)',
     description: 'June 2023 Anything v4.5 LoRA. HISTORICAL — alpha 128 / dim 32 (4:1 inverse, very aggressive scaling). Only ran 1/20 epochs (2 min) — likely a test or crash. Kept as historical curiosity.',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 512,
       network_dim: 32,
       network_alpha: 128,
@@ -656,7 +656,7 @@ export const trainingPresets: Record<string, {
     name: 'Pastel Style (SD 2.1 — Historical)',
     description: 'Feb 2023 Platdiffusion/SD 2.1 pastel style LoRA. HISTORICAL — predates standardized metadata. dim 96/alpha 12 (1:8 ratio), UNet 2× TE LR, 512px. WARNING: SD 2.1 not in model type enum — needs v2=true and OpenCLIP ViT-H. Use SD1.5 slot as workaround.',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 512,
       network_dim: 96,
       network_alpha: 12,
@@ -866,7 +866,7 @@ export const trainingPresets: Record<string, {
     name: "Enigmata's Character (SD1.5)",
     description: 'Published character LoRA by Enigmata (Igawa Asagi). SD1.5 base at 720px, large dim 64/32, higher LR 2e-4, balanced multi-subset repeats by outfit rarity.',
     config: {
-      model_type: 'SD1.5',
+      model_type: 'SD15',
       resolution: 720,
       network_dim: 64,
       network_alpha: 32,
@@ -909,7 +909,7 @@ export const trainingPresets: Record<string, {
     name: 'Experimental Hard Bake Style (Flux)',
     description: "Flux.1 D style LoRA using lora_flux. Same dim:2/alpha:16 ratio as Chroma preset — frozen TE, AdamW8Bit. The parallel experiment to the Chroma version.",
     config: {
-      model_type: 'Flux',
+      model_type: 'FLUX',
       resolution: 1024,
       network_module: 'networks.lora_flux',
       network_dim: 2,
@@ -1103,7 +1103,7 @@ export const trainingPresets: Record<string, {
     name: 'AI Character Style (Flux DoRA)',
     description: 'Flux Dev DoRA via LyCORIS — tiny 18-image dataset, 100 epochs, polynomial scheduler, aggressive pyramid noise.',
     config: {
-      model_type: 'Flux',
+      model_type: 'FLUX',
       resolution: 1024,
       lora_type: 'DoRA',
       network_module: 'lycoris.kohya',

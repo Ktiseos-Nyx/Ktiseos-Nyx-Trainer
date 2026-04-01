@@ -206,7 +206,7 @@ export interface DirectoryListing {
 }
 
 // Add these helper types at the top of lib/api.ts
-export type ModelType = 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma' | 'Anima' | 'HunyuanImage';
+export type ModelType = 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'SD3.5' | 'LUMINA' | 'Chroma' | 'Anima' | 'HunyuanImage';
 export type LoRAType =
   | 'LoRA'      // Standard LoRA
   | 'LoCon'     // LoRA with convolutions
@@ -587,7 +587,7 @@ export interface TrainingConfig {
   // ========== PROJECT & MODEL SETUP ==========
   project_name: string;
   // ✅ FIX: Match the Zod Enum exactly
-  model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma' | 'Anima' | 'HunyuanImage';
+  model_type: 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'SD3.5' | 'LUMINA' | 'Chroma' | 'Anima' | 'HunyuanImage';
   training_mode?: 'lora' | 'checkpoint'; // Training mode: LoRA adapters (default) or full checkpoint
   pretrained_model_name_or_path: string;
   vae_path?: string;

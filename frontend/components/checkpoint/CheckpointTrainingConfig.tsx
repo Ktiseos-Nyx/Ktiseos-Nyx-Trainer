@@ -16,7 +16,7 @@ import FileBrowser from '@/components/FileBrowser';
 interface CheckpointConfig {
   // Project & Model
   project_name: string;
-  model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'Lumina';
+  model_type: 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'LUMINA';
   pretrained_model_name_or_path: string;
   vae_path?: string;
 
