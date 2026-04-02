@@ -87,37 +87,44 @@ class JobManager:
         try:
             # Read stdout line by line
             async for line in job.process.stdout:
-                log_line = line.decode('utf-8', errors='replace').strip()
+                # Decode and normalise line endings — Windows emits \r\n and tqdm uses
+                # bare \r for in-place progress rewrites; split on \r so each logical
+                # line is processed independently and no \r artifacts reach the log parser.
+                raw = line.decode('utf-8', errors='replace')
+                for log_line in raw.replace('\r\n', '\n').replace('\r', '\n').split('\n'):
+                    log_line = log_line.strip()
+                    if not log_line:
+                        continue
 
-                # Add to log buffer
-                job.add_log(log_line)
+                    # Add to log buffer
+                    job.add_log(log_line)
 
-                # Parse for progress (training-specific)
-                if job.job_type == JobType.TRAINING:
-                    progress = self.log_parser.parse_training_log(log_line)
-                    if progress:
-                        job.progress = progress.progress_percent
-                        if progress.epoch:
-                            job.current_epoch = progress.epoch
-                        if progress.total_epochs:
-                            job.total_epochs = progress.total_epochs
-                        if progress.epoch and progress.total_epochs:
-                            job.current_step = f"Epoch {progress.epoch}/{progress.total_epochs}"
+                    # Parse for progress (training-specific)
+                    if job.job_type == JobType.TRAINING:
+                        progress = self.log_parser.parse_training_log(log_line)
+                        if progress:
+                            job.progress = progress.progress_percent
+                            if progress.epoch:
+                                job.current_epoch = progress.epoch
+                            if progress.total_epochs:
+                                job.total_epochs = progress.total_epochs
+                            if progress.epoch and progress.total_epochs:
+                                job.current_step = f"Epoch {progress.epoch}/{progress.total_epochs}"
 
-                # Parse for progress (tagging-specific)
-                elif job.job_type == JobType.TAGGING:
-                    progress = self.log_parser.parse_tagging_log(log_line)
-                    if progress:
-                        job.progress = progress.progress_percent
-                        if progress.current_image:
-                            job.current_image = progress.current_file or f"Image {progress.current_image}"
-                        if progress.total_images:
-                            job.total_images = progress.total_images
+                    # Parse for progress (tagging-specific)
+                    elif job.job_type == JobType.TAGGING:
+                        progress = self.log_parser.parse_tagging_log(log_line)
+                        if progress:
+                            job.progress = progress.progress_percent
+                            if progress.current_image:
+                                job.current_image = progress.current_file or f"Image {progress.current_image}"
+                            if progress.total_images:
+                                job.total_images = progress.total_images
 
-                # Check for errors
-                error = self.log_parser.extract_error(log_line)
-                if error and not job.error:
-                    job.error = error
+                    # Check for errors
+                    error = self.log_parser.extract_error(log_line)
+                    if error and not job.error:
+                        job.error = error
 
             # Wait for process to complete
             returncode = await job.process.wait()
