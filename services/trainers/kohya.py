@@ -117,6 +117,7 @@ class KohyaTrainer(BaseTrainer):
                 stdout=asyncio.subprocess.PIPE,  # Capture stdout
                 stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout (Critical so errors show in logs)
                 env=env,
+                limit=1024 * 1024,  # 1MB line buffer — Kohya can emit very long lines (tqdm bars, tensor dumps)
             )
             return process  # Now returns an asyncio Process compatible with JobManager
 

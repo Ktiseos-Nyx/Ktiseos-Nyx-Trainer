@@ -9,6 +9,11 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 
+# Ensure WebP and other formats are registered on minimal systems that lack them
+mimetypes.add_type('image/webp', '.webp')
+mimetypes.add_type('image/avif', '.avif')
+mimetypes.add_type('image/jxl', '.jxl')
+
 import aiofiles
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
