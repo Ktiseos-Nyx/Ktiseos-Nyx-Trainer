@@ -1,4 +1,5 @@
 import argparse  # noqa: I001
+import ctypes.util
 import csv
 import os
 from pathlib import Path
@@ -51,6 +52,16 @@ def get_safe_gpu_memory_limit():
     except Exception as e:
         logger.warning(f"GPU memory detection failed: {e}")
         return 2 * 1024 * 1024 * 1024  # Fallback to 2GB for safety
+
+
+def _trt_libs_available() -> bool:
+    """Check if TensorRT native libraries are actually installed before attempting TRT session."""
+    # libnvinfer is the core TensorRT library — if it's missing onnxruntime will throw
+    # the scary red EP error. Any version suffix is acceptable.
+    for name in ("nvinfer", "nvinfer.so.10", "nvinfer.so.8"):
+        if ctypes.util.find_library(name):
+            return True
+    return False
 
 
 def robust_download_fallback(repo_id, filename, local_path):
@@ -337,7 +348,7 @@ def main(args):
                 available_providers = ort.get_available_providers()
                 logger.info(f"Available ONNX providers: {available_providers}")
 
-                if "TensorrtExecutionProvider" in available_providers:
+                if "TensorrtExecutionProvider" in available_providers and _trt_libs_available():
                     logger.info("Attempting TensorRT execution provider...")
                     try:
                         ort_sess = ort.InferenceSession(
