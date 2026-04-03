@@ -8,6 +8,22 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 ---
 
+## Table of Contents
+
+- [Alpha Status](#-alpha--april-2026)
+- [Roadmap](#️-roadmap)
+- [Quick Start](#quick-start)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Starting the App](#starting-the-app)
+  - [Updating](#updating)
+- [What It Does](#what-it-does)
+- [Documentation](#documentation)
+- [Support](#support)
+- [Credits](#credits--acknowledgements)
+
+---
+
 ## 🚧 ALPHA — April 2026
 
 Active development. Core training is working and verified across multiple LoRA types and model families. Expect rough edges, UI quirks, and the occasional surprise — that's what alpha is for.
