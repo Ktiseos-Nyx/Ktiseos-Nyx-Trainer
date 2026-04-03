@@ -8,25 +8,67 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 ---
 
-## 🚧 ALPHA - March 2026
+## Table of Contents
 
-**Active development.** The web UI (Next.js + FastAPI) is functional but expect rough edges.
+- [Alpha Status](#alpha--april-2026)
+- [Roadmap](#roadmap)
+- [Quick Start](#quick-start)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Starting the App](#starting-the-app)
+  - [Updating](#updating)
+- [What It Does](#what-it-does)
+- [Documentation](#documentation)
+- [Support](#support)
+- [Credits](#credits--acknowledgements)
 
-**Current status:**
-- ✅ **Web UI** - Dataset management, tagging, captioning, file browser all working
-- ✅ **Training config** - 132+ parameters across 7 tabs, preset system, form persistence
-- ✅ **Training execution** - End-to-end training verified on VastAI and RunPod (CAME optimizer, SDXL LoRA)
-- ✅ **Custom optimizers** - CAME working, Compass/standard optimizers (AdamW8bit, Prodigy, etc.) supported
-- ✅ **HuggingFace upload** - Direct upload from the web UI after training
-- ✅ **Security hardening** - Path traversal prevention across all API endpoints
-- ✅ **Tag editor** - Bulk add/remove/replace operations on dataset captions
-- ✅ **Model browser** - Browse and download models directly from Civitai
-- ✅ **Custom ports** - `--port` and `--backend-port` flags on local start scripts
-- 🔧 **In progress** - Bug fixes for form controls, cross-platform path handling, docstring coverage (~71%)
-- 🐛 **Report issues** - [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
+---
 
-> ⚠️ **ALPHA STAGE**: Core training works! Still polishing edges and testing more configurations. [Report issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) • [Development Status](STATUS.md)
+## ALPHA — April 2026
 
+Active development. Core training is working and verified across multiple LoRA types and model families. Expect rough edges, UI quirks, and the occasional surprise — that's what alpha is for.
+
+### Current State
+
+- ✅ **End-to-end training** — Verified on VastAI, RunPod, and local 4090. SDXL, Illustrious, Pony, Flux, NoobAI all confirmed working
+- ✅ **40+ community presets** — Real training configs from the community across AdamW8bit, CAME, Prodigy, AdaFactor, Compass, Lion8bit, DoRA, LoHa, LoCon, LyCORIS
+- ✅ **Dataset management** — Upload (individual, zip, URL), tag editor, bulk caption operations, WD14/BLIP/GIT auto-tagging
+- ✅ **Training config** — 132+ parameters across 7 tabs, preset system, form persistence across sessions
+- ✅ **Model browser** — Search and download from Civitai directly in the UI
+- ✅ **HuggingFace upload** — Direct upload after training
+- ✅ **Custom optimizers** — CAME, Compass, LPFAdamW, RMSProp via vendored LoraEasyCustomOptimizer
+- ✅ **Security** — Path traversal prevention, input validation across all endpoints
+- ✅ **Cross-platform** — Linux primary, Windows supported (WSL2 recommended for best results)
+
+### Known Rough Edges
+
+- 🔧 Training progress display shows 0/0 — log parsing in progress
+- 🔧 Preset list ordering is rough — organization pass coming in beta
+- 🔧 Compass, LPFAdamW, RMSProp optimizers are wired but have no UI dropdown yet
+- 🔧 Rex and CosineAnnealing schedulers vendored but not exposed in UI
+
+> 🐛 Hit something? [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or [Discord](https://discord.gg/HhBSM9gBY)
+
+---
+
+## Roadmap
+
+### Beta (next)
+- Training progress display that actually works
+- Job queue for sequential training runs
+- Preset UI reorganization — filter by model family and use case
+- Expose missing optimizers and schedulers in UI
+- Upload progress indicator for large datasets
+- Caption sanitization pre-flight check
+
+### Post-Beta / Pre-Stable
+- ComfyUI inference integration — generate images directly from the trainer UI without a separate WebUI
+- Embedding merge tool — create and combine TI embeddings via vector arithmetic (port of klimaleksus/embedding-merge concept)
+- VAE fine-tuning support
+- Advanced model merging (QuantumMerge and similar techniques)
+- SD 2.1 model type support
+
+> This roadmap lives here in the README. No separate STATUS.md to fall out of date.
 
 ---
 
@@ -199,7 +241,6 @@ REM Linux
 > 📝 Several guides are still being written. What exists is listed below — links that aren't here don't exist yet.
 
 - 📘 [Installation Guide](documentation/installation/INSTALLATION.md) - Detailed setup for all platforms
-- 📊 [Development Status](STATUS.md) - Current progress and roadmap
 - 📖 [General Guides](documentation/guides/general/README.md) - General usage documentation
 - 🔧 Contributing and security: [CONTRIBUTING.md](CONTRIBUTING.md) • [SECURITY.md](SECURITY.md)
 
