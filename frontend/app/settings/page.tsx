@@ -258,7 +258,7 @@ export default function SettingsPage() {
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
                   className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="http://localhost:8000"
+                  placeholder="http://127.0.0.1:8000"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   The backend API endpoint for training operations
