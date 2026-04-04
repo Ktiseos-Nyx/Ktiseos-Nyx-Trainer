@@ -26,7 +26,7 @@ export default function Dashboard() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
 
           {/* Example of a refactored card */}
-          <Link href="/models">
+          <Link href="/models" prefetch={false}>
             {/* CHANGED: All the hardcoded classes are replaced with our clean helper variable. */}
             <div className={cardClasses}>
               <Download className="w-12 h-12 text-cyan-400 mb-4 group-hover:scale-110 transition-transform" />
@@ -41,7 +41,7 @@ export default function Dashboard() {
 
           {/* --- Repeat for all other cards --- */}
 
-          <Link href="/files">
+          <Link href="/files" prefetch={false}>
             <div className={cardClasses}>
               <FolderOpen className="w-12 h-12 text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">File Manager</h2>
@@ -51,7 +51,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link href="/dataset">
+          <Link href="/dataset" prefetch={false}>
             <div className={cardClasses}>
               <Upload className="w-12 h-12 text-green-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">Dataset</h2>
@@ -61,7 +61,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link href="/training">
+          <Link href="/training" prefetch={false}>
             <div className={cardClasses}>
               <Zap className="w-12 h-12 text-purple-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">Training</h2>
@@ -71,7 +71,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link href="/calculator">
+          <Link href="/calculator" prefetch={false}>
             <div className={cardClasses}>
               <Calculator className="w-12 h-12 text-indigo-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">Calculator</h2>
@@ -81,7 +81,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link href="/utilities">
+          <Link href="/utilities" prefetch={false}>
             <div className={cardClasses}>
               <Wrench className="w-12 h-12 text-orange-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">Utilities</h2>
@@ -91,7 +91,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link href="/settings">
+          <Link href="/settings" prefetch={false}>
             <div className={cardClasses}>
               <Settings className="w-12 h-12 text-pink-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">Settings</h2>
@@ -101,7 +101,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link href="/docs">
+          <Link href="/docs" prefetch={false}>
             <div className={cardClasses}>
               <BookOpen className="w-12 h-12 text-emerald-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">Documentation</h2>
@@ -111,7 +111,7 @@ export default function Dashboard() {
             </div>
           </Link>
 
-          <Link href="/about">
+          <Link href="/about" prefetch={false}>
             <div className={cardClasses}>
               <Info className="w-12 h-12 text-rose-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-xl font-semibold mb-2 text-foreground">About</h2>

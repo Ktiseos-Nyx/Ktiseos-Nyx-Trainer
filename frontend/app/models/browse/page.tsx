@@ -392,7 +392,7 @@ export default function CivitaiBrowsePage() {
                   higher rate limits, faster browsing, and access to NSFW-rated content.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <Link href="/settings">
+                  <Link href="/settings" prefetch={false}>
                     <button className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md text-sm font-medium transition-colors">
                       <Key className="w-4 h-4" />
                       Add API Key (Optional)

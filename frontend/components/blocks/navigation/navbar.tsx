@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import {
@@ -35,24 +34,9 @@ import {
 } from "@/components/ui/navigation-menu"
 import { ThemeSwitcher } from "@/components/ui/shadcn-io/theme-switcher"
 import { cn } from "@/lib/utils"
-import { datasetAPI, DatasetInfo } from '@/lib/api';
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
-  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
-
-  useEffect(() => {
-    const loadDatasets = async () => {
-      try {
-        const data = await datasetAPI.list();
-        setDatasets(data.datasets || []);
-      } catch (err) {
-        console.error('Failed to load datasets for navbar:', err);
-      }
-    };
-    loadDatasets();
-  }, []);
-
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
