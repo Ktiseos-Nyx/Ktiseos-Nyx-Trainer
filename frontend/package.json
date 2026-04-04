@@ -103,7 +103,7 @@
     "flatted": ">=3.4.2",
     "picomatch": ">=2.3.2",
     "lodash": ">=4.18.0",
-    "path-to-regexp": ">=8.3.1"
+    "path-to-regexp": ">=8.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

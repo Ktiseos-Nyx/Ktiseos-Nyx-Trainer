@@ -50,7 +50,7 @@ export default function GlobalError({
             wordBreak: 'break-word',
           }}>
             {error.message || 'Unknown error'}
-            {error.stack && (
+            {process.env.NODE_ENV === 'development' && error.stack && (
               <>
                 {'\n\n'}
                 {error.stack}

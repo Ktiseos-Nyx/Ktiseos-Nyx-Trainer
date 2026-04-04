@@ -90,7 +90,7 @@ app.prepare().then(() => {
 
   // Request logging for production — Next.js dev mode logs automatically,
   // but the custom production server is silent without this.
-  const logRequest = (req, res, handler) => {
+  const logRequest = (req, res) => {
     // Skip static assets and chunks to reduce noise
     const { pathname } = parse(req.url, true);
     const isStatic = pathname.startsWith('/_next/') || pathname.startsWith('/favicon');

@@ -5,6 +5,7 @@
  * while keeping the root layout (navbar, footer, theme) intact.
  */
 
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 
 export default function Error({
@@ -14,6 +15,10 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error('Route error:', error);
+  }, [error]);
+
   return (
     <div className="container mx-auto flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
       <h2 className="text-2xl font-bold text-destructive mb-2">

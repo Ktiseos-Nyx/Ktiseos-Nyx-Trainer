@@ -74,6 +74,9 @@ app.add_middleware(
 # so local dev (Windows) gets visibility into what's hitting FastAPI.
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    # Skip health checks to reduce log noise
+    if request.url.path in ("/health", "/api/health"):
+        return await call_next(request)
     start = time.time()
     response = await call_next(request)
     duration_ms = (time.time() - start) * 1000
