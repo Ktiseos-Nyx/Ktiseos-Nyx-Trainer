@@ -88,11 +88,31 @@ app.prepare().then(() => {
     },
   });
 
+  // Request logging for production — Next.js dev mode logs automatically,
+  // but the custom production server is silent without this.
+  const logRequest = (req, res, handler) => {
+    // Skip static assets and chunks to reduce noise
+    const { pathname } = parse(req.url, true);
+    const isStatic = pathname.startsWith('/_next/') || pathname.startsWith('/favicon');
+    const start = Date.now();
+
+    // Hook into response finish to log with status code
+    res.on('finish', () => {
+      if (isStatic) return;
+      const duration = Date.now() - start;
+      const slow = duration > 500 ? ' ⚠️ slow' : '';
+      console.log(`${req.method} ${pathname} → ${res.statusCode} (${duration}ms${slow})`);
+    });
+  };
+
   // Create HTTP server
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
       const { pathname } = parsedUrl;
+
+      // Log all non-static requests in production
+      logRequest(req, res);
 
       // Handle Node.js API routes (new migration)
       const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset'];
