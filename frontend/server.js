@@ -36,8 +36,10 @@ process.on('unhandledRejection', (reason, promise) => {
 // Environment setup
 const dev = process.env.NODE_ENV !== 'production';
 // In production (Docker/VastAI), always bind to 0.0.0.0 for container networking
-// In dev, use localhost. Don't use HOSTNAME env var (Docker sets it to container ID)
-const hostname = dev ? 'localhost' : '0.0.0.0';
+// In dev, use 127.0.0.1 explicitly to avoid IPv6 resolution issues on Windows
+// (localhost can resolve to ::1 on some Windows configs, breaking backend proxy)
+// Don't use HOSTNAME env var (Docker sets it to container ID)
+const hostname = dev ? '127.0.0.1' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 const defaultBackendPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
 const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackendPort}`;

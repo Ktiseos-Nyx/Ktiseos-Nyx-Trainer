@@ -28,7 +28,7 @@ export interface AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  apiUrl: 'http://localhost:8000',
+  apiUrl: 'http://127.0.0.1:8000',
   apiTimeout: 30,
   defaultEpochs: 10,
   defaultBatchSize: 1,
