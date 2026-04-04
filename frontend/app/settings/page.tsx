@@ -293,7 +293,7 @@ export default function SettingsPage() {
               Store API keys securely on the backend for automatic use during model downloads
             </p>
 
-            <div className="space-y-4">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               {/* HuggingFace Token */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
@@ -306,6 +306,7 @@ export default function SettingsPage() {
                     onChange={(e) => setHuggingfaceToken(e.target.value)}
                     className="w-full px-4 py-2 pr-10 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     placeholder={hasHuggingfaceToken ? "Enter new token to update..." : "hf_..."}
+                    autoComplete="off"
                   />
                   <button
                     type="button"
@@ -340,6 +341,7 @@ export default function SettingsPage() {
                     onChange={(e) => setCivitaiApiKey(e.target.value)}
                     className="w-full px-4 py-2 pr-10 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     placeholder={hasCivitaiApiKey ? "Enter new key to update..." : "Your API key..."}
+                    autoComplete="off"
                   />
                   <button
                     type="button"
@@ -368,7 +370,7 @@ export default function SettingsPage() {
                   <strong>Security:</strong> API keys are stored securely on the backend server and will be automatically used when downloading models from the respective platforms.
                 </p>
               </div>
-            </div>
+            </form>
           </div>
         </GradientCard>
 
