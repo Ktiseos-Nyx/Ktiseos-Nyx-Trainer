@@ -12,7 +12,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-6 md:gap-8">
           {/* Left: Logo, Copyright & License */}
           <div className="text-sm text-muted-foreground text-center md:text-left">
-            <Link href="/" className="flex items-center gap-2 font-bold text-lg mb-2 justify-center md:justify-start">
+            <Link href="/" prefetch={false} className="flex items-center gap-2 font-bold text-lg mb-2 justify-center md:justify-start">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 shadow-lg">
                 <Zap className="h-5 w-5 text-white" />
               </div>
