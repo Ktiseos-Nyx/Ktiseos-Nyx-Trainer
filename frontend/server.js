@@ -91,14 +91,17 @@ app.prepare().then(() => {
   // Request logging for production — Next.js dev mode logs automatically,
   // but the custom production server is silent without this.
   const logRequest = (req, res) => {
-    // Skip static assets and chunks to reduce noise
     const { pathname } = parse(req.url, true);
-    const isStatic = pathname.startsWith('/_next/') || pathname.startsWith('/favicon');
+    // Skip static assets, health checks, and favicon to reduce noise
+    const isSkipped = pathname.startsWith('/_next/')
+      || pathname.startsWith('/favicon')
+      || pathname === '/health'
+      || pathname === '/api/health';
     const start = Date.now();
 
     // Hook into response finish to log with status code
     res.on('finish', () => {
-      if (isStatic) return;
+      if (isSkipped) return;
       const duration = Date.now() - start;
       const slow = duration > 500 ? ' ⚠️ slow' : '';
       console.log(`${req.method} ${pathname} → ${res.statusCode} (${duration}ms${slow})`);
@@ -111,8 +114,8 @@ app.prepare().then(() => {
       const parsedUrl = parse(req.url, true);
       const { pathname } = parsedUrl;
 
-      // Log all non-static requests in production
-      logRequest(req, res);
+      // Log requests in production only (dev mode has its own verbose logging)
+      if (!dev) logRequest(req, res);
 
       // Handle Node.js API routes (new migration)
       const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset'];
