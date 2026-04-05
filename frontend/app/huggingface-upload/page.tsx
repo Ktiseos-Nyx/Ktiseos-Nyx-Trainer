@@ -5,6 +5,7 @@ import { utilitiesAPI, LoRAFile } from '@/lib/api';
 import { Upload, FolderOpen, CheckCircle, XCircle, Loader2, Minimize2, Home } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export default function HuggingFaceUploadPage() {
   const [uploadType, setUploadType] = useState<'lora' | 'dataset'>('lora');
@@ -179,11 +180,13 @@ export default function HuggingFaceUploadPage() {
             {/* Token */}
             <div className="mb-4">
               <form onSubmit={(e: FormEvent) => { e.preventDefault(); handleValidateToken(); }} autoComplete="off">
-              <label className="block text-sm font-medium mb-2">
+              <label htmlFor="hf-token" className="block text-sm font-medium mb-2">
                 HuggingFace Token (Write Access) *
               </label>
               <div className="flex gap-2">
                 <Input
+                  id="hf-token"
+                  name="hfToken"
                   type="password"
                   value={hfToken}
                   onChange={(e) => {
@@ -194,12 +197,9 @@ export default function HuggingFaceUploadPage() {
                   className="flex-1"
                   placeholder="hf_..."
                 />
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg"
-                >
+                <Button type="submit">
                   Validate
-                </button>
+                </Button>
               </div>
               </form>
 
