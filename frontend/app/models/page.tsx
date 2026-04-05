@@ -140,7 +140,7 @@ export default function ModelsPage() {
               </p>
             </div>
             <Button asChild className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
-              <Link href="/models/browse">
+              <Link href="/models/browse" prefetch={false}>
                 <Search className="w-5 h-5" />
                 Browse Civitai
               </Link>
@@ -277,7 +277,7 @@ export default function ModelsPage() {
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Supports HuggingFace (resolve links) and Civitai (direct download links).{' '}
-                    <Link href="/models/browse" className="text-cyan-400 hover:text-cyan-300 underline">
+                    <Link href="/models/browse" prefetch={false} className="text-cyan-400 hover:text-cyan-300 underline">
                       Browse Civitai Models →
                     </Link>
                   </p>

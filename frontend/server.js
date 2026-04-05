@@ -36,8 +36,10 @@ process.on('unhandledRejection', (reason, promise) => {
 // Environment setup
 const dev = process.env.NODE_ENV !== 'production';
 // In production (Docker/VastAI), always bind to 0.0.0.0 for container networking
-// In dev, use localhost. Don't use HOSTNAME env var (Docker sets it to container ID)
-const hostname = dev ? 'localhost' : '0.0.0.0';
+// In dev, use 127.0.0.1 explicitly to avoid IPv6 resolution issues on Windows
+// (localhost can resolve to ::1 on some Windows configs, breaking backend proxy)
+// Don't use HOSTNAME env var (Docker sets it to container ID)
+const hostname = dev ? '127.0.0.1' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 const defaultBackendPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
 const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackendPort}`;
@@ -86,11 +88,34 @@ app.prepare().then(() => {
     },
   });
 
+  // Request logging for production — Next.js dev mode logs automatically,
+  // but the custom production server is silent without this.
+  const logRequest = (req, res) => {
+    const { pathname } = parse(req.url, true);
+    // Skip static assets, health checks, and favicon to reduce noise
+    const isSkipped = pathname.startsWith('/_next/')
+      || pathname.startsWith('/favicon')
+      || pathname === '/health'
+      || pathname === '/api/health';
+    const start = Date.now();
+
+    // Hook into response finish to log with status code
+    res.on('finish', () => {
+      if (isSkipped) return;
+      const duration = Date.now() - start;
+      const slow = duration > 500 ? ' ⚠️ slow' : '';
+      console.log(`${req.method} ${pathname} → ${res.statusCode} (${duration}ms${slow})`);
+    });
+  };
+
   // Create HTTP server
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true);
       const { pathname } = parsedUrl;
+
+      // Log requests in production only (dev mode has its own verbose logging)
+      if (!dev) logRequest(req, res);
 
       // Handle Node.js API routes (new migration)
       const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset'];

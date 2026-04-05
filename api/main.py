@@ -4,10 +4,11 @@ Provides REST API and WebSocket endpoints for the Next.js frontend.
 """
 import logging
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -42,7 +43,9 @@ if not any(isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', Non
     _root_logger.addHandler(_file_handler)
 
 logger = logging.getLogger(__name__)
-logger.info("Logging to: %s", log_file)
+logger.info("📝 Logging to: %s", log_file)
+logger.info("📂 Project root: %s", project_root)
+logger.info("🖥️  Platform: %s", sys.platform)
 
 # Create FastAPI app
 app = FastAPI(
@@ -66,6 +69,26 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],  # Needed for canvas image manipulation
 )
+
+# Request logging middleware — logs every request to the file handler
+# so local dev (Windows) gets visibility into what's hitting FastAPI.
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    # Skip health checks to reduce log noise
+    if request.url.path in ("/health", "/api/health"):
+        return await call_next(request)
+    start = time.time()
+    response = await call_next(request)
+    duration_ms = (time.time() - start) * 1000
+    logger.info(
+        "%s %s → %d (%.0fms)",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+    )
+    return response
+
 
 # Include routers
 app.include_router(training.router, prefix="/api/training", tags=["Training"])

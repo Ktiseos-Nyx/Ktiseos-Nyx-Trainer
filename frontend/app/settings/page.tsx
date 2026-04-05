@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { GradientCard } from '@/components/effects'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { API_BASE } from '@/lib/api'
+import { Input } from '@/components/ui/input'
 
 export default function SettingsPage() {
   // API Configuration
@@ -258,7 +259,7 @@ export default function SettingsPage() {
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
                   className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="http://localhost:8000"
+                  placeholder="http://127.0.0.1:8000"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   The backend API endpoint for training operations
@@ -293,19 +294,20 @@ export default function SettingsPage() {
               Store API keys securely on the backend for automatic use during model downloads
             </p>
 
-            <div className="space-y-4">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               {/* HuggingFace Token */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   HuggingFace Token {hasHuggingfaceToken && <span className="text-green-600 dark:text-green-400 text-xs">(✓ Saved)</span>}
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     type={showHfToken ? 'text' : 'password'}
                     value={huggingfaceToken}
                     onChange={(e) => setHuggingfaceToken(e.target.value)}
-                    className="w-full px-4 py-2 pr-10 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="pr-10"
                     placeholder={hasHuggingfaceToken ? "Enter new token to update..." : "hf_..."}
+                    autoComplete="off"
                   />
                   <button
                     type="button"
@@ -334,12 +336,13 @@ export default function SettingsPage() {
                   Civitai API Key <span className="text-xs text-muted-foreground font-normal">(Optional)</span> {hasCivitaiApiKey && <span className="text-green-600 dark:text-green-400 text-xs">(✓ Saved)</span>}
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     type={showCivitaiKey ? 'text' : 'password'}
                     value={civitaiApiKey}
                     onChange={(e) => setCivitaiApiKey(e.target.value)}
-                    className="w-full px-4 py-2 pr-10 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="pr-10"
                     placeholder={hasCivitaiApiKey ? "Enter new key to update..." : "Your API key..."}
+                    autoComplete="off"
                   />
                   <button
                     type="button"
@@ -368,7 +371,7 @@ export default function SettingsPage() {
                   <strong>Security:</strong> API keys are stored securely on the backend server and will be automatically used when downloading models from the respective platforms.
                 </p>
               </div>
-            </div>
+            </form>
           </div>
         </GradientCard>
 

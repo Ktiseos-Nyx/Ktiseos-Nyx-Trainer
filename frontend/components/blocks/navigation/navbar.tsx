@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import {
@@ -35,24 +34,9 @@ import {
 } from "@/components/ui/navigation-menu"
 import { ThemeSwitcher } from "@/components/ui/shadcn-io/theme-switcher"
 import { cn } from "@/lib/utils"
-import { datasetAPI, DatasetInfo } from '@/lib/api';
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
-  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
-
-  useEffect(() => {
-    const loadDatasets = async () => {
-      try {
-        const data = await datasetAPI.list();
-        setDatasets(data.datasets || []);
-      } catch (err) {
-        console.error('Failed to load datasets for navbar:', err);
-      }
-    };
-    loadDatasets();
-  }, []);
-
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -67,7 +51,7 @@ export function Navbar() {
             {/* Dashboard - First! */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/dashboard" className={navigationMenuTriggerStyle()}>
+                <Link href="/dashboard" prefetch={false} className={navigationMenuTriggerStyle()}>
                   <LayoutDashboard className="w-4 h-4 mr-2" />
                   Dashboard
                 </Link>
@@ -161,7 +145,7 @@ export function Navbar() {
             {/* Docs - Top level */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/docs" className={navigationMenuTriggerStyle()}>
+                <Link href="/docs" prefetch={false} className={navigationMenuTriggerStyle()}>
                   <BookOpen className="w-4 h-4 mr-2" />
                   Docs
                 </Link>
@@ -171,7 +155,7 @@ export function Navbar() {
             {/* About - Top level */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/about" className={navigationMenuTriggerStyle()}>
+                <Link href="/about" prefetch={false} className={navigationMenuTriggerStyle()}>
                   <Info className="w-4 h-4 mr-2" />
                   About
                 </Link>
@@ -181,7 +165,7 @@ export function Navbar() {
             {/* Changelog - Top level */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/changelog" className={navigationMenuTriggerStyle()}>
+                <Link href="/changelog" prefetch={false} className={navigationMenuTriggerStyle()}>
                   <FileText className="w-4 h-4 mr-2" />
                   Changelog
                 </Link>
@@ -191,7 +175,7 @@ export function Navbar() {
             {/* Settings - Top level */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/settings" className={navigationMenuTriggerStyle()}>
+                <Link href="/settings" prefetch={false} className={navigationMenuTriggerStyle()}>
                   <SettingsIcon className="w-4 h-4 mr-2" />
                   Settings
                 </Link>
@@ -232,6 +216,7 @@ const ListItem = ({
       <NavigationMenuLink asChild>
         <Link
           href={href}
+          prefetch={false}
           className={cn(
             "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
             className
