@@ -403,7 +403,7 @@ export default function AutoTagPage() {
                     <div className="text-sm text-muted-foreground">Loading...</div>
                   ) : datasets.length === 0 ? (
                     <div className="text-sm text-muted-foreground">
-                      No datasets. <Link href="/dataset" className="text-pink-600 hover:underline">Upload images</Link>
+                      No datasets. <Link href="/dataset" prefetch={false} className="text-pink-600 hover:underline">Upload images</Link>
                     </div>
                   ) : (
                     <Select value={selectedDataset} onValueChange={setSelectedDataset} disabled={tagging}>

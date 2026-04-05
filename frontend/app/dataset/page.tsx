@@ -90,6 +90,7 @@ export default function DatasetPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/dataset/auto-tag"
+                prefetch={false}
                 className={`px-4 py-2 ${datasets.length > 0
                   ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white'
                   : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
@@ -106,6 +107,7 @@ export default function DatasetPage() {
               </Link>
               <Link
                 href="/dataset/tags"
+                prefetch={false}
                 className={`px-4 py-2 ${datasets.length > 0
                   ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white'
                   : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'

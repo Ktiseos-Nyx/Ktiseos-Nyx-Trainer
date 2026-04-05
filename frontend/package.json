@@ -64,7 +64,6 @@
     "@uppy/react": "^4.5.2",
     "@uppy/xhr-upload": "^4.4.2",
     "@wandry/inertia-form": "^1.11.0",
-    "axios": "^1.13.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "es-toolkit": "^1.43.0",
@@ -100,9 +99,9 @@
     "shadcn": {
       "@modelcontextprotocol/sdk": "^1.24.0"
     },
+    "brace-expansion": ">=2.0.3",
     "flatted": ">=3.4.2",
     "picomatch": ">=2.3.2",
-    "lodash": ">=4.18.0",
     "path-to-regexp": ">=8.4.0"
   },
   "devDependencies": {

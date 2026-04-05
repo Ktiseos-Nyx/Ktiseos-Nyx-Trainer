@@ -461,8 +461,29 @@ class LocalWindowsInstaller:
                 print(" ⚠️  Frontend build failed. Backend will still work.")
             return success
         else:
-            self.logger.info("Frontend already built.")
-            print(" ✅ Frontend already built.")
+            # Check if build is stale (source newer than build)
+            build_id = os.path.join(build_dir, "BUILD_ID")
+            if os.path.exists(build_id):
+                build_mtime = os.path.getmtime(build_id)
+                # Check git for latest commit time touching frontend/ or api/
+                try:
+                    result = subprocess.run(
+                        ["git", "log", "-1", "--format=%ct", "--", "frontend/", "api/"],
+                        capture_output=True, text=True, cwd=self.project_root
+                    )
+                    latest_commit = int(result.stdout.strip()) if result.stdout.strip() else 0
+                    if latest_commit > build_mtime:
+                        self.logger.info("Build is stale — source updated since last build.")
+                        print(" 🔄 Build is stale (source files updated since last build). Rebuilding...")
+                        success = self.run_command([npm_exe, "run", "build"], "Building Next.js app", cwd=frontend_dir)
+                        if not success:
+                            self.logger.warning("Frontend rebuild failed.")
+                            print(" ⚠️  Frontend rebuild failed. Backend will still work.")
+                        return success
+                except Exception as e:
+                    self.logger.warning("Could not check build freshness: %s", e)
+            self.logger.info("Frontend already built and up to date.")
+            print(" ✅ Frontend already built and up to date.")
             return True
 
     # ====================================================

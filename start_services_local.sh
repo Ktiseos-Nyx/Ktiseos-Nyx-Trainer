@@ -212,10 +212,26 @@ if [ -d "frontend" ]; then
             echo "[Frontend] Dependencies missing, running npm install..."
             (cd frontend && npm install --legacy-peer-deps)
         fi
-        # Auto-build if missing
+        # Auto-build if missing OR stale (source newer than build)
         if [ ! -d "frontend/.next" ]; then
             echo "[Frontend] No build found, running npm run build..."
             (cd frontend && npm run build)
+        else
+            # Check if source files are newer than the build
+            # Uses git: compare HEAD commit time vs .next/BUILD_ID mod time
+            BUILD_FILE="frontend/.next/BUILD_ID"
+            if [ -f "$BUILD_FILE" ]; then
+                BUILD_TIME=$(stat -c '%Y' "$BUILD_FILE" 2>/dev/null || stat -f '%m' "$BUILD_FILE" 2>/dev/null || echo "0")
+                # Check if any tracked frontend files changed since the build
+                NEWEST_SOURCE=$(git log -1 --format='%ct' -- frontend/ api/ 2>/dev/null || echo "0")
+                if [ "$NEWEST_SOURCE" -gt "$BUILD_TIME" ] 2>/dev/null; then
+                    echo "[Frontend] Build is stale (source files updated since last build)."
+                    echo "[Frontend] Rebuilding... (this takes 30-60 seconds)"
+                    (cd frontend && npm run build)
+                else
+                    echo "[Frontend] Build is up to date."
+                fi
+            fi
         fi
         echo "[Frontend] Starting Next.js frontend on http://localhost:${FRONTEND_PORT}..."
         (cd frontend && NODE_ENV=production PORT="$FRONTEND_PORT" BACKEND_PORT="$BACKEND_PORT" npm start) &

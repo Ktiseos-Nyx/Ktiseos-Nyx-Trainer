@@ -14,7 +14,6 @@
  */
 
 const { createServer } = require('http');
-const { parse } = require('url');
 const next = require('next');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { WebSocketServer } = require('ws');
@@ -43,6 +42,26 @@ const hostname = dev ? '127.0.0.1' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 const defaultBackendPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
 const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackendPort}`;
+
+// WHATWG URL helper — replaces deprecated url.parse() (DEP0169)
+// Next.js handle() expects { pathname, query } so we build that from URL.
+const BASE_URL = 'http://localhost'; // only used for parsing relative URLs
+function parseUrl(reqUrl) {
+  const url = new URL(reqUrl, BASE_URL);
+  // Build query object preserving repeated keys as arrays
+  // Use null-prototype object to prevent prototype pollution from query keys
+  const query = Object.create(null);
+  for (const [key, value] of url.searchParams) {
+    if (key in query) {
+      query[key] = Array.isArray(query[key])
+        ? [...query[key], value]
+        : [query[key], value];
+    } else {
+      query[key] = value;
+    }
+  }
+  return { pathname: url.pathname, query, search: url.search, url };
+}
 
 // Initialize Next.js app
 const app = next({ dev, hostname, port });
@@ -91,7 +110,7 @@ app.prepare().then(() => {
   // Request logging for production — Next.js dev mode logs automatically,
   // but the custom production server is silent without this.
   const logRequest = (req, res) => {
-    const { pathname } = parse(req.url, true);
+    const { pathname } = parseUrl(req.url);
     // Skip static assets, health checks, and favicon to reduce noise
     const isSkipped = pathname.startsWith('/_next/')
       || pathname.startsWith('/favicon')
@@ -111,7 +130,7 @@ app.prepare().then(() => {
   // Create HTTP server
   const server = createServer(async (req, res) => {
     try {
-      const parsedUrl = parse(req.url, true);
+      const parsedUrl = parseUrl(req.url);
       const { pathname } = parsedUrl;
 
       // Log requests in production only (dev mode has its own verbose logging)
@@ -152,7 +171,7 @@ app.prepare().then(() => {
 
   // Handle WebSocket connections
   wss.on('connection', (ws, req) => {
-    const { pathname } = parse(req.url, true);
+    const { pathname } = parseUrl(req.url);
     console.log(`✅ WebSocket connected: ${pathname}`);
 
     // Extract job ID from path: /ws/jobs/{jobId}/logs
@@ -224,7 +243,14 @@ app.prepare().then(() => {
   // Handle WebSocket upgrade requests
   // This is the critical part for Cloudflare compatibility
   server.on('upgrade', (req, socket, head) => {
-    const { pathname } = parse(req.url, true);
+    let pathname;
+    try {
+      ({ pathname } = parseUrl(req.url));
+    } catch (err) {
+      console.error('❌ Malformed WebSocket URL:', req.url, err.message);
+      socket.destroy();
+      return;
+    }
 
     // Native Node.js WebSocket for /ws/jobs/* paths
     if (pathname.startsWith('/ws/jobs/')) {
