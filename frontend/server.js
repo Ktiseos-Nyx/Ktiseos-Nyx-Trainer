@@ -48,8 +48,12 @@ const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackend
 const BASE_URL = 'http://localhost'; // only used for parsing relative URLs
 function parseUrl(reqUrl) {
   const url = new URL(reqUrl, BASE_URL);
-  // Convert URLSearchParams to plain object for Next.js compatibility
-  const query = Object.fromEntries(url.searchParams.entries());
+  // Build query object preserving repeated keys as arrays
+  const query = {};
+  for (const key of url.searchParams.keys()) {
+    const values = url.searchParams.getAll(key);
+    query[key] = values.length > 1 ? values : values[0];
+  }
   return { pathname: url.pathname, query, search: url.search, url };
 }
 
@@ -233,7 +237,14 @@ app.prepare().then(() => {
   // Handle WebSocket upgrade requests
   // This is the critical part for Cloudflare compatibility
   server.on('upgrade', (req, socket, head) => {
-    const { pathname } = parseUrl(req.url);
+    let pathname;
+    try {
+      ({ pathname } = parseUrl(req.url));
+    } catch (err) {
+      console.error('❌ Malformed WebSocket URL:', req.url, err.message);
+      socket.destroy();
+      return;
+    }
 
     // Native Node.js WebSocket for /ws/jobs/* paths
     if (pathname.startsWith('/ws/jobs/')) {
