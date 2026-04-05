@@ -49,10 +49,16 @@ const BASE_URL = 'http://localhost'; // only used for parsing relative URLs
 function parseUrl(reqUrl) {
   const url = new URL(reqUrl, BASE_URL);
   // Build query object preserving repeated keys as arrays
-  const query = {};
-  for (const key of url.searchParams.keys()) {
-    const values = url.searchParams.getAll(key);
-    query[key] = values.length > 1 ? values : values[0];
+  // Use null-prototype object to prevent prototype pollution from query keys
+  const query = Object.create(null);
+  for (const [key, value] of url.searchParams) {
+    if (key in query) {
+      query[key] = Array.isArray(query[key])
+        ? [...query[key], value]
+        : [query[key], value];
+    } else {
+      query[key] = value;
+    }
   }
   return { pathname: url.pathname, query, search: url.search, url };
 }
