@@ -6,7 +6,6 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
-import { Form } from '@/components/ui/form';
 import type { TrainingConfig } from '@/lib/api';
 import { ProjectSetupCard } from '../cards/ProjectSetupCard';
 import { DatasetCard } from '../cards/DatasetCard';
@@ -24,18 +23,21 @@ interface TabProps {
   form: UseFormReturn<TrainingConfig>; // Remove Partial here
   models?: { value: string; label: string }[];
   vaes?: { value: string; label: string }[];
+  textEncoders?: { value: string; label: string }[];
   datasets?: { value: string; label: string }[];
-	onSave?: () => void; // 👈 ADD THIS
+	onSave?: () => void;
+  onRefreshModels?: () => Promise<unknown>;
+  isRefreshingModels?: boolean;
 }
 
 /**
  * Setup Tab
  * Project information and model selection
  */
-export function SetupTab({ form, models = [], vaes = [], onSave }: TabProps) {
+export function SetupTab({ form, models = [], vaes = [], textEncoders = [], onSave, onRefreshModels, isRefreshingModels }: TabProps) {
   return (
     <div className="space-y-6">
-      <ProjectSetupCard form={form} models={models} vaes={vaes} onSave={onSave} />
+      <ProjectSetupCard form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={onSave} onRefreshModels={onRefreshModels} isRefreshingModels={isRefreshingModels} />
     </div>
   );
 }

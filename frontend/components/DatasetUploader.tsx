@@ -8,7 +8,6 @@ import {
   CheckCircle,
   XCircle,
   Loader,
-  Tags,
   FolderPlus,
   Link as LinkIcon,
   FileArchive,
@@ -17,7 +16,9 @@ import {
   Download,
   AlertTriangle,
 } from 'lucide-react';
-import { datasetAPI, fileAPI, API_BASE } from '@/lib/api';
+import { zipSync } from 'fflate';
+import { toast } from 'sonner';
+import { datasetAPI, API_BASE } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface UploadedFile {
@@ -25,6 +26,7 @@ interface UploadedFile {
   status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
   error?: string;
+  preview?: string; // Blob URL for image preview (revoked on cleanup)
 }
 
 export default function DatasetUploader() {
@@ -91,6 +93,7 @@ export default function DatasetUploader() {
       file,
       status: 'pending',
       progress: 0,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
     }));
 
     setFiles((prev) => [...prev, ...newFiles]);
@@ -105,92 +108,181 @@ export default function DatasetUploader() {
     multiple: true,
   });
 
+  // Check if Remote GPU Mode is enabled in user settings
+  const isRemoteGPU = (): boolean => {
+    try {
+      const stored = localStorage.getItem('ktiseos-nyx-settings');
+      if (stored) {
+        return JSON.parse(stored).remoteGPU === true;
+      }
+    } catch { /* ignore */ }
+    return false;
+  };
+
   const handleUpload = async () => {
-  if (files.length === 0) {
-    alert('No files to upload!');
-    return;
-  }
-
-  if (!datasetName.trim()) {
-    alert('Please enter a dataset name!');
-    return;
-  }
-
-  // Check if dataset exists and confirm
-  if (datasetExists) {
-    if (!confirm(`⚠️ Dataset "${datasetName}" already exists!\n\nFiles will be added to the existing dataset. Continue?`)) {
+    if (files.length === 0) {
+      toast.warning('No files to upload');
       return;
     }
-  }
 
-  setUploading(true);
+    if (!datasetName.trim()) {
+      toast.warning('Please enter a dataset name');
+      return;
+    }
 
-  try {
-    const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
-
-    for (const fileObj of imageFiles) {
-      // Mark this file as uploading (using file identity, not index!)
-      setFiles(prev =>
-        prev.map(f =>
-          f.file === fileObj.file ? { ...f, status: 'uploading' } : f
-        )
-      );
-
-      try {
-        // Upload ONE file using existing batch API
-        await datasetAPI.uploadBatch([fileObj.file], datasetName);
-
-        // Mark as success
-        setFiles(prev =>
-          prev.map(f =>
-            f.file === fileObj.file ? { ...f, status: 'success', progress: 100 } : f
-          )
-        );
-      } catch (err) {
-        // Mark as error
-        setFiles(prev =>
-          prev.map(f =>
-            f.file === fileObj.file ? { ...f, status: 'error', error: String(err) } : f
-          )
-        );
-        throw err; // Stop the queue
+    // Check if dataset exists and confirm
+    if (datasetExists) {
+      if (!confirm(`Dataset "${datasetName}" already exists!\n\nFiles will be added to the existing dataset. Continue?`)) {
+        return;
       }
     }
 
-    alert('✅ Upload complete!');
+    setUploading(true);
 
-    // Reload existing datasets list
     try {
-      const data = await datasetAPI.list();
-      setExistingDatasets((data.datasets || []).map(d => d.name));
+      const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
+
+      if (isRemoteGPU()) {
+        // Remote GPU Mode: zip all images and send as single request
+        await handleUploadZipped(imageFiles);
+      } else {
+        // Local mode: upload individually with per-file progress
+        await handleBatchUpload(imageFiles);
+      }
+
+      toast.success('Upload complete!');
+
+      // Reload existing datasets list
+      try {
+        const data = await datasetAPI.list();
+        setExistingDatasets((data.datasets || []).map(d => d.name));
+      } catch (err) {
+        console.error('Failed to reload datasets:', err);
+      }
     } catch (err) {
-      console.error('Failed to reload datasets:', err);
+      console.error('Upload failed:', err);
+      toast.error(`Upload failed: ${err}`);
+    } finally {
+      setUploading(false);
     }
-  } catch (err) {
-    console.error('Upload failed:', err);
-    alert(`❌ Upload failed: ${err}`);
-  } finally {
-    setUploading(false);
-  }
-};
+  };
+
+  // Upload all files in a single batch request (avoids per-file round-trip overhead)
+  const handleBatchUpload = async (imageFiles: UploadedFile[]) => {
+    if (imageFiles.length === 0) return;
+
+    const imageFileSet = new Set(imageFiles.map(f => f.file));
+
+    // Mark all as uploading at once
+    setFiles(prev =>
+      prev.map(f =>
+        imageFileSet.has(f.file) ? { ...f, status: 'uploading' } : f
+      )
+    );
+
+    try {
+      await datasetAPI.uploadBatch(imageFiles.map(f => f.file), datasetName);
+
+      setFiles(prev =>
+        prev.map(f =>
+          imageFileSet.has(f.file)
+            ? { ...f, status: 'success', progress: 100 }
+            : f
+        )
+      );
+    } catch (err) {
+      setFiles(prev =>
+        prev.map(f =>
+          imageFileSet.has(f.file)
+            ? { ...f, status: 'error', error: String(err) }
+            : f
+        )
+      );
+      throw err;
+    }
+  };
+
+  // Zip and upload as single request (Remote GPU mode)
+  const handleUploadZipped = async (imageFiles: UploadedFile[]) => {
+    // Mark all as uploading
+    setFiles(prev =>
+      prev.map(f =>
+        imageFiles.some(img => img.file === f.file)
+          ? { ...f, status: 'uploading' }
+          : f
+      )
+    );
+
+    // Build zip in memory
+    const zipData: { [key: string]: [Uint8Array, { level: 6 }] } = {};
+    for (const fileObj of imageFiles) {
+      const buf = await fileObj.file.arrayBuffer();
+      zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 6 as const }];
+    }
+
+    const zipped = zipSync(zipData);
+    const zipBlob = new Blob([zipped.buffer as ArrayBuffer], { type: 'application/zip' });
+
+    // Upload single zip
+    const formData = new FormData();
+    formData.append('file', new File([zipBlob], `${datasetName}.zip`, { type: 'application/zip' }));
+    formData.append('dataset_name', datasetName);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 600000);
+
+    const response = await fetch(`${API_BASE}/dataset/upload-zip`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Upload failed');
+      } else {
+        const text = await response.text();
+        throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`);
+      }
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
+    }
+
+    // Mark all as success
+    setFiles(prev =>
+      prev.map(f =>
+        imageFiles.some(img => img.file === f.file)
+          ? { ...f, status: 'success', progress: 100 }
+          : f
+      )
+    );
+  };
 
   // Upload and extract ZIP
   const handleUploadZip = async () => {
     const zipFiles = files.filter(f => f.file.name.endsWith('.zip'));
 
     if (zipFiles.length === 0) {
-      alert('No ZIP files selected!');
+      toast.warning('No ZIP files selected');
       return;
     }
 
     if (!datasetName.trim()) {
-      alert('Please enter a dataset name!');
+      toast.warning('Please enter a dataset name');
       return;
     }
 
     // Check if dataset exists and confirm
     if (datasetExists) {
-      if (!confirm(`⚠️ Dataset "${datasetName}" already exists!\n\nZIP contents will be extracted to the existing dataset. Continue?`)) {
+      if (!confirm(`Dataset "${datasetName}" already exists!\n\nZIP contents will be extracted to the existing dataset. Continue?`)) {
         return;
       }
     }
@@ -198,7 +290,7 @@ export default function DatasetUploader() {
     // Validate the file exists and has size
     const zipFile = zipFiles[0].file;
     if (!zipFile || zipFile.size === 0) {
-      alert('❌ ZIP file is empty or not loaded yet!');
+      toast.error('ZIP file is empty or not loaded yet');
       return;
     }
 
@@ -242,7 +334,10 @@ export default function DatasetUploader() {
 
       if (result.success) {
         console.log(`✅ Extracted ${result.extracted} images`);
-        alert(`✅ ZIP uploaded! Extracted ${result.extracted} images.\n${result.errors.length > 0 ? `Errors:\n${result.errors.join('\n')}` : ''}`);
+        toast.success(`ZIP uploaded! Extracted ${result.extracted} images`, {
+          description: result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : undefined,
+        });
+        revokePreviewUrls(files);
         setFiles([]);
 
         // Reload existing datasets list
@@ -259,22 +354,39 @@ export default function DatasetUploader() {
     } catch (err) {
       console.error('❌ Upload error:', err);
       if (err instanceof Error && err.name === 'AbortError') {
-        alert(`❌ ZIP upload timed out after 10 minutes. The network might be too slow or the backend crashed.`);
+        toast.error('ZIP upload timed out after 10 minutes', {
+          description: 'The network might be too slow or the backend crashed.',
+        });
       } else {
-        alert(`❌ ZIP upload failed: ${err}`);
+        toast.error(`ZIP upload failed: ${err}`);
       }
     } finally {
       setUploading(false);
     }
   };
 
+  // Revoke blob URLs to prevent memory leaks
+  const revokePreviewUrls = useCallback((filesToRevoke: UploadedFile[]) => {
+    filesToRevoke.forEach(f => {
+      if (f.preview) URL.revokeObjectURL(f.preview);
+    });
+  }, []);
+
+  // Revoke blob URLs on unmount
+  useEffect(() => {
+    return () => revokePreviewUrls(files);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Clear files
   const handleClear = () => {
+    revokePreviewUrls(files);
     setFiles([]);
   };
 
   // Reset upload state
   const handleReset = () => {
+    revokePreviewUrls(files);
     setFiles([]);
     setUploading(false);
   };
@@ -283,12 +395,12 @@ export default function DatasetUploader() {
 
   const handleUrlDownload = async () => {
     if (!projectName.trim()) {
-      alert('Please enter a project name!');
+      toast.warning('Please enter a project name');
       return;
     }
 
     if (!datasetUrl.trim()) {
-      alert('Please enter a dataset URL or path!');
+      toast.warning('Please enter a dataset URL or path');
       return;
     }
 
@@ -322,7 +434,9 @@ export default function DatasetUploader() {
 
       if (result.success) {
         const fileCount = result.files.length;
-        alert(`✅ Downloaded ${fileCount} file(s) to: datasets/${projectName}\n${result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : ''}`);
+        toast.success(`Downloaded ${fileCount} file(s) to datasets/${projectName}`, {
+          description: result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : undefined,
+        });
         setDatasetUrl('');
 
         // Reload existing datasets list
@@ -336,7 +450,7 @@ export default function DatasetUploader() {
         throw new Error('Download failed');
       }
     } catch (err) {
-      alert(`❌ Download failed: ${err}`);
+      toast.error(`Download failed: ${err}`);
     } finally {
       setDownloading(false);
     }
@@ -346,7 +460,7 @@ export default function DatasetUploader() {
 
   const handleCreateFolder = async () => {
     if (!folderName.trim()) {
-      alert('Please enter a folder name!');
+      toast.warning('Please enter a folder name');
       return;
     }
 
@@ -354,7 +468,9 @@ export default function DatasetUploader() {
 
     // Check if folder already exists
     if (folderExists) {
-      alert(`⚠️ Dataset folder "${kohyaFolderName}" already exists!\n\nPlease choose a different name or modify it in the Direct Upload tab.`);
+      toast.warning(`Folder "${kohyaFolderName}" already exists`, {
+        description: 'Please choose a different name or modify it in the Direct Upload tab.',
+      });
       return;
     }
 
@@ -363,7 +479,7 @@ export default function DatasetUploader() {
     try {
       await datasetAPI.create(kohyaFolderName);
       setDatasetName(kohyaFolderName);
-      alert(`✅ Created dataset folder: ${kohyaFolderName}`);
+      toast.success(`Created dataset folder: ${kohyaFolderName}`);
 
       // Reload existing datasets list
       try {
@@ -376,7 +492,7 @@ export default function DatasetUploader() {
       // Switch to direct upload tab
       setActiveTab('direct');
     } catch (err) {
-      alert(`❌ Failed to create folder: ${err}`);
+      toast.error(`Failed to create folder: ${err}`);
     } finally {
       setCreatingFolder(false);
     }
@@ -538,7 +654,6 @@ export default function DatasetUploader() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-96 overflow-y-auto p-1">
                 {files.map((fileObj, index) => {
                   const isZip = fileObj.file.name.endsWith('.zip');
-                  const preview = !isZip ? URL.createObjectURL(fileObj.file) : null;
 
                   return (
                     <div
@@ -552,9 +667,10 @@ export default function DatasetUploader() {
                         </div>
                       ) : (
                         <img
-                          src={preview!}
+                          src={fileObj.preview}
                           alt={fileObj.file.name}
                           className="w-full h-32 object-cover"
+                          loading="lazy"
                         />
                       )}
 

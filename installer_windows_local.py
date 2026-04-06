@@ -2,7 +2,7 @@
 """
 Ktiseos-Nyx-Trainer - Local Windows Dependency Installer
 Installs training dependencies for local Windows users.
-No GPU auto-install. User must manually install PyTorch with CUDA 11.8.
+Automatically installs PyTorch with CUDA 12.1 support (detects and replaces CPU-only versions).
 
 ✅ NOW INCLUDES FRONTEND PROVISIONING:
    - Installs npm dependencies if node_modules/ missing
@@ -14,6 +14,7 @@ import argparse
 import datetime
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -26,16 +27,18 @@ if sys.platform == "win32":
         subprocess.check_call([sys.executable, "-m", "pip", "install", "colorama"])
         import colorama
 
-        colorama.init(autoreset=True)
+    colorama.init(autoreset=True)
 
 
 class LocalWindowsInstaller:
     """Local Windows Installer for Ktiseos-Nyx-Trainer Backend + Frontend Dependencies"""
 
-    def __init__(self, verbose=False, skip_install=False):
+    def __init__(self, verbose=False, skip_install=False, force=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
+        self.force = force
+        self.install_marker = os.path.join(self.project_root, "install_complete.marker")
 
         self.setup_logging()
         self.python_cmd = sys.executable
@@ -99,7 +102,16 @@ class LocalWindowsInstaller:
         use_shell = platform.system() == "Windows"
         if use_shell:
             # Convert list to string for shell execution on Windows
-            shell_command = " ".join(str(c) for c in command)
+            # Quote paths with spaces (like "C:\Program Files\nodejs\npm.CMD")
+            quoted_command = []
+            for part in command:
+                part_str = str(part)
+                # Quote if contains spaces and not already quoted
+                if " " in part_str and not (part_str.startswith('"') and part_str.endswith('"')):
+                    quoted_command.append(f'"{part_str}"')
+                else:
+                    quoted_command.append(part_str)
+            shell_command = " ".join(quoted_command)
         else:
             shell_command = command
 
@@ -201,84 +213,28 @@ class LocalWindowsInstaller:
         self.logger.info("Vendored backend verification complete")
         return True
 
-    def copy_bitsandbytes_dlls_for_kohya(self):
-        """Copy DLLs from bitsandbytes_windows/ into bitsandbytes/ where Kohya expects them."""
-        src_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes_windows")
-        dest_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
-
-        if not os.path.exists(src_dir):
-            self.logger.warning("bitsandbytes_windows source directory not found. Skipping DLL copy.")
-            return False
-
-        os.makedirs(dest_dir, exist_ok=True)
-
-        # Kohya's hardcoded (or patched) loader expects cuda118.dll
-        dlls_to_copy = [
-            "libbitsandbytes_cpu.dll",
-            "libbitsandbytes_cuda118.dll",  # PRIMARY for PyTorch 2.x on Windows
-        ]
-
-        copied = []
-        for dll in dlls_to_copy:
-            src = os.path.join(src_dir, dll)
-            dst = os.path.join(dest_dir, dll)
-            if os.path.exists(src):
-                shutil.copy2(src, dst)
-                copied.append(dll)
-                self.logger.info("Copied %s to %s", dll, dest_dir)
-            else:
-                self.logger.warning("DLL not found: %s", src)
-
-        if copied:
-            print(f"   ✅ Copied {len(copied)} bitsandbytes DLLs for Kohya")
-            self.logger.info("bitsandbytes DLLs ready for Kohya's loader")
-        else:
-            self.logger.warning("No bitsandbytes DLLs copied — GPU training will fail")
-
-        return True
-
     def install_dependencies(self):
         if self.skip_install:
             print(" Skipping dependency installation (--skip-install flag)")
             self.logger.info("Skipping dependency installation due to --skip-install flag")
             return True
-        requirements_file = os.path.join(self.project_root, "requirements.txt")
+
+        # Use Windows-specific requirements file
+        requirements_file = os.path.join(self.project_root, "requirements_windows.txt")
         if not os.path.exists(requirements_file):
-            error_msg = " CRITICAL: requirements.txt not found!"
+            error_msg = f" CRITICAL: {requirements_file} not found!"
             self.logger.error(error_msg)
             print(error_msg)
             return False
-        self.logger.info("Installing dependencies from: %s", requirements_file)
-        install_cmd = self.package_manager["install_cmd"] + ["-r", requirements_file]
-        success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
-        if success:
-            self.fix_onnx_runtime()
-        return success
 
-    def fix_onnx_runtime(self):
-        self.logger.info(" Ensuring correct ONNX runtime installation for Windows...")
-        print(" Ensuring correct ONNX runtime installation for Windows...")
-        uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "onnxruntime", "onnxruntime-gpu"]
-        self.run_command(uninstall_cmd, "Removing existing ONNX runtime packages")
-        onnx_cmd = [self.python_cmd, "-m", "pip", "install", "onnx==1.16.1", "protobuf<4"]
-        cuda12_cmd = [
-            self.python_cmd,
-            "-m",
-            "pip",
-            "install",
-            "--extra-index-url",
-            "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/",
-            "onnxruntime-gpu==1.17.1",
+        self.logger.info("Installing Windows dependencies from: %s", requirements_file)
+        # Add CUDA 12.1 index for PyTorch installation
+        install_cmd = self.package_manager["install_cmd"] + [
+            "-r", requirements_file,
+            "--extra-index-url", "https://download.pytorch.org/whl/cu121"
         ]
-        success = self.run_command(onnx_cmd, "Installing ONNX and protobuf")
-        if success:
-            success = self.run_command(cuda12_cmd, "Installing ONNX Runtime GPU with CUDA 12 support")
-        if success:
-            self.logger.info(" ONNX runtime installation completed successfully")
-            print(" ONNX runtime installation completed successfully")
-        else:
-            self.logger.warning(" ONNX runtime installation encountered issues - will fallback to CPU")
-            print(" ONNX runtime installation encountered issues - will fallback to CPU")
+        success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
+        return success
 
     def check_system_dependencies(self):
         self.logger.info(" Checking system dependencies for Windows...")
@@ -309,7 +265,7 @@ class LocalWindowsInstaller:
                 "",
                 "RECOMMENDED: Install Python from python.org instead:",
                 "  1. Visit https://www.python.org/downloads/",
-                "  2. Download Python 3.10 or 3.11 (NOT 3.12+)",
+                "  2. Download Python 3.10, 3.11, or 3.12",
                 "  3. During installation, check 'Add Python to PATH'",
                 "  4. Uninstall Microsoft Store Python from Settings > Apps",
                 "",
@@ -329,73 +285,73 @@ class LocalWindowsInstaller:
                 print("\nInstallation cancelled by user.")
                 sys.exit(0)
 
-    def ensure_pytorch_installed(self):
-        """Do NOT install PyTorch. Just verify or warn."""
+    def install_pytorch(self):
+        """
+        Install PyTorch with CUDA 12.1 support for Windows.
+        This is LOCAL INSTALLER ONLY - VastAI has PyTorch pre-installed.
+        """
         try:
             import torch  # pyright: ignore
 
-            self.logger.info(" PyTorch already installed: %s", torch.__version__)
+            # PyTorch is already installed - check if it has CUDA
+            self.logger.info("PyTorch already installed: %s", torch.__version__)
             if torch.cuda.is_available():
-                self.logger.info(" CUDA available: %s", torch.version.cuda)
-                print(f"\n✅ PyTorch {torch.__version__} + CUDA {torch.version.cuda} detected")
-                print("   GPU training will be available.\n")
+                cuda_version = torch.version.cuda
+                self.logger.info("CUDA available: %s", cuda_version)
+                print(f"\n✅ PyTorch {torch.__version__} + CUDA {cuda_version} detected")
+                print("   GPU training is ready.\n")
+                return True
             else:
-                # CPU-only PyTorch - this is a CRITICAL issue for training
-                warning_lines = [
-                    "\n" + "!" * 70,
-                    "🚨 CRITICAL: CPU-only PyTorch detected!",
-                    "!" * 70,
-                    f"Current version: PyTorch {torch.__version__} (CPU-only)",
-                    "",
-                    "⚠️  GPU TRAINING WILL NOT WORK with CPU-only PyTorch!",
-                    "",
-                    "You MUST install PyTorch with CUDA support for GPU training:",
-                    "  1. Uninstall current PyTorch:",
-                    "     python -m pip uninstall torch torchvision torchaudio",
-                    "",
-                    "  2. Install PyTorch with CUDA 11.8:",
-                    "     python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118",
-                    "",
-                    "  3. Or visit: https://pytorch.org/get-started/locally/",
-                    "     Select: Windows, pip, CUDA 11.8",
-                    "",
-                    "The installer will continue, but you won't be able to train LoRAs",
-                    "without proper GPU-enabled PyTorch.",
-                    "!" * 70 + "\n",
-                ]
-                for line in warning_lines:
-                    print(line)
-                    self.logger.warning(line)
+                # CPU-only PyTorch detected - need to reinstall with CUDA
+                print("\n" + "!" * 70)
+                print("🚨 CPU-only PyTorch detected!")
+                print("!" * 70)
+                print(f"Current: PyTorch {torch.__version__} (CPU-only)")
+                print("\nReinstalling PyTorch with CUDA 12.1 support...")
+                print("!" * 70 + "\n")
 
-                # Give user a chance to cancel and fix PyTorch
-                print("Press Ctrl+C within 15 seconds to cancel and fix PyTorch,")
-                print("or wait to continue with CPU-only installation...")
-                import time
-                try:
-                    time.sleep(15)
-                except KeyboardInterrupt:
-                    print("\nInstallation cancelled. Please install PyTorch with CUDA support.")
-                    sys.exit(0)
+                # Uninstall CPU version
+                uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "torch", "torchvision", "torchaudio"]
+                self.run_command(uninstall_cmd, "Uninstalling CPU-only PyTorch")
 
         except ImportError:
-            self.logger.warning(" PyTorch not found.")
-            warning_lines = [
-                "\n" + "!" * 70,
-                "⚠️  PyTorch not installed!",
-                "!" * 70,
-                "PyTorch is REQUIRED for LoRA training.",
-                "",
-                "Install PyTorch with CUDA 11.8 support:",
-                "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118",
-                "",
-                "Or visit: https://pytorch.org/get-started/locally/",
-                "Select: Windows, pip, CUDA 11.8",
-                "!" * 70 + "\n",
-            ]
-            for line in warning_lines:
-                print(line)
-                self.logger.warning(line)
-        return True
+            # PyTorch not installed - install with CUDA
+            print("\n" + "!" * 70)
+            print("⚠️  PyTorch not found - installing with CUDA 12.1 support")
+            print("!" * 70 + "\n")
+
+        # Install PyTorch with CUDA 12.1
+        pytorch_cmd = [
+            self.python_cmd,
+            "-m",
+            "pip",
+            "install",
+            "torch",
+            "torchvision",
+            "torchaudio",
+            "--index-url",
+            "https://download.pytorch.org/whl/cu121",
+        ]
+
+        success = self.run_command(pytorch_cmd, "Installing PyTorch with CUDA 12.1")
+
+        if success:
+            # Verify installation
+            try:
+                import torch  # pyright: ignore
+                if torch.cuda.is_available():
+                    print(f"\n✅ PyTorch {torch.__version__} + CUDA {torch.version.cuda} installed successfully!")
+                    print("   GPU training is ready.\n")
+                    self.logger.info("PyTorch with CUDA installed successfully")
+                else:
+                    print("\n⚠️  PyTorch installed but CUDA not available. Check your NVIDIA drivers.")
+                    self.logger.warning("PyTorch installed but CUDA not available")
+            except ImportError:
+                print("\n❌ PyTorch installation failed.")
+                self.logger.error("PyTorch installation failed")
+                return False
+
+        return success
 
     # =============== NEW FRONTEND METHODS ===============
     def get_npm_executable(self):
@@ -428,7 +384,7 @@ class LocalWindowsInstaller:
         return "npm"  # Fallback to string and pray
 
     def install_frontend_deps(self):
-        """Install frontend dependencies if node_modules is missing."""
+        """Install frontend dependencies if node_modules is missing (or --force)."""
         frontend_dir = os.path.join(self.project_root, "frontend")
         if not os.path.exists(frontend_dir):
             self.logger.info("Frontend directory not found. Skipping.")
@@ -443,10 +399,32 @@ class LocalWindowsInstaller:
             return False
 
         node_modules = os.path.join(frontend_dir, "node_modules")
-        if not os.path.exists(node_modules):
+        if self.force and os.path.exists(node_modules):
+            # --force: wipe node_modules so package.json changes are picked up
+            self.logger.info("--force: removing existing node_modules for clean reinstall...")
+            print(" 🔄 --force: removing node_modules for clean reinstall...")
+            try:
+                shutil.rmtree(node_modules)
+            except Exception as e:
+                self.logger.warning("Could not remove node_modules: %s", e)
+
+        if self.force or not os.path.exists(node_modules):
             self.logger.info("Installing frontend dependencies...")
             print(" 📦 Installing frontend (Next.js) dependencies...")
-            success = self.run_command([npm_exe, "install"], "Installing npm packages", cwd=frontend_dir)
+            success = self.run_command(
+                [npm_exe, "install", "--legacy-peer-deps"],
+                "Installing npm packages",
+                cwd=frontend_dir,
+            )
+            if not success:
+                # Retry with --force for stubborn platform-specific dep issues
+                self.logger.warning("npm install failed, retrying with --force...")
+                print(" ⚠️  Retrying npm install with --force...")
+                success = self.run_command(
+                    [npm_exe, "install", "--legacy-peer-deps", "--force"],
+                    "Installing npm packages (force)",
+                    cwd=frontend_dir,
+                )
             return success
         else:
             self.logger.info("Frontend dependencies already installed.")
@@ -454,7 +432,7 @@ class LocalWindowsInstaller:
             return True
 
     def build_frontend(self):
-        """Build Next.js app if .next/ is missing."""
+        """Build Next.js app if .next/ is missing (or --force)."""
         frontend_dir = os.path.join(self.project_root, "frontend")
         if not os.path.exists(frontend_dir):
             self.logger.info("Frontend directory not found. Skipping build.")
@@ -464,7 +442,17 @@ class LocalWindowsInstaller:
         npm_exe = self.get_npm_executable()
 
         build_dir = os.path.join(frontend_dir, ".next")
-        if not os.path.exists(build_dir):
+        if self.force and os.path.exists(build_dir):
+            # --force: wipe stale build so updated source is compiled fresh
+            # (git pull changes source but leaves old .next in place)
+            self.logger.info("--force: removing stale .next build for clean rebuild...")
+            print(" 🔄 --force: removing stale .next build...")
+            try:
+                shutil.rmtree(build_dir)
+            except Exception as e:
+                self.logger.warning("Could not remove .next directory: %s", e)
+
+        if self.force or not os.path.exists(build_dir):
             self.logger.info("Building Next.js production frontend...")
             print(" 🏗️  Building Next.js production frontend...")
             success = self.run_command([npm_exe, "run", "build"], "Building Next.js app", cwd=frontend_dir)
@@ -473,8 +461,29 @@ class LocalWindowsInstaller:
                 print(" ⚠️  Frontend build failed. Backend will still work.")
             return success
         else:
-            self.logger.info("Frontend already built.")
-            print(" ✅ Frontend already built.")
+            # Check if build is stale (source newer than build)
+            build_id = os.path.join(build_dir, "BUILD_ID")
+            if os.path.exists(build_id):
+                build_mtime = os.path.getmtime(build_id)
+                # Check git for latest commit time touching frontend/ or api/
+                try:
+                    result = subprocess.run(
+                        ["git", "log", "-1", "--format=%ct", "--", "frontend/", "api/"],
+                        capture_output=True, text=True, cwd=self.project_root
+                    )
+                    latest_commit = int(result.stdout.strip()) if result.stdout.strip() else 0
+                    if latest_commit > build_mtime:
+                        self.logger.info("Build is stale — source updated since last build.")
+                        print(" 🔄 Build is stale (source files updated since last build). Rebuilding...")
+                        success = self.run_command([npm_exe, "run", "build"], "Building Next.js app", cwd=frontend_dir)
+                        if not success:
+                            self.logger.warning("Frontend rebuild failed.")
+                            print(" ⚠️  Frontend rebuild failed. Backend will still work.")
+                        return success
+                except Exception as e:
+                    self.logger.warning("Could not check build freshness: %s", e)
+            self.logger.info("Frontend already built and up to date.")
+            print(" ✅ Frontend already built and up to date.")
             return True
 
     # ====================================================
@@ -498,44 +507,58 @@ class LocalWindowsInstaller:
             else:
                 self.logger.debug("No setup.py found for %s at %s, skipping", name, path)
 
-        # Critical: Copy DLLs into Kohya's bitsandbytes/ folder
-        self.copy_bitsandbytes_dlls_for_kohya()
-
-        # Apply PyTorch patch if needed
-        self.logger.info("Checking if PyTorch version patch is needed...")
-        print("   - Checking if PyTorch version patch is needed...")
-        try:
-            import torch  # pyright: ignore
-
-            pytorch_version = torch.__version__
-            self.logger.info("Detected PyTorch version: %s", pytorch_version)
-            if pytorch_version in ["2.0.0", "2.0.1"]:
-                self.logger.info("Applying patch for PyTorch %s...", pytorch_version)
-                print(f"   - Applying patch for PyTorch {pytorch_version}...")
-                fix_script_path = os.path.join(self.derrian_dir, "fix_torch.py")
-                if os.path.exists(fix_script_path):
-                    self.run_command([self.python_cmd, fix_script_path], "Applying PyTorch patch")
-            else:
-                info_msg = f"PyTorch version is {pytorch_version}. No patch needed."
-                self.logger.info(info_msg)
-                print(f"   - {info_msg}")
-        except ImportError:
-            warning_msg = "Could not import PyTorch. Skipping version patch check."
-            self.logger.warning(warning_msg)
-            print(f"   - {warning_msg}")
-        except Exception as e:
-            error_msg = f"Error applying PyTorch patch: {e}"
-            self.logger.error(error_msg)
-            print(f"   - {error_msg}")
         return True
+
+    def check_already_installed(self):
+        """Check if a previous installation exists. Returns True if we should proceed."""
+        if not os.path.exists(self.install_marker):
+            return True
+
+        # Read previous install info
+        try:
+            with open(self.install_marker, "r") as f:
+                prev_info = f.read().strip()
+        except Exception:
+            prev_info = "unknown date"
+
+        if self.force:
+            self.logger.info("Previous installation found (%s), but --force flag set. Reinstalling.", prev_info)
+            print(f"\n Previous installation detected ({prev_info})")
+            print(" --force flag set, proceeding with reinstall...\n")
+            return True
+
+        print("\n" + "=" * 70)
+        print(" Installation already completed!")
+        print("=" * 70)
+        print(f"\n Previous install: {prev_info}")
+        print("\n If you want to reinstall, use one of these options:")
+        print("   install.bat --force          Reinstall everything")
+        print("   install.bat --skip-install   Rebuild frontend only (fast)")
+        print("\n To start the app: start_services_local.bat")
+        print("=" * 70 + "\n")
+        return False
+
+    def write_install_marker(self):
+        """Write marker file indicating successful installation."""
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self.install_marker, "w") as f:
+                f.write(f"Windows local install completed: {timestamp}\n")
+                f.write(f"Python: {self.python_cmd}\n")
+            self.logger.info("Install marker written: %s", self.install_marker)
+        except Exception as e:
+            self.logger.warning("Could not write install marker: %s", e)
 
     def run_installation(self):
         self.print_banner()
 
+        # Check if already installed (skip with --force)
+        if not self.check_already_installed():
+            return True
+
         # Check for Microsoft Store Python and warn
         self.check_microsoft_store_python()
 
-        self.ensure_pytorch_installed()
         start_time = datetime.datetime.now()
         self.logger.info("Installation started")
         try:
@@ -549,6 +572,14 @@ class LocalWindowsInstaller:
                 self.logger.error(error_msg)
                 print(f" {error_msg}")
                 return False
+
+            # Install PyTorch with CUDA FIRST - this checks for CPU-only PyTorch
+            # and replaces it with CUDA version if needed
+            if not self.skip_install:
+                if not self.install_pytorch():
+                    self.logger.warning("PyTorch installation had issues - continuing anyway")
+
+            # Install remaining dependencies
             if not self.install_dependencies():
                 error_msg = "Halting installation due to dependency installation failure."
                 self.logger.error(error_msg)
@@ -569,40 +600,51 @@ class LocalWindowsInstaller:
 
             end_time = datetime.datetime.now()
             duration = end_time - start_time
+            # Detect if we're running inside a venv
+            in_venv = hasattr(sys, "real_prefix") or (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix)
+
             completion_lines = [
                 "\n" + "=" * 70,
                 "✅ Local Windows Installation complete!",
                 f"Total time: {duration}",
-                f"Package manager used: {self.package_manager['name']}",
                 f"Full log available at: {self.log_file}",
                 "",
-                "📦 Backend dependencies installed successfully for Windows!",
-                "",
-                "🛡️  About Virtual Environments (STRONGLY RECOMMENDED):",
-                "   - This installer does NOT create a virtual environment automatically",
-                "   - Packages were installed to your Python's user site-packages",
-                "   - ⚠️  For future installs, use a venv to avoid package conflicts!",
-                "",
-                "   How to use venv next time:",
-                "     python -m venv venv",
-                "     venv\\Scripts\\activate",
-                "     install.bat",
+            ]
+
+            if in_venv:
+                completion_lines += [
+                    f"📦 Packages installed to virtual environment: {sys.prefix}",
+                    "   Your system Python is untouched.",
+                ]
+            else:
+                completion_lines += [
+                    "⚠️  Packages installed to your system Python (no virtual environment).",
+                    "   Consider using a venv next time to isolate dependencies:",
+                    "     python -m venv .venv",
+                    "     .venv\\Scripts\\activate",
+                    "     install.bat",
+                ]
+
+            completion_lines += [
                 "",
                 "📍 Next steps:",
-                "   1. ⚠️  Check warnings above - especially PyTorch CUDA support!",
+                "   1. Check warnings above - especially PyTorch CUDA support!",
                 "   2. Run 'start_services_local.bat' to start the web UI",
                 "   3. Access the UI at http://localhost:3000",
                 "",
                 "💡 Troubleshooting:",
-                "   - CUDA errors? Reinstall PyTorch with CUDA 11.8",
+                "   - CUDA errors? Reinstall PyTorch with CUDA 12.1 (cu121)",
                 "   - Import errors? Try python.org Python instead of MS Store",
                 "   - Multiple Pythons? Check which one is first in PATH",
+                "   - 8-bit optimizers (AdamW8bit)? bitsandbytes works out of the box!",
                 "=" * 70,
             ]
             for line in completion_lines:
                 print(line)
                 if line.strip():
                     self.logger.info(line)
+
+            self.write_install_marker()
             return True
         except Exception as e:
             error_msg = f"Unexpected error during installation: {e}"
@@ -630,9 +672,10 @@ Logs: logs/installer_windows_local_TIMESTAMP.log
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     parser.add_argument("--skip-install", action="store_true", help="Skip dependency installation")
+    parser.add_argument("--force", "-f", action="store_true", help="Force reinstall even if already installed")
     args = parser.parse_args()
     try:
-        installer = LocalWindowsInstaller(verbose=args.verbose, skip_install=args.skip_install)
+        installer = LocalWindowsInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:

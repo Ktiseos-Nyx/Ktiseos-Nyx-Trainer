@@ -137,7 +137,7 @@ Check [docs/Conversion-scripts.md](docs/Conversion-scripts.md) for more informat
 
 #### As standalone wrappers
 
-See [standalone_example.py](standalone_example.py) for full example.
+See [example/standalone_example.py](example/standalone_example.py) for full example.
 
 Import `create_lycoris` and `LycorisNetwork` from `lycoris` library, put your preset to `LycorisNetwork` and then use `create_lycoris` to create LyCORIS module for your pytorch module.
 
@@ -169,12 +169,12 @@ You can check my [HakuPhi](https://github.com/KohakuBlueleaf/HakuPhi) project to
 
 After LyCORIS3.0.0, Parametrize API and Functional API have been added, which provide more different ways on utilizing LyCORIS library.
 
-Check API reference for more informations.
+Check API reference for more information.
 You can also take the [test suites](test/) as a kind of examples.
 
 #### Bitsandbytes support
 
-See [bnb_example.py](bnb_example.py) for example. Basically as same as standalone wrapper.
+See [example/bnb_example.py](example/bnb_example.py) for example. Basically as same as standalone wrapper.
 
 #### Graphical interfaces and Colabs (via kohya trainer)
 
@@ -259,21 +259,21 @@ See [docs/Conversion-scripts.md](docs/Conversion-scripts.md) for more informatio
 
 For full log, please see [Change.md](Change.md)
 
-
-### 2024/12/09 update to 3.1.1
+### 2025/04/23 update to 3.2.0
 
 #### New Features
 
-* use `wd_on_output=True` can enable "correct" weight-decomposition implementation which use the output dimension of weight to calc the norm. The original implementation in LyCORIS calculate things on input dimension due to ambiguos annotation in paper.
+* Support lora-plus learning rate scaling
+* Support HunYuanVideo model and Wan2.1 model
+* LyCORIS now have `onfly_merge` and `onfly_restore` method. Which can be used in inference time to merge the weights of LyCORIS into the original model. This will save the memory and speed up the inference time.
 
 #### Improvements
 
-* BOFT now have more efficient implementation which avoid einops.rearrange.
-* `.merge_to()` will automatically match the device and dtype now.
+* [BREAKING CHANGES] Now LyCORIS will use `wd_on_output=True` by default. This will make the weight norm more consistent with the original paper.
 
 #### Bug fixes
 
-* `scale_weight_norm` working correctly now.
+* `bypass_mode=False` will turn off the bypass mode correctly now.
 
 ## Todo list
 

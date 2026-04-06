@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { trainingAPI } from '@/lib/api';
-import { Activity, Save, Clock, Zap, TrendingUp } from 'lucide-react';
+import { trainingAPI, LogPoller } from '@/lib/api';
+import { Activity, Clock, Zap, TrendingUp } from 'lucide-react';
 
 interface TrainingStatus {
   is_training: boolean;
+  error?: string;
   progress?: {
     current_step?: number;
     total_steps?: number;
@@ -13,6 +14,7 @@ interface TrainingStatus {
     total_epochs?: number;
     loss?: number;
     lr?: number;
+    progress_percent?: number;  // 0-100 from Python backend
   };
 }
 
@@ -21,29 +23,21 @@ export default function TrainingMonitor() {
   const [logs, setLogs] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
 
-  // ✅ FIX 1: Initialize as null (safe for server)
-  const [jobId, setJobId] = useState<string | null>(null);
-
-  const wsRef = useRef<WebSocket | null>(null);
-  const logsEndRef = useRef<HTMLDivElement>(null);
-
-  // ✅ FIX 2: Load from URL query parameter, then localStorage after component mounts (browser only)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlJobId = urlParams.get('job');
-
-      if (urlJobId) {
-        setJobId(urlJobId);
-        localStorage.setItem('current_training_job_id', urlJobId);
-      } else {
-        const savedJobId = localStorage.getItem('current_training_job_id');
-        if (savedJobId) {
-          setJobId(savedJobId);
-        }
-      }
+  // Initialize jobId from URL query param or localStorage (browser only)
+  const [jobId, setJobId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlJobId = urlParams.get('job');
+    if (urlJobId) {
+      localStorage.setItem('current_training_job_id', urlJobId);
+      return urlJobId;
     }
-  }, []);
+    return localStorage.getItem('current_training_job_id');
+  });
+
+  const logPollerRef = useRef<LogPoller | null>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const MAX_LOGS = 1000;
 
   // Auto-scroll logs to bottom
   const scrollToBottom = () => {
@@ -54,42 +48,49 @@ export default function TrainingMonitor() {
     scrollToBottom();
   }, [logs]);
 
-  // Initial check on mount (for page refreshes during active training)
+  // Listen for training start event from TrainingConfig (ALWAYS active)
+  // This must be a separate effect with no jobId dependency so the listener
+  // stays registered even when jobId is null (e.g. after clearing a stale ID).
   useEffect(() => {
-    // Wait for jobId to be loaded
+    if (typeof window === 'undefined') return;
+
+    const handleTrainingStart = (event: any) => {
+      const newJobId = event.detail?.jobId || localStorage.getItem('current_training_job_id');
+      if (newJobId) {
+        console.log(`TrainingMonitor: received training-started event for ${newJobId}`);
+        setLogs([]); // Clear previous logs
+        setJobId(newJobId);
+      }
+    };
+
+    window.addEventListener('training-started', handleTrainingStart);
+    return () => {
+      window.removeEventListener('training-started', handleTrainingStart);
+    };
+  }, []);
+
+  // Check status when jobId changes (on mount with stored ID, or after training-started event)
+  useEffect(() => {
     if (!jobId) return;
 
-    const checkInitialStatus = async (currentJobId: string) => {
+    const checkInitialStatus = async () => {
       try {
-        const statusData = await trainingAPI.status(currentJobId);
+        const statusData = await trainingAPI.status(jobId);
         setStatus(statusData);
+
+        // If job is done (completed/failed/cancelled), clear stale ID
+        if (!statusData.is_training) {
+          localStorage.removeItem('current_training_job_id');
+        }
       } catch (err) {
-        // No training running - stay idle
+        // Job not found (e.g. backend restarted) - clear stale job ID
         setStatus({ is_training: false });
+        localStorage.removeItem('current_training_job_id');
+        setJobId(null);
       }
     };
 
-    checkInitialStatus(jobId);
-
-    // Listen for training start event from TrainingConfig
-    const handleTrainingStart = (event: any) => {
-      // Use event detail, fallback to localStorage if window exists
-      const newJobId = event.detail?.jobId || (typeof window !== 'undefined' ? localStorage.getItem('current_training_job_id') : null);
-      if (newJobId) {
-        setJobId(newJobId);
-        checkInitialStatus(newJobId);
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('training-started', handleTrainingStart);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('training-started', handleTrainingStart);
-      }
-    };
+    checkInitialStatus();
   }, [jobId]);
 
   // Poll training status (only when training is active)
@@ -131,48 +132,64 @@ export default function TrainingMonitor() {
     };
   }, [status.is_training, jobId]);
 
-  // WebSocket for logs
+  // HTTP polling for logs (replaces WebSocket which breaks through Caddy proxy)
   useEffect(() => {
     if (!status.is_training || !jobId) return;
 
-    console.log(`Connecting to training logs WebSocket for job ${jobId}...`);
+    console.log(`Starting log polling for job ${jobId}...`);
+    setConnected(true);
 
-    const ws = trainingAPI.connectLogs(
+    const poller = trainingAPI.pollLogs(
       jobId,
       (data) => {
-        if (data.type === 'log') {
-          setLogs((prev) => [...prev, data.message as string]);
-        } else if (data.type === 'progress') {
+        if (data.type === 'log' && data.log) {
+          const msg = data.log;
+          setLogs((prev) => {
+            const next = [...prev, msg];
+            return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+          });
+        } else if (data.type === 'progress' && data.progress !== undefined) {
           setStatus((prev) => ({
             ...prev,
-            progress: data.data as any,
+            progress: {
+              ...prev.progress,
+              progress_percent: data.progress as number,
+            },
           }));
-        } else if (data.type === 'connected') {
-          setConnected(true);
-          setLogs((prev) => [...prev, '✓ Connected to training logs']);
-        } else if (data.type === 'heartbeat') {
-          setConnected(true);
+        } else if (data.type === 'status') {
+          if (data.status === 'completed') {
+            setStatus({ is_training: false });
+            setLogs((prev) => [...prev, '--- Training completed! ---']);
+            setConnected(false);
+            localStorage.removeItem('current_training_job_id');
+          } else if (data.status === 'failed') {
+            const errorMsg = (data as any).error || 'Unknown error';
+            setStatus({ is_training: false, error: errorMsg });
+            setLogs((prev) => [...prev, `--- Training FAILED: ${errorMsg} ---`]);
+            setConnected(false);
+            localStorage.removeItem('current_training_job_id');
+          }
         }
       },
       (error) => {
-        console.error('WebSocket error:', error);
+        console.error('Log polling error:', error);
         setConnected(false);
       }
     );
 
-    ws.onclose = () => {
-      setConnected(false);
-    };
-
-    wsRef.current = ws;
+    logPollerRef.current = poller;
 
     return () => {
-      ws.close();
+      poller.stop();
+      setConnected(false);
     };
   }, [status.is_training, jobId]);
 
   const getProgress = () => {
     if (!status.progress) return 0;
+    // Use progress_percent from Python backend if available
+    if (status.progress.progress_percent !== undefined) return status.progress.progress_percent;
+    // Fallback: calculate from step/total
     const { current_step, total_steps } = status.progress;
     if (!current_step || !total_steps) return 0;
     return (current_step / total_steps) * 100;
@@ -313,7 +330,7 @@ export default function TrainingMonitor() {
 
       {!status.is_training && logs.length === 0 && (
         <div className="mt-4 text-center text-sm text-muted-foreground">
-          <p>WebSocket-based real-time updates</p>
+          <p>Real-time log updates via polling</p>
         </div>
       )}
     </div>

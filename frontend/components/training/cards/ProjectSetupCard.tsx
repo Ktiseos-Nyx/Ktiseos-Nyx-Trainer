@@ -12,22 +12,50 @@ import { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ComboboxFormField, TextFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
-import { Folder, Sparkles } from 'lucide-react';
+import { Folder, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
 
-// --- Define the props the Card now accepts ---
+/**
+ * Props for the {`@link` ProjectSetupCard} component.
+ *
+ * `@property` form   - React Hook Form instance typed to `TrainingConfig`. Not partial.
+ * `@property` models - Available checkpoint models as `{ value, label }` pairs.
+ * `@property` vaes   - Available VAE models as `{ value, label }` pairs.
+ * `@property` onSave - Optional callback triggered by the "Save Project" button.
+ */
 interface ProjectSetupCardProps {
-  form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
+  form: UseFormReturn<TrainingConfig>;
   models: { value: string; label: string }[];
   vaes: { value: string; label: string }[];
-  onSave?: () => void; // 👈 NEW
+  textEncoders: { value: string; label: string }[];
+  onSave?: () => void;
+  onRefreshModels?: () => Promise<unknown>;
+  isRefreshingModels?: boolean;
 }
 
-// --- Update the function signature ---
-export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCardProps) {
+/**
+ * Configuration card for basic project and model setup.
+ *
+ * Renders fields for project name, model type, base model path, and VAE path.
+ * Conditionally displays architecture-specific path fields based on the
+ * selected `model_type`:
+ * - **Flux / SD3 / SD3.5** — CLIP-L, CLIP-G, T5-XXL, AutoEncoder
+ * - **Chroma** — T5-XXL, AutoEncoder (no CLIP-L)
+ * - **Anima** — Qwen3, AutoEncoder, T5 Tokenizer, LLM Adapter
+ * - **HunyuanImage** — Qwen2.5-VL Text Encoder, byT5
+ *
+ * `@param` props - See {`@link` ProjectSetupCardProps}.
+ * `@returns` The rendered project setup card.
+ */
+export function ProjectSetupCard({ form, models, vaes, textEncoders, onSave, onRefreshModels, isRefreshingModels }: ProjectSetupCardProps) {
   const modelType = form.watch('model_type');
-  const needsFluxPaths = modelType === 'Flux' || modelType === 'SD3' || modelType === 'SD3.5';
+  const needsFluxPaths = modelType === 'FLUX' || modelType === 'SD3' || modelType === 'SD3.5';
+  const isChroma = modelType === 'Chroma';
+  const isAnima = modelType === 'Anima';
+  const isHunyuanImage = modelType === 'HunyuanImage';
+
+
 
 
   return (
@@ -72,12 +100,12 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               description: '1024x1024 resolution, most popular',
             },
             {
-              value: 'SD1.5',
+              value: 'SD15',
               label: 'SD 1.5',
               description: '512x512 resolution, classic',
             },
             {
-              value: 'Flux',
+              value: 'FLUX',
               label: 'Flux',
               description: 'Experimental, high quality',
             },
@@ -92,23 +120,55 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               description: 'Newest Stability AI release',
             },
             {
-              value: 'Lumina',
+              value: 'LUMINA',
               label: 'Lumina',
               description: 'Experimental architecture',
+            },
+            {
+              value: 'Chroma',
+              label: 'Chroma',
+              description: 'Flux variant (no CLIP-L needed)',
+            },
+            {
+              value: 'Anima',
+              label: 'Anima',
+              description: 'Qwen3 + T5 dual encoder',
+            },
+            {
+              value: 'HunyuanImage',
+              label: 'HunyuanImage',
+              description: 'Qwen2.5-VL + byT5 (LoRA only)',
             },
           ]}
 
         />
 
-        {/* --- REPLACEMENT FOR BASE MODEL PATH --- */}
-        <ComboboxFormField
-          form={form}
-          name="pretrained_model_name_or_path"
-          label="Base Model Path"
-          description="Select a model from your /models/stable-diffusion folder"
-          placeholder="Select or type a model path..."
-          options={models}
-        />
+        {/* --- BASE MODEL PATH + REFRESH --- */}
+        <div>
+          {onRefreshModels && (
+            <div className="flex justify-end mb-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onRefreshModels}
+                disabled={isRefreshingModels}
+                className="h-7 gap-1 text-xs text-muted-foreground"
+              >
+                <RefreshCw className={`h-3 w-3 ${isRefreshingModels ? 'animate-spin' : ''}`} />
+                {isRefreshingModels ? 'Refreshing…' : 'Refresh models'}
+              </Button>
+            </div>
+          )}
+          <ComboboxFormField
+            form={form}
+            name="pretrained_model_name_or_path"
+            label="Base Model Path"
+            description="Select a model from your /models/stable-diffusion folder"
+            placeholder="Select or type a model path..."
+            options={models}
+          />
+        </div>
 
         {/* --- REPLACEMENT FOR VAE PATH --- */}
         <ComboboxFormField
@@ -128,39 +188,143 @@ export function ProjectSetupCard({ form, models, vaes, onSave }: ProjectSetupCar
               {modelType} Specific Paths
             </div>
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="clip_l_path"
               label="CLIP-L Path"
               description="Required for Flux/SD3"
-              placeholder="/path/to/clip_l.safetensors"
+              placeholder="Select or type a CLIP-L path..."
+              options={textEncoders}
             />
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="clip_g_path"
               label="CLIP-G Path"
               description="Required for Flux/SD3"
-              placeholder="/path/to/clip_g.safetensors"
+              placeholder="Select or type a CLIP-G path..."
+              options={textEncoders}
             />
 
-            <TextFormField
+            <ComboboxFormField
               form={form}
               name="t5xxl_path"
               label="T5-XXL Path"
               description="Required for Flux/SD3"
-              placeholder="/path/to/t5xxl.safetensors"
+              placeholder="Select or type a T5-XXL path..."
+              options={textEncoders}
             />
 
-            {modelType === 'Flux' && (
-              <TextFormField
+            {modelType === 'FLUX' && (
+              <ComboboxFormField
                 form={form}
                 name="ae_path"
                 label="AutoEncoder Path"
                 description="Flux AutoEncoder (*.safetensors)"
-                placeholder="/path/to/ae.safetensors"
+                placeholder="Select or type an AE path..."
+                options={vaes}
               />
             )}
+          </div>
+        )}
+
+        {/* Conditional: Chroma specific paths (T5 + AE, no CLIP-L) */}
+        {isChroma && (
+          <div className="space-y-4 p-4 border border-green-500/30 rounded-lg bg-green-500/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-green-400">
+              <Folder className="h-4 w-4" />
+              Chroma Specific Paths
+            </div>
+
+            <ComboboxFormField
+              form={form}
+              name="t5xxl_path"
+              label="T5-XXL Path"
+              description="Required for Chroma"
+              placeholder="Select or type a T5-XXL path..."
+              options={textEncoders}
+            />
+
+            <ComboboxFormField
+              form={form}
+              name="ae_path"
+              label="AutoEncoder Path"
+              description="Required for Chroma"
+              placeholder="Select or type an AE path..."
+              options={vaes}
+            />
+          </div>
+        )}
+
+        {/* Conditional: Anima specific paths (Qwen3 + T5 tokenizer + AE) */}
+        {isAnima && (
+          <div className="space-y-4 p-4 border border-orange-500/30 rounded-lg bg-orange-500/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-orange-400">
+              <Folder className="h-4 w-4" />
+              Anima Specific Paths
+            </div>
+
+            <ComboboxFormField
+              form={form}
+              name="qwen3"
+              label="Qwen3-0.6B Path"
+              description="Required - safetensors file or directory"
+              placeholder="Select or type a Qwen3 path..."
+              options={textEncoders}
+            />
+
+            <ComboboxFormField
+              form={form}
+              name="ae_path"
+              label="AutoEncoder (VAE) Path"
+              description="Required for Anima"
+              placeholder="Select or type an AE path..."
+              options={vaes}
+            />
+
+            <TextFormField
+              form={form}
+              name="t5_tokenizer_path"
+              label="T5 Tokenizer Path (Optional)"
+              description="Uses default configs/t5_old/ if not set"
+              placeholder="/path/to/t5_tokenizer/"
+            />
+
+            <TextFormField
+              form={form}
+              name="llm_adapter_path"
+              label="LLM Adapter Path (Optional)"
+              description="Separate LLM adapter weights"
+              placeholder="/path/to/llm_adapter.safetensors"
+            />
+          </div>
+        )}
+
+        {/* Conditional: HunyuanImage specific paths (Qwen2.5-VL + byT5) */}
+        {isHunyuanImage && (
+          <div className="space-y-4 p-4 border border-cyan-500/30 rounded-lg bg-cyan-500/5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-cyan-400">
+              <Folder className="h-4 w-4" />
+              HunyuanImage Specific Paths
+            </div>
+
+            <ComboboxFormField
+              form={form}
+              name="text_encoder_path"
+              label="Qwen2.5-VL Text Encoder Path"
+              description="Required - bfloat16 safetensors"
+              placeholder="Select or type a Qwen2.5-VL path..."
+              options={textEncoders}
+            />
+
+            <ComboboxFormField
+              form={form}
+              name="byt5_path"
+              label="byT5 Path"
+              description="Required - float16 safetensors"
+              placeholder="Select or type a byT5 path..."
+              options={textEncoders}
+            />
           </div>
         )}
 

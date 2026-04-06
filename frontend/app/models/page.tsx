@@ -1,18 +1,37 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { modelsAPI, ModelFile, PopularModel } from '@/lib/api';
+import { toast } from 'sonner';
+import { modelsAPI, ModelFile, PopularModel, PopularModelsResponse } from '@/lib/api';
 import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
+export type ModelType = 'sdxl' | 'sd15' | 'flux' | 'sd3.5' | 'chroma' | 'anima' | 'hunyuanimage' | 'lumina';
+
+/**
+ * Render the Models & VAEs page that provides UI for downloading models/VAEs and managing local files.
+ *
+ * The page includes a download form (supports HuggingFace and Civitai links), a Supported Models section that can auto-fill the download form, and a Manage tab for listing and deleting downloaded models and VAEs.
+ *
+ * @returns A JSX element representing the Models & VAEs page.
+ */
 export default function ModelsPage() {
   const [activeTab, setActiveTab] = useState<'download' | 'manage'>('download');
 
   // Download state
   const [downloadUrl, setDownloadUrl] = useState('');
   const [downloadType, setDownloadType] = useState<'model' | 'vae'>('model');
-  const [modelType, setModelType] = useState('sdxl');
+  const [modelType, setModelType] = useState<ModelType>('sdxl');
   const [downloading, setDownloading] = useState(false);
   const [downloadResult, setDownloadResult] = useState<any>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -22,8 +41,8 @@ export default function ModelsPage() {
   const [vaes, setVaes] = useState<ModelFile[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Popular models
-  const [popularModels, setPopularModels] = useState<any>(null);
+  // Supported models
+  const [popularModels, setPopularModels] = useState<PopularModelsResponse | null>(null);
 
   // Load files and popular models
   useEffect(() => {
@@ -64,9 +83,6 @@ export default function ModelsPage() {
       setDownloadError(null);
       setDownloadResult(null);
 
-      // Extract filename from URL for better UX
-      const filename = downloadUrl.split('/').pop() || 'file';
-
       const result = await modelsAPI.download(downloadUrl, downloadType, modelType);
 
       setDownloadResult(result);
@@ -88,13 +104,16 @@ export default function ModelsPage() {
       await modelsAPI.delete(file.type, file.name);
       loadFiles();
     } catch (err: any) {
-      alert(`Failed to delete: ${err.message}`);
+      toast.error(`Failed to delete: ${err.message}`);
     }
   };
 
-  const applyPopularUrl = (url: string, type: 'model' | 'vae' = 'model') => {
+  const applyPopularUrl = (url: string, type: 'model' | 'vae' = 'model', autoModelType?: ModelType) => {
     setDownloadUrl(url);
     setDownloadType(type);
+    if (autoModelType) {
+      setModelType(autoModelType);
+    }
     setActiveTab('download');
   };
 
@@ -120,12 +139,12 @@ export default function ModelsPage() {
                 Download base models and VAEs from HuggingFace or Civitai
               </p>
             </div>
-            <Link href="/models/browse">
-              <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+            <Button asChild className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+              <Link href="/models/browse" prefetch={false}>
                 <Search className="w-5 h-5" />
                 Browse Civitai
-              </button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
 
@@ -133,28 +152,30 @@ export default function ModelsPage() {
         <div className="mb-6">
           <div className="border-b border-slate-700">
             <nav className="-mb-px flex space-x-8">
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setActiveTab('download')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`rounded-none py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'download'
                     ? 'border-cyan-400 text-cyan-400'
                     : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-slate-600'
                 }`}
               >
-                <Download className="w-5 h-5 inline mr-2" />
+                <Download className="w-5 h-5 mr-2" />
                 Download
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => setActiveTab('manage')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`rounded-none py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'manage'
                     ? 'border-cyan-400 text-cyan-400'
                     : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-slate-600'
                 }`}
               >
-                <HardDrive className="w-5 h-5 inline mr-2" />
+                <HardDrive className="w-5 h-5 mr-2" />
                 Manage ({models.length + vaes.length})
-              </button>
+              </Button>
             </nav>
           </div>
         </div>
@@ -190,7 +211,7 @@ export default function ModelsPage() {
                 <div className="text-sm text-cyan-100">
                   <p className="font-semibold mb-1">Quick Start:</p>
                   <p>
-                    Want a popular model? Scroll down to the <span className="text-cyan-400 font-semibold">Popular Models</span> section below and click "Use" on any model to auto-fill the download form.
+                    Want a supported model? Scroll down to the <span className="text-cyan-400 font-semibold">Supported Models</span> section below and click "Use" to auto-fill the download form, or "View Repo" for models that require manual download.
                   </p>
                 </div>
               </div>
@@ -204,53 +225,59 @@ export default function ModelsPage() {
                 {/* Type Selection */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label id="download-type-label" className="block text-sm font-medium text-gray-300 mb-2">
                       Download Type
                     </label>
-                    <select
-                      value={downloadType}
-                      onChange={(e) => setDownloadType(e.target.value as 'model' | 'vae')}
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                    >
-                      <option value="model">Base Model</option>
-                      <option value="vae">VAE</option>
-                    </select>
+                    <Select value={downloadType} onValueChange={(value: 'model' | 'vae') => setDownloadType(value)}>
+                      <SelectTrigger className="w-full" aria-labelledby="download-type-label">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="model">Base Model</SelectItem>
+                        <SelectItem value="vae">VAE</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {downloadType === 'model' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <label id="model-type-label" className="block text-sm font-medium text-gray-300 mb-2">
                         Model Type
                       </label>
-                      <select
-                        value={modelType}
-                        onChange={(e) => setModelType(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                      >
-                        <option value="sdxl">SDXL</option>
-                        <option value="sd15">SD 1.5</option>
-                        <option value="flux">Flux</option>
-                        <option value="sd3.5">SD 3.5</option>
-                      </select>
+                      <Select value={modelType} onValueChange={(value) => setModelType(value as ModelType)}>
+                        <SelectTrigger className="w-full" aria-labelledby="model-type-label">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sdxl">SDXL</SelectItem>
+                          <SelectItem value="sd15">SD 1.5</SelectItem>
+                          <SelectItem value="flux">Flux</SelectItem>
+                          <SelectItem value="sd3.5">SD 3.5</SelectItem>
+                          <SelectItem value="chroma">Chroma</SelectItem>
+                          <SelectItem value="anima">Anima</SelectItem>
+                          <SelectItem value="hunyuanimage">HunyuanImage</SelectItem>
+                          <SelectItem value="lumina">Lumina</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
                 </div>
 
                 {/* URL Input */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="download-url" className="block text-sm font-medium text-gray-300 mb-2">
                     Download URL (HuggingFace or Civitai)
                   </label>
-                  <input
+                  <Input
+                    id="download-url"
                     type="text"
                     value={downloadUrl}
                     onChange={(e) => setDownloadUrl(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 text-white rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
                     placeholder="https://huggingface.co/.../model.safetensors"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Supports HuggingFace (resolve links) and Civitai (direct download links).{' '}
-                    <Link href="/models/browse" className="text-cyan-400 hover:text-cyan-300 underline">
+                    <Link href="/models/browse" prefetch={false} className="text-cyan-400 hover:text-cyan-300 underline">
                       Browse Civitai Models →
                     </Link>
                   </p>
@@ -258,10 +285,11 @@ export default function ModelsPage() {
               </div>
 
               {/* Download Button */}
-              <button
+              <Button
                 onClick={handleDownload}
                 disabled={downloading || !downloadUrl.trim()}
-                className="mt-6 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="mt-6 w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold"
+                size="lg"
               >
                 {downloading ? (
                   <>
@@ -274,7 +302,7 @@ export default function ModelsPage() {
                     Download {downloadType === 'model' ? 'Model' : 'VAE'}
                   </>
                 )}
-              </button>
+              </Button>
 
               {/* Download Error */}
               {downloadError && (
@@ -302,16 +330,16 @@ export default function ModelsPage() {
               )}
             </div>
 
-            {/* Popular Models */}
+            {/* Supported Models */}
             {popularModels && (
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg shadow-lg p-6">
                 <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
                   <Sparkles className="w-6 h-6 text-yellow-400" />
-                  Popular Models
+                  Supported Models
                 </h2>
 
                 <div className="space-y-4">
-                  {Object.entries(popularModels.models || {}).map(([type, modelsList]: [string, any]) => (
+                  {Object.entries(popularModels.models || {}).map(([type, modelsList]: [string, PopularModel[]]) => (
                     <div key={type}>
                       <h3 className="text-lg font-semibold text-cyan-400 mb-2 uppercase">{type}</h3>
                       <div className="space-y-2">
@@ -325,13 +353,33 @@ export default function ModelsPage() {
                                 <h4 className="font-semibold text-white">{model.name}</h4>
                                 <p className="text-sm text-gray-400 mt-1">{model.description}</p>
                               </div>
-                              <button
-                                onClick={() => applyPopularUrl(model.url, 'model')}
-                                className="ml-4 flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-sm"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                                Use
-                              </button>
+                              {model.manualOnly ? (
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  size="sm"
+                                  className="ml-4 text-yellow-400 border-yellow-400/50 hover:text-yellow-300"
+                                >
+                                  <a
+                                    href={model.repoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                    View Repo
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => applyPopularUrl(model.url, 'model', type as ModelType)}
+                                  className="ml-4 text-cyan-400 hover:text-cyan-300"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  Use
+                                </Button>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -339,9 +387,9 @@ export default function ModelsPage() {
                     </div>
                   ))}
 
-                  {/* Popular VAEs */}
+                  {/* Supported VAEs */}
                   <div>
-                    <h3 className="text-lg font-semibold text-cyan-400 mb-2">VAES</h3>
+                    <h3 className="text-lg font-semibold text-cyan-400 mb-2">VAEs</h3>
                     <div className="space-y-2">
                       {(popularModels.vaes || []).map((vae: PopularModel, idx: number) => (
                         <div
@@ -353,13 +401,15 @@ export default function ModelsPage() {
                               <h4 className="font-semibold text-white">{vae.name}</h4>
                               <p className="text-sm text-gray-400 mt-1">{vae.description}</p>
                             </div>
-                            <button
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => applyPopularUrl(vae.url, 'vae')}
-                              className="ml-4 flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-sm"
+                              className="ml-4 text-cyan-400 hover:text-cyan-300"
                             >
                               <ExternalLink className="w-4 h-4" />
                               Use
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -384,12 +434,13 @@ export default function ModelsPage() {
                 <div className="text-center py-12">
                   <Download className="w-16 h-16 mx-auto text-gray-500 mb-4" />
                   <p className="text-gray-400">No models downloaded yet</p>
-                  <button
+                  <Button
+                    variant="link"
                     onClick={() => setActiveTab('download')}
                     className="mt-4 text-cyan-400 hover:text-cyan-300"
                   >
                     Download your first model →
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -404,12 +455,15 @@ export default function ModelsPage() {
                           {model.size_mb.toFixed(2)} MB
                         </p>
                       </div>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete ${model.name}`}
                         onClick={() => handleDelete(model)}
-                        className="ml-4 text-red-400 hover:text-red-300 transition-colors"
+                        className="ml-4 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-5 h-5" />
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -426,12 +480,13 @@ export default function ModelsPage() {
                 <div className="text-center py-12">
                   <Download className="w-16 h-16 mx-auto text-gray-500 mb-4" />
                   <p className="text-gray-400">No VAEs downloaded yet</p>
-                  <button
+                  <Button
+                    variant="link"
                     onClick={() => setActiveTab('download')}
                     className="mt-4 text-cyan-400 hover:text-cyan-300"
                   >
                     Download a VAE →
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -446,12 +501,15 @@ export default function ModelsPage() {
                           {vae.size_mb.toFixed(2)} MB
                         </p>
                       </div>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete ${vae.name}`}
                         onClick={() => handleDelete(vae)}
-                        className="ml-4 text-red-400 hover:text-red-300 transition-colors"
+                        className="ml-4 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-5 h-5" />
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>

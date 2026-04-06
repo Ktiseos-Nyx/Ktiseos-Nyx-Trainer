@@ -11,7 +11,7 @@ cd "$SCRIPT_DIR"
 PYTHON_CMD="python3"
 MIN_PYTHON_VERSION="3.10"
 VENV_DIR=".venv"
-INSTALLER_PY="install_linux.py"
+INSTALLER_PY="installer.py"
 USE_VENV=""
 AUTO_MODE=0
 
@@ -68,6 +68,47 @@ if [ "$MIN_VERSION_COMPARE" != "$MIN_PYTHON_VERSION" ]; then
     echo "   This application requires Python ${MIN_PYTHON_VERSION} or newer."
     exit 1
 fi
+echo ""
+
+# --- Pre-flight: Permission & Environment Checks ---
+echo "[Pre-flight checks...]"
+
+# Check write permissions
+if ! touch "$SCRIPT_DIR/.write_test" 2>/dev/null; then
+    echo "❌ ERROR: Cannot write to project folder!"
+    echo "   Path: $SCRIPT_DIR"
+    echo ""
+    echo "   This usually means file ownership doesn't match your user."
+    echo "   Fix: sudo chown -R $(whoami):$(id -gn) $SCRIPT_DIR"
+    echo ""
+    exit 1
+else
+    rm -f "$SCRIPT_DIR/.write_test"
+fi
+
+# Check ownership mismatch (most common Linux "Permission denied")
+DIR_OWNER=$(stat -c '%u' "$SCRIPT_DIR" 2>/dev/null || stat -f '%u' "$SCRIPT_DIR" 2>/dev/null || echo "unknown")
+CURRENT_UID=$(id -u)
+if [ "$DIR_OWNER" != "unknown" ] && [ "$DIR_OWNER" != "$CURRENT_UID" ]; then
+    OWNER_NAME=$(id -un "$DIR_OWNER" 2>/dev/null || echo "uid:$DIR_OWNER")
+    echo "⚠️  WARNING: File ownership mismatch!"
+    echo "   Project files owned by: $OWNER_NAME (uid:$DIR_OWNER)"
+    echo "   You are running as: $(whoami) (uid:$CURRENT_UID)"
+    echo ""
+    echo "   This may cause 'Permission denied' errors during install."
+    echo "   Fix: sudo chown -R $(whoami):$(id -gn) $SCRIPT_DIR"
+    echo ""
+fi
+
+# Warn against running installer as root (unless on VastAI/Docker)
+if [ "$CURRENT_UID" = "0" ] && [ ! -f "/.dockerenv" ] && [ ! -d "/workspace" ]; then
+    echo "⚠️  WARNING: Running as root on a non-container system."
+    echo "   This will create files owned by root that your normal user can't modify."
+    echo "   Consider running as your regular user instead."
+    echo ""
+fi
+
+echo "[Pre-flight checks complete.]"
 echo ""
 
 # --- Interactive venv prompt if not specified ---

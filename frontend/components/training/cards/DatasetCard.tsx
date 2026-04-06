@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 // Make sure ComboboxFormField is imported
 import { TextFormField, NumberFormField, ComboboxFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
-import { Database, Image } from 'lucide-react';
+import { Database, ImageIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
@@ -142,7 +142,7 @@ export function DatasetCard({ form, datasets, onSave }: DatasetCardProps) {
         {maxSteps > 0 && maxEpochs > 0 && (
           <Alert>
             <AlertDescription>
-              <Image className="h-4 w-4 inline mr-2" />
+              <ImageIcon className="h-4 w-4 inline mr-2" />
               Max steps ({maxSteps}) will override max epochs ({maxEpochs})
             </AlertDescription>
           </Alert>

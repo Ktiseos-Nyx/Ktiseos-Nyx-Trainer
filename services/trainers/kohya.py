@@ -26,10 +26,7 @@ class KohyaTrainer(BaseTrainer):
     Kohya-ss training backend implementation.
 
     Uses Kohya's sd-scripts for training LoRA models across:
-    - SD 1.5
-    - SDXL
-    - Flux
-    - SD 3.5
+    - SD 1.5, SDXL, Flux, SD3, SD3.5, Lumina, Chroma, Anima, HunyuanImage
     """
 
     def __init__(self, config: TrainingConfig):
@@ -94,17 +91,33 @@ class KohyaTrainer(BaseTrainer):
             self.config.project_name,
         ]
 
+        # Chroma uses Flux scripts but needs --model_type chroma to switch behavior
+        if self.config.model_type == ModelType.CHROMA:
+            cmd.extend(["--model_type", "chroma"])
+
         logger.info(f"🚀 Launching Kohya Command: {' '.join(cmd)}")
 
         # 6. Execute Async Process (The Fix)
         try:
+            # Build env with derrian_backend on PYTHONPATH so custom optimizers
+            # (CAME, Compass, etc.) are importable from the sd_scripts cwd
+            env = os.environ.copy()
+            derrian_dir = str(self.sd_scripts_dir.parent)  # trainer/derrian_backend
+            custom_sched_dir = str(self.sd_scripts_dir.parent / "custom_scheduler")  # LoraEasyCustomOptimizer
+            existing_pythonpath = env.get("PYTHONPATH", "")
+            # Include both derrian_backend and custom_scheduler on PYTHONPATH
+            # so LoraEasyCustomOptimizer.came.CAME etc. resolve even if editable install failed
+            new_paths = f"{derrian_dir}{os.pathsep}{custom_sched_dir}"
+            env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_paths
+
             process = await asyncio.create_subprocess_exec(
                 cmd[0],  # Program (python)
                 *cmd[1:],  # Arguments
                 cwd=self.sd_scripts_dir,
                 stdout=asyncio.subprocess.PIPE,  # Capture stdout
                 stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout (Critical so errors show in logs)
-                env=os.environ.copy(),
+                env=env,
+                limit=1024 * 1024,  # 1MB line buffer — Kohya can emit very long lines (tqdm bars, tensor dumps)
             )
             return process  # Now returns an asyncio Process compatible with JobManager
 
@@ -159,12 +172,13 @@ class KohyaTrainer(BaseTrainer):
         except PathValidationError as e:
             errors.append(f"Invalid output path: {e}")
 
-        # Flux/SD3 specific validation
-        if self.config.model_type in [ModelType.FLUX, ModelType.SD3]:
-            if not self.config.clip_l_path:
-                errors.append("Flux/SD3 requires clip_l_path")
+        # Flux/SD3/SD3.5/Chroma specific validation
+        if self.config.model_type in [ModelType.FLUX, ModelType.SD3, ModelType.SD35, ModelType.CHROMA]:
+            # Chroma doesn't need CLIP-L (only T5XXL + AE)
+            if self.config.model_type != ModelType.CHROMA and not self.config.clip_l_path:
+                errors.append(f"{self.config.model_type} requires clip_l_path")
             if not self.config.t5xxl_path:
-                errors.append("Flux/SD3 requires t5xxl_path")
+                errors.append(f"{self.config.model_type} requires t5xxl_path")
 
         # Check sd_scripts exists
         if not self.sd_scripts_dir.exists():
@@ -195,14 +209,81 @@ class KohyaTrainer(BaseTrainer):
 
         logger.info(f"Environment prepared for {self.config.model_type} training")
 
+    async def generate_config_files(self) -> Dict[str, Path]:
+        """
+        Generate Kohya TOML configuration files.
+
+        Returns:
+            Dict mapping config names to their file paths
+        """
+        # Generate runtime TOMLs
+        dataset_toml_runtime = self.config_dir / f"{self.config.project_name}_dataset.toml"
+        self.toml_generator.generate_dataset_toml(dataset_toml_runtime)
+
+        config_toml_runtime = self.config_dir / f"{self.config.project_name}_config.toml"
+        self.toml_generator.generate_config_toml(config_toml_runtime)
+
+        # Copy to user config folder
+        user_config_dir = Path("config")
+        user_config_dir.mkdir(exist_ok=True)
+
+        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
+        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
+
+        shutil.copy(dataset_toml_runtime, dataset_toml_user)
+        shutil.copy(config_toml_runtime, config_toml_user)
+
+        return {
+            "dataset_config": dataset_toml_user,
+            "training_config": config_toml_user
+        }
+
+    def build_command(self) -> List[str]:
+        """
+        Build the Kohya training command.
+
+        Returns:
+            Command as list of strings
+        """
+        # Get config file paths (they should exist from generate_config_files)
+        user_config_dir = Path("config")
+        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
+        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
+
+        cmd = [
+            sys.executable,
+            str(self.get_script_path()),
+            "--config_file",
+            str(config_toml_user.resolve()),
+            "--dataset_config",
+            str(dataset_toml_user.resolve()),
+            "--output_dir",
+            str(Path(self.config.output_dir).resolve()),
+            "--output_name",
+            self.config.project_name,
+        ]
+
+        # Chroma uses Flux scripts but needs --model_type chroma to switch behavior
+        if self.config.model_type == ModelType.CHROMA:
+            cmd.extend(["--model_type", "chroma"])
+
+        return cmd
+
     def get_script_path(self) -> Path:
         """
         Get the appropriate training script for the model type and training mode.
 
         Returns:
             Path to training script
+
+        Raises:
+            ValueError: If model_type is not set or invalid
         """
         from services.models.training import TrainingMode
+
+        # Validate model_type is set
+        if not self.config.model_type:
+            raise ValueError("model_type is required but not set in training config")
 
         # Select script based on training mode
         if self.config.training_mode == TrainingMode.CHECKPOINT:
@@ -212,8 +293,14 @@ class KohyaTrainer(BaseTrainer):
                 ModelType.SDXL: "sdxl_train.py",
                 ModelType.FLUX: "flux_train.py",
                 ModelType.SD3: "sd3_train.py",
+                ModelType.SD35: "sd3_train.py",  # SD3.5 uses same script as SD3
                 ModelType.LUMINA: "lumina_train.py",
+                ModelType.CHROMA: "flux_train.py",  # Chroma uses Flux scripts + --model_type chroma
+                ModelType.ANIMA: "anima_train.py",
+                # HunyuanImage: LoRA only - no checkpoint script
             }
+            if self.config.model_type == ModelType.HUNYUAN_IMAGE:
+                raise ValueError("HunyuanImage only supports LoRA training, not checkpoint/finetune")
             default_script = "fine_tune.py"
         else:
             # LoRA network training (default)
@@ -222,9 +309,23 @@ class KohyaTrainer(BaseTrainer):
                 ModelType.SDXL: "sdxl_train_network.py",
                 ModelType.FLUX: "flux_train_network.py",
                 ModelType.SD3: "sd3_train_network.py",
-                ModelType.LUMINA: "flux_train_network.py",
+                ModelType.SD35: "sd3_train_network.py",  # SD3.5 uses same script as SD3
+                ModelType.LUMINA: "lumina_train_network.py",
+                ModelType.CHROMA: "flux_train_network.py",  # Chroma uses Flux scripts + --model_type chroma
+                ModelType.ANIMA: "anima_train_network.py",
+                ModelType.HUNYUAN_IMAGE: "hunyuan_image_train_network.py",
             }
             default_script = "train_network.py"
 
         script_name = script_map.get(self.config.model_type, default_script)
-        return self.sd_scripts_dir / script_name
+        script_path = self.sd_scripts_dir / script_name
+
+        # Log script selection for debugging
+        logger.info(f"Selected training script: {script_name} for model_type={self.config.model_type}, training_mode={self.config.training_mode}")
+
+        # Validate script exists
+        if not script_path.exists():
+            logger.error(f"Training script not found: {script_path}")
+            raise FileNotFoundError(f"Training script not found: {script_path}")
+
+        return script_path

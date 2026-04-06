@@ -5,12 +5,25 @@ import Uppy from '@uppy/core';
 import { Dashboard } from '@uppy/react';
 import XHRUpload from '@uppy/xhr-upload';
 import { API_BASE } from '@/lib/api';
+import { Input } from '@/components/ui/input';
 
 // Uppy styles
 import '@uppy/core/dist/style.css';
 import '@uppy/dashboard/dist/style.css';
 import '@/styles/uppy-custom.css';
 
+const ARCHIVE_EXTENSIONS = ['.zip', '.tar', '.tar.gz', '.tgz', '.7z'];
+
+function isArchive(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return ARCHIVE_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+/**
+ * Dataset upload UI using Uppy. Accepts images and archive formats (ZIP, TAR, 7z).
+ * Archives are routed to the upload-zip endpoint for server-side extraction;
+ * images go to upload-batch. Up to 5 concurrent uploads.
+ */
 export default function UppyDatasetUploader() {
   const [datasetName, setDatasetName] = useState('');
 
@@ -21,9 +34,16 @@ export default function UppyDatasetUploader() {
       autoProceed: false,
       allowMultipleUploadBatches: true,
       restrictions: {
-        // CHANGE 1: Bump to 10GB (10 * 1024 * 1024 * 1024)
         maxFileSize: 10 * 1024 * 1024 * 1024,
-        allowedFileTypes: ['image/*', '.zip', '.tar', '.7z'], // Added tar/7z just in case
+        // Use MIME types so compound extensions like .tar.gz work correctly
+        allowedFileTypes: [
+          'image/*',
+          'application/zip',
+          'application/x-zip-compressed',
+          'application/gzip',
+          'application/x-tar',
+          'application/x-7z-compressed',
+        ],
       },
     }).use(XHRUpload, {
       id: 'XHRUpload',
@@ -31,27 +51,79 @@ export default function UppyDatasetUploader() {
       formData: true,
       fieldName: 'files',
       method: 'POST',
-      limit: 3,
+      limit: 5,
       timeout: 0, // Infinite timeout
     })
   );
 
   // Set up event handlers after uppy is initialized
   useEffect(() => {
-    const handleUpload = () => {
-      // Update endpoint with current dataset name before each upload
-      const plugin = uppy.getPlugin('XHRUpload');
-      if (plugin) {
-        plugin.setOptions({
-          endpoint: `${API_BASE}/dataset/upload-batch?dataset_name=${datasetName}`,
-        });
-      }
-
+    const handleUpload = async () => {
       // Validate dataset name
       if (!datasetName.trim()) {
         uppy.info('Please enter a dataset name!', 'error', 5000);
         uppy.cancelAll();
         return;
+      }
+
+      // Separate archives from images — archives use a different endpoint/contract
+      const files = uppy.getFiles();
+      const archiveFiles = files.filter(f => isArchive(f.name));
+
+      // Upload archives in parallel via fetch
+      // FastAPI expects field 'file' (singular) + 'dataset_name' form field
+      if (archiveFiles.length > 0) {
+        const results = await Promise.allSettled(
+          archiveFiles.map(async (archiveFile) => {
+            const formData = new FormData();
+            formData.append('file', archiveFile.data as File);
+            formData.append('dataset_name', datasetName);
+
+            const res = await fetch(`${API_BASE}/dataset/upload-zip`, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!res.ok) {
+              const err = await res.text();
+              throw new Error(err);
+            }
+
+            return archiveFile;
+          })
+        );
+
+        let successCount = 0;
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            uppy.removeFile(result.value.id);
+            successCount++;
+          } else {
+            console.error('❌ Archive upload failed:', result.reason);
+          }
+        }
+
+        const failCount = results.length - successCount;
+        if (failCount > 0) {
+          uppy.info(`${failCount} archive(s) failed to upload`, 'error', 5000);
+        }
+
+        // If only archives were queued, show completion
+        const remaining = uppy.getFiles();
+        if (remaining.length === 0) {
+          if (successCount > 0) {
+            uppy.info(`✅ Uploaded ${successCount} archive(s)!`, 'success', 5000);
+          }
+          return;
+        }
+      }
+
+      // Update endpoint for remaining image files
+      const plugin = uppy.getPlugin('XHRUpload');
+      if (plugin) {
+        plugin.setOptions({
+          endpoint: `${API_BASE}/dataset/upload-batch?dataset_name=${datasetName}`,
+        });
       }
 
       console.log(`📤 Starting upload to dataset: ${datasetName}`);
@@ -117,15 +189,14 @@ export default function UppyDatasetUploader() {
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Dataset Name
           </label>
-          <input
+          <Input
             type="text"
             value={datasetName}
             onChange={(e) => setDatasetName(e.target.value)}
             placeholder="my_dataset"
-            className="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-2">
-            Files will be uploaded to: <code className="text-purple-400">dataset/{datasetName}/</code>
+            Files will be uploaded to: <code className="text-purple-400">datasets/{datasetName || '...'}/</code>
           </p>
         </div>
 
@@ -137,7 +208,7 @@ export default function UppyDatasetUploader() {
             proudlyDisplayPoweredByUppy={false}
             width="100%"
             height={500}
-            note="Images and ZIP files only, up to 500MB per file"
+            note="Images, ZIP, TAR, TAR.GZ, and 7z files — up to 10GB per file"
             metaFields={[
               { id: 'name', name: 'Name', placeholder: 'File name' },
             ]}
@@ -147,9 +218,9 @@ export default function UppyDatasetUploader() {
         {/* Info Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-            <h3 className="text-blue-400 font-semibold mb-2">📁 ZIP Files</h3>
+            <h3 className="text-blue-400 font-semibold mb-2">📁 Archives</h3>
             <p className="text-sm text-gray-400">
-              Automatically extracted and flattened
+              ZIP, TAR, TAR.GZ, and 7z automatically extracted
             </p>
           </div>
           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
@@ -161,7 +232,7 @@ export default function UppyDatasetUploader() {
           <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
             <h3 className="text-purple-400 font-semibold mb-2">⚡ Fast Batches</h3>
             <p className="text-sm text-gray-400">
-              Uploads 10 files at a time for speed
+              Uploads 5 files at a time for speed
             </p>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { Spinner as ShadcnSpinner } from "@repo/shadcn-ui/components/ui/spinner";
+import { Spinner as ShadcnSpinner } from "@/components/ui/spinner";
 import {
   LoaderCircleIcon,
   LoaderIcon,

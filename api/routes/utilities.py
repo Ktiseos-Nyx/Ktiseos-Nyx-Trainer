@@ -6,10 +6,15 @@ Handles calculator, LoRA utilities, and HuggingFace uploads via new service laye
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from services.core.validation import (
+    validate_path_within, validate_dataset_path, validate_output_path,
+    PROJECT_ROOT, DATASETS_DIR, OUTPUT_DIR,
+)
+from services.core.exceptions import ValidationError
 
 # Import new service
 from services import lora_service
@@ -64,6 +69,12 @@ async def calculate_steps(request: CalculatorRequest):
 
         if request.batch_size <= 0:
             raise HTTPException(status_code=400, detail="Batch size must be greater than zero")
+
+        # Security: confine to datasets directory
+        try:
+            validate_path_within(dataset_path, [DATASETS_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         if not os.path.exists(dataset_path):
             raise HTTPException(status_code=404, detail=f"Dataset path does not exist: {dataset_path}")
@@ -161,8 +172,8 @@ class LoRAResizeRequest(BaseModel):
     output_path: str
     new_dim: int
     new_alpha: Optional[int] = None
-    device: str = "cpu"
-    save_precision: str = "fp16"
+    device: Literal["cpu", "cuda"] = "cpu"
+    save_precision: Literal["float", "fp16", "bf16"] = "fp16"
 
 
 @router.get("/directories")
@@ -188,7 +199,7 @@ async def get_resize_dimensions():
 class ListLoraFilesRequest(BaseModel):
     """Request to list LoRA files"""
     directory: str
-    extension: str = "safetensors"
+    file_extension: str = "safetensors"
     sort_by: str = "name"
 
 
@@ -201,31 +212,31 @@ async def list_lora_files(request: ListLoraFilesRequest):
 
         directory = Path(request.directory)
 
-        # Security: Ensure directory is within project bounds
-        project_root = Path.cwd()
+        # Security: confine to output directory
         try:
-            directory = directory.resolve()
-            if not str(directory).startswith(str(project_root)):
-                raise HTTPException(status_code=403, detail="Access denied")
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid directory path")
+            directory = validate_path_within(str(directory), [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Create directory if it doesn't exist
         directory.mkdir(parents=True, exist_ok=True)
 
-        # Find LoRA files
-        pattern = f"*.{request.extension}"
+        # Find LoRA files (supports comma-separated extensions like "safetensors,ckpt")
+        extensions = [ext.strip() for ext in request.file_extension.split(",")]
         files = []
+        seen = set()
 
-        for file_path in directory.glob(pattern):
-            if file_path.is_file():
-                stat = file_path.stat()
-                files.append({
-                    "name": file_path.name,
-                    "path": str(file_path),
-                    "size_mb": round(stat.st_size / (1024 * 1024), 2),
-                    "modified": stat.st_mtime
-                })
+        for ext in extensions:
+            for file_path in directory.glob(f"*.{ext}"):
+                if file_path.is_file() and file_path.name not in seen:
+                    seen.add(file_path.name)
+                    stat = file_path.stat()
+                    files.append({
+                        "name": file_path.name,
+                        "path": str(file_path),
+                        "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                        "modified": stat.st_mtime
+                    })
 
         # Sort files
         if request.sort_by == "date":
@@ -256,6 +267,13 @@ async def resize_lora(request: LoRAResizeRequest):
     Uses Kohya's resize_lora.py script from vendored backend.
     """
     try:
+        # Security: confine paths to output directory
+        try:
+            validate_path_within(request.input_path, [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert to service request
         service_request = ServiceResizeRequest(
             input_path=request.input_path,
@@ -278,6 +296,8 @@ async def resize_lora(request: LoRAResizeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LoRA resize error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -287,10 +307,10 @@ class LoRAMergeRequest(BaseModel):
     """Request model for LoRA merging"""
     lora_inputs: list[dict]  # [{path: str, ratio: float}, ...]
     output_path: str
-    model_type: str = "sd"
-    device: str = "cpu"
-    save_precision: str = "fp16"
-    precision: str = "float"
+    model_type: Literal["sd", "sdxl", "flux", "svd"] = "sd"
+    device: Literal["cpu", "cuda"] = "cpu"
+    save_precision: Literal["float", "fp16", "bf16"] = "fp16"
+    precision: Literal["float", "fp16", "bf16"] = "float"
 
 
 @router.post("/lora/merge")
@@ -300,6 +320,14 @@ async def merge_lora(request: LoRAMergeRequest):
     Uses Kohya's merge scripts from vendored backend.
     """
     try:
+        # Security: confine all paths to output directory
+        try:
+            for lora in request.lora_inputs:
+                validate_path_within(lora["path"], [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert dict inputs to LoRAInput models
         lora_inputs = [
             LoRAInput(path=lora["path"], ratio=lora.get("ratio", 1.0))
@@ -326,6 +354,8 @@ async def merge_lora(request: LoRAMergeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"LoRA merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -338,9 +368,9 @@ class CheckpointMergeRequest(BaseModel):
     checkpoint_inputs: list[dict]  # [{path: str, ratio: float}, ...]
     output_path: str
     unet_only: bool = False
-    device: str = "cpu"
-    save_precision: str = "fp16"
-    precision: str = "float"
+    device: Literal["cpu", "cuda"] = "cpu"
+    save_precision: Literal["float", "fp16", "bf16"] = "fp16"
+    precision: Literal["float", "fp16", "bf16"] = "float"
     show_skipped: bool = False
 
 
@@ -351,6 +381,14 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
     Uses Kohya's merge_models.py script from vendored backend.
     """
     try:
+        # Security: confine all paths to output directory
+        try:
+            for cp in request.checkpoint_inputs:
+                validate_path_within(cp["path"], [OUTPUT_DIR])
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
         # Convert dict inputs to CheckpointInput models
         checkpoint_inputs = [
             CheckpointInput(path=cp["path"], ratio=cp.get("ratio", 1.0))
@@ -378,6 +416,8 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
             "file_size_mb": response.file_size_mb
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Checkpoint merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -386,47 +426,51 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
 # ========== HuggingFace Upload (Using New Service) ==========
 
 class HuggingFaceUploadRequest(BaseModel):
-    """Request model for HuggingFace upload"""
-    lora_path: str
+    """Request model for HuggingFace upload — matches frontend interface"""
     hf_token: str
-    repo_id: str
-    private: bool = False
-    # Metadata
-    model_type: Optional[str] = None
-    base_model: Optional[str] = None
-    trigger_word: Optional[str] = None
-    tags: Optional[str] = None
-    description: Optional[str] = None
+    owner: str
+    repo_name: str
+    repo_type: Literal["model", "dataset", "space"] = "model"
+    selected_files: list[str]
+    remote_folder: str = ""
+    commit_message: str = "Upload via Ktiseos-Nyx-Trainer"
+    create_pr: bool = False
 
 
 @router.post("/hf/upload")
 async def upload_to_huggingface(request: HuggingFaceUploadRequest):
     """
-    Upload a LoRA model to HuggingFace Hub.
-    Automatically generates README with metadata.
+    Upload files to HuggingFace Hub.
+    Supports multiple files, remote folders, and pull request creation.
     """
     try:
-        # Convert to service request
+        # Security: confine uploaded files to output directory
+        try:
+            for file_path in request.selected_files:
+                validate_path_within(file_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: file path outside allowed directories")
+
+        repo_id = f"{request.owner}/{request.repo_name}"
+
         service_request = ServiceHFRequest(
-            lora_path=request.lora_path,
-            repo_id=request.repo_id,
             token=request.hf_token,
-            private=request.private,
-            model_type=request.model_type,
-            base_model=request.base_model,
-            trigger_word=request.trigger_word,
-            tags=request.tags,
-            description=request.description
+            repo_id=repo_id,
+            repo_type=request.repo_type,
+            file_paths=request.selected_files,
+            remote_folder=request.remote_folder,
+            commit_message=request.commit_message,
+            create_pr=request.create_pr,
         )
 
         response = await lora_service.upload_to_huggingface(service_request)
 
         return {
             "success": response.success,
-            "message": response.message,
-            "repo_url": response.repo_url,
-            "commit_hash": response.commit_hash,
-            "errors": response.errors
+            "repo_id": response.repo_id,
+            "uploaded_files": response.uploaded_files,
+            "failed_files": response.failed_files,
+            "error": response.error,
         }
 
     except Exception as e:
@@ -434,17 +478,21 @@ async def upload_to_huggingface(request: HuggingFaceUploadRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class ValidateTokenRequest(BaseModel):
+    hf_token: str
+
+
 @router.post("/hf/validate-token")
-async def validate_hf_token(hf_token: str):
+async def validate_hf_token(request: ValidateTokenRequest):
     """Validate HuggingFace API token"""
     try:
         from huggingface_hub import HfApi
 
-        if not hf_token or not hf_token.strip():
+        if not request.hf_token or not request.hf_token.strip():
             return {"valid": False, "error": "Token is empty"}
 
         try:
-            api = HfApi(token=hf_token)
+            api = HfApi(token=request.hf_token)
             user_info = api.whoami()
 
             return {

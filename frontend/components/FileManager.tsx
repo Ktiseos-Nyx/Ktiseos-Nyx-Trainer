@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useDropzone } from 'react-dropzone';
 import {
   Folder,
   File,
-  Image,
+  ImageIcon,
   Upload,
   Trash2,
   Plus,
@@ -132,7 +133,7 @@ export default function FileManager() {
       await fileAPI.delete(file.path);
       loadDirectory(currentPath);
     } catch (err) {
-      alert(`Failed to delete: ${err}`);
+      toast.error(`Failed to delete: ${err}`);
     }
   };
 
@@ -145,7 +146,7 @@ export default function FileManager() {
       await fileAPI.mkdir(currentPath, name);
       loadDirectory(currentPath);
     } catch (err) {
-      alert(`Failed to create directory: ${err}`);
+      toast.error(`Failed to create directory: ${err}`);
     }
   };
 
@@ -155,7 +156,7 @@ export default function FileManager() {
       return <Folder className="w-5 h-5 text-primary" />;
     }
     if (file.is_image) {
-      return <Image className="w-5 h-5 text-green-600 dark:text-green-400" />;
+      return <ImageIcon className="w-5 h-5 text-green-600 dark:text-green-400" />;
     }
     if (file.name.endsWith('.toml') || file.name.endsWith('.json')) {
       return <FileText className="w-5 h-5 text-orange-600 dark:text-orange-400" />;

@@ -1,18 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig } from '@/lib/api';
+import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig, LogPoller } from '@/lib/api';
 import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
+import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 
 // Unified model definitions
@@ -26,12 +21,17 @@ interface ModelOption {
 }
 
 const AVAILABLE_MODELS: ModelOption[] = [
-  // WD14 Models
-  { id: 'SmilingWolf/wd-vit-large-tagger-v3', name: 'WD14 ViT Large v3', type: 'wd14', description: '⭐ Recommended' },
+  // WD14 v3 Models (newest, best quality)
+  { id: 'SmilingWolf/wd-eva02-large-tagger-v3', name: 'WD14 EVA02 Large v3', type: 'wd14', description: '⭐ Recommended' },
+  { id: 'SmilingWolf/wd-vit-large-tagger-v3', name: 'WD14 ViT Large v3', type: 'wd14' },
+  { id: 'SmilingWolf/wd-swinv2-tagger-v3', name: 'WD14 SwinV2 v3', type: 'wd14' },
   { id: 'SmilingWolf/wd-vit-tagger-v3', name: 'WD14 ViT v3', type: 'wd14' },
+  // WD14 v2/v1 Models (older but stable)
   { id: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2', name: 'WD14 SwinV2 v2', type: 'wd14' },
   { id: 'SmilingWolf/wd-v1-4-convnext-tagger-v2', name: 'WD14 ConvNext v2', type: 'wd14' },
+  { id: 'SmilingWolf/wd-v1-4-convnext-tagger', name: 'WD14 ConvNext v1', type: 'wd14' },
   { id: 'SmilingWolf/wd-v1-4-vit-tagger-v2', name: 'WD14 ViT v2', type: 'wd14' },
+  { id: 'SmilingWolf/wd-v1-4-vit-tagger', name: 'WD14 ViT v1', type: 'wd14' },
   // BLIP Models
   { id: 'blip-base', name: 'BLIP Base', type: 'blip', description: 'Natural language captions' },
   // GIT Models
@@ -47,7 +47,7 @@ export default function AutoTagPage() {
   const [loading, setLoading] = useState(true);
 
   // Unified model selection (replaces method + taggerModel)
-  const [selectedModel, setSelectedModel] = useState<string>('SmilingWolf/wd-vit-large-tagger-v3');
+  const [selectedModel, setSelectedModel] = useState<string>('SmilingWolf/wd-eva02-large-tagger-v3');
 
   // Derive model type from selected model
   const currentModelType = AVAILABLE_MODELS.find(m => m.id === selectedModel)?.type || 'wd14';
@@ -114,10 +114,11 @@ export default function AutoTagPage() {
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [totalImages, setTotalImages] = useState<number | null>(null);
 
-  // Log viewer
+  // Log viewer — showLogs mounts the card; logsExpanded controls body visibility
   const [showLogs, setShowLogs] = useState(false);
+  const [logsExpanded, setLogsExpanded] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
+  const logPollerRef = useRef<LogPoller | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-enable ONNX for v3 models (smart UX!)
@@ -128,7 +129,7 @@ export default function AutoTagPage() {
   }, [selectedModel]);
 
   // Load datasets
-  const loadDatasets = async () => {
+  const loadDatasets = useCallback(async () => {
     try {
       setLoading(true);
       const data = await datasetAPI.list();
@@ -141,42 +142,56 @@ export default function AutoTagPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDataset]);
 
   useEffect(() => {
     loadDatasets();
-  }, []);
+  }, [loadDatasets]);
 
   // Cleanup
   useEffect(() => {
     return () => {
-      if (wsRef.current) wsRef.current.close();
+      if (logPollerRef.current) logPollerRef.current.stop();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     };
   }, []);
 
+  const MAX_LOGS = 500;
+  /** Append a timestamped message to the on-screen log, capping at MAX_LOGS entries. */
   const addLog = (msg: string) => {
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    setLogs(prev => {
+      const next = [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`];
+      return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+    });
   };
 
-  // Poll status
+  /** Poll the job status endpoint every second, updating progress and handling terminal states. */
   const startStatusPolling = (jobId: string) => {
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     statusIntervalRef.current = setInterval(async () => {
       try {
-        const status = await datasetAPI.getTaggingStatus(jobId);
-        setProgress(status.progress);
-        setCurrentImage(status.current_image);
-        setTotalImages(status.total_images);
-        if (status.status === 'completed') {
+        const response = await datasetAPI.getTaggingStatus(jobId);
+        // Backend returns { success, job: { status, progress, ... } }
+        const job = response.job ?? response;
+        if (job.progress != null) setProgress(job.progress);
+        if (job.current_image) setCurrentImage(job.current_image);
+        if (job.total_images) setTotalImages(job.total_images);
+        if (job.status === 'completed') {
           addLog('✅ Tagging completed successfully!');
           setTagging(false);
           if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
           setTimeout(loadDatasets, 1000);
-        } else if (status.status === 'failed') {
-          addLog(`❌ Tagging failed: ${status.error}`);
+        } else if (job.status === 'failed') {
+          addLog(`❌ Tagging failed: ${job.error}`);
           setTagging(false);
           if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
+        } else if (job.status === 'cancelled') {
+          addLog('🛑 Tagging was cancelled');
+          setTagging(false);
+          if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+          if (logPollerRef.current) logPollerRef.current.stop();
         }
       } catch (err) {
         console.error('Status poll error:', err);
@@ -184,28 +199,33 @@ export default function AutoTagPage() {
     }, 1000);
   };
 
-  // WebSocket logs
+  /** Start HTTP log polling for a job (replaces WebSocket which breaks through Caddy proxy). */
   const connectLogs = (jobId: string) => {
-    if (wsRef.current) wsRef.current.close();
-    try {
-      wsRef.current = datasetAPI.connectTaggingLogs(
-        jobId,
-        (data) => { if (data.log) setLogs(prev => [...prev, data.log as string]); },
-        (error) => {
-          console.error('WebSocket error:', error);
-          addLog('⚠️ Log connection lost - using status polling');
+    if (logPollerRef.current) logPollerRef.current.stop();
+    logPollerRef.current = datasetAPI.pollTaggingLogs(
+      jobId,
+      (data) => {
+        if (data.type === 'log' && data.log) {
+          const msg = data.log;
+          setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+        } else if (data.type === 'progress' && data.progress !== undefined) {
+          setProgress(data.progress as number);
+        } else if (data.type === 'status') {
+          if (data.status === 'completed') addLog('✅ Tagging completed!');
+          else if (data.status === 'failed') addLog('❌ Tagging failed');
         }
-      );
-    } catch (err) {
-      console.error('WebSocket connect error:', err);
-      addLog('⚠️ Real-time logs unavailable');
-    }
+      },
+      (error) => {
+        console.error('Log polling error:', error);
+        addLog('⚠️ Log polling error - status polling still active');
+      }
+    );
   };
 
-  // Start tagging/captioning
+  /** Validate inputs, start a WD14/BLIP/GIT tagging job, and begin status + log polling. */
   const handleStartTagging = async () => {
     if (!selectedDataset) {
-      alert('Please select a dataset!');
+      toast.warning('Please select a dataset');
       return;
     }
 
@@ -289,18 +309,25 @@ export default function AutoTagPage() {
         setJobId(response.job_id);
         addLog(`✅ Job started! ID: ${response.job_id}`);
 
-        // Connect logs and status polling
+        // Connect log polling and status polling
         if (currentModelType === 'wd14') {
           connectLogs(response.job_id);
         } else {
-          // BLIP/GIT use same WebSocket endpoint
-          if (wsRef.current) wsRef.current.close();
-          wsRef.current = captioningAPI.connectLogs(
+          // BLIP/GIT use same polling endpoint
+          if (logPollerRef.current) logPollerRef.current.stop();
+          logPollerRef.current = captioningAPI.pollLogs(
             response.job_id,
-            (data) => { if (data.log) setLogs(prev => [...prev, data.log as string]); },
+            (data) => {
+              if (data.type === 'log' && data.log) {
+                const msg = data.log;
+                setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
+              } else if (data.type === 'progress' && data.progress !== undefined) {
+                setProgress(data.progress as number);
+              }
+            },
             (error) => {
-              console.error('WebSocket error:', error);
-              addLog('⚠️ Log connection lost - using status polling');
+              console.error('Log polling error:', error);
+              addLog('⚠️ Log polling error - status polling still active');
             }
           );
         }
@@ -312,23 +339,26 @@ export default function AutoTagPage() {
       }
     } catch (err) {
       addLog(`❌ Error: ${err}`);
-      alert(`❌ ${methodLabel} failed: ${err}`);
+      toast.error(`${methodLabel} failed: ${err}`);
       setTagging(false);
     }
   };
 
-  // Stop tagging
+  /** Request the backend to stop the active tagging job and reset the UI regardless of outcome. */
   const handleStopTagging = async () => {
     if (!jobId) return;
     try {
       addLog('🛑 Stopping...');
       await datasetAPI.stopTagging(jobId);
       addLog('✅ Stopped');
-      setTagging(false);
-      if (wsRef.current) wsRef.current.close();
-      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     } catch (err) {
-      addLog(`❌ Stop failed: ${err}`);
+      // Stop may fail if process already exited — that's fine, still reset UI
+      addLog(`⚠️ Stop request: ${err}`);
+    } finally {
+      // Always reset UI so user isn't stuck
+      setTagging(false);
+      if (logPollerRef.current) logPollerRef.current.stop();
+      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     }
   };
 
@@ -373,7 +403,7 @@ export default function AutoTagPage() {
                     <div className="text-sm text-muted-foreground">Loading...</div>
                   ) : datasets.length === 0 ? (
                     <div className="text-sm text-muted-foreground">
-                      No datasets. <Link href="/dataset" className="text-pink-600 hover:underline">Upload images</Link>
+                      No datasets. <Link href="/dataset" prefetch={false} className="text-pink-600 hover:underline">Upload images</Link>
                     </div>
                   ) : (
                     <Select value={selectedDataset} onValueChange={setSelectedDataset} disabled={tagging}>
@@ -1126,31 +1156,30 @@ export default function AutoTagPage() {
         {showLogs && (
           <div className="mt-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <button
-                onClick={() => setShowLogs(!showLogs)}
-                className="w-full px-6 py-4 flex items-center justify-between bg-accent/50 hover:bg-accent"
-              >
-                <div className="flex items-center gap-2 font-semibold">
-                  <Terminal className="w-5 h-5" />
-                  Process Logs {jobId && <span className="text-xs text-muted-foreground">({jobId})</span>}
-                </div>
-                <div className="flex items-center gap-2">
-                  {logs.length > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setLogs([]);
-                      }}
-                      className="p-1 hover:bg-accent-foreground/10 rounded"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                  {showLogs ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </div>
-              </button>
-              {showLogs && (
-                <div className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+              <div className="flex items-center bg-accent/50 hover:bg-accent">
+                <button
+                  onClick={() => setLogsExpanded(v => !v)}
+                  aria-expanded={logsExpanded}
+                  aria-controls="auto-tag-logs-body"
+                  className="flex-1 px-6 py-4 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Terminal className="w-5 h-5" />
+                    Process Logs {jobId && <span className="text-xs text-muted-foreground">({jobId})</span>}
+                  </div>
+                  {logsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+                {logs.length > 0 && (
+                  <button
+                    onClick={() => setLogs([])}
+                    className="p-1 mr-4 hover:bg-accent-foreground/10 rounded"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {logsExpanded && (
+                <div id="auto-tag-logs-body" className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
                   {logs.length === 0 ? (
                     <div className="text-muted-foreground">No logs yet...</div>
                   ) : (

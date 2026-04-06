@@ -12,7 +12,7 @@ from typing import Any, Dict
 import toml
 import tomlkit  # Ensure tomlkit is installed (pip install tomlkit)
 
-from services.models.training import ModelType, TrainingConfig
+from services.models.training import ModelType, TrainingConfig, TrainingMode
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +31,65 @@ class KohyaTOMLGenerator:
         self.project_root = project_root
         self.sd_scripts_dir = sd_scripts_dir
 
+    def validate_paths(self) -> None:
+        """
+        Validate critical paths exist before TOML generation.
+        Raises FileNotFoundError if required paths are missing.
+        """
+        errors = []
+
+        # Required paths
+        model_path = Path(self.config.pretrained_model_name_or_path)
+        if not model_path.exists():
+            errors.append(f"Base model not found: {model_path}")
+
+        dataset_path = Path(self.config.train_data_dir)
+        if not dataset_path.exists():
+            errors.append(f"Training dataset directory not found: {dataset_path}")
+        elif not any(dataset_path.iterdir()):
+            errors.append(f"Training dataset directory is empty: {dataset_path}")
+
+        output_path = Path(self.config.output_dir)
+        if not output_path.parent.exists():
+            errors.append(f"Output directory parent does not exist: {output_path.parent}")
+
+        # Optional but important paths
+        if self.config.vae_path:
+            vae_path = Path(self.config.vae_path)
+            if not vae_path.exists():
+                logger.warning(f"VAE path specified but not found: {vae_path}")
+
+        if self.config.continue_from_lora:
+            lora_path = Path(self.config.continue_from_lora)
+            if not lora_path.exists():
+                errors.append(f"LoRA to continue from not found: {lora_path}")
+
+        if errors:
+            error_msg = "Path validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+
     def generate_dataset_toml(self, output_path: Path) -> None:
         """
         Generate dataset.toml.
         This handles the [general] and [[datasets]] formatting required by Kohya.
         """
+        # Validate paths before generating TOML
+        self.validate_paths()
+
         doc = tomlkit.document()
 
         # [general] section
         general = tomlkit.table()
-        general["resolution"] = self.config.resolution
+        # Resolution: For SDXL, use list format [width, height] instead of single integer
+        # See: https://github.com/kohya-ss/sd-scripts/issues/XXX
+        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.SD35, ModelType.FLUX, ModelType.LUMINA, ModelType.CHROMA, ModelType.ANIMA, ModelType.HUNYUAN_IMAGE]:
+            # For newer model types, use list format
+            resolution_value = [self.config.resolution, self.config.resolution]
+        else:
+            # For SD 1.5, single integer is acceptable
+            resolution_value = self.config.resolution
+        general["resolution"] = resolution_value
         general["shuffle_caption"] = self.config.shuffle_caption
         # general["enable_bucket"] = True # Usually implied, but good to ensure
         doc["general"] = general
@@ -52,9 +101,41 @@ class KohyaTOMLGenerator:
         if self.config.keep_tokens > 0:
             dataset["keep_tokens"] = self.config.keep_tokens
 
-        dataset["resolution"] = self.config.resolution
+        # Resolution: Use same format as general section (list for SDXL/SD3/Flux/Lumina)
+        if self.config.model_type in [ModelType.SDXL, ModelType.SD3, ModelType.SD35, ModelType.FLUX, ModelType.LUMINA, ModelType.CHROMA, ModelType.ANIMA, ModelType.HUNYUAN_IMAGE]:
+            dataset["resolution"] = [self.config.resolution, self.config.resolution]
+        else:
+            dataset["resolution"] = self.config.resolution
         dataset["batch_size"] = self.config.train_batch_size
         dataset["enable_bucket"] = True # Force bucketing enabled
+        dataset["min_bucket_reso"] = self.config.min_bucket_reso
+        dataset["max_bucket_reso"] = self.config.max_bucket_reso
+        if self.config.bucket_reso_steps:
+            dataset["bucket_reso_steps"] = self.config.bucket_reso_steps
+        if self.config.bucket_no_upscale:
+            dataset["bucket_no_upscale"] = True
+
+        # Augmentation settings
+        if self.config.flip_aug:
+            dataset["flip_aug"] = True
+        if self.config.random_crop:
+            dataset["random_crop"] = True
+        if self.config.color_aug:
+            dataset["color_aug"] = True
+
+        # Caption settings
+        if self.config.caption_dropout_rate > 0:
+            dataset["caption_dropout_rate"] = self.config.caption_dropout_rate
+        if self.config.caption_tag_dropout_rate > 0:
+            dataset["caption_tag_dropout_rate"] = self.config.caption_tag_dropout_rate
+        if self.config.caption_dropout_every_n_epochs > 0:
+            dataset["caption_dropout_every_n_epochs"] = self.config.caption_dropout_every_n_epochs
+        if self.config.keep_tokens_separator != "|||":
+            dataset["keep_tokens_separator"] = self.config.keep_tokens_separator
+        if self.config.secondary_separator:
+            dataset["secondary_separator"] = self.config.secondary_separator
+        if self.config.enable_wildcard:
+            dataset["enable_wildcard"] = True
 
         # [[datasets.subsets]] list
         subsets_aot = tomlkit.aot()
@@ -64,8 +145,15 @@ class KohyaTOMLGenerator:
         if not dataset_abs_path.is_absolute():
             dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
 
-        subset["image_dir"] = str(dataset_abs_path)
+        # 🎯 CRITICAL FIX: Use relative path from sd_scripts directory (where training runs)
+        # Training scripts run from trainer/derrian_backend/sd_scripts/, so they need
+        # relative paths like "../../../datasets/my_dataset" to find data
+        # This matches the old working Jupyter implementation
+        # Use .as_posix() to convert Windows backslashes to forward slashes for TOML compatibility
+        rel_path = os.path.relpath(dataset_abs_path, self.sd_scripts_dir)
+        subset["image_dir"] = Path(rel_path).as_posix()
         subset["num_repeats"] = self.config.num_repeats
+        subset["caption_extension"] = self.config.caption_extension
 
         # Add metadata path if you use it, otherwise SD-Scripts scans the folder
         # subset["metadata_file"] = ...
@@ -86,34 +174,40 @@ class KohyaTOMLGenerator:
         Generate the MAIN config file.
         Combines Training Arguments AND Network Arguments into one flat TOML.
         """
+        # Validate paths before generating TOML
+        self.validate_paths()
+
         # 1. Get Base Training Args
         args = self._get_training_arguments()
 
-        # 2. Add Network Args (LoRA settings) directly into the same dict
-        network_config = self._get_network_config()
-        args.update(network_config)
+        # 2. Add Network Args — only for LoRA training, not checkpoint/fine-tune
+        if self.config.training_mode != TrainingMode.CHECKPOINT:
+            network_config = self._get_network_config()
+            args.update(network_config)
 
-        # Add manual network params
-        args["network_dim"] = self.config.network_dim
-        args["network_alpha"] = self.config.network_alpha
+            args["network_dim"] = self.config.network_dim
+            args["network_alpha"] = self.config.network_alpha
 
-        if self.config.conv_dim > 0:
-            args["conv_dim"] = self.config.conv_dim
-        if self.config.conv_alpha > 0:
-            args["conv_alpha"] = self.config.conv_alpha
+            if self.config.conv_dim > 0:
+                args["conv_dim"] = self.config.conv_dim
+            if self.config.conv_alpha > 0:
+                args["conv_alpha"] = self.config.conv_alpha
 
-        if self.config.network_dropout > 0:
-            args["network_dropout"] = self.config.network_dropout
-        if self.config.rank_dropout > 0:
-            args["rank_dropout"] = self.config.rank_dropout
-        if self.config.module_dropout > 0:
-            args["module_dropout"] = self.config.module_dropout
-        if self.config.train_norm:
-            args["train_norm"] = True
+            if self.config.network_dropout > 0:
+                args["network_dropout"] = self.config.network_dropout
+            if self.config.rank_dropout > 0:
+                args["rank_dropout"] = self.config.rank_dropout
+            if self.config.module_dropout > 0:
+                args["module_dropout"] = self.config.module_dropout
+            if self.config.train_norm:
+                args["train_norm"] = True
 
-        # LoKR specific
-        if self.config.lora_type == "LoKR" and self.config.factor != -1:
-            args["factor"] = self.config.factor
+            if self.config.dim_from_weights:
+                args["dim_from_weights"] = True
+
+            # LoKR specific
+            if self.config.lora_type == "LoKR" and self.config.factor != -1:
+                args["factor"] = self.config.factor
 
         # 3. Dump to file
         os.makedirs(output_path.parent, exist_ok=True)
@@ -121,6 +215,30 @@ class KohyaTOMLGenerator:
             toml.dump(args, f)
 
         logger.info("Generated main config TOML: %s", output_path)
+
+    # Optimizers that aren't in torch.optim need full dotted module paths
+    # so Kohya's train_util.py can import them via importlib
+    # Dotted import paths for custom optimizers.
+    # LoraEasyCustomOptimizer is pip-installed as a package by installer.py
+    # (via `pip install -e .` on trainer/derrian_backend/custom_scheduler/),
+    # so the import root is the package name, NOT the directory path.
+    # Original paths from derrian's utils/validation.py.
+    CUSTOM_OPTIMIZER_PATHS = {
+        "CAME": "LoraEasyCustomOptimizer.came.CAME",
+        "Compass": "LoraEasyCustomOptimizer.compass.Compass",
+        "LPFAdamW": "LoraEasyCustomOptimizer.lpfadamw.LPFAdamW",
+        "RMSProp": "LoraEasyCustomOptimizer.rmsprop.RMSProp",
+    }
+
+    def _resolve_optimizer_type(self, optimizer_type: str) -> str:
+        """
+        Map friendly optimizer names to importable module paths.
+
+        Kohya's train_util.py checks: if "." not in name → torch.optim lookup.
+        If "." in name → importlib.import_module. Custom optimizers need the
+        full dotted path to their vendored location.
+        """
+        return self.CUSTOM_OPTIMIZER_PATHS.get(optimizer_type, optimizer_type)
 
     def _get_network_config(self) -> Dict[str, Any]:
         """
@@ -167,6 +285,9 @@ class KohyaTOMLGenerator:
         elif lora_type == "BOFT":
             # Butterfly OFT
             return {"network_module": "lycoris.kohya", "network_args": ["algo=boft"]}
+        elif lora_type == "ABBA":
+            # Activation-Based Block Adaptation (LyCORIS v3.2.0+)
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=abba"]}
 
         # Default fallback
         else:
@@ -174,21 +295,26 @@ class KohyaTOMLGenerator:
 
     def _get_training_arguments(self) -> Dict[str, Any]:
         """Map internal TrainingConfig keys to Kohya CLI argument keys"""
+        # Use .as_posix() for all paths to avoid Windows backslash escape issues in TOML
         args = {
-            "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve()),
+            "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve().as_posix()),
             "max_train_epochs": self.config.max_train_epochs,
             # "train_batch_size": self.config.train_batch_size, # Often handled in dataset.toml, but safe to keep here too
-            "output_dir": str(Path(self.config.output_dir).resolve()),
+            "output_dir": str(Path(self.config.output_dir).resolve().as_posix()),
             "output_name": self.config.output_name,
             "seed": self.config.seed,
             "unet_lr": self.config.unet_lr,
             "text_encoder_lr": self.config.text_encoder_lr,
             "lr_scheduler": self.config.lr_scheduler,
             "lr_scheduler_num_cycles": self.config.lr_scheduler_number,
-            "lr_warmup_ratio": self.config.lr_warmup_ratio,
-            "lr_warmup_steps": self.config.lr_warmup_steps,
-            "lr_power": self.config.lr_power,
-            "optimizer_type": self.config.optimizer_type,
+            # Kohya's --lr_warmup_steps accepts floats < 1 as ratios of total steps.
+            # If user set a warmup ratio but no explicit steps, pass the ratio instead.
+            "lr_warmup_steps": (
+                self.config.lr_warmup_steps if self.config.lr_warmup_steps > 0
+                else self.config.lr_warmup_ratio
+            ),
+            "lr_scheduler_power": self.config.lr_power,
+            "optimizer_type": self._resolve_optimizer_type(self.config.optimizer_type),
             "max_grad_norm": self.config.max_grad_norm,
             "weight_decay": self.config.weight_decay,
             "max_token_length": self.config.max_token_length,
@@ -198,14 +324,7 @@ class KohyaTOMLGenerator:
             "save_model_as": self.config.save_model_as,
             "save_precision": self.config.save_precision,
             "no_metadata": self.config.no_metadata,
-            "save_every_n_epochs": self.config.save_every_n_epochs,
-            "save_every_n_steps": self.config.save_every_n_steps,
-            "save_last_n_epochs": self.config.save_last_n_epochs,
-            "save_last_n_epochs_state": self.config.save_last_n_epochs_state,
-            "save_last_n_steps_state": self.config.save_last_n_steps_state,
             "save_state": self.config.save_state,
-            "sample_every_n_epochs": self.config.sample_every_n_epochs,
-            "sample_every_n_steps": self.config.sample_every_n_steps,
             "sample_sampler": self.config.sample_sampler,
             "mixed_precision": self.config.mixed_precision,
             "gradient_checkpointing": self.config.gradient_checkpointing,
@@ -221,6 +340,7 @@ class KohyaTOMLGenerator:
             "lowram": self.config.lowram,
             "xformers": self.config.cross_attention == "xformers",
             "sdpa": self.config.cross_attention == "sdpa",
+            "mem_eff_attn": self.config.cross_attention == "mem_eff_attn",
             "v2": self.config.v2,
             "v_parameterization": self.config.v_parameterization,
             "network_train_unet_only": self.config.network_train_unet_only,
@@ -260,7 +380,7 @@ class KohyaTOMLGenerator:
         if self.config.save_state_on_train_end:
             args["save_state_on_train_end"] = True
         if self.config.resume_from_state:
-            args["resume"] = str(Path(self.config.resume_from_state).resolve())
+            args["resume"] = str(Path(self.config.resume_from_state).resolve().as_posix())
 
         # Logging
         if self.config.log_tracker_name:
@@ -272,21 +392,38 @@ class KohyaTOMLGenerator:
 
         # ========== END NEW FIELDS ==========
 
-        # Optional Paths
+        # Optional Paths (use .as_posix() to avoid Windows backslash issues)
         if self.config.vae_path:
-            args["vae"] = str(Path(self.config.vae_path).resolve())
+            args["vae"] = str(Path(self.config.vae_path).resolve().as_posix())
         if self.config.continue_from_lora:
-            args["network_weights"] = str(Path(self.config.continue_from_lora).resolve())
+            args["network_weights"] = str(Path(self.config.continue_from_lora).resolve().as_posix())
         if self.config.sample_prompts:
-            args["sample_prompts"] = str(Path(self.config.sample_prompts).resolve())
+            args["sample_prompts"] = str(Path(self.config.sample_prompts).resolve().as_posix())
         if self.config.logging_dir:
-            args["logging_dir"] = str(Path(self.config.logging_dir).resolve())
+            args["logging_dir"] = str(Path(self.config.logging_dir).resolve().as_posix())
         if self.config.log_with:
             args["log_with"] = self.config.log_with
         if self.config.log_prefix:
             args["log_prefix"] = self.config.log_prefix
         if self.config.optimizer_args:
             args["optimizer_args"] = self.config.optimizer_args
+
+        # Save/sample intervals - only include when > 0 to avoid ZeroDivisionError
+        # (Kohya does `global_step % save_every_n_steps` which crashes on 0)
+        if self.config.save_every_n_epochs and self.config.save_every_n_epochs > 0:
+            args["save_every_n_epochs"] = self.config.save_every_n_epochs
+        if self.config.save_every_n_steps and self.config.save_every_n_steps > 0:
+            args["save_every_n_steps"] = self.config.save_every_n_steps
+        if self.config.save_last_n_epochs and self.config.save_last_n_epochs > 0:
+            args["save_last_n_epochs"] = self.config.save_last_n_epochs
+        if self.config.save_last_n_epochs_state and self.config.save_last_n_epochs_state > 0:
+            args["save_last_n_epochs_state"] = self.config.save_last_n_epochs_state
+        if self.config.save_last_n_steps_state and self.config.save_last_n_steps_state > 0:
+            args["save_last_n_steps_state"] = self.config.save_last_n_steps_state
+        if self.config.sample_every_n_epochs and self.config.sample_every_n_epochs > 0:
+            args["sample_every_n_epochs"] = self.config.sample_every_n_epochs
+        if self.config.sample_every_n_steps and self.config.sample_every_n_steps > 0:
+            args["sample_every_n_steps"] = self.config.sample_every_n_steps
 
         # Steps vs Epochs handling
         if self.config.max_train_steps > 0:
@@ -324,14 +461,14 @@ class KohyaTOMLGenerator:
         if self.config.conv_block_alphas:
             args["conv_block_alphas"] = self.config.conv_block_alphas
 
-        # Flux/SD3/Lumina Specifics
+        # Flux/SD3/Lumina Specifics (use .as_posix() to avoid Windows backslash issues)
         if self.config.model_type == ModelType.FLUX:
             if self.config.ae_path:
-                args["ae"] = str(Path(self.config.ae_path).resolve())
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
             if self.config.clip_l_path:
-                args["clip_l"] = str(Path(self.config.clip_l_path).resolve())
+                args["clip_l"] = str(Path(self.config.clip_l_path).resolve().as_posix())
             if self.config.t5xxl_path:
-                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve())
+                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve().as_posix())
             if self.config.t5xxl_max_token_length:
                 args["t5xxl_max_token_length"] = self.config.t5xxl_max_token_length
             if self.config.apply_t5_attn_mask:
@@ -344,20 +481,103 @@ class KohyaTOMLGenerator:
             if self.config.blocks_to_swap:
                 args["blocks_to_swap"] = self.config.blocks_to_swap
 
-        if self.config.model_type == ModelType.SD3:
+        if self.config.model_type in [ModelType.SD3, ModelType.SD35]:
             if self.config.clip_l_path:
-                args["clip_l"] = str(Path(self.config.clip_l_path).resolve())
+                args["clip_l"] = str(Path(self.config.clip_l_path).resolve().as_posix())
             if self.config.clip_g_path:
-                args["clip_g"] = str(Path(self.config.clip_g_path).resolve())
+                args["clip_g"] = str(Path(self.config.clip_g_path).resolve().as_posix())
             if self.config.t5xxl_path:
-                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve())
+                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve().as_posix())
+
+        # Chroma: uses Flux scripts, same args except no CLIP-L needed
+        if self.config.model_type == ModelType.CHROMA:
+            if self.config.ae_path:
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+            if self.config.t5xxl_path:
+                args["t5xxl"] = str(Path(self.config.t5xxl_path).resolve().as_posix())
+            if self.config.t5xxl_max_token_length:
+                args["t5xxl_max_token_length"] = self.config.t5xxl_max_token_length
+            if self.config.apply_t5_attn_mask:
+                args["apply_t5_attn_mask"] = True
+            args["timestep_sampling"] = self.config.timestep_sampling
+            args["sigmoid_scale"] = self.config.sigmoid_scale
+            args["model_prediction_type"] = self.config.model_prediction_type
+            if self.config.blocks_to_swap:
+                args["blocks_to_swap"] = self.config.blocks_to_swap
 
         if self.config.model_type == ModelType.LUMINA:
             if self.config.gemma2:
-                args["gemma2"] = str(Path(self.config.gemma2).resolve())
+                args["gemma2"] = str(Path(self.config.gemma2).resolve().as_posix())
             if self.config.gemma2_max_token_length:
                 args["gemma2_max_token_length"] = self.config.gemma2_max_token_length
             if self.config.ae_path:
-                args["ae"] = str(Path(self.config.ae_path).resolve())
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+
+        # Anima-specific args
+        if self.config.model_type == ModelType.ANIMA:
+            if self.config.qwen3:
+                args["qwen3"] = str(Path(self.config.qwen3).resolve().as_posix())
+            if self.config.t5_tokenizer_path:
+                args["t5_tokenizer_path"] = str(Path(self.config.t5_tokenizer_path).resolve().as_posix())
+            if self.config.qwen3_max_token_length is not None:
+                args["qwen3_max_token_length"] = self.config.qwen3_max_token_length
+            if self.config.t5_max_token_length is not None:
+                args["t5_max_token_length"] = self.config.t5_max_token_length
+            if self.config.llm_adapter_path:
+                args["llm_adapter_path"] = str(Path(self.config.llm_adapter_path).resolve().as_posix())
+            # Per-layer learning rates (None = use base LR, 0 = freeze)
+            if self.config.llm_adapter_lr is not None:
+                args["llm_adapter_lr"] = self.config.llm_adapter_lr
+            if self.config.self_attn_lr is not None:
+                args["self_attn_lr"] = self.config.self_attn_lr
+            if self.config.cross_attn_lr is not None:
+                args["cross_attn_lr"] = self.config.cross_attn_lr
+            if self.config.mlp_lr is not None:
+                args["mlp_lr"] = self.config.mlp_lr
+            if self.config.mod_lr is not None:
+                args["mod_lr"] = self.config.mod_lr
+            # Anima timestep/flow args (defaults differ from Flux)
+            args["timestep_sampling"] = self.config.timestep_sampling if self.config.timestep_sampling else "sigmoid"
+            args["sigmoid_scale"] = self.config.sigmoid_scale
+            if self.config.discrete_flow_shift is not None:
+                args["discrete_flow_shift"] = self.config.discrete_flow_shift
+            if self.config.blocks_to_swap:
+                args["blocks_to_swap"] = self.config.blocks_to_swap
+            if self.config.unsloth_offload_checkpointing:
+                args["unsloth_offload_checkpointing"] = True
+            if self.config.ae_path:
+                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+
+        # HunyuanImage-specific args
+        if self.config.model_type == ModelType.HUNYUAN_IMAGE:
+            if self.config.text_encoder_path:
+                args["text_encoder"] = str(Path(self.config.text_encoder_path).resolve().as_posix())
+            if self.config.byt5_path:
+                args["byt5"] = str(Path(self.config.byt5_path).resolve().as_posix())
+            if self.config.fp8_scaled:
+                args["fp8_scaled"] = True
+            if self.config.fp8_vl:
+                args["fp8_vl"] = True
+            if self.config.text_encoder_cpu:
+                args["text_encoder_cpu"] = True
+            if self.config.discrete_flow_shift is not None:
+                args["discrete_flow_shift"] = self.config.discrete_flow_shift
+            # HunyuanImage shares some flow-matching args
+            args["timestep_sampling"] = self.config.timestep_sampling if self.config.timestep_sampling else "sigma"
+            args["sigmoid_scale"] = self.config.sigmoid_scale
+            args["model_prediction_type"] = self.config.model_prediction_type if self.config.model_prediction_type else "raw"
+            if self.config.blocks_to_swap:
+                args["blocks_to_swap"] = self.config.blocks_to_swap
+
+        # Shared DiT fields (Anima, HunyuanImage, and potentially others)
+        if self.config.model_type in [ModelType.ANIMA, ModelType.HUNYUAN_IMAGE]:
+            if self.config.vae_chunk_size is not None:
+                args["vae_chunk_size"] = self.config.vae_chunk_size
+            if self.config.vae_disable_cache:
+                args["vae_disable_cache"] = True
+            if self.config.attn_mode:
+                args["attn_mode"] = self.config.attn_mode
+            if self.config.split_attn:
+                args["split_attn"] = True
 
         return args

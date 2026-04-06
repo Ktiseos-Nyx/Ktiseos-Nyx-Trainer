@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Play, Save, RotateCcw, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Play, Save, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
 import { useTrainingForm } from '@/hooks/useTrainingForm';
 import PresetManager from './PresetManager';
-import { trainingAPI, modelsAPI, configAPI } from '@/lib/api';
+import { trainingAPI, modelsAPI, configAPI, fileAPI } from '@/lib/api';
+import type { FileInfo } from '@/lib/api';
 import {
   SetupTab,
   DatasetTab,
@@ -21,12 +22,33 @@ import {
   SavingTab,
 } from './tabs';
 
+type ModelItem = { path: string; name: string };
 
+/**
+ * Main training configuration page component.
+ *
+ * Renders a tabbed form covering all training settings (Setup, Dataset, LoRA,
+ * Learning, Performance, Advanced, Saving), a preset manager panel, a
+ * validation error banner, and action buttons for starting training, saving
+ * config to disk, and resetting to defaults.
+ *
+ * Responsibilities:
+ * - Waits for localStorage hydration via `useTrainingForm` before fetching
+ *   remote data, preventing default-value race conditions.
+ * - Fetches available models, VAEs, and datasets from the API post-hydration.
+ * - Sets smart per-field defaults on first mount only (`hasInitialized` guard).
+ * - Submits the validated config to the training API and tracks the returned job ID.
+ * - Delegates per-card saves to `handleCardSave`, which generates both
+ *   `dataset.toml` and `config.toml` via `configAPI.saveTraining`.
+ *
+ * `@returns` The rendered training configuration UI.
+ */
 export default function TrainingConfigNew() {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingJobId, setTrainingJobId] = useState<string | null>(null);
   const [models, setModels] = useState<{ value: string; label: string }[]>([]);
   const [vaes, setVaes] = useState<{ value: string; label: string }[]>([]);
+  const [textEncoders, setTextEncoders] = useState<{ value: string; label: string }[]>([]);
   const [datasets, setDatasets] = useState<{ value: string; label: string }[]>([]);
   const [workspaceRoot, setWorkspaceRoot] = useState<string>('');
 
@@ -38,6 +60,7 @@ export default function TrainingConfigNew() {
     config,
     isDirty,
     isValid,
+    isHydrated,
     syncToStore,
     loadPreset,
     getValidationErrors,
@@ -46,40 +69,74 @@ export default function TrainingConfigNew() {
   } = useTrainingForm({
     autoSave: true,
     autoSaveDelay: 500,
-    validateOnChange: true,
+    validateOnChange: false,  // 👈 Ensure this is false (or just remove the line)
   });
 
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+
+  const refreshModels = useCallback(async () => {
+    setIsRefreshingModels(true);
+    try {
+      const modelsData = await modelsAPI.list();
+      setModels((modelsData.models || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+      setVaes((modelsData.vaes || []).map((v: ModelItem) => ({ value: v.path, label: v.name })));
+      setTextEncoders((modelsData.text_encoders || []).map((m: ModelItem) => ({ value: m.path, label: m.name })));
+      toast.success('Models refreshed successfully');
+      return modelsData;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error('Failed to refresh models', {
+        description: message || 'Could not load models from server',
+      });
+    } finally {
+      setIsRefreshingModels(false);
+    }
+  }, []);
+
+  // Fetch dropdown options AFTER hydration completes
   useEffect(() => {
+    // Wait for localStorage hydration before fetching options
+    if (!isHydrated) return;
+
     const fetchOptions = async () => {
       try {
-        const workspaceRes = await fetch('/api/files/default-workspace');
-        const workspaceData = workspaceRes.ok ? await workspaceRes.json() : { path: '' };
-        const root = workspaceData.path;
-        if (!root) return;
-        setWorkspaceRoot(root);
+        const modelsData = await refreshModels();
 
-        const modelsData = await modelsAPI.list();
-        setModels((modelsData.models || []).map((m: any) => ({ value: m.path, label: m.name })));
-        setVaes((modelsData.vaes || []).map((v: any) => ({ value: v.path, label: v.name })));
+        // Workspace root is only needed for dataset listing and output_dir defaults
+        let root = '';
+        try {
+          const workspaceData = await fileAPI.getDefaultWorkspace();
+          root = workspaceData.path || '';
+        } catch {
+          // workspace unavailable; proceed with empty root
+        }
+        if (root) setWorkspaceRoot(root);
 
         // Try datasets then dataset
-        let datasetsPath = `${root}/datasets`;
-        let datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
-        if (!datasetsRes.ok) {
-             datasetsPath = `${root}/dataset`;
-             datasetsRes = await fetch(`/api/files/list?path=${encodeURIComponent(datasetsPath)}`);
+        const datasetsData = { files: [] as FileInfo[] };
+        if (root) {
+          try {
+            const data = await fileAPI.list(`${root}/datasets`);
+            datasetsData.files = data.files || [];
+          } catch {
+            try {
+              const data = await fileAPI.list(`${root}/dataset`);
+              datasetsData.files = data.files || [];
+            } catch {
+              // neither path available
+            }
+          }
         }
-        const datasetsData = datasetsRes.ok ? await datasetsRes.json() : { files: [] };
-        setDatasets((datasetsData.files || []).filter((f: any) => f.type === 'dir').map((dir: any) => ({ value: dir.path, label: dir.name })));
+        setDatasets((datasetsData.files || []).filter((f: FileInfo) => f.type === 'dir').map((dir: FileInfo) => ({ value: dir.path, label: dir.name })));
 
-        // Set defaults ONCE
+        // Set defaults ONLY for truly empty fields (not overwriting hydrated values)
         if (!hasInitialized.current) {
-            if (!form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
-            if (!form.getValues('pretrained_model_name_or_path') && modelsData.models?.length > 0) {
+            if (root && !form.getValues('output_dir')) form.setValue('output_dir', `${root}/output`);
+            if (!form.getValues('pretrained_model_name_or_path') && modelsData?.models?.length > 0) {
                 form.setValue('pretrained_model_name_or_path', modelsData.models[0].path);
             }
             if (!form.getValues('train_data_dir') && datasetsData.files?.length > 0) {
-                const def = datasetsData.files.find((f: any) => f.type === 'dir');
+                const def = datasetsData.files.find((f: FileInfo) => f.type === 'dir');
                 if (def) form.setValue('train_data_dir', def.path);
             }
             hasInitialized.current = true;
@@ -89,7 +146,8 @@ export default function TrainingConfigNew() {
       }
     };
     fetchOptions();
-  }, [form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated]);
 
   const startTraining = async (validatedConfig: any) => {
     try {
@@ -97,12 +155,33 @@ export default function TrainingConfigNew() {
       const response = await trainingAPI.start(validatedConfig);
       if (response.success) {
         setTrainingJobId(response.job_id || null);
-        alert(`✅ Training started! Job ID: ${response.job_id}`);
+        // Store job ID for TrainingMonitor to pick up
+        if (response.job_id && typeof window !== 'undefined') {
+          localStorage.setItem('current_training_job_id', response.job_id);
+          window.dispatchEvent(new CustomEvent('training-started', {
+            detail: { jobId: response.job_id },
+          }));
+        }
+        toast.success(`Training started! Job ID: ${response.job_id}`);
       } else {
-        alert(`❌ Training failed: ${response.message}`);
+        // Show validation error details if available
+        const errors = response.validation_errors || [];
+        const errorDetails = errors
+          .filter((e: any) => e.severity === 'error')
+          .map((e: any) => `${e.field}: ${e.message}`)
+          .join('; ');
+        const warnings = errors
+          .filter((e: any) => e.severity === 'warning')
+          .map((e: any) => `${e.field}: ${e.message}`)
+          .join('; ');
+
+        toast.error(`Training failed: ${response.message}`, {
+          description: [errorDetails, warnings].filter(Boolean).join(' | ') || undefined,
+          duration: 10000,
+        });
       }
     } catch (error: any) {
-      alert(`❌ Failed to start training: ${error.message}`);
+      toast.error(`Failed to start training: ${error.message}`);
     } finally {
       setIsTraining(false);
     }
@@ -110,17 +189,19 @@ export default function TrainingConfigNew() {
 
   const handleSaveToServer = async () => {
     try {
-      syncToStore(); // Sync to Zustand first
+      syncToStore(); // Force save to localStorage
       const currentValues = form.getValues();
 
       // Use new endpoint that generates both dataset.toml and config.toml
       const result = await configAPI.saveTraining(currentValues);
 
       if (result.success) {
-        alert(`✅ Training configs saved!\n\nFiles created:\n- ${result.files.dataset}\n- ${result.files.config}`);
+        toast.success('Training configs saved', {
+          description: `Files: ${result.files.dataset}, ${result.files.config}`,
+        });
       }
     } catch (error: any) {
-      alert("❌ Error saving configs: " + error.message);
+      toast.error(`Error saving configs: ${error.message}`);
     }
   };
 
@@ -130,7 +211,7 @@ export default function TrainingConfigNew() {
   // Handler for individual card save buttons
   const handleCardSave = async () => {
     try {
-      syncToStore(); // Update Zustand
+      syncToStore(); // Force save to localStorage
       const currentValues = form.getValues();
 
       // Also save configs to disk (generates both dataset.toml and config.toml)
@@ -191,17 +272,17 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="saving">Saving</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="setup"><SetupTab form={form as any} models={models} vaes={vaes} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="dataset"><DatasetTab form={form as any} datasets={datasets} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="lora"><LoRATab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="learning"><LearningTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="performance"><PerformanceTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="advanced"><AdvancedTab form={form as any} onSave={handleCardSave} /></TabsContent>
-                  <TabsContent value="saving"><SavingTab form={form as any} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="setup"><SetupTab form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} onRefreshModels={refreshModels} isRefreshingModels={isRefreshingModels} /></TabsContent>
+                  <TabsContent value="dataset"><DatasetTab form={form} datasets={datasets} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="lora"><LoRATab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="learning"><LearningTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="performance"><PerformanceTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="advanced"><AdvancedTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="saving"><SavingTab form={form} onSave={handleCardSave} /></TabsContent>
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">
-                  <Button type="submit" disabled={!isValid || isTraining} className="bg-linear-to-r from-purple-600 to-pink-600">
+                  <Button type="submit" disabled={isTraining} className="bg-linear-to-r from-purple-600 to-pink-600">
                     <Play className="h-4 w-4 mr-2" />
                     {isTraining ? 'Starting...' : 'Start Training'}
                   </Button>

@@ -39,13 +39,11 @@ class LohaModule(LycorisBaseModule):
         dropout=0.0,
         rank_dropout=0.0,
         module_dropout=0.0,
-        lora_dropout=0.0,
-        aid_dropout=0.0,
         use_tucker=False,
         use_scalar=False,
         rank_dropout_scale=False,
         weight_decompose=False,
-        wd_on_out=False,
+        wd_on_output=True,
         bypass_mode=None,
         rs_lora=False,
         ggpo_beta: Optional[float] = None,
@@ -59,8 +57,6 @@ class LohaModule(LycorisBaseModule):
             dropout,
             rank_dropout,
             module_dropout,
-            lora_dropout,
-            aid_dropout,
             rank_dropout_scale,
             bypass_mode,
             ggpo_beta,
@@ -109,11 +105,11 @@ class LohaModule(LycorisBaseModule):
             self.hada_w2_b = nn.Parameter(torch.empty(lora_dim, w_shape[1]))
 
         self.wd = weight_decompose
-        self.wd_on_out = wd_on_out
+        self.wd_on_output = wd_on_output
         if self.wd:
             org_weight = org_module.weight.cpu().clone().float()
             self.dora_norm_dims = org_weight.dim() - 1
-            if self.wd_on_out:
+            if self.wd_on_output:
                 self.dora_scale = nn.Parameter(
                     torch.norm(
                         org_weight.reshape(org_weight.shape[0], -1),
@@ -244,7 +240,12 @@ class LohaModule(LycorisBaseModule):
 
     def get_merged_weight(self, multiplier=1, shape=None, device=None):
         diff = self.get_diff_weight(multiplier=1, shape=shape, device=device)[0]
-        weight = self.org_weight
+
+        weight = self.get_org_weight_for_compute(diff.device)
+
+        if weight.dtype != diff.dtype:
+            weight = weight.to(diff.dtype)
+
         if self.wd:
             merged = self.apply_weight_decompose(weight + diff, multiplier)
         else:
@@ -253,7 +254,7 @@ class LohaModule(LycorisBaseModule):
 
     def apply_weight_decompose(self, weight, multiplier=1):
         weight = weight.to(self.dora_scale.dtype)
-        if self.wd_on_out:
+        if self.wd_on_output:
             weight_norm = (
                 weight.reshape(weight.shape[0], -1)
                 .norm(dim=1)
@@ -279,7 +280,7 @@ class LohaModule(LycorisBaseModule):
         destination["alpha"] = self.alpha
         if self.wd:
             destination["dora_scale"] = self.dora_scale
-        destination["hada_w1_a"] = self.hada_w1_a * self.scalar
+        destination["hada_w1_a"] = self.hada_w1_a * self.scalar.to(device=self.hada_w1_a.device, non_blocking=True)
         destination["hada_w1_b"] = self.hada_w1_b
         destination["hada_w2_a"] = self.hada_w2_a
         destination["hada_w2_b"] = self.hada_w2_b
@@ -307,9 +308,7 @@ class LohaModule(LycorisBaseModule):
         weight = self.get_weight(self.shape)
         # Norm before scale determined by self.scalar
         unscaled_norm = weight.norm()
-        # Norm after scale determined by self.scalar
-        scaled_norm = (weight * self.scalar).norm()
-        return unscaled_norm.item(), scaled_norm.item()
+        return unscaled_norm
 
     def bypass_forward_diff(self, x, scale=1):
         diff_weight = self.get_weight(self.shape) * self.scalar * scale
@@ -321,29 +320,29 @@ class LohaModule(LycorisBaseModule):
     def forward(self, x: torch.Tensor, *args, **kwargs):
         if self.module_dropout and self.training:
             if torch.rand(1) < self.module_dropout:
+                bias = self.get_org_bias_for_compute(x.device)
+                if bias is not None:
+                    bias = bias.to(x.dtype, non_blocking=True)
+
                 return self.op(
                     x,
-                    self.org_module[0].weight.data,
-                    (
-                        None
-                        if self.org_module[0].bias is None
-                        else self.org_module[0].bias.data
-                    ),
+                    self.get_org_weight_for_compute(x.device).to(self.dtype, non_blocking=True).data,
+                    bias,
                 )
         if self.bypass_mode:
             return self.bypass_forward(x, scale=self.multiplier)
         else:
             diff_weight = self.get_weight(self.shape).to(self.dtype) * self.scalar
-            weight = self.org_module[0].weight.data.to(self.dtype)
+            weight = self.get_org_weight_for_compute(x.device).data.to(self.dtype, non_blocking=True)
             if self.wd:
                 weight = self.apply_weight_decompose(
                     weight + diff_weight, self.multiplier
                 )
             else:
                 weight = weight + diff_weight * self.multiplier
-            bias = (
-                None
-                if self.org_module[0].bias is None
-                else self.org_module[0].bias.data
-            )
+
+            bias = self.get_org_bias_for_compute(x.device)
+            if bias is not None:
+                bias = bias.to(x.dtype, non_blocking=True)
+
             return self.op(x, weight, bias, **self.kw_dict)

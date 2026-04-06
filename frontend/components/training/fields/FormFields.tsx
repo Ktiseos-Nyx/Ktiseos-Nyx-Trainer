@@ -12,7 +12,8 @@
 
 'use client';
 
-import { UseFormReturn, FieldValues, Path } from 'react-hook-form';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { UseFormReturn, FieldValues, Path, useWatch } from 'react-hook-form';
 import {
   FormControl,
   FormDescription,
@@ -45,11 +46,26 @@ import {
 interface BaseFieldProps<T extends FieldValues> {
   form: UseFormReturn<T>;
   name: Path<T>;
-  label: string;
+  label?: string;
   description?: string;
   placeholder?: string;
   disabled?: boolean;
   readOnly?: boolean;
+}
+
+// Add this right after the BaseFieldProps interface
+type FieldOption = {
+  value: string;
+  label: string;
+  description?: string;  // 👈 Add this line
+};
+
+interface SelectFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+  options: FieldOption[];
+}
+
+interface ComboboxFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+  options: FieldOption[];
 }
 
 /**
@@ -70,7 +86,7 @@ export function TextFormField<T extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
             <Input
               placeholder={placeholder}
@@ -117,7 +133,7 @@ export function NumberFormField<T extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
             <Input
               type="number"
@@ -145,25 +161,37 @@ export function NumberFormField<T extends FieldValues>({
 }
 
 /**
- * Select Dropdown Field
+ * Renders a form-connected select dropdown with label, optional description, and validation message.
+ *
+ * Binds the select value to the provided form control and synchronizes changes back to the form.
+ *
+ * @param form - React Hook Form instance controlling the field
+ * @param name - Field name within the form
+ * @param label - Visible label text for the select
+ * @param description - Optional help text displayed below the control
+ * @param options - Array of options to render; each option's `value` is used as the select value and `label` as the display text
+ * @returns The rendered select form field element
  */
 export function SelectFormField<T extends FieldValues>({
   form, name, label, description, options
-}: any) {
-  return (
+}: SelectFormFieldProps<T>) {
+  return (  // 👈 Return starts immediately
     <FormField
       control={form.control}
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <Select
             value={field.value}
-            onValueChange={field.onChange} // RHF handles the rest
+            onValueChange={(val: string) => {
+              field.onChange(val);
+              form.setValue(name, val as any, { shouldDirty: true });
+            }}
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
-              {options.map((opt: any) => (
+              {options.map((opt) => (  // ✅ Correct location: inside return
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
             </SelectContent>
@@ -204,7 +232,7 @@ export function CheckboxFormField<T extends FieldValues>({
             />
           </FormControl>
           <div className="space-y-1 leading-none">
-            <FormLabel>{label}</FormLabel>
+            {label && <FormLabel>{label}</FormLabel>}
             {description && <FormDescription>{description}</FormDescription>}
           </div>
           <FormMessage />
@@ -234,7 +262,7 @@ export function TextareaFormField<T extends FieldValues>({
       name={name}
       render={({ field }) => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <FormControl>
             <Textarea
               placeholder={placeholder}
@@ -281,7 +309,7 @@ export function SliderFormField<T extends FieldValues>({
       render={({ field }) => (
         <FormItem>
           <div className="flex items-center justify-between">
-            <FormLabel>{label}</FormLabel>
+            {label && <FormLabel>{label}</FormLabel>}
             <span className="text-sm text-muted-foreground">
               {field.value ?? min}
             </span>
@@ -309,32 +337,116 @@ export function SliderFormField<T extends FieldValues>({
 }
 
 /**
- * Combobox Field
+ * Render a form-connected combobox that lets users pick an option or enter a custom value.
+ *
+ * Key design decisions to avoid race conditions:
+ * - useWatch (not polling) for reactive form value tracking
+ * - Only passes known option values to diceui's `value` prop (custom paths
+ *   use '' so diceui doesn't fight with the input on blur)
+ * - isTyping tracked via ref (not state) to avoid render-loop with useEffect
  */
 export function ComboboxFormField<T extends FieldValues>({
-  form, name, label, options, placeholder
-}: any) {
+  form, name, label, description, options, placeholder
+}: ComboboxFormFieldProps<T>) {
+
+  // Build a value→label lookup so we display filenames, not full paths
+  const valueToLabel = useMemo(
+    () => Object.fromEntries(options.map((o) => [o.value, o.label])),
+    [options]
+  );
+
+  // useWatch: reactive, race-free observation of form value
+  const formValue = (useWatch({ control: form.control, name }) ?? '') as string;
+
+  // displayText = what the input shows (human-readable label or typed path)
+  const [displayText, setDisplayText] = useState('');
+
+  // Ref (not state) — avoids re-render cycles with the sync useEffect
+  const isTypingRef = useRef(false);
+
+  // Sync form value or options → displayText when NOT actively typing.
+  // Covers: hydration, preset loads, programmatic setValue, options loading.
+  useEffect(() => {
+    if (!isTypingRef.current) {
+      setDisplayText(valueToLabel[formValue] ?? formValue);
+    }
+  }, [formValue, valueToLabel]);
+
+  // Filter by label when typing; show all options otherwise
+  const filteredOptions = useMemo(() => {
+    if (!isTypingRef.current || !displayText) return options;
+    const lower = displayText.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(lower));
+  }, [options, displayText]);
+
+  // Only pass a value that matches a real option to diceui's value prop.
+  // Custom paths pass '' so diceui doesn't try to sync/clear the input.
+  const comboboxValue = useMemo(() => {
+    return options.some(o => o.value === formValue) ? formValue : '';
+  }, [formValue, options]);
+
+  // Commit whatever is in the input to the form
+  const commitInput = useCallback(() => {
+    if (!displayText) {
+      form.setValue(name, '' as any, { shouldDirty: true, shouldTouch: true });
+      isTypingRef.current = false;
+      return;
+    }
+    // If typed text matches an option's label, use that option's value
+    const matchedOption = options.find(
+      (o) => o.label.toLowerCase() === displayText.toLowerCase()
+    );
+    if (matchedOption) {
+      form.setValue(name, matchedOption.value as any, { shouldDirty: true, shouldTouch: true });
+      setDisplayText(matchedOption.label);
+    } else {
+      // Custom path — commit the raw text
+      form.setValue(name, displayText as any, { shouldDirty: true, shouldTouch: true });
+    }
+    isTypingRef.current = false;
+  }, [displayText, options, form, name]);
+
   return (
     <FormField
       control={form.control}
       name={name}
-      render={({ field }) => (
+      render={() => (
         <FormItem>
-          <FormLabel>{label}</FormLabel>
+          {label && <FormLabel>{label}</FormLabel>}
           <Combobox
-            value={field.value}
-            onValueChange={field.onChange} // Let RHF handle the state
+            value={comboboxValue}
+            onValueChange={(val: string) => {
+              // User picked an item from the dropdown
+              form.setValue(name, val as any, { shouldDirty: true, shouldTouch: true });
+              setDisplayText(valueToLabel[val] ?? val);
+              isTypingRef.current = false;
+            }}
+            inputValue={displayText}
+            onInputValueChange={(val: string) => {
+              setDisplayText(val);
+              isTypingRef.current = true;
+            }}
+            onOpenChange={(open: boolean) => {
+              if (!open && isTypingRef.current) {
+                // Dropdown closed while user was typing — commit the input
+                commitInput();
+              }
+            }}
+            preserveInputOnBlur={true}
+            manualFiltering={true}
           >
             <ComboboxAnchor>
               <FormControl><ComboboxInput placeholder={placeholder} /></FormControl>
               <ComboboxTrigger />
             </ComboboxAnchor>
             <ComboboxContent>
-              {options.map((opt: any) => (
+              <ComboboxEmpty>No matches — custom path will be used</ComboboxEmpty>
+              {filteredOptions.map((opt) => (
                 <ComboboxItem key={opt.value} value={opt.value}>{opt.label}</ComboboxItem>
               ))}
             </ComboboxContent>
           </Combobox>
+          {description && <FormDescription>{description}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}

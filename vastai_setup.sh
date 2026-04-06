@@ -49,7 +49,14 @@ provisioning_start() {
         # shellcheck disable=SC2164
         cd /workspace/Ktiseos-Nyx-Trainer
         git config --file $GIT_CONFIG_GLOBAL --add safe.directory "$(pwd)"
-        git pull || echo "⚠️ Git pull failed, continuing with existing code"
+        PULL_OUTPUT=$(git pull 2>&1)
+        PULL_EXIT=$?
+        echo "$PULL_OUTPUT"
+        if [ $PULL_EXIT -ne 0 ]; then
+            echo "⚠️ Git pull failed, continuing with existing code"
+        elif ! echo "$PULL_OUTPUT" | grep -q "Already up to date"; then
+            PULLED=true
+        fi
     else
         echo "📥 Cloning repository (fallback for bare provisioning)..."
         # shellcheck disable=SC2164
@@ -63,102 +70,36 @@ provisioning_start() {
     PYTHON_CMD=$(which python || which python3)
     echo "🐍 Using Python: $PYTHON_CMD"
 
-    # Check Node.js version (Next.js requires 18.18+)
-    echo "📦 Checking Node.js installation..."
-
-    # Try to find Node.js in common locations if not in PATH
-    if ! command -v node &> /dev/null; then
-        echo "   Node.js not in PATH, searching common locations..."
-        NODE_FOUND=false
-
-        for node_path in /opt/nvm/versions/node/*/bin /usr/bin /usr/local/bin ~/.nvm/versions/node/*/bin; do
-            if [ -f "$node_path/node" ]; then
-                echo "   Found Node.js at: $node_path/node"
-                export PATH="$node_path:$PATH"
-                NODE_FOUND=true
-                break
-            fi
-        done
-
-        if [ "$NODE_FOUND" = false ]; then
-            echo "⚠️  WARNING: Node.js not found!"
-            echo "   Frontend will be unavailable (Next.js requires Node.js 18+)"
-            echo "   Backend API will still work normally."
-            echo ""
-            echo "   Continuing with backend-only setup..."
-            SKIP_FRONTEND=true
-        fi
-    fi
-
-    # Validate Node.js version if found
-    if [ "$SKIP_FRONTEND" != true ] && command -v node &> /dev/null; then
-        CURRENT_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-        if [ "$CURRENT_VERSION" -lt 18 ]; then
-            echo "⚠️  WARNING: Node.js $CURRENT_VERSION is too old (need 18+)"
-            echo "   Found at: $(which node)"
-            echo "   Frontend will be unavailable."
-            echo "   Backend API will still work normally."
-            echo ""
-            SKIP_FRONTEND=true
-        else
-            echo "✅ Node.js $CURRENT_VERSION ready: $(node --version) at $(which node)"
-            echo "✅ npm version: $(npm --version)"
-        fi
-    fi
-
     # Run unified installer (handles all backend dependencies and setup)
-    echo "🔧 Running Remote installer..."
-    if [ -f "installer_remote.py" ]; then
-        $PYTHON_CMD installer_remote.py
+    echo "🔧 Running backend installer..."
+    if [ -f "installer.py" ]; then
+        $PYTHON_CMD installer.py
     else
-        echo "⚠️  installer_remote.py not found - falling back to manual dependency installation"
-        # Fallback: Install dependencies manually
+        echo "⚠️  installer.py not found - falling back to manual dependency installation"
         echo "🐍 Installing all dependencies..."
         $PYTHON_CMD -m pip install --upgrade pip -v
-        if [ -f "requirements.txt" ]; then
-            # First try to resolve any version conflicts
+        if [ -f "requirements_cloud.txt" ]; then
             $PYTHON_CMD -m pip install --upgrade setuptools wheel -v
-            # Install with conflict resolution (verbose for debugging)
+            $PYTHON_CMD -m pip install -r requirements_cloud.txt --no-cache-dir -v
+        elif [ -f "requirements.txt" ]; then
+            echo "⚠️  requirements_cloud.txt not found, using requirements.txt"
             $PYTHON_CMD -m pip install -r requirements.txt --no-cache-dir -v
         fi
     fi
 
-    # Setup Next.js Frontend
-    if [ -d "frontend" ] && [ "$SKIP_FRONTEND" != true ]; then
-        if command -v node &> /dev/null && command -v npm &> /dev/null; then
-            echo "🎨 Setting up Next.js frontend..."
-            # shellcheck disable=SC2164
-            cd frontend
-
-            # Ensure Node.js is available
-            export NVM_DIR="$HOME/.nvm"
-            # shellcheck disable=SC1091
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-            # Check node version and install dependencies
-            echo "Node version: $(node --version)"
-            echo "NPM version: $(npm --version)"
-
-            echo "   Installing npm packages..."
-            npm ci --prefer-offline || npm install || {
-                echo "⚠️  npm install failed, continuing anyway..."
-            }
-
-            # Build for production
-            echo "🏗️  Building Next.js app..."
-            npm run build || {
-                echo "⚠️  Frontend build failed, services may not work correctly"
-            }
-
-            # shellcheck disable=SC2103
-            cd ..
+    # Setup Next.js Frontend via Python installer
+    # (handles Node.js auto-upgrade, npm install, and build in one place)
+    echo ""
+    echo "🎨 Setting up frontend..."
+    if [ -f "install_frontend.py" ]; then
+        if [ "$PULLED" = "true" ]; then
+            $PYTHON_CMD install_frontend.py --force && FRONTEND_ENABLED=1 || FRONTEND_ENABLED=0
         else
-            echo "⚠️  Node.js/npm not available - skipping frontend setup"
+            $PYTHON_CMD install_frontend.py && FRONTEND_ENABLED=1 || FRONTEND_ENABLED=0
         fi
-    elif [ "$SKIP_FRONTEND" = true ]; then
-        echo "⏭️  Skipping frontend setup (Node.js not available)"
     else
-        echo "⚠️  Frontend directory not found - skipping Next.js setup"
+        echo "⚠️  install_frontend.py not found - skipping frontend setup"
+        FRONTEND_ENABLED=0
     fi
 
     # Make startup scripts executable
@@ -168,6 +109,13 @@ provisioning_start() {
 
     if [ -f "start_services_local.sh" ]; then
         chmod +x start_services_local.sh
+    fi
+
+    # Verify onnxruntime-gpu can see the GPU (requirements now use >=1.19 which
+    # ships cuDNN 9 support from standard PyPI — no special index needed).
+    if ! $PYTHON_CMD -c "import onnxruntime; print(onnxruntime.get_device())" 2>/dev/null | grep -q GPU; then
+        echo "  onnxruntime-gpu doesn't see CUDA — attempting upgrade..."
+        $PYTHON_CMD -m pip install --upgrade onnxruntime-gpu --no-cache-dir -q
     fi
 
     # Configure git for root usage
@@ -208,29 +156,42 @@ if [ ! -d /workspace/Ktiseos-Nyx-Trainer ]; then
 fi
 cd /workspace/Ktiseos-Nyx-Trainer
 
+# VastAI's Caddy binds ports 3000/8000 and reverse-proxies to 13000/18000.
+# Our services must listen on the proxy-target ports, not the Caddy-owned ports.
+BACKEND_PORT="${BACKEND_PORT:-18000}"
+FRONTEND_PORT="${FRONTEND_PORT:-13000}"
+
 # Clean up any existing processes on our ports (only if they're python/node processes)
-# This prevents accidentally killing VastAI infrastructure
-echo "[$(date)] Checking for existing services on ports 8000 and 3000..." | tee -a /workspace/logs/supervisor.log
+# This prevents accidentally killing VastAI infrastructure (Caddy on 3000/8000)
+echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 pkill -f "uvicorn api.main:app" 2>/dev/null || true
-pkill -f "next-server.*3000" 2>/dev/null || true
+pkill -f "next-server" 2>/dev/null || true
 sleep 1
 
 # Start backend
-echo "[$(date)] Starting FastAPI backend on port 8000..." | tee -a /workspace/logs/supervisor.log
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 2>&1 | tee -a /workspace/logs/backend.log &
+echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/logs/supervisor.log
+python -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/logs/backend.log &
 BACKEND_PID=$!
 
 # Give backend a moment to start
 sleep 2
+EOL
+
+    if [ "$FRONTEND_ENABLED" = "1" ]; then
+        cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
 
 # Start frontend (using custom server with WebSocket proxy)
-echo "[$(date)] Starting Next.js frontend on port 3000 (custom server)..." | tee -a /workspace/logs/supervisor.log
+echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 cd frontend || exit 1
-HOSTNAME=0.0.0.0 PORT=3000 NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
+PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
 FRONTEND_PID=$!
+EOL
+    fi
 
-# Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+    cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+
+# Wait for backend; also wait for frontend if it was started
+wait $BACKEND_PID ${FRONTEND_PID:+$FRONTEND_PID}
 EOL
 
     chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
@@ -281,8 +242,7 @@ EOL
     echo "🌐 Access your applications via VastAI portal links:"
     echo "   - Frontend: Next.js UI (port 3000)"
     echo "   - Backend: FastAPI (port 8000)"
-    echo "   - Jupyter: File management (port 8080)"
-    echo "   - TensorBoard: Training monitoring (port 6006)"
+    echo "   - TensorBoard: Training monitoring (port 6006, auto-configured by VastAI)"
     echo ""
     echo "♻️  Auto-restart is enabled!"
     echo "   - Supervisor will automatically restart services if they crash"

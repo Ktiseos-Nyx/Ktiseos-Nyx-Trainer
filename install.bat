@@ -10,8 +10,11 @@ set PYTHONIOENCODING=utf-8
 set USE_VENV=
 set VENV_DIR=.venv
 set AUTO_MODE=0
+set PASSTHROUGH_ARGS=
 
 REM Parse command-line arguments
+REM Bat-only flags (--venv, --no-venv, --auto) are consumed here.
+REM Everything else (--verbose, --force, etc.) is forwarded to Python.
 :PARSE_ARGS
 if "%~1"=="" goto :ARGS_DONE
 if /I "%~1"=="--venv" (
@@ -30,7 +33,8 @@ if /I "%~1"=="--auto" (
     shift
     goto :PARSE_ARGS
 )
-REM Keep other arguments like --verbose
+REM Forward other arguments (--verbose, --force, etc.) to Python
+set PASSTHROUGH_ARGS=%PASSTHROUGH_ARGS% %~1
 shift
 goto :PARSE_ARGS
 :ARGS_DONE
@@ -45,24 +49,24 @@ if not defined USE_VENV (
     echo.
     echo Virtual Environment Recommendation:
     echo ======================================================================
-    echo A virtual environment (venv) isolates this project's packages from
+    echo A virtual environment ^(venv^) isolates this project's packages from
     echo other Python projects on your system. This prevents version conflicts
     echo and makes troubleshooting much easier.
     echo.
     echo Benefits:
     echo   - No conflicts with other Python projects
-    echo   - Easy to delete if you want to start fresh (just delete '.venv' folder^)
+    echo   - Easy to delete if you want to start fresh ^(just delete '.venv' folder^)
     echo   - Industry best practice for Python development
     echo.
     echo The venv will be created in: %CD%\%VENV_DIR%
     echo ======================================================================
     echo.
-    choice /C YN /M "Create a virtual environment? (Recommended: Y)"
+    choice /C YN /M "Create a virtual environment? ^(Recommended: Y^)"
     if errorlevel 2 (
         set USE_VENV=0
         echo.
         echo Proceeding WITHOUT virtual environment...
-        echo (You can always re-run with --venv flag later^)
+        echo ^(You can always re-run with --venv flag later^)
         echo.
     ) else (
         set USE_VENV=1
@@ -76,11 +80,22 @@ REM Create venv if requested
 if "%USE_VENV%"=="1" (
     if not exist "%VENV_DIR%\Scripts\activate.bat" (
         echo Creating virtual environment in '%VENV_DIR%'...
-        py -3 -m venv "%VENV_DIR%"
+
+        REM Check if py launcher exists, otherwise use python command
+        where py >nul 2>&1
+        if errorlevel 1 (
+            echo py launcher not found, using python command...
+            python -m venv "%VENV_DIR%"
+        ) else (
+            py -3 -m venv "%VENV_DIR%"
+        )
+
+        REM Check if venv creation succeeded
         if errorlevel 1 (
             echo.
             echo ERROR: Failed to create virtual environment.
             echo Make sure Python 3.10+ is installed from python.org
+            echo and added to PATH during installation.
             pause
             exit /b 1
         )
@@ -101,15 +116,21 @@ if "%USE_VENV%"=="1" (
     echo.
 
     REM Run installer with venv Python, passing through remaining args
-    "%VENV_DIR%\Scripts\python.exe" installer_windows_local.py %*
+    "%VENV_DIR%\Scripts\python.exe" installer_windows_local.py %PASSTHROUGH_ARGS%
 ) else (
     echo Running installer WITHOUT virtual environment...
     echo.
     echo Checking Python installation...
     echo.
 
-    REM Use py.exe launcher to find latest Python 3.x
-    py -3 installer_windows_local.py %*
+    REM Check if py launcher exists, otherwise use python command
+    where py >nul 2>&1
+    if errorlevel 1 (
+        echo py launcher not found, using python command...
+        python installer_windows_local.py %PASSTHROUGH_ARGS%
+    ) else (
+        py -3 installer_windows_local.py %PASSTHROUGH_ARGS%
+    )
 )
 
 REM Check the exit code from the Python script
@@ -119,18 +140,12 @@ if %errorlevel% neq 0 (
     echo ERROR: The installer failed!
     echo ======================================================================
     echo.
-    echo Common issues:
-    echo   1. Python 3.10+ not installed
-    echo      Solution: Install from https://python.org/downloads/
-    echo      During install, CHECK "Add Python to PATH"
+    echo READ THE ERROR ABOVE THIS BOX - it tells you what actually went wrong.
     echo.
-    echo   2. Microsoft Store Python detected
-    echo      Solution: Uninstall MS Store Python, install from python.org
+    echo If you can't figure it out, run 'diagnose.bat' and attach the
+    echo logs\diagnostics_*.txt file to your GitHub issue.
     echo.
-    echo   3. Multiple Python installations conflicting
-    echo      Solution: Check "python --version" and "py --list" in CMD
-    echo.
-    echo Check the log file in logs/ folder for detailed error information.
+    echo Check logs\ folder for detailed installer logs.
     echo ======================================================================
 ) else (
     echo.
@@ -138,14 +153,11 @@ if %errorlevel% neq 0 (
     echo Installation completed successfully!
     echo ======================================================================
     echo.
-    echo IMPORTANT: Review any warnings above about:
-    echo   - Microsoft Store Python
-    echo   - CPU-only PyTorch ^(GPU training won't work^)
+    echo Review any warnings printed above before continuing.
     echo.
     echo Next steps:
-    echo   1. Ensure PyTorch has CUDA support ^(see warnings above^)
-    echo   2. Run 'start_services_local.bat' to start the web UI
-    echo   3. Access at http://localhost:3000
+    echo   1. Run 'start_services_local.bat' to start the web UI
+    echo   2. Access at http://localhost:3000
     echo ======================================================================
 )
 

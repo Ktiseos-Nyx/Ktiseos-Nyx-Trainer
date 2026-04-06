@@ -1,48 +1,46 @@
-/** @type {import('next').NextConfig} */
+/** `@type` {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
+  // ✅ CVE-2026-27980: Cap image optimization disk cache (added in Next.js 15.5.14)
+  images: {
+    maximumDiskCacheSize: 500 * 1024 * 1024, // 500 MB
+  },
+
   // ✅ FIX: Allow massive uploads (2GB limit)
-  // This stops the "Request body exceeded 10MB" error
   experimental: {
     serverActions: {
       bodySizeLimit: '2gb',
     },
   },
 
-  // 🚀 PERFORMANCE: Production optimizations
-  output: 'standalone', // Reduces deployment size by 80%+
-  compress: true,       // Enable gzip compression
-  productionBrowserSourceMaps: false, // Disable source maps in production (saves ~40% size)
+  // ✅ FIX: Don't bundle native Node.js addons
+  serverExternalPackages: ['onnxruntime-node', 'sharp'],
+
+  // 🚀 PERFORMANCE
+  compress: true,
+  productionBrowserSourceMaps: false,
 
   // Fix workspace root warning (monorepo detection)
-  outputFileTracingRoot: require('path').join(__dirname, '../'),
+  outputFileTracingRoot: path.join(__dirname, '../'),
 
-  // 📦 BUNDLE ANALYSIS: Uncomment to analyze bundle size
-  // webpack: (config, { isServer }) => {
-  //   if (!isServer) {
-  //     const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-  //     config.plugins.push(new BundleAnalyzerPlugin({ analyzerMode: 'static', openAnalyzer: false }));
-  //   }
-  //   return config;
-  // },
-
-  // API backend proxy
+  // API backend proxy - FALLBACK only
   async rewrites() {
-    // Keep this as 127.0.0.1!
-    // Since Next.js and Python run in the same container on Vast,
-    // they talk via localhost internally.
     const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
-    ];
+    return {
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${backendUrl}/api/:path*`,
+        },
+      ],
+    };
   },
 
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
+
 };
 
 module.exports = nextConfig;

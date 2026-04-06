@@ -2,8 +2,8 @@
 Model download service for HuggingFace and Civitai.
 
 Handles downloading models, VAEs, and LoRAs with multiple fallback methods:
-- aria2c (fastest, multi-connection)
-- hf-transfer (HuggingFace specific, fast)
+- hf_hub_download via hf_xet (HuggingFace URLs, auto-enabled in huggingface_hub>=0.32)
+- aria2c (Civitai and other direct URLs)
 - wget (reliable fallback)
 - requests (Python fallback)
 """
@@ -39,8 +39,9 @@ class ModelService:
     Service for downloading and managing models, VAEs, and LoRAs.
 
     Supports multiple download methods with automatic fallback:
-    1. aria2c - Fastest, multi-connection (preferred)
-    2. hf-transfer - HuggingFace optimized
+    1. hf_hub_download - HuggingFace URLs only; uses hf_xet (Rust/Xet backend,
+       adaptive concurrency) automatically when huggingface_hub>=0.32 is installed
+    2. aria2c - Civitai and other direct URLs, multi-connection
     3. wget - Reliable fallback
     4. requests - Python fallback (slowest)
     """
@@ -233,23 +234,34 @@ class ModelService:
         Returns:
             (destination_path, method_used) or (None, None) on failure
         """
-        # For HuggingFace URLs, prioritize hf-transfer (HF-optimized)
-        if "huggingface.co" in url and shutil.which("hf-transfer"):
-            logger.info("HuggingFace URL detected - trying hf-transfer first")
-            if self._try_hf_transfer(url, destination, api_token):
-                return destination, DownloadMethod.HF_TRANSFER
+        # For HuggingFace URLs, use hf_hub_download which automatically uses
+        # hf_xet (Rust Xet backend, adaptive concurrency) when available
+        parsed_url = urlparse(url)
+        hostname = parsed_url.hostname or ""
+        is_huggingface = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
 
-        # Method 1: aria2c (fastest, multi-connection)
+        if is_huggingface:
+            logger.info("HuggingFace URL detected - using hf_hub_download (hf_xet)")
+            if self._try_hf_hub_download(url, destination, api_token):
+                return destination, DownloadMethod.HF_XET
+            # Normalize /blob/ page URLs to /resolve/ artifact URLs before falling
+            # back to generic download methods, so they receive the actual file URL
+            # rather than the HTML page, which would be silently treated as success.
+            if "/blob/" in url:
+                url = url.replace("/blob/", "/resolve/", 1)
+                logger.info(f"Normalized HF blob URL to resolve URL for generic fallback: {url}")
+
+        # aria2c for Civitai and other direct URLs
         if shutil.which("aria2c"):
             if self._try_aria2c(url, destination, api_token):
                 return destination, DownloadMethod.ARIA2C
 
-        # Method 2: wget (reliable fallback)
+        # wget fallback
         if shutil.which("wget"):
             if self._try_wget(url, destination, api_token):
                 return destination, DownloadMethod.WGET
 
-        # Method 3: Python requests (final fallback)
+        # Python requests (final fallback)
         if self._try_requests(url, destination, api_token):
             return destination, DownloadMethod.REQUESTS
 
@@ -270,18 +282,19 @@ class ModelService:
             hostname = parsed.hostname or ""
 
             # Handle API tokens
+            is_hf_host = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
             if "civitai.com" in hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
-            elif "huggingface.co" in hostname and api_token:
+            elif is_hf_host and api_token:
                 header = f"Authorization: Bearer {api_token}"
 
             command = [
                 "aria2c", download_url,
                 "--console-log-level=warn",
                 "-c",  # Continue partial downloads
-                "-s", "16",  # Split into 16 connections
-                "-x", "16",  # Max connections
-                "-k", "10M",  # Min split size
+                "-s", "8",  # Split into 8 connections
+                "-x", "8",  # Max connections per server
+                "-k", "1M",  # Min split size (smaller = more effective splitting)
                 "-d", str(destination.parent),  # Directory
                 "-o", destination.name  # Output filename
             ]
@@ -307,36 +320,109 @@ class ModelService:
             logger.warning(f"aria2c error: {e}")
             return False
 
-    def _try_hf_transfer(
+    def _try_hf_hub_download(
         self,
         url: str,
         destination: Path,
         api_token: Optional[str] = None
     ) -> bool:
-        """Try downloading with hf-transfer (HuggingFace specific)."""
-        logger.info("Attempting download with hf-transfer...")
+        """
+        Download via huggingface_hub.hf_hub_download().
+
+        hf_xet (Rust Xet backend with adaptive concurrency) is used automatically
+        when huggingface_hub>=0.32 is installed — no extra configuration needed.
+        hf_transfer is deprecated and no longer used.
+        """
+        import re
+        logger.info("Attempting download with hf_hub_download (hf_xet)...")
+
         try:
-            env = os.environ.copy()
-            if api_token:
-                env["HF_HUB_TOKEN"] = api_token
+            from huggingface_hub import hf_hub_download
+        except ImportError as e:
+            logger.warning("huggingface_hub not available: %s", e)
+            return False
 
-            result = subprocess.run(
-                ["hf-transfer", "download", url, "--local-dir", str(destination.parent)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                env=env
+        # Import specific exception types — try huggingface_hub.errors (>=0.26)
+        # then huggingface_hub.utils (older releases), then fall back to OSError.
+        try:
+            from huggingface_hub.errors import HfHubHTTPError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import HfHubHTTPError  # type: ignore[no-redef]
+            except ImportError:
+                HfHubHTTPError = OSError  # type: ignore[misc,assignment]
+        try:
+            from huggingface_hub.errors import RepositoryNotFoundError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import RepositoryNotFoundError  # type: ignore[no-redef]
+            except ImportError:
+                RepositoryNotFoundError = OSError  # type: ignore[misc,assignment]
+        try:
+            from huggingface_hub.errors import RevisionNotFoundError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import RevisionNotFoundError  # type: ignore[no-redef]
+            except ImportError:
+                RevisionNotFoundError = OSError  # type: ignore[misc,assignment]
+        try:
+            from huggingface_hub.errors import LocalEntryNotFoundError
+        except ImportError:
+            try:
+                from huggingface_hub.utils import LocalEntryNotFoundError  # type: ignore[no-redef]
+            except ImportError:
+                LocalEntryNotFoundError = OSError  # type: ignore[misc,assignment]
+
+        try:
+            # Parse https://huggingface.co/{repo_id}/resolve/{revision}/{filepath}
+            # or   https://huggingface.co/{repo_id}/blob/{revision}/{filepath}
+            match = re.match(
+                r'https://huggingface\.co/([^/]+/[^/]+)/(?:resolve|blob)/([^/]+)/(.+)',
+                url
             )
-
-            if result.returncode == 0:
-                logger.info(f"✅ Download complete with hf-transfer: {destination}")
-                return True
-            else:
-                logger.warning(f"hf-transfer failed with exit code {result.returncode}")
+            if not match:
+                logger.warning("Could not parse HuggingFace URL — skipping hf_hub_download")
                 return False
 
-        except Exception as e:
-            logger.warning(f"hf-transfer error: {e}")
+            repo_id = match.group(1)
+            revision = match.group(2)
+            hf_filename = match.group(3).split('?')[0]  # strip any query params
+
+            downloaded_path = Path(hf_hub_download(
+                repo_id=repo_id,
+                filename=hf_filename,
+                revision=revision,
+                token=api_token or None,
+                local_dir=str(destination.parent),
+            ))
+
+            # hf_hub_download may save with a subdirectory-prefixed path
+            # (e.g. local_dir/subfolder/model.safetensors); flatten to the
+            # caller-supplied destination.  Intentional: the destination name
+            # is chosen by the caller and we always want a single flat file.
+            if downloaded_path != destination and downloaded_path.exists():
+                if destination.exists():
+                    logger.info("Replacing existing file at destination: %s", destination)
+                    destination.unlink()
+                shutil.move(str(downloaded_path), str(destination))
+
+            if destination.exists() and destination.stat().st_size > 0:
+                logger.info(f"✅ Download complete with hf_hub_download: {destination}")
+                return True
+
+            logger.warning("hf_hub_download returned but file missing or empty")
+            return False
+
+        except (
+            HfHubHTTPError,
+            RepositoryNotFoundError,
+            RevisionNotFoundError,
+            LocalEntryNotFoundError,
+            EnvironmentError,
+            OSError,
+            ValueError,
+        ) as e:
+            logger.warning(f"hf_hub_download error: {e}")
             return False
 
     def _try_wget(
@@ -352,9 +438,11 @@ class ModelService:
             wget_args = ["wget", "-O", str(destination)]
 
             # Handle API tokens
-            if "civitai.com" in url and api_token and "hf" not in api_token:
+            wget_hostname = (urlparse(url).hostname or "")
+            is_hf_host = wget_hostname == "huggingface.co" or wget_hostname.endswith(".huggingface.co")
+            if "civitai.com" in wget_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
-            elif "huggingface.co" in url and api_token:
+            elif is_hf_host and api_token:
                 wget_args.extend(["--header", f"Authorization: Bearer {api_token}"])
 
             wget_args.append(download_url)
@@ -392,9 +480,11 @@ class ModelService:
             download_url = url
 
             # Handle API tokens
-            if "civitai.com" in url and api_token and "hf" not in api_token:
+            req_hostname = (urlparse(url).hostname or "")
+            is_hf_host = req_hostname == "huggingface.co" or req_hostname.endswith(".huggingface.co")
+            if "civitai.com" in req_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
-            elif "huggingface.co" in url and api_token:
+            elif is_hf_host and api_token:
                 headers["Authorization"] = f"Bearer {api_token}"
 
             response = requests.get(download_url, headers=headers, stream=True)

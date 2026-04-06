@@ -79,6 +79,7 @@ export default function SelectDatasetForTagsPage() {
                 </p>
                 <Link
                   href="/dataset"
+                  prefetch={false}
                   className="inline-block px-6 py-3 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white rounded-lg font-semibold transition-all shadow-lg"
                 >
                   Go to Dataset Upload

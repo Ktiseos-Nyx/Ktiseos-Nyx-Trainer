@@ -25,7 +25,7 @@ class DownloadMethod(str, Enum):
     """Download method used."""
     ARIA2C = "aria2c"
     WGET = "wget"
-    HF_TRANSFER = "hf-transfer"
+    HF_XET = "hf-xet"
     REQUESTS = "requests"
 
 

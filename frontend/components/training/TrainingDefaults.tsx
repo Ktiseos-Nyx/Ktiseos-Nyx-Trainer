@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { Save, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { GradientCard } from '@/components/effects'
 
 export function TrainingDefaults() {
@@ -40,7 +41,7 @@ export function TrainingDefaults() {
       defaultLearningRate,
     }
     localStorage.setItem('ktiseos-nyx-settings', JSON.stringify(newSettings))
-    alert('Default training settings saved!')
+    toast.success('Default training settings saved')
   }
 
   const handleReset = () => {

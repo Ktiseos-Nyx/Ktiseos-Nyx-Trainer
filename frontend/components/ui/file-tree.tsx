@@ -204,22 +204,15 @@ type FolderProps = {
   isSelect?: boolean
 } & React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
 
-const Folder = forwardRef<
-  HTMLDivElement,
-  FolderProps & React.HTMLAttributes<HTMLDivElement>
->(
-  (
-    {
-      className,
-      element,
-      value,
-      isSelectable = true,
-      isSelect,
-      children,
-      ...props
-    },
-    ref
-  ) => {
+const Folder = ({
+  className,
+  element,
+  value,
+  isSelectable = true,
+  isSelect,
+  children,
+  ...props
+}: FolderProps & React.HTMLAttributes<HTMLDivElement>) => {
     const {
       direction,
       handleExpand,
@@ -271,8 +264,7 @@ const Folder = forwardRef<
         </AccordionPrimitive.Content>
       </AccordionPrimitive.Item>
     )
-  }
-)
+}
 
 Folder.displayName = "Folder"
 

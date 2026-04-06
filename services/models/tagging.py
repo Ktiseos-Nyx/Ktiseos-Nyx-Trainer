@@ -9,11 +9,18 @@ from enum import Enum
 
 class TaggerModel(str, Enum):
     """Available WD14 tagger models."""
+    # v3 models (newest, best quality)
+    WD_EVA02_LARGE_V3 = "SmilingWolf/wd-eva02-large-tagger-v3"
     WD_VIT_LARGE_V3 = "SmilingWolf/wd-vit-large-tagger-v3"
+    WD_SWINV2_V3 = "SmilingWolf/wd-swinv2-tagger-v3"
     WD_VIT_TAGGER_V3 = "SmilingWolf/wd-vit-tagger-v3"
+
+    # v1.4 models (older but stable)
     WD_SWINV2_V2 = "SmilingWolf/wd-v1-4-swinv2-tagger-v2"
     WD_CONVNEXT_V2 = "SmilingWolf/wd-v1-4-convnext-tagger-v2"
+    WD_CONVNEXT = "SmilingWolf/wd-v1-4-convnext-tagger"
     WD_VIT_V2 = "SmilingWolf/wd-v1-4-vit-tagger-v2"
+    WD_VIT = "SmilingWolf/wd-v1-4-vit-tagger"
 
 
 class TaggingConfig(BaseModel):
@@ -24,8 +31,8 @@ class TaggingConfig(BaseModel):
 
     # Model settings
     model: TaggerModel = Field(
-        TaggerModel.WD_VIT_LARGE_V3,
-        description="WD14 tagger model to use"
+        TaggerModel.WD_EVA02_LARGE_V3,
+        description="WD14 tagger model to use (eva02-large-v3 recommended)"
     )
     force_download: bool = Field(
         False,

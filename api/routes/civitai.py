@@ -9,6 +9,7 @@ import aiohttp
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List
 from pydantic import BaseModel
+from services.models.model_download import ModelType
 
 router = APIRouter()
 
@@ -229,7 +230,7 @@ class DownloadModelRequest(BaseModel):
     version_id: int
     download_url: str
     filename: str
-    model_type: str = "model"  # "model" or "vae"
+    model_type: ModelType = ModelType.MODEL
 
 
 @router.post("/download")
@@ -242,19 +243,19 @@ async def download_civitai_model(request: DownloadModelRequest):
     try:
         from api.routes.settings import get_api_keys
         from services import model_service
-        from services.models.model_download import DownloadConfig, ModelType
+        from services.models.model_download import DownloadConfig
 
         # Get API key for authenticated download
         api_keys = get_api_keys()
         civitai_key = api_keys.get("civitai_api_key", "")
 
-        # Determine target directory and model type
-        if request.model_type == "vae":
+        # Determine target directory based on model type
+        if request.model_type == ModelType.VAE:
             target_dir = str(model_service.vae_dir)
-            model_type = ModelType.VAE
+        elif request.model_type == ModelType.LORA:
+            target_dir = str(model_service.lora_dir)
         else:
             target_dir = str(model_service.pretrained_model_dir)
-            model_type = ModelType.MODEL
 
         # Create download config with explicit filename
         config = DownloadConfig(
@@ -262,7 +263,7 @@ async def download_civitai_model(request: DownloadModelRequest):
             download_dir=target_dir,
             filename=request.filename,  # CRITICAL: Preserve filename for Civitai
             api_token=civitai_key,
-            model_type=model_type,
+            model_type=request.model_type,
             model_id=request.model_id,
             version_id=request.version_id
         )

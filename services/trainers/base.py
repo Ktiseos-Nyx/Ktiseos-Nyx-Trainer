@@ -93,7 +93,8 @@ class BaseTrainer(ABC):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=str(Path.cwd()),
-                env=os.environ.copy()
+                env=os.environ.copy(),
+                limit=1024 * 1024,  # 1MB line buffer — prevents LimitOverrunError on long Kohya output lines
             )
 
             if process:

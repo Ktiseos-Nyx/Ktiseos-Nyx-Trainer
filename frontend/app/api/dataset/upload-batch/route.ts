@@ -1,0 +1,102 @@
+/**
+ * Next.js API Route: POST /api/dataset/upload-batch
+ * Upload multiple files to a dataset
+ *
+ * Migrated from Python FastAPI: api/routes/dataset.py -> upload_batch
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs/promises';
+import path from 'path';
+import { getOrCreateDatasetsDir } from '@/lib/node-services/datasets';
+
+/**
+ * Handle POST uploads of multiple files into a named dataset directory.
+ *
+ * Accepts multipart/form-data with files under the `files` field and a `dataset_name`
+ * provided either in form-data (`dataset_name`) or the query string (`?dataset_name=...`).
+ * Files are saved into a sanitized dataset directory under the configured datasets root.
+ *
+ * @param request - The incoming NextRequest containing the multipart/form-data payload.
+ * @returns A JSON response. On success (`200`) returns `{ success: true, message, dataset_name, dataset_path, files_uploaded, uploaded_files, errors }`.
+ *          Returns `400` with `{ error: 'Missing dataset_name' }` if no dataset name is provided, or `{ error: 'No files provided' }` if no files are included.
+ *          Returns `500` with `{ error, detail }` for unexpected server errors.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const files = formData.getAll('files');
+    // Accept dataset_name from form-data body OR querystring (?dataset_name=foo)
+    // so Uppy's default XHR endpoint pattern works out of the box.
+    let datasetName: FormDataEntryValue | string | null = formData.get('dataset_name');
+    if (!datasetName) {
+      const qs = request.nextUrl.searchParams.get('dataset_name');
+      if (qs) datasetName = qs;
+    }
+
+    if (!datasetName || typeof datasetName !== 'string') {
+      return NextResponse.json(
+        { error: 'Missing dataset_name' },
+        { status: 400 }
+      );
+    }
+
+    if (!files || files.length === 0) {
+      return NextResponse.json(
+        { error: 'No files provided' },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize dataset name
+    const safeName = datasetName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const datasetPath = path.join(getOrCreateDatasetsDir(), safeName);
+
+    // Create dataset directory if it doesn't exist
+    await fs.mkdir(datasetPath, { recursive: true });
+
+    const uploaded: string[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      if (!(file instanceof File)) {
+        errors.push('Invalid file in upload');
+        continue;
+      }
+
+      try {
+        // Sanitize filename
+        const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = path.join(datasetPath, safeFilename);
+
+        // Read file content as ArrayBuffer and convert to Buffer
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        // Write file
+        await fs.writeFile(filePath, buffer);
+        uploaded.push(safeFilename);
+      } catch (error) {
+        errors.push(
+          `${file.name}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Uploaded ${uploaded.length} files to ${safeName}`,
+      dataset_name: safeName,
+      dataset_path: datasetPath,
+      files_uploaded: uploaded.length,
+      uploaded_files: uploaded,
+      errors,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return NextResponse.json(
+      { error: errorMessage, detail: errorMessage },
+      { status: 500 }
+    );
+  }
+}

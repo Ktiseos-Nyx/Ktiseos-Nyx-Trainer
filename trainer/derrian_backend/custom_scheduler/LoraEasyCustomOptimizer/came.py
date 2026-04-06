@@ -3,12 +3,19 @@
 # With stochastic rounding added per https://github.com/neggles/neurosis/blob/main/src/neurosis/optimizers/came.py
 
 import math
-from typing import Tuple
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import torch
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, LOSS, PARAMETERS
+
+# Inlined from pytorch_optimizer.base.types — that module was renamed/removed
+# across versions. Defining them here avoids the version-dependent import.
+PARAMETERS = Union[Iterable[torch.Tensor], Iterable[Dict[str, Any]]]
+CLOSURE = Optional[Callable[[], float]]
+DEFAULTS = Dict[str, Any]
+LOSS = Optional[float]
+BETAS = Tuple[float, ...]
 
 
 class CAME(BaseOptimizer):
@@ -65,42 +72,71 @@ class CAME(BaseOptimizer):
     def __str__(self) -> str:
         return "CAME"
 
+    def _init_param_state(
+        self,
+        p: torch.Tensor,
+        grad: torch.Tensor,
+        grad_shape: Tuple[int, ...],
+        factored: bool,
+        ams_bound: bool,
+    ) -> None:
+        """Initialize (or reinitialize) optimizer state tensors for a single parameter."""
+        state = self.state[p]
+        state["exp_avg"] = torch.zeros_like(p)
+
+        if factored:
+            state["exp_avg_sq_row"] = torch.zeros(
+                grad_shape[:-1], dtype=grad.dtype, device=grad.device
+            )
+            state["exp_avg_sq_col"] = torch.zeros(
+                grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
+            )
+            state["exp_avg_res_row"] = torch.zeros(
+                grad_shape[:-1], dtype=grad.dtype, device=grad.device
+            )
+            state["exp_avg_res_col"] = torch.zeros(
+                grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
+            )
+        else:
+            state["exp_avg_sq"] = torch.zeros_like(grad)
+
+        if ams_bound:
+            state["exp_avg_sq_hat"] = torch.zeros_like(grad)
+
+        state["RMS"] = 0.0
+
+    def init_group(self, group: DEFAULTS, **kwargs) -> None:
+        """Initialize optimizer state for a parameter group (required by BaseOptimizer >= 3.6.0)."""
+        for p in group["params"]:
+            if p.grad is None:
+                continue
+
+            grad = p.grad
+            if grad.dtype in {torch.float16, torch.bfloat16}:
+                grad = grad.to(torch.float32)
+
+            state = self.state[p]
+            if len(state) > 0:
+                continue
+
+            grad_shape: Tuple[int, ...] = grad.shape
+            factored: bool = self.get_options(grad_shape)
+            self._init_param_state(p, grad, grad_shape, factored, group["ams_bound"])
+
     @torch.no_grad()
     def reset(self):
         for group in self.param_groups:
             group["step"] = 0
             for p in group["params"]:
-                state = self.state[p]
-
+                if p.grad is None:
+                    continue
                 grad = p.grad
                 if grad.dtype in {torch.float16, torch.bfloat16}:
                     grad = grad.to(torch.float32)
 
                 grad_shape: Tuple[int, ...] = grad.shape
                 factored: bool = self.get_options(grad_shape)
-
-                state["exp_avg"] = torch.zeros_like(p)
-
-                if factored:
-                    state["exp_avg_sq_row"] = torch.zeros(
-                        grad_shape[:-1], dtype=grad.dtype, device=grad.device
-                    )
-                    state["exp_avg_sq_col"] = torch.zeros(
-                        grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
-                    )
-                    state["exp_avg_res_row"] = torch.zeros(
-                        grad_shape[:-1], dtype=grad.dtype, device=grad.device
-                    )
-                    state["exp_avg_res_col"] = torch.zeros(
-                        grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
-                    )
-                else:
-                    state["exp_avg_sq"] = torch.zeros_like(grad)
-
-                if group["ams_bound"]:
-                    state["exp_avg_sq_hat"] = torch.zeros_like(grad)
-
-                state["RMS"] = 0.0
+                self._init_param_state(p, grad, grad_shape, factored, group["ams_bound"])
 
     @staticmethod
     def get_options(shape: Tuple[int, ...]) -> bool:
@@ -156,28 +192,7 @@ class CAME(BaseOptimizer):
                 factored: bool = self.get_options(grad_shape)
 
                 if len(state) == 0:
-                    state["exp_avg"] = torch.zeros_like(p)
-
-                    if factored:
-                        state["exp_avg_sq_row"] = torch.zeros(
-                            grad_shape[:-1], dtype=grad.dtype, device=grad.device
-                        )
-                        state["exp_avg_sq_col"] = torch.zeros(
-                            grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
-                        )
-                        state["exp_avg_res_row"] = torch.zeros(
-                            grad_shape[:-1], dtype=grad.dtype, device=grad.device
-                        )
-                        state["exp_avg_res_col"] = torch.zeros(
-                            grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
-                        )
-                    else:
-                        state["exp_avg_sq"] = torch.zeros_like(grad)
-
-                    if group["ams_bound"]:
-                        state["exp_avg_sq_hat"] = torch.zeros_like(grad)
-
-                    state["RMS"] = 0.0
+                    self._init_param_state(p, grad, grad_shape, factored, group["ams_bound"])
 
                 state["RMS"] = self.get_rms(p)
 

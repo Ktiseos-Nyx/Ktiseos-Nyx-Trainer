@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 # Import new service layer
 from services import training_service
-from services.models.training import TrainingConfig
+from services.models.training import TrainingConfig, TrainingMode
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -78,7 +78,7 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
         )
 
     # Helpful warnings for common mistakes
-    if config.network_dim > 128:
+    if config.training_mode != TrainingMode.CHECKPOINT and config.network_dim > 128:
         errors.append(
             ValidationError(
                 field="network_dim",
@@ -150,6 +150,102 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
                 ValidationError(
                     field="ae_path",
                     message="AutoEncoder path is required for Lumina training",
+                    severity="error",
+                )
+            )
+
+    # Chroma-specific validation (Flux variant without CLIP-L)
+    if config.model_type == "Chroma":
+        if not config.t5xxl_path:
+            errors.append(
+                ValidationError(
+                    field="t5xxl_path",
+                    message="T5-XXL path is required for Chroma training",
+                    severity="error",
+                )
+            )
+
+        if not config.ae_path:
+            errors.append(
+                ValidationError(
+                    field="ae_path",
+                    message="AutoEncoder path is required for Chroma training",
+                    severity="error",
+                )
+            )
+
+    # Anima-specific validation
+    if config.model_type == "Anima":
+        if not config.qwen3:
+            errors.append(
+                ValidationError(
+                    field="qwen3",
+                    message="Qwen3 model path is required for Anima training",
+                    severity="error",
+                )
+            )
+
+        if not config.ae_path:
+            errors.append(
+                ValidationError(
+                    field="ae_path",
+                    message="AutoEncoder (VAE) path is required for Anima training",
+                    severity="error",
+                )
+            )
+
+        if config.attn_mode and config.attn_mode not in ["torch", "xformers", "flash", "sageattn"]:
+            errors.append(
+                ValidationError(
+                    field="attn_mode",
+                    message=f"Invalid attention mode '{config.attn_mode}'. Must be torch, xformers, flash, or sageattn.",
+                    severity="error",
+                )
+            )
+
+        if config.attn_mode == "sageattn":
+            errors.append(
+                ValidationError(
+                    field="attn_mode",
+                    message="sageattn does not support training (inference only). Use torch, xformers, or flash instead.",
+                    severity="warning",
+                )
+            )
+
+    # HunyuanImage-specific validation
+    if config.model_type == "HunyuanImage":
+        if not config.text_encoder_path:
+            errors.append(
+                ValidationError(
+                    field="text_encoder_path",
+                    message="Qwen2.5-VL text encoder path is required for HunyuanImage training",
+                    severity="error",
+                )
+            )
+
+        if not config.byt5_path:
+            errors.append(
+                ValidationError(
+                    field="byt5_path",
+                    message="byT5 model path is required for HunyuanImage training",
+                    severity="error",
+                )
+            )
+
+        if config.training_mode != TrainingMode.LORA:
+            errors.append(
+                ValidationError(
+                    field="training_mode",
+                    message="HunyuanImage only supports LoRA training, not checkpoint/finetune.",
+                    severity="error",
+                )
+            )
+
+        if config.attn_mode and config.attn_mode not in ["torch", "xformers", "flash", "sageattn"]:
+            errors.append(
+                ValidationError(
+                    field="attn_mode",
+                    message=f"Invalid attention mode '{config.attn_mode}'. Must be torch, xformers, flash, or sageattn.",
                     severity="error",
                 )
             )
@@ -259,6 +355,59 @@ async def get_training_status(job_id: str):
         raise
     except Exception as e:
         logger.error("Failed to get training status: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/logs/{job_id}")
+async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
+    """
+    Get training logs via HTTP (works through reverse proxies).
+
+    Query params:
+        since: line index to start from (0-based) - returns logs after this index
+        limit: max number of log lines to return (0 = no limit)
+    """
+    try:
+        from services.jobs import job_manager as py_job_manager
+
+        job = py_job_manager.store.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+        # Get logs from the requested position
+        logs = job.get_logs(since)
+
+        # Apply limit if specified
+        if limit > 0:
+            logs = logs[-limit:]
+
+        # Format logs to match the Node.js /api/jobs/[id]/logs response format
+        import time
+        formatted_logs = [
+            {
+                "timestamp": int(time.time() * 1000),  # ms timestamp
+                "level": "info",
+                "message": line,
+                "raw": line,
+            }
+            for line in logs
+        ]
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "logs": formatted_logs,
+            "total_logs": len(job.logs),
+            "status": job.status.value,
+            "progress": job.progress,
+            "error": job.error,
+            "next_since": since + len(logs),  # client sends this as next 'since'
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get training logs: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

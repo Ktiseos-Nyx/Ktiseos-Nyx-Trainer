@@ -1,0 +1,37 @@
+accelerate~=1.10.1
+transformers~=4.50.3
+diffusers~=0.35.1
+opencv-python~=4.12.0.88
+einops~=0.8.1
+pytorch-lightning~=2.5.5
+bitsandbytes~=0.47.0
+prodigyopt~=1.1.2
+lion-pytorch~=0.2.3
+schedulefree~=1.4.1
+tensorboard~=2.20.0
+safetensors~=0.6.2
+toml~=0.10.2
+voluptuous~=0.15.2
+huggingface-hub[hf_xet]~=0.35.1
+matplotlib~=3.10.6
+scipy~=1.16.2
+imagesize~=1.4.1
+rich~=14.1.0
+sentencepiece~=0.2.1
+dadaptation~=3.2
+wandb~=0.22.0
+came-pytorch~=0.1.3
+pytorch_optimizer==3.1.2 # pinned to derrian's original; init_group abstract method added in 3.6.0
+wheel~=0.45.1
+ninja~=1.13.0
+cmake~=4.1.0
+setuptools~=80.9.0
+triton~=3.3.1; platform_system == "Linux"
+triton-windows~=3.3.0.post21; platform_system == "Windows"
+prodigy-plus-schedule-free~=2.0.1
+kornia~=0.8.1
+PyWavelets~=1.9.0
+hf-xet~=1.1.10
+RamTorch~=0.1.6
+# for kohya_ss library
+git+https://github.com/67372a/sd-scripts

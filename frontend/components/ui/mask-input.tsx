@@ -995,8 +995,8 @@ function MaskInput(props: MaskInputProps) {
   const onValueChange = React.useCallback(
     (event: React.ChangeEvent<InputElement>) => {
       const inputValue = event.target.value;
-      let newValue = inputValue;
-      let unmaskedValue = inputValue;
+      let newValue: string;
+      let unmaskedValue: string;
 
       if (composing) {
         if (!isControlled) setInternalValue(inputValue);
@@ -1010,8 +1010,7 @@ function MaskInput(props: MaskInputProps) {
         return;
       }
 
-      if (maskPattern) {
-        unmaskedValue = getUnmaskedValue({
+      unmaskedValue = getUnmaskedValue({
           value: inputValue,
           transform: maskPattern.transform,
           ...transformOpts,
@@ -1085,7 +1084,6 @@ function MaskInput(props: MaskInputProps) {
 
           inputElement.setSelectionRange(newCursorPosition, newCursorPosition);
         }
-      }
 
       if (!isControlled) {
         setInternalValue(newValue);

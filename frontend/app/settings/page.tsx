@@ -3,10 +3,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff } from 'lucide-react'
+import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff, Plus, Trash2, FolderOpen } from 'lucide-react'
+import { toast } from 'sonner'
 import { GradientCard } from '@/components/effects'
 import Breadcrumbs from '@/components/Breadcrumbs'
 import { API_BASE } from '@/lib/api'
+import { Input } from '@/components/ui/input'
 
 export default function SettingsPage() {
   // API Configuration
@@ -33,9 +35,18 @@ export default function SettingsPage() {
   const [showPerformanceTuning, setShowPerformanceTuning] = useState(false)
   const [showExperimentalFeatures, setShowExperimentalFeatures] = useState(false)
 
+  // Upload Optimization
+  const [remoteGPU, setRemoteGPU] = useState(false)
+
   // File Management
   const [autoCleanup, setAutoCleanup] = useState(false)
   const [maxStorageGB, setMaxStorageGB] = useState(50)
+
+  // Extra model scan directories (stored on backend)
+  const [extraModelDirs, setExtraModelDirs] = useState<string[]>([])
+  const [extraVaeDirs, setExtraVaeDirs] = useState<string[]>([])
+  const [newModelDir, setNewModelDir] = useState('')
+  const [newVaeDir, setNewVaeDir] = useState('')
 
   // Storage info
   const [storageInfo, setStorageInfo] = useState<{
@@ -53,7 +64,7 @@ export default function SettingsPage() {
       const stored = localStorage.getItem('ktiseos-nyx-settings')
       if (stored) {
         const settings = JSON.parse(stored)
-        setApiUrl(settings.apiUrl ?? 'http://localhost:8000')
+        // apiUrl is read-only from API_BASE (no setter needed)
         setApiTimeout(settings.apiTimeout ?? 30)
         setAutoRefresh(settings.autoRefresh ?? true)
         setRefreshInterval(settings.refreshInterval ?? 5)
@@ -63,6 +74,7 @@ export default function SettingsPage() {
         setShowSD2Params(settings.showSD2Params ?? false)
         setShowPerformanceTuning(settings.showPerformanceTuning ?? false)
         setShowExperimentalFeatures(settings.showExperimentalFeatures ?? false)
+        setRemoteGPU(settings.remoteGPU ?? false)
         setAutoCleanup(settings.autoCleanup ?? false)
         setMaxStorageGB(settings.maxStorageGB ?? 50)
       }
@@ -97,6 +109,8 @@ export default function SettingsPage() {
         if (data.success) {
           setHasHuggingfaceToken(data.settings.has_huggingface_token)
           setHasCivitaiApiKey(data.settings.has_civitai_api_key)
+          setExtraModelDirs(data.settings.extra_model_dirs ?? [])
+          setExtraVaeDirs(data.settings.extra_vae_dirs ?? [])
         }
       }
     } catch (error) {
@@ -116,9 +130,9 @@ export default function SettingsPage() {
         payload.civitai_api_key = civitaiApiKey
       }
 
-      if (Object.keys(payload).length === 0) {
-        return true // Nothing to save
-      }
+      // Always persist extra dirs (even empty arrays clear the list)
+      payload.extra_model_dirs = extraModelDirs
+      payload.extra_vae_dirs = extraVaeDirs
 
       const response = await fetch(`${API_BASE}/settings/user`, {
         method: 'POST',
@@ -138,7 +152,7 @@ export default function SettingsPage() {
       }
 
             // === SAFER ERROR BLOCK ===
-      let errorMessage = "Unknown Error";
+      let errorMessage: string;
       try {
           const errorData = await response.json();
           errorMessage = errorData.detail || JSON.stringify(errorData);
@@ -148,7 +162,7 @@ export default function SettingsPage() {
       }
 
       console.error("Backend Save Error:", errorMessage);
-      alert(`Backend Error: ${errorMessage}`);
+      toast.error('Failed to save API keys', { description: errorMessage });
       // =========================
 
       return false
@@ -174,6 +188,7 @@ export default function SettingsPage() {
       showSD2Params,
       showPerformanceTuning,
       showExperimentalFeatures,
+      remoteGPU,
       autoCleanup,
       maxStorageGB,
     }
@@ -181,15 +196,15 @@ export default function SettingsPage() {
     console.log('Settings saved:', settings)
 
     if (apiKeysSaved) {
-      alert('Settings saved successfully!')
+      toast.success('Settings saved')
     } else {
-      alert('UI settings saved, but there was an error saving API keys. Please try again.')
+      toast.warning('UI settings saved, but there was an error saving API keys')
     }
   }
 
   const handleReset = () => {
     if (confirm('Reset all settings to defaults?')) {
-      setApiUrl('http://localhost:8000')
+      // apiUrl is read-only from API_BASE (no setter needed)
       setApiTimeout(30)
       setAutoRefresh(true)
       setRefreshInterval(5)
@@ -199,6 +214,7 @@ export default function SettingsPage() {
       setShowSD2Params(false)
       setShowPerformanceTuning(false)
       setShowExperimentalFeatures(false)
+      setRemoteGPU(false)
       setAutoCleanup(false)
       setMaxStorageGB(50)
       localStorage.removeItem('ktiseos-nyx-settings')
@@ -243,7 +259,7 @@ export default function SettingsPage() {
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
                   className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  placeholder="http://localhost:8000"
+                  placeholder="http://127.0.0.1:8000"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   The backend API endpoint for training operations
@@ -278,19 +294,20 @@ export default function SettingsPage() {
               Store API keys securely on the backend for automatic use during model downloads
             </p>
 
-            <div className="space-y-4">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               {/* HuggingFace Token */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   HuggingFace Token {hasHuggingfaceToken && <span className="text-green-600 dark:text-green-400 text-xs">(✓ Saved)</span>}
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     type={showHfToken ? 'text' : 'password'}
                     value={huggingfaceToken}
                     onChange={(e) => setHuggingfaceToken(e.target.value)}
-                    className="w-full px-4 py-2 pr-10 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="pr-10"
                     placeholder={hasHuggingfaceToken ? "Enter new token to update..." : "hf_..."}
+                    autoComplete="off"
                   />
                   <button
                     type="button"
@@ -319,12 +336,13 @@ export default function SettingsPage() {
                   Civitai API Key <span className="text-xs text-muted-foreground font-normal">(Optional)</span> {hasCivitaiApiKey && <span className="text-green-600 dark:text-green-400 text-xs">(✓ Saved)</span>}
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     type={showCivitaiKey ? 'text' : 'password'}
                     value={civitaiApiKey}
                     onChange={(e) => setCivitaiApiKey(e.target.value)}
-                    className="w-full px-4 py-2 pr-10 bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    className="pr-10"
                     placeholder={hasCivitaiApiKey ? "Enter new key to update..." : "Your API key..."}
+                    autoComplete="off"
                   />
                   <button
                     type="button"
@@ -353,7 +371,7 @@ export default function SettingsPage() {
                   <strong>Security:</strong> API keys are stored securely on the backend server and will be automatically used when downloading models from the respective platforms.
                 </p>
               </div>
-            </div>
+            </form>
           </div>
         </GradientCard>
 
@@ -401,6 +419,42 @@ export default function SettingsPage() {
                   />
                 </div>
               )}
+
+              {/* Remote GPU Mode */}
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-foreground">
+                      Remote GPU Mode
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Compresses images into a ZIP before uploading for faster transfers
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setRemoteGPU(!remoteGPU)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      remoteGPU ? 'bg-purple-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        remoteGPU ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                {remoteGPU && (
+                  <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-500/30 rounded-lg">
+                    <p className="text-xs text-foreground">
+                      <strong>When to use this:</strong> Enable if you&apos;re running on a rented GPU
+                      (RunPod, VastAI, etc.) and image uploads feel slow. Instead of sending each image
+                      individually, the uploader will compress all images into a single ZIP and send it
+                      in one request -- much faster over high-latency connections.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </GradientCard>
@@ -496,6 +550,121 @@ export default function SettingsPage() {
 
             </div>
           </div>
+          </div>
+        </GradientCard>
+
+        {/* Model Directories */}
+        <GradientCard variant="aurora" intensity="subtle" className="mb-6">
+          <div className="p-6">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Model Directories</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Add extra folders to scan for models and VAEs. Anything found here will appear in the
+              training form dropdowns alongside models downloaded by the trainer.
+            </p>
+
+            {/* Extra Model Dirs */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-foreground mb-3">
+                Base Model Paths
+              </label>
+              <div className="space-y-2 mb-3">
+                {extraModelDirs.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No extra model directories added.</p>
+                )}
+                {extraModelDirs.map((dir, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-foreground flex-1 font-mono truncate">{dir}</span>
+                    <button
+                      onClick={() => setExtraModelDirs(extraModelDirs.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      aria-label="Remove directory"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newModelDir}
+                  onChange={(e) => setNewModelDir(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newModelDir.trim()) {
+                      setExtraModelDirs([...extraModelDirs, newModelDir.trim()])
+                      setNewModelDir('')
+                    }
+                  }}
+                  placeholder="/home/user/stable-diffusion-webui/models/Stable-diffusion"
+                  className="flex-1 px-3 py-2 text-sm bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+                <button
+                  onClick={() => {
+                    if (newModelDir.trim()) {
+                      setExtraModelDirs([...extraModelDirs, newModelDir.trim()])
+                      setNewModelDir('')
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Extra VAE Dirs */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-3">
+                VAE Paths
+              </label>
+              <div className="space-y-2 mb-3">
+                {extraVaeDirs.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No extra VAE directories added.</p>
+                )}
+                {extraVaeDirs.map((dir, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+                    <FolderOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-foreground flex-1 font-mono truncate">{dir}</span>
+                    <button
+                      onClick={() => setExtraVaeDirs(extraVaeDirs.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      aria-label="Remove directory"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newVaeDir}
+                  onChange={(e) => setNewVaeDir(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newVaeDir.trim()) {
+                      setExtraVaeDirs([...extraVaeDirs, newVaeDir.trim()])
+                      setNewVaeDir('')
+                    }
+                  }}
+                  placeholder="/home/user/stable-diffusion-webui/models/VAE"
+                  className="flex-1 px-3 py-2 text-sm bg-input border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+                <button
+                  onClick={() => {
+                    if (newVaeDir.trim()) {
+                      setExtraVaeDirs([...extraVaeDirs, newVaeDir.trim()])
+                      setNewVaeDir('')
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
+            </div>
           </div>
         </GradientCard>
 

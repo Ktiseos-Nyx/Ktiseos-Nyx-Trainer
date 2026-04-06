@@ -44,8 +44,6 @@ class DiagOFTModule(LycorisBaseModule):
         dropout=0.0,
         rank_dropout=0.0,
         module_dropout=0.0,
-        lora_dropout=0.0,
-        aid_dropout=0.0,
         use_tucker=False,
         use_scalar=False,
         rank_dropout_scale=False,
@@ -63,8 +61,6 @@ class DiagOFTModule(LycorisBaseModule):
             dropout,
             rank_dropout,
             module_dropout,
-            lora_dropout,
-            aid_dropout,
             rank_dropout_scale,
             bypass_mode,
             ggpo_beta,
@@ -82,6 +78,8 @@ class DiagOFTModule(LycorisBaseModule):
         self.oft_blocks = nn.Parameter(
             torch.zeros(self.block_num, self.block_size, self.block_size)
         )
+
+        self.register_buffer("I", torch.eye(self.block_size, device=self.oft_blocks.device, dtype=self.oft_blocks.dtype))
         if rescaled:
             self.rescale = nn.Parameter(
                 torch.ones(out_dim, *(1 for _ in range(org_module.weight.dim() - 1)))
@@ -120,12 +118,8 @@ class DiagOFTModule(LycorisBaseModule):
             module.rescale.copy_(rescale)
         return module
 
-    @property
-    def I(self):
-        return torch.eye(self.block_size, device=self.device)
-
     def get_r(self):
-        I = self.I
+        I = self.I.to(device=self.oft_blocks.device, dtype=self.oft_blocks.dtype)
         # for Q = -Q^T
         q = self.oft_blocks - self.oft_blocks.transpose(1, 2)
         normed_q = q
@@ -134,13 +128,68 @@ class DiagOFTModule(LycorisBaseModule):
             if q_norm > self.constraint:
                 normed_q = q * self.constraint / q_norm
         # use float() to prevent unsupported type
-        r = (I + normed_q) @ (I - normed_q).float().inverse()
+
+        q_float = normed_q.float()
+        I_float = I.float()
+        r = (I_float + q_float) @ torch.inverse(I_float - q_float)
         return r
+    
+    def _apply_multiplicative_dropout(self, r: torch.Tensor) -> torch.Tensor:
+            """
+            Applies multiplicative dropout to the orthogonal block matrices r for DiagOFT.
+            Selected blocks (dim 0) are replaced by identity matrices during training.
+
+            Args:
+                r (torch.Tensor): The orthogonal matrices computed by get_r(),
+                                shape (block_num, block_size, block_size).
+
+            Returns:
+                torch.Tensor: The dropout-applied orthogonal matrices.
+            """
+            # self.dropout is the dropout rate for the blocks.
+            # It's initialized from the 'dropout' parameter in the constructor.
+            if not self.training or self.dropout == 0:
+                return r
+
+            # r has shape (block_num, block_size, block_size)
+            num_blocks, block_size, _ = r.shape
+            device = r.device
+            dtype = r.dtype
+            # self.I is already (block_size, block_size)
+            identity_matrix = self.I.to(device=device, dtype=dtype)
+
+            # Mask for blocks (True = keep, False = replace with I)
+            # We operate on the first dimension (num_blocks)
+            # self.dropout is the probability of *dropping* a block (setting to I)
+            block_keep_mask = torch.rand(num_blocks, device=device) >= self.dropout
+            # Reshape for broadcasting: (num_blocks, 1, 1)
+            block_keep_mask = block_keep_mask.view(num_blocks, 1, 1)
+
+            # Use torch.where to select between original r and identity_matrix
+            # r: (num_blocks, block_size, block_size)
+            # block_keep_mask: (num_blocks, 1, 1) -> broadcasts to (num_blocks, block_size, block_size)
+            # identity_matrix: (block_size, block_size) -> broadcasts to (num_blocks, block_size, block_size)
+            r_dropped = torch.where(block_keep_mask, r, identity_matrix)
+
+            return r_dropped
 
     def make_weight(self, scale=1, device=None, diff=False):
         r = self.get_r()
-        _, *shape = self.org_weight.shape
-        org_weight = self.org_weight.to(device, dtype=r.dtype)
+        r = self._apply_multiplicative_dropout(r)
+
+        # Ensure org_weight is on the correct device and dtype early
+        org_weight = self.get_org_weight_for_compute(device)
+
+        _, *shape = org_weight.shape
+
+        org_weight_dtype = org_weight.dtype
+        r_dtype = r.dtype # Usually float32 due to inverse, ensure consistency
+        target_dtype = torch.promote_types(org_weight_dtype, r_dtype)
+
+        if device is None:
+            device = self.oft_blocks.device
+
+        org_weight = org_weight.to(target_dtype, non_blocking=True)
         org_weight = org_weight.view(self.block_num, self.block_size, *shape)
         # Init R=0, so add I on it to ensure the output of step0 is original model output
         weight = torch.einsum(
@@ -152,7 +201,7 @@ class DiagOFTModule(LycorisBaseModule):
             weight = self.rescale * weight
             if diff:
                 weight = weight + (self.rescale - 1) * org_weight
-        return weight.to(self.oft_blocks.dtype)
+        return weight.to(org_weight_dtype)
 
     def get_diff_weight(self, multiplier=1, shape=None, device=None):
         diff = self.make_weight(scale=multiplier, device=device, diff=True)
@@ -184,12 +233,12 @@ class DiagOFTModule(LycorisBaseModule):
     def get_norm(self, device=None):
         # Norm before scale determined by alpha / r_factor
         unscaled_norm = self.oft_blocks.norm()
-        # Norm after scale determined by alpha / r_factor
-        scaled_norm = unscaled_norm * self.scale
-        return unscaled_norm.item(), scaled_norm.item()
+        return unscaled_norm
 
     def _bypass_forward(self, x, scale=1, diff=False):
         r = self.get_r()
+        r = self._apply_multiplicative_dropout(r)
+
         org_out = self.org_forward(x)
         if self.op in {F.conv2d, F.conv1d, F.conv3d}:
             org_out = org_out.transpose(1, -1)
@@ -231,5 +280,11 @@ class DiagOFTModule(LycorisBaseModule):
             return self.bypass_forward(x, scale)
         else:
             w = self.make_weight(scale, x.device)
-            kw_dict = self.kw_dict | {"weight": w, "bias": self.org_module[0].bias}
+            
+            current_bias = self.get_org_bias_for_compute(x.device)
+            if current_bias is not None:
+                current_bias = current_bias.to(x.dtype, non_blocking=True)
+            
+            kw_dict = {**self.kw_dict, "weight": w, "bias": current_bias}
+
             return self.op(x, **kw_dict)

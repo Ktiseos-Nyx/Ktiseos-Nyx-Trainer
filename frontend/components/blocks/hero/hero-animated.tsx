@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Sparkles, Settings, LucideIcon } from 'lucide-react';
+import { ArrowRight, LucideIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { BackgroundBeamsWithCollision } from '@/components/ui/background-beams-with-collision';
 
@@ -146,7 +146,7 @@ export function HeroAnimated({
 
                 if (cta.variant === 'primary') {
                   return (
-                    <Link key={idx} href={cta.href}>
+                    <Link key={idx} href={cta.href} prefetch={false}>
                       <button className={`group relative px-8 py-3 bg-gradient-to-r ${colors.button} text-white text-lg font-semibold rounded-lg hover:${colors.buttonHover} transition-all shadow-lg hover:shadow-xl hover:scale-105`}>
                         <span className="flex items-center gap-2">
                           {Icon && <Icon className="w-5 h-5" />}
@@ -159,7 +159,7 @@ export function HeroAnimated({
                 }
 
                 return (
-                  <Link key={idx} href={cta.href}>
+                  <Link key={idx} href={cta.href} prefetch={false}>
                     <button className="px-8 py-3 bg-slate-800/50 backdrop-blur-sm border border-slate-700 text-white text-lg font-semibold rounded-lg hover:bg-slate-700/50 transition-all shadow-lg hover:shadow-xl hover:scale-105">
                       <span className="flex items-center gap-2">
                         {Icon && <Icon className="w-5 h-5" />}

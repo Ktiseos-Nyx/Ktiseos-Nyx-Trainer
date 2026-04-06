@@ -58,6 +58,7 @@ export function LoRAStructureCard({ form, onSave }: LoRAStructureCardProps) {
             { value: 'LoHa', label: 'LoHa', description: 'Hadamard product adaptation' },
             { value: 'LoKr', label: 'LoKr', description: 'Kronecker product (compact)' },
             { value: 'DoRA', label: 'DoRA', description: 'Weight-decomposed LoRA (experimental)' },
+            { value: 'ABBA', label: 'ABBA', description: 'Activation-Based Block Adaptation (LyCORIS v3.2+)' },
           ]}
         />
 

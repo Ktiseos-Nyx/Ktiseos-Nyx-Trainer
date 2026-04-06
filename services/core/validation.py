@@ -233,3 +233,33 @@ def validate_output_path(filename: str) -> Path:
         raise ValidationError(f"Invalid output path: {e}")
 
     return output_path
+
+
+def validate_path_within(user_path: str, allowed_dirs: list) -> Path:
+    """
+    Generic path validation: ensure path is within one of the allowed directories.
+
+    Args:
+        user_path: User-provided path (absolute or relative)
+        allowed_dirs: List of Path objects representing allowed base directories
+
+    Returns:
+        Path: Resolved, validated absolute path
+
+    Raises:
+        ValidationError: If path is outside all allowed directories
+    """
+    import os
+
+    try:
+        resolved = Path(user_path).resolve()
+    except (ValueError, OSError) as e:
+        raise ValidationError(f"Invalid path: {e}")
+
+    for allowed_dir in allowed_dirs:
+        allowed_resolved = Path(allowed_dir).resolve()
+        # Check exact match or is a child (with separator to prevent prefix attacks)
+        if resolved == allowed_resolved or str(resolved).startswith(str(allowed_resolved) + os.sep):
+            return resolved
+
+    raise ValidationError("Access denied: path outside allowed directories")

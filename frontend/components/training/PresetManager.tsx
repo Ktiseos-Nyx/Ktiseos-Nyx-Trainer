@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Save, FolderOpen, Trash2, Download, Upload, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -131,7 +132,7 @@ export default function PresetManager({
 
   const handleSavePreset = async () => {
     if (!newPresetName.trim()) {
-      alert('Please enter a preset name');
+      toast.warning('Please enter a preset name');
       return;
     }
 
@@ -140,7 +141,7 @@ export default function PresetManager({
 
     try {
       // Try saving to server first
-      const result = await presetsAPI.save({
+      await presetsAPI.save({
         name: newPresetName,
         description: newPresetDescription || 'Custom preset',
         model_type: currentConfig.model_type,
@@ -155,7 +156,9 @@ export default function PresetManager({
       setNewPresetDescription('');
       setSaveDialogOpen(false);
 
-      alert(`✅ Preset "${newPresetName}" saved successfully!\n\nNote: Project-specific details (dataset paths, model paths, project name) are not included in presets.`);
+      toast.success(`Preset "${newPresetName}" saved`, {
+        description: 'Project-specific details (dataset paths, model paths, project name) are not included in presets.',
+      });
     } catch (error) {
       console.error('Failed to save to server, falling back to localStorage:', error);
 
@@ -175,7 +178,9 @@ export default function PresetManager({
       setNewPresetDescription('');
       setSaveDialogOpen(false);
 
-      alert(`✅ Preset "${newPresetName}" saved locally!\n\nNote: Server unavailable, saved to browser storage only.`);
+      toast.success(`Preset "${newPresetName}" saved locally`, {
+        description: 'Server unavailable, saved to browser storage only.',
+      });
     }
   };
 
@@ -183,7 +188,9 @@ export default function PresetManager({
     // Check hardcoded presets first (from useTrainingForm hook)
     if (trainingPresets[presetId]) {
       onLoadPreset(trainingPresets[presetId].config);
-      alert(`✅ Loaded preset: ${trainingPresets[presetId].name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
+      toast.success(`Loaded preset: ${trainingPresets[presetId].name}`, {
+        description: 'You\'ll still need to set your dataset, model paths, and project name.',
+      });
       return;
     }
 
@@ -191,18 +198,27 @@ export default function PresetManager({
     const localPreset = customPresets.find((p) => p.id === presetId);
     if (localPreset) {
       onLoadPreset(localPreset.config);
-      alert(`✅ Loaded preset: ${localPreset.name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
+      toast.success(`Loaded preset: ${localPreset.name}`, {
+        description: 'You\'ll still need to set your dataset, model paths, and project name.',
+      });
       return;
     }
 
     // Try loading from server
     try {
       const preset = await presetsAPI.get(presetId);
-      onLoadPreset(preset.config);
-      alert(`✅ Loaded preset: ${preset.name}\n\nReminder: You'll still need to set your dataset, model paths, and project name.`);
+
+      // Server presets have config at root level (not nested under .config)
+      // Extract metadata fields that aren't part of TrainingConfig
+      const { name, description, notes, base_model, optimizer, is_builtin, created_at, ...config } = preset as any;
+
+      onLoadPreset(config);
+      toast.success(`Loaded preset: ${name || presetId}`, {
+        description: 'You\'ll still need to set your dataset, model paths, and project name.',
+      });
     } catch (error) {
       console.error('Failed to load preset from server:', error);
-      alert('❌ Failed to load preset');
+      toast.error('Failed to load preset');
     }
   };
 
@@ -213,7 +229,7 @@ export default function PresetManager({
     const serverPreset = serverPresets.find((p) => p.id === presetId);
     if (serverPreset) {
       if (serverPreset.is_builtin) {
-        alert('❌ Cannot delete built-in presets');
+        toast.error('Cannot delete built-in presets');
         return;
       }
 
@@ -228,11 +244,11 @@ export default function PresetManager({
           setSelectedPreset('');
         }
 
-        alert('✅ Preset deleted');
+        toast.success('Preset deleted');
         return;
       } catch (error) {
         console.error('Failed to delete from server:', error);
-        alert('❌ Failed to delete preset from server');
+        toast.error('Failed to delete preset from server');
         return;
       }
     }
@@ -243,7 +259,7 @@ export default function PresetManager({
       setSelectedPreset('');
     }
 
-    alert('✅ Preset deleted from local storage');
+    toast.success('Preset deleted from local storage');
   };
 
   const handleExportPresets = () => {
@@ -266,9 +282,9 @@ export default function PresetManager({
       try {
         const imported = JSON.parse(e.target?.result as string) as CustomPreset[];
         setCustomPresets((prev) => [...prev, ...imported]);
-        alert(`✅ Imported ${imported.length} presets`);
+        toast.success(`Imported ${imported.length} presets`);
       } catch (error) {
-        alert('❌ Failed to import presets. Invalid file format.');
+        toast.error('Failed to import presets. Invalid file format.');
       }
     };
     reader.readAsText(file);

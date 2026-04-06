@@ -20,10 +20,12 @@ import sys
 
 
 class LocalLinuxInstaller:
-    def __init__(self, verbose=False, skip_install=False):
+    def __init__(self, verbose=False, skip_install=False, force=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
+        self.force = force
+        self.install_marker = os.path.join(self.project_root, ".install_complete")
         self.setup_logging()
         self.python_cmd = sys.executable
         self.package_manager = {
@@ -112,11 +114,18 @@ class LocalLinuxInstaller:
         if self.skip_install:
             print(" ⏩ Skipping dependency installation")
             return True
-        req_file = os.path.join(self.project_root, "requirements.txt")
+        # Use Linux-specific requirements file (includes PyTorch with CUDA 12.1)
+        req_file = os.path.join(self.project_root, "requirements_linux.txt")
         if not os.path.exists(req_file):
-            print(" ❌ requirements.txt not found")
+            print(f" ❌ {req_file} not found")
             return False
-        cmd = [self.python_cmd, "-m", "pip", "install", "-r", req_file]
+
+        # Add CUDA 12.1 index for PyTorch installation
+        cmd = [
+            self.python_cmd, "-m", "pip", "install",
+            "-r", req_file,
+            "--extra-index-url", "https://download.pytorch.org/whl/cu121"
+        ]
         return self.run_command(cmd, "Installing Python dependencies")
 
     def install_pytorch_cuda121(self):
@@ -137,17 +146,6 @@ class LocalLinuxInstaller:
             print(" ⚠️ No NVIDIA GPU detected — skipping CUDA PyTorch")
             print("    Install manually if needed: pip install torch torchvision")
             return True
-
-    def ensure_bitsandbytes_binaries(self):
-        bits_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
-        required = ["libbitsandbytes_cuda121.so", "libbitsandbytes_cuda121_nocublaslt.so"]
-        missing = [f for f in required if not os.path.exists(os.path.join(bits_dir, f))]
-        if missing:
-            print(f" ❌ Missing bitsandbytes binaries: {missing}")
-            print("    Please ensure these are in trainer/derrian_backend/sd_scripts/bitsandbytes/")
-            return False
-        print(" ✅ bitsandbytes CUDA 12.1 binaries present")
-        return True
 
     def check_aria2c(self):
         if not shutil.which("aria2c"):
@@ -177,8 +175,29 @@ class LocalLinuxInstaller:
             return True
 
         if not shutil.which("npm"):
-            print(" ⚠️ npm not found. Please install Node.js 18+ (e.g., via nvm or system package).")
+            print(" ⚠️ npm not found. Please install Node.js 20.19+ or 22 LTS (e.g., via nvm or system package).")
             self.logger.warning("npm not found. Frontend setup skipped.")
+            return False
+
+        # Check that Node.js meets the minimum version requirement (>=20.19.0)
+        resolved_node = shutil.which("node")
+        try:
+            node_result = subprocess.run([resolved_node, "--version"], capture_output=True, text=True)
+            if node_result.returncode != 0:
+                diag = (node_result.stderr or node_result.stdout).strip()
+                print(f" ⚠️ Could not determine Node.js version: {diag}. Please ensure Node.js >=20.19.0 is installed.")
+                self.logger.warning("Could not determine Node.js version: %s. Frontend setup skipped.", diag)
+                return False
+            version_str = node_result.stdout.strip().lstrip("v")
+            parts = version_str.split(".")
+            major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2].split("-")[0])
+            if (major, minor, patch) < (20, 19, 0):
+                print(f" ⚠️ Node.js {version_str} is below the required version 20.19.0. Please upgrade (e.g., via nvm or system package).")
+                self.logger.warning("Node.js %s is below required version 20.19.0. Frontend setup skipped.", version_str)
+                return False
+        except (ValueError, IndexError, OSError, subprocess.SubprocessError) as node_err:
+            print(f" ⚠️ Could not determine Node.js version: {node_err}. Please ensure Node.js >=20.19.0 is installed.")
+            self.logger.warning("Could not determine Node.js version: %s. Frontend setup skipped.", node_err)
             return False
 
         node_modules = os.path.join(frontend_dir, "node_modules")
@@ -210,16 +229,57 @@ class LocalLinuxInstaller:
 
     # ====================================================
 
+    def check_already_installed(self):
+        """Check if a previous installation exists. Returns True if we should proceed."""
+        if not os.path.exists(self.install_marker):
+            return True
+
+        try:
+            with open(self.install_marker, "r") as f:
+                prev_info = f.read().strip()
+        except Exception:
+            prev_info = "unknown date"
+
+        if self.force:
+            self.logger.info("Previous installation found (%s), but --force flag set. Reinstalling.", prev_info)
+            print(f"\n Previous installation detected ({prev_info})")
+            print(" --force flag set, proceeding with reinstall...\n")
+            return True
+
+        print("\n" + "=" * 70)
+        print(" Installation already completed!")
+        print("=" * 70)
+        print(f"\n Previous install: {prev_info}")
+        print("\n If you want to reinstall, use one of these options:")
+        print("   ./install.sh --force          Reinstall everything")
+        print("   ./install.sh --skip-install   Rebuild frontend only (fast)")
+        print("\n To start the app: ./start_services_local.sh")
+        print("=" * 70 + "\n")
+        return False
+
+    def write_install_marker(self):
+        """Write marker file indicating successful installation."""
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self.install_marker, "w") as f:
+                f.write(f"Linux local install completed: {timestamp}\n")
+                f.write(f"Python: {self.python_cmd}\n")
+            self.logger.info("Install marker written: %s", self.install_marker)
+        except Exception as e:
+            self.logger.warning("Could not write install marker: %s", e)
+
     def run_installation(self):
         self.print_banner()
+
+        if not self.check_already_installed():
+            return True
+
         if not self.verify_vendored_backend():
             return False
         self.check_aria2c()
         if not self.install_dependencies():
             return False
         self.install_pytorch_cuda121()
-        if not self.ensure_bitsandbytes_binaries():
-            return False
         self.apply_editable_installs()
 
         # =============== NEW: FRONTEND SETUP ===============
@@ -238,6 +298,7 @@ class LocalLinuxInstaller:
         print("    - Backend: http://localhost:8000")
         print("    - Frontend: http://localhost:3000")
         print("=" * 70)
+        self.write_install_marker()
         return True
 
 
@@ -245,8 +306,9 @@ def main():
     parser = argparse.ArgumentParser(description="Local Linux Installer (NVIDIA GPU)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--skip-install", action="store_true", help="Skip pip install")
+    parser.add_argument("--force", "-f", action="store_true", help="Force reinstall even if already installed")
     args = parser.parse_args()
-    installer = LocalLinuxInstaller(verbose=args.verbose, skip_install=args.skip_install)
+    installer = LocalLinuxInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
     success = installer.run_installation()
     sys.exit(0 if success else 1)
 

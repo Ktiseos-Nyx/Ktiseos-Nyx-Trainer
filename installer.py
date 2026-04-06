@@ -31,10 +31,12 @@ def get_python_command():
 class RemoteInstaller:
     """Unified Installer for Ktiseos-Nyx-Trainer Backend Dependencies"""
 
-    def __init__(self, verbose=False, skip_install=False):
+    def __init__(self, verbose=False, skip_install=False, force=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
+        self.force = force
+        self.install_marker = os.path.join(self.project_root, "install_complete.marker")
 
         # Setup logging
         self.setup_logging()
@@ -58,9 +60,9 @@ class RemoteInstaller:
         logs_dir = os.path.join(self.project_root, "logs")
         os.makedirs(logs_dir, exist_ok=True)
 
-        # Generate timestamp for log file
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = os.path.join(logs_dir, f"installer_{timestamp}.log")
+        # Use the same daily log file as the app so all output is centralized
+        datestamp = datetime.datetime.now().strftime("%Y%m%d")
+        log_file = os.path.join(logs_dir, f"app_{datestamp}.log")
 
         # Configure logging
         log_level = logging.DEBUG if self.verbose else logging.INFO
@@ -247,62 +249,54 @@ class RemoteInstaller:
         return True
 
     def install_dependencies(self):
-        """Install dependencies with uv → pip fallback"""
+        """Install Python dependencies from requirements file"""
         if self.skip_install:
             print("Skipping dependency installation (--skip-install flag)")
             self.logger.info("Skipping dependency installation due to --skip-install flag")
             return True
 
-        requirements_file = os.path.join(self.project_root, "requirements.txt")
+        # Use cloud requirements file (NO PyTorch - pre-installed in base image)
+        requirements_file = os.path.join(self.project_root, "requirements_cloud.txt")
         if not os.path.exists(requirements_file):
-            error_msg = "CRITICAL: requirements.txt not found!"
-            self.logger.error(error_msg)
-            print(error_msg)
-            return False
+            # Fallback to old requirements.txt for backwards compatibility
+            requirements_file = os.path.join(self.project_root, "requirements.txt")
+            if not os.path.exists(requirements_file):
+                error_msg = f"CRITICAL: No requirements file found!"
+                self.logger.error(error_msg)
+                print(error_msg)
+                return False
+            self.logger.warning("requirements_cloud.txt not found, falling back to requirements.txt")
 
-        self.logger.info("Installing dependencies from: %s", requirements_file)
+        self.logger.info("Installing cloud dependencies from: %s", requirements_file)
 
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
 
-        # Post-installation: Force correct CUDA 12 ONNX runtime
         if success:
-            self.fix_onnx_runtime()
+            self.verify_onnx_runtime()
 
         return success
 
-    def fix_onnx_runtime(self):
-        """Force install correct CUDA 12 ONNX runtime to prevent version conflicts"""
-        self.logger.info("Ensuring correct CUDA 12 ONNX runtime installation...")
-        print("Ensuring correct CUDA 12 ONNX runtime installation...")
+    def verify_onnx_runtime(self):
+        """Verify ONNX runtime is installed and can see GPU providers."""
+        self.logger.info("Verifying ONNX runtime installation...")
+        print("Verifying ONNX runtime installation...")
 
-        # Uninstall any existing onnxruntime packages to prevent conflicts
-        uninstall_cmd = [self.python_cmd, "-m", "pip", "uninstall", "-y", "onnxruntime", "onnxruntime-gpu"]
-        self.run_command(uninstall_cmd, "Removing existing ONNX runtime packages")
-
-        # Install correct CUDA 12 version
-        onnx_cmd = [self.python_cmd, "-m", "pip", "install", "onnx==1.16.1", "protobuf<4"]
-
-        cuda12_cmd = [
+        verify_cmd = [
             self.python_cmd,
-            "-m",
-            "pip",
-            "install",
-            "--extra-index-url",
-            "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/",
-            "onnxruntime-gpu==1.17.1",
+            "-c",
+            "import onnxruntime as ort; print(f'ONNX Runtime {ort.__version__} — Providers: {ort.get_available_providers()}')"
         ]
 
-        success = self.run_command(onnx_cmd, "Installing ONNX and protobuf")
-        if success:
-            success = self.run_command(cuda12_cmd, "Installing ONNX Runtime GPU with CUDA 12 support")
+        success = self.run_command(verify_cmd, "Verifying ONNX runtime import")
 
         if success:
-            self.logger.info("ONNX runtime CUDA 12 installation completed successfully")
-            print("ONNX runtime CUDA 12 installation completed successfully")
+            self.logger.info("ONNX runtime verification successful")
+            print("ONNX runtime verification successful")
         else:
-            self.logger.warning("ONNX runtime installation encountered issues - will fallback to CPU")
-            print("ONNX runtime installation encountered issues - will fallback to CPU")
+            self.logger.error("ONNX runtime verification failed — WD14 tagging may fall back to CPU")
+            print("ONNX runtime verification failed — WD14 tagging may fall back to CPU")
+            print("   If tagging is slow, try: pip install --upgrade onnxruntime-gpu")
 
     def check_system_dependencies(self):
         """Check and attempt to install required system packages like aria2c"""
@@ -317,7 +311,6 @@ class RemoteInstaller:
             self.logger.info("Detected system: %s", system)
 
             if system == "linux":
-                # Check if running as root (VastAI containers run as root)
                 is_root = os.geteuid() == 0 if hasattr(os, "geteuid") else False
                 sudo_prefix = "" if is_root else "sudo "
 
@@ -398,224 +391,53 @@ class RemoteInstaller:
 
         # --- Platform-Specific Fixes ---
 
-        # --- Linux bitsandbytes binaries fix ---
-        self.ensure_linux_bitsandbytes_binaries()
-
-        # --- PyTorch version file fix ---
-        self.logger.info("Checking if PyTorch version patch is needed...")
-        print("   - Checking if PyTorch version patch is needed...")
-        try:
-            import torch  # pyright: ignore[reportMissingImports]
-
-            pytorch_version = torch.__version__
-            self.logger.info("Detected PyTorch version: %s", pytorch_version)
-
-            if pytorch_version in ["2.0.0", "2.0.1"]:
-                self.logger.info("Applying patch for PyTorch %s...", pytorch_version)
-                print(f"   - Applying patch for PyTorch {pytorch_version}...")
-                fix_script_path = os.path.join(self.derrian_dir, "fix_torch.py")
-                if os.path.exists(fix_script_path):
-                    self.run_command([self.python_cmd, fix_script_path], "Applying PyTorch patch")
-            else:
-                info_msg = f"PyTorch version is {pytorch_version}. No patch needed."
-                self.logger.info(info_msg)
-                print(f"   - {info_msg}")
-        except ImportError:
-            warning_msg = "Could not import PyTorch. Skipping version patch check."
-            self.logger.warning(warning_msg)
-            print(f"   - {warning_msg}")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            error_msg = f"Error applying PyTorch patch: {e}"
-            self.logger.error(error_msg)
-            print(f"   -  {error_msg}")
-
         return True
 
-    def ensure_linux_bitsandbytes_binaries(self):
-        """Ensure Linux has CUDA 12.1 .so files for bitsandbytes"""
-        if platform.system() != "Linux":
+    def check_already_installed(self):
+        """Check if a previous installation exists. Returns True if we should proceed."""
+        if not os.path.exists(self.install_marker):
             return True
-
-        self.logger.info("Checking Linux bitsandbytes binaries...")
-        print("   - Checking Linux bitsandbytes binaries...")
-
-        bits_dir = os.path.join(self.sd_scripts_dir, "bitsandbytes")
-        if not os.path.exists(bits_dir):
-            self.logger.warning("bitsandbytes directory not found")
-            return False
-
-        required_files = ["libbitsandbytes_cuda121.so", "libbitsandbytes_cuda121_nocublaslt.so"]
-
-        missing = []
-        for f in required_files:
-            if not os.path.exists(os.path.join(bits_dir, f)):
-                missing.append(f)
-
-        if not missing:
-            self.logger.info("All CUDA 12.1 .so files present")
-            print("      All CUDA 12.1 .so files present")
-            return True
-
-        # Try to download from GitHub Releases
-        self.logger.warning("Missing .so files: %s", missing)
-        print(f"      Missing .so files: {', '.join(missing)}")
 
         try:
-            import requests
+            with open(self.install_marker, "r") as f:
+                prev_info = f.read().strip()
+        except Exception:
+            prev_info = "unknown date"
 
-            for bin_file in missing:
-                # Point to your GitHub Releases
-                url = f"https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/releases/download/v0.1.0-bitsandbytes-binaries/{bin_file}"
-                self.logger.info("Downloading %s from %s", bin_file, url)
-                print(f"    Downloading {bin_file}...")
-
-                resp = requests.get(url, timeout=30)
-                if resp.status_code == 200:
-                    with open(os.path.join(bits_dir, bin_file), "wb") as f:
-                        f.write(resp.content)
-                    self.logger.info("Downloaded %s", bin_file)
-                    print(f"     Downloaded {bin_file}")
-                else:
-                    self.logger.error("Failed to download %s: %s", bin_file, resp.status_code)
-                    print(f"      Failed to download {bin_file}")
-
+        if self.force:
+            self.logger.info("Previous installation found (%s), but --force flag set. Reinstalling.", prev_info)
+            print(f"\n Previous installation detected ({prev_info})")
+            print(" --force flag set, proceeding with reinstall...\n")
             return True
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            self.logger.error("Download failed: %s", e)
-            print(f"     Download failed: {e}")
-            print("     Please manually add CUDA 12.1 .so files to bitsandbytes/")
-            return False
 
-    def fix_cuda_symlinks(self):
-        """Auto-fix ONNX CUDA library symlink issues"""
-        self.logger.info("Checking for ONNX CUDA library symlink issues...")
-        print(" Checking for ONNX CUDA library symlink issues...")
+        print("\n" + "=" * 70)
+        print(" Installation already completed!")
+        print("=" * 70)
+        print(f"\n Previous install: {prev_info}")
+        print("\n If you want to reinstall, use one of these options:")
+        print("   python installer.py --force          Reinstall everything")
+        print("   python installer.py --skip-install   Skip deps, reapply fixes only")
+        print("=" * 70 + "\n")
+        return False
 
+    def write_install_marker(self):
+        """Write marker file indicating successful installation."""
         try:
-            # Check multiple possible CUDA library locations
-            possible_cuda_dirs = [
-                "/usr/local/cuda/lib64",
-                "/usr/local/cuda-12/lib64",
-                "/usr/local/cuda-11/lib64",
-                "/opt/cuda/lib64",
-                "/usr/lib/x86_64-linux-gnu",  # Ubuntu/Debian system location
-            ]
-
-            cuda_lib_dir = None
-            for dir_path in possible_cuda_dirs:
-                if os.path.exists(dir_path):
-                    cuda_lib_dir = dir_path
-                    break
-
-            if not cuda_lib_dir:
-                self.logger.info("CUDA library directory not found. Skipping symlink fix.")
-                print("   - No CUDA installation detected. Skipping.")
-                return True
-
-            print(f"   Using CUDA library directory: {cuda_lib_dir}")
-
-            # Find available CUDA libraries - check for both libcublas and libcublasLt
-            import glob
-
-            # Check for all CUDA library types that ONNX needs
-            cuda_libraries = {
-                "libcublas": glob.glob(f"{cuda_lib_dir}/libcublas.so.*"),
-                "libcublasLt": glob.glob(f"{cuda_lib_dir}/libcublasLt.so.*"),
-                "libcufft": glob.glob(f"{cuda_lib_dir}/libcufft.so.*"),
-                "libcurand": glob.glob(f"{cuda_lib_dir}/libcurand.so.*"),
-                "libcusparse": glob.glob(f"{cuda_lib_dir}/libcusparse.so.*"),
-                "libcusolver": glob.glob(f"{cuda_lib_dir}/libcusolver.so.*"),
-                # Add critical CUDA runtime library that ONNX specifically needs
-                "libcudart": glob.glob(f"{cuda_lib_dir}/libcudart.so.*"),
-                # Add cuDNN libraries if available
-                "libcudnn": glob.glob(f"{cuda_lib_dir}/libcudnn.so.*"),
-            }
-
-            # Check if any libraries were found
-            found_libraries = {name: libs for name, libs in cuda_libraries.items() if libs}
-            if not found_libraries:
-                self.logger.info("No CUDA libraries found for ONNX symlink fix. Skipping.")
-                print("   - No CUDA libraries found. Skipping.")
-                return True
-
-            created_links = []
-
-            # ONNX commonly needed version targets - include specific versions ONNX looks for
-            common_versions = ["10", "11", "12", "11.0", "11.2", "11.8", "12.0", "12.1", "12.2"]
-
-            # Process each library type dynamically
-            for lib_name, lib_files in found_libraries.items():
-                lib_files.sort(reverse=True)  # Get latest version
-                latest_lib = lib_files[0]
-                version = latest_lib.split(".so.")[-1] if ".so." in latest_lib else "unknown"
-                print(f"   - Found {lib_name} version {version}")
-
-                # Generate symlink targets for this library
-                targets = []
-                for ver in common_versions:
-                    targets.extend(
-                        [f"{cuda_lib_dir}/{lib_name}.so.{ver}", f"/usr/lib/x86_64-linux-gnu/{lib_name}.so.{ver}"]
-                    )
-
-                created_links.extend(self._create_cuda_symlinks(latest_lib, targets))
-
-            if created_links:
-                self.logger.info("Created %d CUDA symlinks for ONNX compatibility", len(created_links))
-                print(f"    Created {len(created_links)} CUDA symlinks for ONNX compatibility")
-                return True
-            else:
-                print("   - All symlinks already exist or no symlinks needed")
-                return True
-
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            error_msg = f"Error fixing CUDA symlinks: {e}"
-            self.logger.error(error_msg)
-            print(f"   {error_msg}")
-            return False
-
-    def _create_cuda_symlinks(self, source_lib, target_list):
-        """Helper function to create CUDA library symlinks"""
-        created_links = []
-
-        for target in target_list:
-            try:
-                # Skip if symlink already exists and points correctly
-                if os.path.islink(target):
-                    if os.readlink(target) == source_lib:
-                        print(f"   Symlink already exists: {target} -> {source_lib}")
-                        continue
-                    else:
-                        # Remove bad symlink
-                        os.unlink(target)
-
-                # Skip if regular file exists (don't overwrite)
-                if os.path.exists(target) and not os.path.islink(target):
-                    print(f"   - Regular file exists, skipping: {target}")
-                    continue
-
-                # Create directory if needed (for /usr/lib paths)
-                target_dir = os.path.dirname(target)
-                if not os.path.exists(target_dir):
-                    print(f"   - Directory {target_dir} doesn't exist, skipping symlink")
-                    continue
-
-                # Create symlink
-                os.symlink(source_lib, target)
-                created_links.append(target)
-                print(f"   Created symlink: {target} -> {source_lib}")
-
-            except PermissionError:
-                print(f"   Permission denied creating symlink: {target}")
-                continue
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                print(f"   Failed to create symlink {target}: {e}")
-                continue
-
-        return created_links
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self.install_marker, "w") as f:
+                f.write(f"Remote install completed: {timestamp}\n")
+                f.write(f"Python: {self.python_cmd}\n")
+            self.logger.info("Install marker written: %s", self.install_marker)
+        except Exception as e:
+            self.logger.warning("Could not write install marker: %s", e)
 
     def run_installation(self):
         """Run the complete installation process"""
         self.print_banner()
+
+        # Check if already installed (skip with --force)
+        if not self.check_already_installed():
+            return True
 
         # Install PyTorch with CUDA 12.1 (for remote GPU containers)
         self.ensure_pytorch_installed()
@@ -647,12 +469,6 @@ class RemoteInstaller:
                 self.logger.warning(warning_msg)
                 print(f"{warning_msg}")
 
-            # Auto-fix ONNX CUDA symlink issues
-            if not self.fix_cuda_symlinks():
-                warning_msg = "CUDA symlink fixes failed (non-critical)."
-                self.logger.warning(warning_msg)
-                print(f"{warning_msg}")
-
             end_time = datetime.datetime.now()
             duration = end_time - start_time
 
@@ -665,7 +481,7 @@ class RemoteInstaller:
                 "",
                 "Backend dependencies installed successfully!",
                 "   Next steps:",
-                "   - VastAI: Services will auto-start via supervisor",
+                "   - Cloud (VastAI/RunPod): Services start automatically",
                 "   - Local: Run ./start_services_local.sh to start the web UI",
                 "=" * 70,
             ]
@@ -675,6 +491,7 @@ class RemoteInstaller:
                 if line.strip():
                     self.logger.info(line)
 
+            self.write_install_marker()
             return True
 
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -701,14 +518,13 @@ The installer will:
   1. Verify vendored derrian_backend directory (Kohya SS + LyCORIS)
   2. Install system dependencies (aria2c)
   3. Install Python packages for training backend
-  4. Apply platform-specific fixes (CUDA, ONNX runtime)
-  5. Set up editable installs for development packages
+  4. Set up editable installs for development packages
 
 After installation:
-  - VastAI: Services auto-start via supervisor (FastAPI + Next.js)
+  - Cloud (VastAI/RunPod): Services start automatically
   - Local: Run ./start_services_local.sh to start the web interface
 
-Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
+Logs are automatically saved to logs/app_YYYYMMDD.log for debugging.
         """,
     )
 
@@ -720,10 +536,16 @@ Logs are automatically saved to logs/installer_TIMESTAMP.log for debugging.
         help="Skip dependency installation (for quick restarts when deps already installed)",
     )
 
+    parser.add_argument(
+        "--force", "-f",
+        action="store_true",
+        help="Force reinstall even if already installed",
+    )
+
     args = parser.parse_args()
 
     try:
-        installer = RemoteInstaller(verbose=args.verbose, skip_install=args.skip_install)
+        installer = RemoteInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:

@@ -39,16 +39,6 @@ if ! python -c "import uvicorn, fastapi" 2>/dev/null; then
 fi
 
 # --------------------------------------------------------------------
-# Cleanup
-# --------------------------------------------------------------------
-echo "🧹 Cleaning up ports 8000 and 3000..."
-lsof -ti:8000 2>/dev/null | xargs kill -9 2>/dev/null || true
-lsof -ti:3000 2>/dev/null | xargs kill -9 2>/dev/null || true
-pkill -f "uvicorn.*api.main" 2>/dev/null || true
-pkill -f "node.*next" 2>/dev/null || true
-sleep 3
-
-# --------------------------------------------------------------------
 # Backend
 # --------------------------------------------------------------------
 if [ -d "api" ]; then

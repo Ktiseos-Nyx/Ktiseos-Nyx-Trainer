@@ -6,6 +6,7 @@
 # Archive & Temporary Storage
 # ----------------------------------------------------------------------------
 archive/                    # Deprecated/archived code and docs
+Letters_From_Qwen_Gitignormepls/
 temp/
 tmp/
 .temp/
@@ -14,6 +15,14 @@ tmp/
 *.temp
 *.bak
 .kilocode
+.install_complete
+.write_test_diagnostic
+diagnostics_*.json
+diagnostics_*.txt
+.development/   # AI vibe coded markdown files that waste tokens
+.plans/  # Stuff that the outside world doenst need to see 
+.plans
+.development
 
 # ----------------------------------------------------------------------------
 # Python
@@ -85,6 +94,7 @@ ipython_config.py
 node_modules/
 package-lock.json
 .next/
+*.tsbuildinfo
 dist/
 out/
 *.log
@@ -103,16 +113,27 @@ frontend/app/effects-demo/
 
 # ----------------------------------------------------------------------------
 # Training Artifacts (Large Files)
+# Using /* (not /) so Git enters the dir but ignores contents,
+# allowing .gitkeep to be tracked. Dirs pre-exist after clone to
+# prevent permission errors on VastAI/Docker.
 # ----------------------------------------------------------------------------
-pretrained_model/
-vae/
-tagger_models/
-output/
+pretrained_model/*
+!pretrained_model/.gitkeep
+vae/*
+!vae/.gitkeep
+tagger_models/*
+!tagger_models/.gitkeep
+output/*
+!output/.gitkeep
 /dataset/
-/datasets/
-logs/
+/datasets/*
+!datasets/.gitkeep
+logs/*
+!logs/.gitkeep
 *.log
 user_configs/
+trainer/runtime_store/*
+!trainer/runtime_store/.gitkeep
 
 
 # Model files
@@ -208,6 +229,9 @@ WIP_FEATURES.md
 # Reference materials
 kohya-colab-main/
 
+# VastAI instance logs (downloaded locally for debugging)
+*_logs_*/
+
 # User logs & debugging
 user_logs_submissions/
 Error_Tracking_PlsGitIgnore.txt
@@ -252,5 +276,15 @@ cache/
 /.ruff_cache
 .vscode
 /.vscode
+.agents/
+skills-lock.json
 FEATURE_CREEP.md
 nul
+SESSION_SUMMARY_*.md
+README_BACKUP.md
+RUNPOD_TEMPLATE_README.md
+
+# ----------------------------------------------------------------------------
+# TypeScript build info
+# ----------------------------------------------------------------------------
+*.tsbuildinfo

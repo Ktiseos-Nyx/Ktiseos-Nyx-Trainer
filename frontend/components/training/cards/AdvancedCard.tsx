@@ -20,9 +20,13 @@ interface AdvancedCardProps {
 
 export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
   const modelType = form.watch('model_type');
-  const isFlux = modelType === 'Flux';
-  const isLumina = modelType === 'Lumina';
-  const isSD2 = modelType === 'SD2.0' || modelType === 'SD2.1';
+  const isFlux = modelType === 'FLUX';
+  const isChroma = modelType === 'Chroma';
+  const isLumina = modelType === 'LUMINA';
+  const isAnima = modelType === 'Anima';
+  const isHunyuanImage = modelType === 'HunyuanImage';
+  // SD2 check kept for future support - currently no SD2 in ModelType enum
+  const isSD2 = (modelType as string) === 'SD2.0' || (modelType as string) === 'SD2.1';
 
   return (
     <Card className="border-red-500/30">
@@ -317,6 +321,298 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
               placeholder="256"
               min={128}
               max={1024}
+            />
+          </div>
+        )}
+
+        {/* Chroma Specific (Flux variant) */}
+        {isChroma && (
+          <div className="space-y-3 p-4 border border-green-500/30 rounded-lg bg-green-500/5">
+            <p className="text-sm font-semibold text-green-400">🟢 Chroma Specific Settings</p>
+            <p className="text-xs text-green-300">Flux variant without CLIP-L</p>
+
+            <NumberFormField
+              form={form}
+              name="t5xxl_max_token_length"
+              label="T5-XXL Max Token Length"
+              description="Default: 512"
+              placeholder="512"
+              min={128}
+              max={1024}
+            />
+
+            <CheckboxFormField
+              form={form}
+              name="apply_t5_attn_mask"
+              label="Apply T5 Attention Mask"
+              description="Apply attention mask to T5-XXL"
+            />
+
+            <SelectFormField
+              form={form}
+              name="timestep_sampling"
+              label="Timestep Sampling"
+              description="Sampling strategy for timesteps"
+              options={[
+                { value: 'sigma', label: 'Sigma' },
+                { value: 'uniform', label: 'Uniform' },
+                { value: 'sigmoid', label: 'Sigmoid' },
+                { value: 'shift', label: 'Shift' },
+                { value: 'flux_shift', label: 'Flux Shift' },
+              ]}
+            />
+
+            <NumberFormField
+              form={form}
+              name="blocks_to_swap"
+              label="Blocks to Swap"
+              description="Memory optimization (0 = disabled)"
+              placeholder="0"
+              min={0}
+            />
+          </div>
+        )}
+
+        {/* Anima Specific */}
+        {isAnima && (
+          <div className="space-y-3 p-4 border border-orange-500/30 rounded-lg bg-orange-500/5">
+            <p className="text-sm font-semibold text-orange-400">🔶 Anima Specific Settings</p>
+            <p className="text-xs text-orange-300">Qwen3 + T5 dual encoder architecture</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <NumberFormField
+                form={form}
+                name="qwen3_max_token_length"
+                label="Qwen3 Max Tokens"
+                description="Default: 512"
+                placeholder="512"
+                min={1}
+                max={2048}
+              />
+
+              <NumberFormField
+                form={form}
+                name="t5_max_token_length"
+                label="T5 Max Tokens"
+                description="Default: 512"
+                placeholder="512"
+                min={1}
+                max={2048}
+              />
+            </div>
+
+            <p className="text-xs font-semibold text-orange-300 pt-2">Per-Layer Learning Rates (leave empty for base LR, 0 to freeze)</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <NumberFormField
+                form={form}
+                name="llm_adapter_lr"
+                label="LLM Adapter LR"
+                description="None = base LR, 0 = freeze"
+                placeholder="Leave empty for default"
+                min={0}
+                step={0.00001}
+              />
+
+              <NumberFormField
+                form={form}
+                name="self_attn_lr"
+                label="Self-Attention LR"
+                description="None = base LR, 0 = freeze"
+                placeholder="Leave empty for default"
+                min={0}
+                step={0.00001}
+              />
+
+              <NumberFormField
+                form={form}
+                name="cross_attn_lr"
+                label="Cross-Attention LR"
+                description="None = base LR, 0 = freeze"
+                placeholder="Leave empty for default"
+                min={0}
+                step={0.00001}
+              />
+
+              <NumberFormField
+                form={form}
+                name="mlp_lr"
+                label="MLP LR"
+                description="None = base LR, 0 = freeze"
+                placeholder="Leave empty for default"
+                min={0}
+                step={0.00001}
+              />
+
+              <NumberFormField
+                form={form}
+                name="mod_lr"
+                label="AdaLN Modulation LR"
+                description="None = base LR, 0 = freeze"
+                placeholder="Leave empty for default"
+                min={0}
+                step={0.00001}
+              />
+            </div>
+
+            <SelectFormField
+              form={form}
+              name="timestep_sampling"
+              label="Timestep Sampling"
+              description="Default: sigmoid (logit normal)"
+              options={[
+                { value: 'sigmoid', label: 'Sigmoid (Recommended)' },
+                { value: 'sigma', label: 'Sigma' },
+                { value: 'uniform', label: 'Uniform' },
+                { value: 'shift', label: 'Shift' },
+                { value: 'flux_shift', label: 'Flux Shift' },
+              ]}
+            />
+
+            <NumberFormField
+              form={form}
+              name="discrete_flow_shift"
+              label="Discrete Flow Shift"
+              description="Default: 1.0"
+              placeholder="1.0"
+              min={0}
+              step={0.1}
+            />
+
+            <SelectFormField
+              form={form}
+              name="attn_mode"
+              label="Attention Mode"
+              description="Attention implementation"
+              options={[
+                { value: 'torch', label: 'Torch (Default)' },
+                { value: 'xformers', label: 'xformers (requires --split_attn)' },
+                { value: 'flash', label: 'Flash Attention' },
+                { value: 'sageattn', label: 'SageAttn (Inference Only!)' },
+              ]}
+            />
+
+            <CheckboxFormField
+              form={form}
+              name="split_attn"
+              label="Split Attention"
+              description="Split attention computation to reduce memory"
+            />
+
+            <NumberFormField
+              form={form}
+              name="vae_chunk_size"
+              label="VAE Chunk Size"
+              description="Spatial chunking for VAE (16 recommended). Empty = no chunking"
+              placeholder="Leave empty for no chunking"
+              min={1}
+            />
+
+            <NumberFormField
+              form={form}
+              name="blocks_to_swap"
+              label="Blocks to Swap"
+              description="Memory optimization (0 = disabled)"
+              placeholder="0"
+              min={0}
+            />
+
+            <CheckboxFormField
+              form={form}
+              name="unsloth_offload_checkpointing"
+              label="Unsloth Offload Checkpointing"
+              description="Offload activations to CPU (async, faster than cpu_offload_checkpointing)"
+            />
+          </div>
+        )}
+
+        {/* HunyuanImage Specific */}
+        {isHunyuanImage && (
+          <div className="space-y-3 p-4 border border-cyan-500/30 rounded-lg bg-cyan-500/5">
+            <p className="text-sm font-semibold text-cyan-400">🔷 HunyuanImage Specific Settings</p>
+            <p className="text-xs text-cyan-300">Qwen2.5-VL + byT5 dual encoder (LoRA only)</p>
+
+            <CheckboxFormField
+              form={form}
+              name="fp8_scaled"
+              label="FP8 Scaled (DiT)"
+              description="Use scaled fp8 for the DiT"
+            />
+
+            <CheckboxFormField
+              form={form}
+              name="fp8_vl"
+              label="FP8 VLM Text Encoder"
+              description="Use fp8 for the VLM text encoder"
+            />
+
+            <CheckboxFormField
+              form={form}
+              name="text_encoder_cpu"
+              label="Text Encoder on CPU"
+              description="Run text encoders on CPU to save VRAM"
+            />
+
+            <NumberFormField
+              form={form}
+              name="discrete_flow_shift"
+              label="Discrete Flow Shift"
+              description="Default: 5.0"
+              placeholder="5.0"
+              min={0}
+              step={0.1}
+            />
+
+            <SelectFormField
+              form={form}
+              name="timestep_sampling"
+              label="Timestep Sampling"
+              description="Default: sigma"
+              options={[
+                { value: 'sigma', label: 'Sigma (Default)' },
+                { value: 'uniform', label: 'Uniform' },
+                { value: 'sigmoid', label: 'Sigmoid' },
+                { value: 'shift', label: 'Shift' },
+                { value: 'flux_shift', label: 'Flux Shift' },
+              ]}
+            />
+
+            <SelectFormField
+              form={form}
+              name="attn_mode"
+              label="Attention Mode"
+              description="Attention implementation"
+              options={[
+                { value: 'torch', label: 'Torch (Default)' },
+                { value: 'xformers', label: 'xformers (requires --split_attn)' },
+                { value: 'flash', label: 'Flash Attention' },
+                { value: 'sageattn', label: 'SageAttn (Inference Only!)' },
+              ]}
+            />
+
+            <CheckboxFormField
+              form={form}
+              name="split_attn"
+              label="Split Attention"
+              description="Split attention computation to reduce memory"
+            />
+
+            <NumberFormField
+              form={form}
+              name="vae_chunk_size"
+              label="VAE Chunk Size"
+              description="Spatial chunking for VAE (16 recommended). Empty = no chunking"
+              placeholder="Leave empty for no chunking"
+              min={1}
+            />
+
+            <NumberFormField
+              form={form}
+              name="blocks_to_swap"
+              label="Blocks to Swap"
+              description="Memory optimization (0 = disabled)"
+              placeholder="0"
+              min={0}
             />
           </div>
         )}

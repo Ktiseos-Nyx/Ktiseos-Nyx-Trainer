@@ -9,28 +9,9 @@
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-// Derive WebSocket base URL from API_BASE
-// For relative URLs, construct WebSocket URL from current page location
-// For absolute URLs, converts http:// -> ws:// and https:// -> wss://
-export const getWsUrl = (path: string): string => {
-  if (typeof window === 'undefined') return `ws://127.0.0.1:8000${path}`;
-
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  let host = window.location.host;
-
-  // ✅ CASE 1: Standard Localhost or Vast Direct Mapping (3000 -> 8000)
-  if (host.includes(':3000')) {
-    host = host.replace(':3000', ':8000');
-  }
-  // ✅ CASE 2: Your Specific Vast Proxy Template (13000 -> 18000)
-  else if (host.includes(':13000')) {
-    host = host.replace(':13000', ':18000');
-  }
-
-  return `${protocol}//${host}${path}`;
-};
-
-export const WS_BASE = getWsUrl('');
+// NOTE: WebSocket connections were removed because VastAI's Caddy reverse proxy
+// corrupts WebSocket frames ("Invalid frame header" errors). All real-time log
+// streaming now uses HTTP polling via pollJobLogs() instead.
 
 // Helper for handling API responses
 async function handleResponse(response: Response) {
@@ -87,6 +68,125 @@ export interface WebSocketLogMessage {
   [key: string]: unknown; // Allow additional properties
 }
 
+// ========== HTTP Log Polling ==========
+// Replaces WebSocket log streaming which breaks through VastAI's Caddy proxy.
+// Polls /api/jobs/[id]/logs?since=<timestamp> at a configurable interval.
+
+export interface LogEntry {
+  timestamp: number;
+  level: string;
+  message: string;
+  raw: string;
+}
+
+/**
+ * Normalize a log entry to a plain string.
+ *
+ * When passed a string, returns it unchanged. When passed a `LogEntry` object,
+ * returns `raw` if present, otherwise `message`, otherwise the JSON stringified
+ * representation of the object.
+ *
+ * @param log - A `LogEntry` object or an already-plain string
+ * @returns The extracted plain string representation of `log`
+ */
+function logEntryToString(log: LogEntry | string): string {
+  if (typeof log === 'string') return log;
+  return log.raw ?? log.message ?? JSON.stringify(log);
+}
+
+export interface LogPollResponse {
+  success: boolean;
+  job_id: string;
+  logs: LogEntry[];
+  total_logs: number;
+  status: string;
+  progress?: number;
+}
+
+export interface LogPoller {
+  stop: () => void;
+}
+
+/**
+ * Poll job logs via HTTP instead of WebSocket.
+ * Works reliably through reverse proxies (Caddy, Cloudflare, etc).
+ *
+ * @param jobId - The job ID to poll logs for
+ * @param onLogs - Called with new log entries each poll cycle
+ * @param onStatus - Called when job status changes (completed, failed, running)
+ * @param onError - Called on fetch errors
+ * @param intervalMs - Poll interval in ms (default 1000)
+ * @returns LogPoller with stop() method
+ */
+export function pollJobLogs(
+  jobId: string,
+  onLogs: (logs: string[]) => void,
+  onStatus: (status: string, progress?: number) => void,
+  onError?: (error: Error) => void,
+  intervalMs: number = 1000,
+): LogPoller {
+  let lastTimestamp = 0;
+  let stopped = false;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  const poll = async () => {
+    if (stopped) return;
+
+    try {
+      const url = `${API_BASE}/jobs/${jobId}/logs?since=${lastTimestamp}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data: LogPollResponse = await response.json();
+
+      if (stopped) return;
+
+      // Deliver new logs
+      // Python backend returns LogEntry objects ({timestamp, level, message, raw}),
+      // but React can't render objects as children — extract plain strings first.
+      if (data.logs && data.logs.length > 0) {
+        const plainLogs = data.logs.map(logEntryToString);
+        onLogs(plainLogs);
+        // Track last timestamp to avoid re-fetching
+        lastTimestamp = data.logs[data.logs.length - 1].timestamp;
+      }
+
+      // Report status and progress
+      if (data.status) {
+        onStatus(data.status, data.progress);
+      }
+
+      // Stop polling if job is done
+      if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+        stopped = true;
+        return;
+      }
+    } catch (err) {
+      if (!stopped && onError) {
+        onError(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+
+    // Schedule next poll
+    if (!stopped) {
+      timeoutId = setTimeout(poll, intervalMs);
+    }
+  };
+
+  // Start first poll immediately
+  poll();
+
+  return {
+    stop: () => {
+      stopped = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    },
+  };
+}
+
 // ========== File Operations ==========
 
 export interface FileInfo {
@@ -106,7 +206,7 @@ export interface DirectoryListing {
 }
 
 // Add these helper types at the top of lib/api.ts
-export type ModelType = 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
+export type ModelType = 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'SD3.5' | 'LUMINA' | 'Chroma' | 'Anima' | 'HunyuanImage';
 export type LoRAType =
   | 'LoRA'      // Standard LoRA
   | 'LoCon'     // LoRA with convolutions
@@ -118,13 +218,15 @@ export type LoRAType =
   | 'DyLoRA'    // Dynamic LoRA
   | 'GLoRA'     // Generalized LoRA
   | 'Diag-OFT'  // Diagonal Orthogonal Finetuning
-  | 'BOFT';     // Butterfly OFT
+  | 'BOFT'      // Butterfly OFT
+  | 'ABBA';     // Activation-Based Block Adaptation (LyCORIS v3.2.0+)
 export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME';
 export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
 
 export const fileAPI = {
+  // ✅ MIGRATED: Uses Node.js /api/files/workspace endpoint
   getDefaultWorkspace: async (): Promise<{ path: string; allowed_dirs: string[] }> => {
-    const response = await fetch(`${API_BASE}/files/default-workspace`);
+    const response = await fetch(`${API_BASE}/files/workspace`);
     return handleResponse(response);
   },
 
@@ -176,8 +278,9 @@ export const fileAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/files/read with query param
   read: async (path: string) => {
-    const response = await fetch(`${API_BASE}/files/read/${encodeURIComponent(path.substring(1))}`);
+    const response = await fetch(`${API_BASE}/files/read?path=${encodeURIComponent(path)}`);
     return handleResponse(response);
   },
 
@@ -230,6 +333,7 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/jobs/tagging endpoint
   tag: async (params: {
     datasetDir: string;
     model?: string;
@@ -255,12 +359,12 @@ export const datasetAPI = {
     frequencyTags?: boolean;
     debug?: boolean;
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/tag`, {
+    const response = await fetch(`${API_BASE}/jobs/tagging`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         dataset_dir: params.datasetDir,
-        model: params.model ?? 'SmilingWolf/wd-vit-large-tagger-v3',
+        model: params.model ?? 'SmilingWolf/wd-eva02-large-tagger-v3',
         force_download: params.forceDownload ?? false,
         threshold: params.threshold ?? 0.35,
         general_threshold: params.generalThreshold ?? null,
@@ -287,13 +391,15 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  /** Fetch current status of a tagging job (progress, state, error). Returns `{ success, job }`. */
   getTaggingStatus: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/tag/status/${jobId}`);
+    const response = await fetch(`${API_BASE}/jobs/${jobId}`);
     return handleResponse(response);
   },
 
+  /** Send a stop signal (SIGTERM) to an active tagging job. */
   stopTagging: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/tag/stop/${jobId}`, {
+    const response = await fetch(`${API_BASE}/jobs/${jobId}/stop`, {
       method: 'POST',
     });
     return handleResponse(response);
@@ -337,12 +443,13 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  /** Prepend or append a trigger word to every caption file in a dataset. */
   injectTriggerWord: async (datasetPath: string, triggerWord: string, position: 'start' | 'end' = 'start') => {
-    const response = await fetch(`${API_BASE}/dataset/captions/add-trigger`, {
+    const response = await fetch(`${API_BASE}/captions/add-trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: datasetPath,
+        dataset_dir: datasetPath,
         trigger_word: triggerWord,
         position
       }),
@@ -365,21 +472,27 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // WebSocket for tagging logs (job-based)
-  connectTaggingLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    };
-
-    if (onError) {
-      ws.onerror = onError;
-    }
-
-    return ws;
+  // HTTP polling for tagging logs (replaces WebSocket which breaks through Caddy)
+  pollTaggingLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log });
+        }
+      },
+      (status, progress) => {
+        if (progress !== undefined) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
   },
 };
 
@@ -412,9 +525,10 @@ export interface GITConfig {
   debug?: boolean;
 }
 
+// ✅ MIGRATED: All captioning endpoints use Node.js /api/jobs/* routes
 export const captioningAPI = {
   startBLIP: async (config: BLIPConfig) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/blip`, {
+    const response = await fetch(`${API_BASE}/jobs/captioning/blip`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -423,7 +537,7 @@ export const captioningAPI = {
   },
 
   startGIT: async (config: GITConfig) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/git`, {
+    const response = await fetch(`${API_BASE}/jobs/captioning/git`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -432,32 +546,38 @@ export const captioningAPI = {
   },
 
   getStatus: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/status/${jobId}`);
+    const response = await fetch(`${API_BASE}/jobs/${jobId}`);
     return handleResponse(response);
   },
 
   stop: async (jobId: string) => {
-    const response = await fetch(`${API_BASE}/dataset/caption/stop/${jobId}`, {
+    const response = await fetch(`${API_BASE}/jobs/${jobId}/stop`, {
       method: 'POST',
     });
     return handleResponse(response);
   },
 
-  // WebSocket for captioning logs (reuses same endpoint as tagging)
-  connectLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    };
-
-    if (onError) {
-      ws.onerror = onError;
-    }
-
-    return ws;
+  // HTTP polling for captioning logs (replaces WebSocket which breaks through Caddy)
+  pollLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log });
+        }
+      },
+      (status, progress) => {
+        if (progress !== undefined) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
   },
 };
 
@@ -467,7 +587,7 @@ export interface TrainingConfig {
   // ========== PROJECT & MODEL SETUP ==========
   project_name: string;
   // ✅ FIX: Match the Zod Enum exactly
-  model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'SD3.5' | 'Lumina' | 'Chroma';
+  model_type: 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'SD3.5' | 'LUMINA' | 'Chroma' | 'Anima' | 'HunyuanImage';
   training_mode?: 'lora' | 'checkpoint'; // Training mode: LoRA adapters (default) or full checkpoint
   pretrained_model_name_or_path: string;
   vae_path?: string;
@@ -535,12 +655,12 @@ export interface TrainingConfig {
   caption_dropout_every_n_epochs: number;
   keep_tokens_separator: string;
   secondary_separator: string;
+  caption_extension: string;
   enable_wildcard: boolean;
   weighted_captions: boolean;
 
   // ========== BUCKETING ==========
   enable_bucket: boolean;
-  sdxl_bucket_optimization?: boolean;
   min_bucket_reso: number;
   max_bucket_reso: number;
   bucket_reso_steps?: number;
@@ -594,6 +714,8 @@ export interface TrainingConfig {
   zero_terminal_snr?: boolean;
 
   // ========== ADDITIONAL ADVANCED ==========
+  network_train_unet_only?: boolean;
+  prior_loss_weight?: number;
   scale_v_pred_loss_like_noise_pred?: boolean;
   v_pred_like_loss?: number;
   debiased_estimation_loss?: boolean;
@@ -617,6 +739,33 @@ export interface TrainingConfig {
   gemma2?: string;
   gemma2_max_token_length?: number;
 
+  // ========== ANIMA-SPECIFIC ==========
+  qwen3?: string;
+  llm_adapter_path?: string;
+  llm_adapter_lr?: number;
+  self_attn_lr?: number;
+  cross_attn_lr?: number;
+  mlp_lr?: number;
+  mod_lr?: number;
+  t5_tokenizer_path?: string;
+  qwen3_max_token_length?: number;
+  t5_max_token_length?: number;
+  unsloth_offload_checkpointing?: boolean;
+
+  // ========== HUNYUAN IMAGE-SPECIFIC ==========
+  text_encoder_path?: string;
+  byt5_path?: string;
+  fp8_scaled?: boolean;
+  fp8_vl?: boolean;
+  text_encoder_cpu?: boolean;
+
+  // ========== SHARED DiT FIELDS ==========
+  discrete_flow_shift?: number;
+  vae_chunk_size?: number;
+  vae_disable_cache?: boolean;
+  attn_mode?: string;
+  split_attn?: boolean;
+
   // ========== LOGGING ==========
   logging_dir?: string;
   log_with?: string;
@@ -633,7 +782,7 @@ export interface ValidationError {
 }
 
 export interface TrainingStartResponse {
-  success: bool;
+  success: boolean;
   message: string;
   job_id?: string;
   warnings?: string[];  // Deprecated
@@ -641,6 +790,9 @@ export interface TrainingStartResponse {
 }
 
 export const trainingAPI = {
+  // NOTE: Training start still uses Python backend for now
+  // The Node.js route exists at /jobs/training but expects pre-generated TOML paths
+  // TODO: Unify this in a future update
   start: async (config: TrainingConfig) => {
     const response = await fetch(`${API_BASE}/training/start`, {
       method: 'POST',
@@ -650,6 +802,7 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
+  // Uses Python /api/training/stop/{job_id} endpoint
   stop: async (jobId: string) => {
     const response = await fetch(`${API_BASE}/training/stop/${jobId}`, {
       method: 'POST',
@@ -657,9 +810,22 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
+  // Uses Python /api/training/status/{job_id} endpoint
+  // Transforms flat Python response to match TrainingMonitor's expected shape
   status: async (jobId: string) => {
     const response = await fetch(`${API_BASE}/training/status/${jobId}`);
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    return {
+      is_training: data.status === 'running',
+      job_id: data.job_id,
+      status: data.status,
+      error: data.error,
+      progress: {
+        current_epoch: data.current_epoch,
+        total_epochs: data.total_epochs,
+        progress_percent: data.progress,  // 0-100 from Python
+      },
+    };
   },
 
   validate: async (config: TrainingConfig) => {
@@ -671,21 +837,73 @@ export const trainingAPI = {
     return handleResponse(response);
   },
 
-  // WebSocket for logs
-  connectLogs: (jobId: string, onMessage: (data: WebSocketLogMessage) => void, onError?: (error: Event) => void) => {
-    const wsUrl = `${WS_BASE}/ws/jobs/${jobId}/logs`;
-    const ws = new WebSocket(wsUrl);
+  // HTTP polling for training logs from Python backend
+  // Python uses line-index-based pagination (since=lineNumber), not timestamps
+  pollLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    let nextSince = 0;
+    let stopped = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      onMessage(data);
+    const poll = async () => {
+      if (stopped) return;
+
+      try {
+        const url = `${API_BASE}/training/logs/${jobId}?since=${nextSince}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (stopped) return;
+
+        // Deliver new logs
+        if (data.logs && data.logs.length > 0) {
+          for (const log of data.logs) {
+            onMessage({ type: 'log', log: logEntryToString(log) });
+          }
+          // Use server's next_since for line-based pagination
+          nextSince = data.next_since ?? (nextSince + data.logs.length);
+        }
+
+        // Report status and progress
+        if (data.status) {
+          if (data.progress !== undefined) {
+            onMessage({ type: 'progress', progress: data.progress });
+          }
+          onMessage({ type: 'status', status: data.status, error: data.error });
+        }
+
+        // Stop polling if job is done
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+          stopped = true;
+          return;
+        }
+      } catch (err) {
+        if (!stopped && onError) {
+          onError(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
+
+      if (!stopped) {
+        timeoutId = setTimeout(poll, 1000);
+      }
     };
 
-    if (onError) {
-      ws.onerror = onError;
-    }
+    poll();
 
-    return ws;
+    return {
+      stop: () => {
+        stopped = true;
+        if (timeoutId) clearTimeout(timeoutId);
+      },
+    };
   },
 };
 
@@ -785,14 +1003,16 @@ export interface HuggingFaceUploadRequest {
   create_pr?: boolean;
 }
 
+// ✅ PARTIALLY MIGRATED: Calculator and browse are Node.js
+// LoRA operations (resize, merge) and HuggingFace upload stay on Python
 export const utilitiesAPI = {
-  // Directories
+  // Directories - stays Python
   getDirectories: async () => {
     const response = await fetch(`${API_BASE}/utilities/directories`);
     return handleResponse(response);
   },
 
-  // Calculator
+  // ✅ MIGRATED: Uses Node.js /api/utilities/calculator endpoint
   calculateSteps: async (request: CalculatorRequest): Promise<CalculatorResponse> => {
     const response = await fetch(`${API_BASE}/utilities/calculator`, {
       method: 'POST',
@@ -802,6 +1022,7 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  // ✅ MIGRATED: Uses Node.js /api/utilities/datasets/browse endpoint
   browseDatasets: async (): Promise<{ datasets: DatasetInfo[] }> => {
     const response = await fetch(`${API_BASE}/utilities/datasets/browse`);
     return handleResponse(response);
@@ -905,6 +1126,7 @@ export const utilitiesAPI = {
 };
 
 // ========== Models & VAEs ==========
+// NOTE: list uses Node.js, download/delete use Python (huggingface_hub)
 
 export interface ModelFile {
   name: string;
@@ -916,11 +1138,21 @@ export interface ModelFile {
 export interface PopularModel {
   name: string;
   url: string;
+  filename: string;
   description: string;
+  manualOnly?: boolean;
+  repoUrl?: string;
+}
+
+export interface PopularModelsResponse {
+  success: boolean;
+  models: Record<string, PopularModel[]>;
+  vaes: PopularModel[];
 }
 
 export const modelsAPI = {
-  download: async (url: string, downloadType: 'model' | 'vae', modelType?: string) => {
+  // NOTE: Download stays on Python backend (uses huggingface_hub)
+  download: async (url: string, downloadType: 'model' | 'vae' | 'lora', modelType?: string) => {
     const response = await fetch(`${API_BASE}/models/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -933,8 +1165,9 @@ export const modelsAPI = {
     return handleResponse(response);
   },
 
+  // Next.js route handler — scans local + cloud GPU paths for models/VAEs/text_encoders
   list: async () => {
-    const response = await fetch(`${API_BASE}/models/list`);
+    const response = await fetch('/api/models/list');
     return handleResponse(response);
   },
 
@@ -953,13 +1186,15 @@ export const modelsAPI = {
     return handleResponse(response);
   },
 
-  popular: async () => {
+  popular: async (): Promise<PopularModelsResponse> => {
     const response = await fetch(`${API_BASE}/models/popular`);
     return handleResponse(response);
   },
 };
 
 // ========== Civitai Browse ==========
+// ✅ MIGRATED: Browse/tags/model details use Node.js
+// Download stays on Python backend (uses model_service for file storage)
 // Attribution: Inspired by sd-webui-civbrowser
 // https://github.com/SignalFlagZ/sd-webui-civbrowser
 
@@ -1022,6 +1257,7 @@ export interface CivitaiBrowseParams {
   sort?: string;
   period?: string;
   nsfw?: boolean;
+  signal?: AbortSignal;
 }
 
 export interface CivitaiTag {
@@ -1046,7 +1282,9 @@ export const civitaiAPI = {
     if (params.period) queryParams.append('period', params.period);
     if (params.nsfw !== undefined) queryParams.append('nsfw', params.nsfw.toString());
 
-    const response = await fetch(`${API_BASE}/civitai/models?${queryParams}`);
+    const response = await fetch(`${API_BASE}/civitai/models?${queryParams}`, {
+      signal: params.signal,
+    });
     return handleResponse(response);
   },
 
@@ -1074,7 +1312,7 @@ export const civitaiAPI = {
     versionId: number,
     downloadUrl: string,
     filename: string,
-    modelType: 'model' | 'vae' = 'model'
+    modelType: 'model' | 'vae' | 'lora' = 'model'
   ) => {
     const response = await fetch(`${API_BASE}/civitai/download`, {
       method: 'POST',
@@ -1092,53 +1330,59 @@ export const civitaiAPI = {
 };
 
 // ========== Caption Editing API ==========
+// ✅ MIGRATED: Uses Node.js /api/captions/* endpoints
 
 export const captionAPI = {
+  /** Prepend or append a trigger word to every caption file in a dataset directory. */
   addTrigger: async (params: {
     dataset_path: string;
     trigger_word: string;
     position?: 'first' | 'last';
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/captions/add-trigger`, {
+    // Backend expects 'start'/'end', frontend uses 'first'/'last'
+    const backendPosition = params.position === 'last' ? 'end' : 'start';
+    const response = await fetch(`${API_BASE}/captions/add-trigger`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: params.dataset_path,
+        dataset_dir: params.dataset_path,
         trigger_word: params.trigger_word,
-        position: params.position || 'first',
+        position: backendPosition,
       }),
     });
     return handleResponse(response);
   },
 
+  /** Remove specified tags from all caption files in a dataset directory. */
   removeTags: async (params: {
     dataset_path: string;
     tags_to_remove: string[];
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/captions/remove-tags`, {
+    const response = await fetch(`${API_BASE}/captions/remove-tags`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: params.dataset_path,
+        dataset_dir: params.dataset_path,
         tags_to_remove: params.tags_to_remove,
       }),
     });
     return handleResponse(response);
   },
 
+  /** Find and replace text across all caption files in a dataset directory, with optional regex support. */
   replace: async (params: {
     dataset_path: string;
     find: string;
     replace: string;
     use_regex?: boolean;
   }) => {
-    const response = await fetch(`${API_BASE}/dataset/captions/replace`, {
+    const response = await fetch(`${API_BASE}/captions/replace`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataset_path: params.dataset_path,
-        find: params.find,
-        replace: params.replace,
+        dataset_dir: params.dataset_path,
+        find_text: params.find,
+        replace_text: params.replace,
         use_regex: params.use_regex || false,
       }),
     });

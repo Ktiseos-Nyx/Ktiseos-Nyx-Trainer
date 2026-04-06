@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { utilitiesAPI, CalculatorResponse, DatasetInfo } from '@/lib/api';
-import { Calculator, FolderOpen, Info, Zap, Clock, TrendingUp, Home } from 'lucide-react';
+import { Calculator, Zap, Clock, TrendingUp, Home } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 
 export default function CalculatorPage() {
@@ -13,6 +13,8 @@ export default function CalculatorPage() {
   const [result, setResult] = useState<CalculatorResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+
 
   // Load available datasets
   useEffect(() => {
@@ -102,7 +104,7 @@ export default function CalculatorPage() {
                 >
                   {datasets.map((dataset) => (
                     <option key={dataset.path} value={dataset.path}>
-                      {dataset.name} ({dataset.image_count} images, {dataset.repeats}x repeats)
+                      {dataset.name} ({dataset.image_count} images)
                     </option>
                   ))}
                 </select>

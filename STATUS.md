@@ -3,177 +3,81 @@
 Current status of Ktiseos Nyx LoRA Trainer development.
 
 **Current Version:** Alpha (v0.1.0-dev)
-**Last Updated:** 2026-01-03
+**Last Updated:** 2026-03-03
 
 ---
 
-## Overall Status: 🟡 ALPHA
+## Overall Status: ALPHA
 
-> ⚠️ **This project is in active development.** Features may not work as expected. Breaking changes may occur between updates.
+> This project is in active development. Features may not work as expected. Breaking changes may occur between updates.
+> Experimental does not mean that "IT HASNT BEEN TESTED" it means that it's working in base SD-Scripts, but may need testing with our system as the ZOD/pydantic schema may not work entirely. (That and the LLM's keep gaslighting Dusk.) 
 
 ## Feature Status
 
-### ✅ Stable Features
+### Working Features
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Web UI (Next.js)** | ✅ Stable | Frontend fully functional |
-| **Backend API (FastAPI)** | ✅ Stable | REST API + WebSocket working |
-| **Dataset Upload (Local)** | ✅ Stable | Works on Windows/Linux local |
-| **WD14 Auto-Tagging** | ✅ Stable | All tagger models working |
-| **Caption Editor** | ✅ Stable | Full editing functionality |
-| **SD1.5 Training** | ✅ Stable | Well-tested, reliable |
-| **SDXL Training** | ✅ Stable | Tested on 24GB VRAM |
-| **Training Config UI** | ✅ Stable | 132 parameters, 7 tabs |
-| **Real-time Monitoring** | ✅ Stable | WebSocket progress updates |
-| **Model Downloads** | ✅ Stable | HuggingFace + Civitai |
-| **LoRA Resizing** | ✅ Stable | SVD-based resizing |
-| **Windows Installation** | ✅ Stable | `install.bat` works reliably |
-| **Linux Installation** | ✅ Stable | `installer_local_linux.py` works |
-| **VastAI Deployment** | ✅ Stable | Auto-setup via template |
+| **Web UI (Next.js)** | Working | Frontend functional |
+| **Dataset Upload** | Working | Local and VastAI |
+| **WD14 Auto-Tagging** | Working | Node.js ONNX (CPU) + Python (GPU) |
+| **Caption Editor** | Working | Batch operations, trigger words |
+| **File Browser** | Working | Tree view, file operations |
+| **Training Config UI** | Working | 132+ parameters, 7 tabs, presets |
+| **Config Persistence** | Working | RHF + localStorage (Zustand removed) |
+| **TOML Generation** | Working | Both Node.js and Python paths |
+| **Model Downloads** | Working | HuggingFace + Civitai |
+| **Settings Management** | Working | HF token, Civitai key |
+| **Windows Installation** | Working | `install.bat` |
+| **Linux Installation** | Working | `installer.py` |
+| **VastAI Deployment** | Working | Auto-setup via template |
 
-### ⚠️ Known Issues
-
-| Issue | Severity | Workaround | Tracking |
-|-------|----------|------------|----------|
-| **Dataset Upload on VastAI** | 🔴 High | Use VastAI Jupyter for uploads | [#77](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues/77) |
-| **Frontend Build Size** | 🟡 Medium | Optimizations in progress | Addressed in #100 |
-| **Windows Installer Version Detection** | 🟢 Low | Fixed in recent commit | Fixed |
-
-### 🚧 Experimental Features
-
-> These features are available in the Kohya backend but haven't been thoroughly tested in the UI.
+### In Progress
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Flux.1 Training** | ⚠️ Experimental | Backend support exists, UI untested |
-| **SD3/SD3.5 Training** | ⚠️ Experimental | Requires sd3 branch, minimal UI testing |
-| **Lumina Training** | ⚠️ Experimental | Basic support, needs validation |
-| **Chroma Training** | ⚠️ Experimental | Minimal testing |
-| **DoRA LoRA Type** | ⚠️ Experimental | Works but slower training |
-| **BLIP/GIT Captioning** | ⚠️ Experimental | Alternative to WD14 tagging |
+| **Training Execution** | Stabilizing | Config generation works, debugging runtime edge cases |
+| **Training Monitoring** | Stabilizing | Log polling works, event listener fixed |
+| **Custom Optimizers (CAME)** | Stabilizing | PYTHONPATH fix applied, needs testing |
+| **Validation Feedback** | Improved | Now shows field-level error details |
+| **On Page Logging** | Stabilizing | Moved from Websocket to Generic Polling |
 
-### 🔜 Planned Features
+### Experimental (Because Claude doesn't think these exist)
 
-| Feature | Priority | Status | ETA |
-|---------|----------|--------|-----|
-| **Fix VastAI Upload** | 🔴 High | In Progress | Q1 2026 |
-| **Frontend Size Optimization** | 🟡 Medium | In Progress | Q1 2026 |
-| **Stable Flux Support** | 🟡 Medium | Research | Q2 2026 |
-| **SD3.5 UI Integration** | 🟡 Medium | Planned | Q2 2026 |
-| **Multi-LoRA Merging** | 🟢 Low | Planned | Q3 2026 |
-| **Advanced Sampling** | 🟢 Low | Planned | Q3 2026 |
-| **Training Resume UI** | 🟢 Low | Planned | TBD |
-| **RunPod Support** | 🟢 Low | Research | TBD |
-| **AMD ROCm Support** | 🟢 Low | Research | TBD |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Flux.1 Training** | Experimental | Backend support exists, UI fields present |
+| **SD3/SD3.5 Training** | Experimental | Backend support exists, UI fields present  |
+| **Lumina Training** | Experimental | Backend support exists, UI fields MIGHT NOT BE present  |
+| **BLIP/GIT Captioning** | Experimental | Backend support exists, UI fields MIGHT NOT BE WORKING |
 
-## Platform Support Status
+### Planned
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| **Stable Flux Support** | Medium | Needs real-world testing |
+| **Training Resume UI** | Low | Currently requires manual config |
+| **Multi-LoRA Merging** | Medium | Planned |
+| **RunPod Support** | Medium | Planned|
+| **Checkpoint Merging** | Medium | In Progress |
+| **Checkpoint Training** | Medium | In Progress |
+| **Testing Inference** | Lower than Low | Twinkle In Someone's Eye Level Low |
+
+(Why is testing inference low? - Needs a lot more research, it'd be based on diffusers, and at that stage you're better off just using Forge or ComfyUI)
+
+## Platform Support
 
 | Platform | Installation | Training | Status |
 |----------|--------------|----------|--------|
-| **Windows (NVIDIA)** | ✅ | ✅ | Fully supported |
-| **Linux (NVIDIA)** | ✅ | ✅ | Fully supported |
-| **macOS** | ⚠️ Manual | ❌ | UI only (no training) |
-| **VastAI** | ✅ | ✅ | Fully supported (upload issues) |
-| **RunPod** | ⚠️ Untested | ⚠️ Untested | Experimental |
-| **AMD ROCm** | ❌ | ❌ | Not implemented |
-
-## Recent Changes
-
-### 2026-01-03
-- ✅ Fixed Windows installer Python version detection
-- ✅ Updated CLAUDE.md with Windows development environment
-- ✅ Added frontend optimization (dynamic imports, standalone mode)
-- ✅ Streamlined README and created detailed documentation
-
-### 2025-12-27
-- ✅ Fixed DoRA implementation in LyCORIS integration
-- ✅ Added missing LyCORIS algorithms
-
-### 2025-12-24
-- ✅ Implemented proper onSave for training configs
-- ✅ Fixed training config state management
-
-### 2025-12-17
-- ✅ Added development environment documentation
-- ✅ Enabled Turbopack for faster frontend builds
-
-## Known Limitations
-
-### Technical
-- **AMD GPUs**: Kohya SS (sd-scripts) only supports NVIDIA CUDA
-- **Apple Silicon**: MPS (Metal) not supported by Kohya backend
-- **VRAM**: SDXL requires 24GB, Flux requires 32GB+
-- **Windows RAM**: Development builds need 16GB+ RAM
-
-### Platform-Specific
-- **VastAI**: Dataset uploader not working (use Jupyter workaround)
-- **macOS**: Cannot train LoRAs (UI development only)
-- **RunPod**: Not officially tested or supported
-
-### Feature Gaps
-- No multi-LoRA merging yet
-- Training resume requires manual TOML editing
-- No automatic hyperparameter tuning
-- Limited sample generation during training
-
-## Roadmap
-
-### Q1 2026 (Jan-Mar)
-- [ ] Fix VastAI dataset uploader
-- [ ] Complete frontend optimization
-- [ ] Stabilize Flux training
-- [ ] Bug fixes and polish
-
-### Q2 2026 (Apr-Jun)
-- [ ] SD3.5 full support
-- [ ] Advanced sampling UI
-- [ ] Improved documentation
-- [ ] Community feature requests
-
-### Q3 2026 (Jul-Sep)
-- [ ] Multi-LoRA merging
-- [ ] Training resume from UI
-- [ ] Dataset preprocessing pipeline
-- [ ] Beta release candidate
-
-### Q4 2026 (Oct-Dec)
-- [ ] 1.0 Release
-- [ ] Comprehensive testing
-- [ ] Production hardening
-- [ ] Performance optimization
+| **Windows (NVIDIA)** | Yes | Yes | Supported |
+| **Linux (NVIDIA)** | Yes | Yes | Supported |
+| **VastAI** | Yes | Yes | Supported |
+| **macOS** | Manual | No | UI only for AMD/Intel - Unsure for Silicon |
+| **RunPod** | Manual | Yes | Experimental |
+| **AMD ROCm** | No | No | Not implemented |
 
 ## How to Help
 
-**Reporting Issues:**
-- Check [existing issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) first
-- Include error logs, system info, and steps to reproduce
-- Use issue templates when available
-
-**Contributing:**
+- [Report Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues)
+- [Discord Server](https://discord.gg/HhBSM9gBY)
 - See [CONTRIBUTING.md](CONTRIBUTING.md)
-- Join [Discord](https://discord.gg/HhBSM9gBY) for discussion
-- Test experimental features and report results
-
-**Feedback:**
-- Feature requests on GitHub Issues
-- Bug reports with detailed reproduction steps
-- Documentation improvements via PR
-
-## Support Status
-
-| Component | Support Level |
-|-----------|---------------|
-| **Core Training** | ✅ Active development |
-| **Web UI** | ✅ Active development |
-| **Documentation** | ✅ Active updates |
-| **VastAI Template** | ✅ Maintained |
-| **RunPod** | ⚠️ Community-driven |
-| **Experimental Features** | ⚠️ Best-effort |
-
----
-
-**Stay Updated:**
-- ⭐ Star the repo on [GitHub](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer)
-- 📢 Join [Discord](https://discord.gg/HhBSM9gBY)
-- 📝 Watch [CHANGELOG.md](CHANGELOG.md) for updates

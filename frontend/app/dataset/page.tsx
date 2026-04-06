@@ -5,8 +5,9 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { Home, Database } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import { toast } from 'sonner';
 import { datasetAPI, DatasetInfo } from '@/lib/api';
-import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Edit, Zap, Info, Loader2 } from 'lucide-react';
+import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Zap, Info, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -56,7 +57,7 @@ export default function DatasetPage() {
       await fetch(`/api/dataset/${name}`, { method: 'DELETE' });
       loadDatasets();
     } catch (err) {
-      alert(`Failed to delete: ${err}`);
+      toast.error(`Failed to delete: ${err}`);
     }
   };
 
@@ -89,6 +90,7 @@ export default function DatasetPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/dataset/auto-tag"
+                prefetch={false}
                 className={`px-4 py-2 ${datasets.length > 0
                   ? 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white'
                   : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
@@ -96,7 +98,7 @@ export default function DatasetPage() {
                 onClick={(e) => {
                   if (datasets.length === 0) {
                     e.preventDefault();
-                    alert('📸 Upload a dataset first to use auto-tagging!');
+                    toast.info('Upload a dataset first to use auto-tagging');
                   }
                 }}
               >
@@ -105,6 +107,7 @@ export default function DatasetPage() {
               </Link>
               <Link
                 href="/dataset/tags"
+                prefetch={false}
                 className={`px-4 py-2 ${datasets.length > 0
                   ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white'
                   : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
@@ -112,7 +115,7 @@ export default function DatasetPage() {
                 onClick={(e) => {
                   if (datasets.length === 0) {
                     e.preventDefault();
-                    alert('🏷️ Upload a dataset first to edit tags!');
+                    toast.info('Upload a dataset first to edit tags');
                   }
                 }}
               >

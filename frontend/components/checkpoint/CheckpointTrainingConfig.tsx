@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { trainingAPI } from '@/lib/api';
-import { Save, Play, FolderOpen, AlertCircle } from 'lucide-react';
+import { Play, FolderOpen, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,7 +16,7 @@ import FileBrowser from '@/components/FileBrowser';
 interface CheckpointConfig {
   // Project & Model
   project_name: string;
-  model_type: 'SD1.5' | 'SDXL' | 'Flux' | 'SD3' | 'Lumina';
+  model_type: 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'LUMINA';
   pretrained_model_name_or_path: string;
   vae_path?: string;
 
@@ -171,11 +171,11 @@ export default function CheckpointTrainingConfig() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SD1.5">Stable Diffusion 1.5</SelectItem>
+                  <SelectItem value="SD15">Stable Diffusion 1.5</SelectItem>
                   <SelectItem value="SDXL">Stable Diffusion XL</SelectItem>
-                  <SelectItem value="Flux">Flux</SelectItem>
+                  <SelectItem value="FLUX">Flux</SelectItem>
                   <SelectItem value="SD3">Stable Diffusion 3</SelectItem>
-                  <SelectItem value="Lumina">Lumina</SelectItem>
+                  <SelectItem value="LUMINA">Lumina</SelectItem>
                 </SelectContent>
               </Select>
             </div>
