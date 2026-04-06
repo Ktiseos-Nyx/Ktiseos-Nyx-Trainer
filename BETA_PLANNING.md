@@ -113,6 +113,36 @@ Checkpoint training (full fine-tune) IS implemented in the backend:
 - **Problem:** Maps to `lumina_train.py` but needs verification that this script exists in sd_scripts
 - **Fix:** Verify script existence, add runtime check
 
+**Issue CT-4: Anima missing from checkpoint script map**
+- **Severity:** High (bug)
+- **Location:** `services/trainers/kohya.py:299`
+- **Problem:** `script_map` for CHECKPOINT mode doesn't include Anima. It falls back to `fine_tune.py` (SD1.5 script) which is the wrong script. `anima_train.py` exists but isn't mapped.
+- **Fix:** Add `ModelType.ANIMA: "anima_train.py"` to the checkpoint script_map
+
+**Issue CT-5: CheckpointTrainingConfig frontend type incomplete**
+- **Severity:** Medium
+- **Location:** `frontend/components/checkpoint/CheckpointTrainingConfig.tsx:19`
+- **Problem:** Type only includes `SD15 | SDXL | FLUX | SD3 | LUMINA` - missing SD3.5, Chroma, Anima
+- **Fix:** Update TypeScript type to match backend ModelType enum
+
+**Issue CT-6: Redundant TOML generation**
+- **Severity:** Low (tech debt)
+- **Location:** `services/trainers/kohya.py:51-78`
+- **Problem:** TOML files generated in `trainer/runtime_store/` then copied to `config/`. Should generate once in final location.
+- **Fix:** Generate directly to final destination
+
+**Issue CT-7: WebSocket routes exist but are unused**
+- **Severity:** Low (dead code)
+- **Location:** `services/websocket.py:19-100`
+- **Problem:** WebSocket endpoints defined but frontend uses HTTP polling due to VastAI Caddy proxy incompatibility. Code is never called.
+- **Fix:** Document the reason or conditionally disable
+
+**Issue CT-8: TODO comment references incomplete Node.js migration**
+- **Severity:** Low (architectural clarity)
+- **Location:** `frontend/lib/api.ts:794`
+- **Problem:** Comment says "Node.js route exists at /jobs/training" and "TODO: Unify this in a future update" - indicates incomplete migration
+- **Fix:** Decide on architecture direction and clean up or complete migration
+
 ---
 
 ## 3. Merging Tool - Audit Results
@@ -180,11 +210,13 @@ Both LoRA and Checkpoint merging are implemented:
 ### Must Have (Alpha -> Beta gate)
 | Feature | Category | Effort |
 |---------|----------|--------|
+| Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny |
 | Tag Viewer with frequency counts | New Feature | Medium |
 | Bulk tag remove/replace | New Feature | Medium |
 | Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small |
 | Add subprocess timeouts to merge operations (MG-3) | Reliability | Small |
 | CUDA availability check for merges (MG-4) | Error Handling | Small |
+| Update CheckpointTrainingConfig types (CT-5) | Bug Fix | Tiny |
 
 ### Should Have (Beta quality)
 | Feature | Category | Effort |
@@ -194,6 +226,7 @@ Both LoRA and Checkpoint merging are implemented:
 | Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium |
 | Merge progress reporting (MG-7) | UX | Medium |
 | SD3 merge support (MG-5) | Feature | Small |
+| Clean up redundant TOML generation (CT-6) | Tech Debt | Small |
 
 ### Nice to Have (Beta+)
 | Feature | Category | Effort |
