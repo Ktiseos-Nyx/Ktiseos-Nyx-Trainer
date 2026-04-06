@@ -261,6 +261,32 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 ## 5. Miscellaneous Bug Fixes for Beta
 
+### 5.0 WandB / Logging UI Missing Entirely
+
+**Issue UI-1: WandB and logging fields have no UI in the training form**
+- **Severity:** Medium (feature exists in backend but is invisible to users)
+- **Location:** `frontend/components/training/cards/*.tsx` (none render these fields)
+- **Affected fields (all defined in schema, validation, defaults, presets, but no input UI):**
+  - `wandb_key` (`hooks/useTrainingForm.ts:167`, `lib/validation.ts:138`)
+  - `wandb_run_name` (`hooks/useTrainingForm.ts:175`, `lib/validation.ts:371`)
+  - `log_with` (tensorboard/wandb backend selector)
+  - `log_tracker_name`
+  - `log_tracker_config`
+  - `log_prefix`
+  - `logging_dir`
+- **Problem:** The fields exist throughout the entire data layer (Zod schema, defaults, types, preset save/load, frontend API client, backend Pydantic model) but no training tab component actually renders an input for them. Users have no way to configure W&B or even basic tensorboard logging from the UI - they'd have to manually edit a saved preset JSON to set these values. This is also why issue LT-1 (`wandb_key` not being read by backend) hasn't been noticed - nobody can set it in the first place.
+- **Fix:** Add a "Logging" section to one of the existing cards (probably `SavingCard.tsx` or a new `LoggingCard.tsx`):
+  - Dropdown: `log_with` (None / TensorBoard / WandB)
+  - Text input: `logging_dir`
+  - Text input: `log_prefix`
+  - When `log_with === "wandb"`, conditionally show:
+    - Password input: `wandb_key` (with link to https://wandb.ai/authorize)
+    - Text input: `wandb_run_name`
+    - Text input: `log_tracker_name` (project name)
+- **Related:** Must be paired with LT-1 fix (wire wandb_key into the trainer env vars), otherwise the UI will exist but still won't actually log to W&B.
+
+---
+
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
 **Issue HF-1: HF upload form loses all data on page navigation**
@@ -290,6 +316,7 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 | Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny |
 | Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny |
 | Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny |
+| Add WandB/Logging UI section (UI-1) | New Feature | Small |
 | HF upload form persistence (HF-1) | UX/Bug Fix | Small |
 | Tag Viewer with frequency counts | New Feature | Medium |
 | Bulk tag remove/replace | New Feature | Medium |
