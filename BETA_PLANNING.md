@@ -350,6 +350,52 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 ---
 
+### 5.0.7 Listener/Request Cancellation Console Noise
+
+**Issue UI-3: "Listener cancelled" / AbortError messages on page navigation**
+- **Severity:** Low (mostly cosmetic, but masks real issues)
+- **Locations:**
+  - `frontend/lib/api.ts:121-188` - `pollJobLogs()`
+  - `frontend/components/training/TrainingMonitor.tsx:115-133` - polling interval + visibilitychange listener
+  - `frontend/components/DatasetUploader.tsx:231-232, 308-309` - upload AbortControllers (10min timeout)
+  - `frontend/app/models/browse/page.tsx:93-148` - in-flight request cancellation
+  - `frontend/hooks/useSettings.ts:80-81` - storage event listener
+- **Problem:** When users navigate between pages, several legitimate cleanup paths fire:
+  1. Polling intervals (`setInterval`/`setTimeout` recursion) get cleared
+  2. AbortControllers cancel in-flight fetch requests, throwing `AbortError`
+  3. `window`/`document` event listeners get removed
+  4. The `pollJobLogs()` function uses a `stopped` boolean flag instead of AbortController, so the fetch continues to completion before its result is discarded - wasteful but not buggy
+- **Why this is mostly fine:** All of these are CORRECT React cleanup behavior on unmount. The errors don't propagate to the UI. They're just console noise.
+- **Why it's worth fixing:**
+  1. Console noise hides REAL errors. Users can't tell signal vs noise.
+  2. **Subtle potential bug in `pollJobLogs`:** If a fetch errors out (network blip) right as the user navigates away, the `catch` block checks `stopped` BEFORE deciding to call `onError`, but there's a tiny race window. If `onError` fires on an unmounted component, React logs "Can't perform a state update on an unmounted component" - harmless but ugly.
+  3. The 10-minute upload timeout in `DatasetUploader.tsx` won't actually trigger normally, but if the page unmounts mid-upload the AbortError gets logged.
+
+**Fixes:**
+1. **Use AbortController in `pollJobLogs()`** instead of (or in addition to) the `stopped` flag:
+   ```typescript
+   const controller = new AbortController();
+   // In poll(): fetch(url, { signal: controller.signal })
+   // In stop(): controller.abort(); stopped = true;
+   ```
+   Then in the catch block, ignore `AbortError` explicitly:
+   ```typescript
+   catch (err) {
+     if (err.name === 'AbortError') return; // Expected, no-op
+     if (!stopped && onError) onError(err);
+   }
+   ```
+
+2. **Same pattern for `DatasetUploader.tsx`** - cancel uploads on unmount via existing AbortController
+
+3. **`TrainingMonitor.tsx` polling** - already correct, just verify the cleanup runs before any pending poll resolves
+
+4. **Optional: Add a global fetch wrapper** that silently swallows `AbortError` to prevent any future occurrences from leaking to the console
+
+**User-reported behavior:** "Listener things that cancel" appearing in console on page navigation. Not extension-based, page-based. Doesn't seem to cause UI issues but is concerning noise.
+
+---
+
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
 **Issue HF-1: HF upload form loses all data on page navigation**
@@ -401,6 +447,7 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 | Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny |
 | LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium |
 | Clarify "Full" LoRA type semantics (LT-4) | UX | Small |
+| Silence AbortError console noise (UI-3) | Polish | Small |
 
 ### Nice to Have (Beta+)
 | Feature | Category | Effort |
