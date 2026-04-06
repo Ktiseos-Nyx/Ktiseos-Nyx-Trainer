@@ -287,6 +287,69 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 ---
 
+### 5.0.5 Dashboard Redesign - Missing Pages and Generic Look
+
+**Issue UI-2: Dashboard incomplete and looks AI-generated**
+- **Severity:** Medium (discoverability + first impression)
+- **Location:** `frontend/app/dashboard/page.tsx`
+- **Problem:** The dashboard only links to 9 pages but the project has 14+ user-facing routes. The visual design is also a generic "9 cards in a grid" layout that feels boilerplate. The navbar at `frontend/components/blocks/navigation/navbar.tsx` already groups routes into proper categories - the dashboard should mirror that organization.
+
+**Pages currently on dashboard (9):**
+`/models`, `/files`, `/dataset`, `/training`, `/calculator`, `/utilities`, `/settings`, `/docs`, `/about`
+
+**Pages MISSING from dashboard:**
+- `/checkpoint-training` - distinct from LoRA training
+- `/dataset/auto-tag` - WD14/BLIP/GIT auto-tagging interface
+- `/dataset/tags` - tag editor with gallery
+- `/dataset-uppy` - alternate Uppy-based uploader
+- `/huggingface-upload` - HF upload page
+- `/changelog`
+- `/models/browse` - Civitai downloader
+
+**Visual design issues:**
+- Flat 3-column grid with no hierarchy or grouping
+- All cards look identical (same size, same layout) - no visual distinction between primary workflow vs settings
+- Random rainbow icon colors (`text-cyan-400`, `text-pink-400`, etc.) without semantic meaning
+- "Quick Start" section at the bottom is just a numbered list - could be a visual workflow diagram
+- No indication of what's currently in progress (active jobs, recent datasets, etc.)
+
+**Proposed redesign directions** (pick one or combine):
+
+1. **Workflow-grouped layout (matches navbar structure):**
+   - **Dataset Prep** section: Upload, Auto-Tag, Tag Editor, File Manager
+   - **Training** section: LoRA Training, Checkpoint Training, Calculator
+   - **Models** section: Download Models, Civitai Browser, HuggingFace Upload
+   - **Tools** section: Merge/Resize Utilities, Settings
+   - **Help** section: Docs, About, Changelog
+   - Each section has a header, then its cards. More scannable than 9 random tiles.
+
+2. **Workflow-driven hero section:**
+   - Top of page: large "Start Training Workflow" with numbered visual steps (Dataset → Tag → Configure → Train → Upload), each clickable
+   - Below: secondary cards for tools, settings, help
+   - Treats the dashboard as a launcher for the primary workflow rather than an undifferentiated link grid
+
+3. **Live status dashboard:**
+   - Top: "Active Jobs" widget (any running training/tagging jobs with progress)
+   - "Recent Datasets" widget (last 5 datasets, click to jump back in)
+   - "Recent Models" widget (last 5 trained LoRAs, with quick HF upload action)
+   - Below: traditional navigation cards
+   - Makes the dashboard feel "alive" rather than static
+
+4. **Sidebar nav + main content (most app-like):**
+   - Dashboard becomes a real "home page" with actionable widgets
+   - Persistent left sidebar replaces the navbar dropdown menus
+   - Less reliant on the dashboard for discoverability since the sidebar always shows everything
+
+**Recommended:** Combine #1 (workflow grouping) with a small version of #3 (active jobs widget at top). This is the lowest effort high-impact change - keeps the existing card pattern but groups them semantically and adds one "alive" element.
+
+**Components to use** (per `frontend/CLAUDE.md`):
+- `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` from shadcn
+- `Separator` between sections
+- `Badge` for status indicators on the active jobs widget
+- Existing semantic colors (`text-primary`, `text-muted-foreground`) instead of arbitrary rainbow
+
+---
+
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
 **Issue HF-1: HF upload form loses all data on page navigation**
@@ -317,6 +380,7 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 | Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny |
 | Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny |
 | Add WandB/Logging UI section (UI-1) | New Feature | Small |
+| Dashboard redesign with all routes (UI-2) | UX | Medium |
 | HF upload form persistence (HF-1) | UX/Bug Fix | Small |
 | Tag Viewer with frequency counts | New Feature | Medium |
 | Bulk tag remove/replace | New Feature | Medium |
