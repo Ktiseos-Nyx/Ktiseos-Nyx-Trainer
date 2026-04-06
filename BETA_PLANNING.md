@@ -396,6 +396,67 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 ---
 
+### 5.0.8 Training Log Polling - Updates Feel Inconsistent
+
+**Issue UI-4: Training logs only update "when they feel like it"**
+- **Severity:** Medium (core monitoring UX)
+- **Locations:**
+  - `frontend/lib/api.ts:840-907` - `trainingAPI.pollLogs()`
+  - `frontend/components/training/TrainingMonitor.tsx:136-186` - log polling effect
+  - `frontend/components/training/TrainingMonitor.tsx:99-133` - status polling effect (for comparison)
+- **User-reported behavior:** "The training log section works in the training tabs page -- just that it doesn't tend to update as often it as it should as more of a 'I only poll when i feel like it'"
+- **Problem:** Several issues conspire to make log updates feel sporadic:
+  1. **Hardcoded 1000ms interval** at `api.ts:895` (`setTimeout(poll, 1000)`) - not configurable
+  2. **Sequential, not interval-based:** the next poll only schedules AFTER the previous fetch completes. If the backend is slow (e.g. 800ms response), effective polling rate becomes ~1.8s per cycle. If the backend stalls, polling stalls with it.
+  3. **No tab visibility check** in log polling - unlike the status polling (`TrainingMonitor.tsx:102` correctly checks `document.hidden`), the log poller in `api.ts:pollLogs` keeps polling when the tab is hidden. Browsers will then aggressively throttle background `setTimeout` calls (up to once per minute in Chrome), so when the user comes back to the tab, logs appear "frozen" until the next throttled poll fires.
+  4. **Backend log buffering:** Python subprocess stdout is line-buffered by default, but Kohya/accelerate may buffer further. Even if the frontend polls perfectly, logs may not appear in the backend's log file until a buffer flushes.
+  5. **Line-index pagination:** uses `?since=nextSince` - works fine, but if a poll fails partway through, lines can be missed (no retry of failed range)
+- **Why it "feels inconsistent":** combination of #2 (no fixed cadence) + #3 (background throttling) + #4 (backend buffer flushes) means logs arrive in unpredictable bursts rather than a steady stream.
+
+**Fixes (in order of impact):**
+
+1. **Add visibility-aware polling to `pollLogs`:**
+   ```typescript
+   const poll = async () => {
+     if (stopped) return;
+     if (typeof document !== 'undefined' && document.hidden) {
+       // Skip this poll, but reschedule so we resume when tab is focused
+       timeoutId = setTimeout(poll, 1000);
+       return;
+     }
+     // ... existing fetch logic
+   };
+   // Also wire up a visibilitychange listener to immediately poll on focus:
+   document.addEventListener('visibilitychange', () => {
+     if (!document.hidden && !stopped) poll();
+   });
+   ```
+
+2. **Use fixed-cadence polling instead of sequential:** Replace recursive `setTimeout` with `setInterval`, OR keep `setTimeout` but record poll start time and schedule next from that:
+   ```typescript
+   const start = Date.now();
+   await fetch(...);
+   const elapsed = Date.now() - start;
+   timeoutId = setTimeout(poll, Math.max(0, 1000 - elapsed));
+   ```
+   This guarantees ~1s cadence even if a poll takes 800ms.
+
+3. **Make poll interval configurable** - accept an optional `intervalMs` parameter so the training monitor can poll faster (e.g. 500ms) for active jobs and slow down (5s) for queued ones.
+
+4. **Backend log flushing:** Ensure the Kohya subprocess wrapper in `services/trainers/kohya.py` runs Python with `-u` (unbuffered) and/or sets `PYTHONUNBUFFERED=1` in the env. This is the single biggest "why don't I see logs?" cause.
+
+5. **Long-term: switch to Server-Sent Events (SSE):** A `GET /api/training/logs/{jobId}/stream` endpoint that streams new lines as they arrive would eliminate polling entirely. Works through Caddy proxies (unlike WebSockets per CT-7) since SSE is just chunked HTTP. The client side would use `EventSource` with automatic reconnect.
+
+6. **Combine UI-4 fix with UI-3 fix:** The AbortController refactor in UI-3 should land in the same PR, since both touch `pollLogs`.
+
+**Acceptance criteria:**
+- New log lines appear within 1-1.5s of being written (when tab is focused)
+- Polling pauses when tab hidden, resumes immediately on focus
+- No "frozen" log feeling after returning from another tab
+- Console shows no AbortError noise on page navigation (combined with UI-3)
+
+---
+
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
 **Issue HF-1: HF upload form loses all data on page navigation**
@@ -448,6 +509,8 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 | LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium |
 | Clarify "Full" LoRA type semantics (LT-4) | UX | Small |
 | Silence AbortError console noise (UI-3) | Polish | Small |
+| Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small |
+| Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny |
 
 ### Nice to Have (Beta+)
 | Feature | Category | Effort |
