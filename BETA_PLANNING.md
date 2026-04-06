@@ -205,12 +205,92 @@ Both LoRA and Checkpoint merging are implemented:
 
 ---
 
-## 4. Feature Priority Matrix (Beta)
+## 4. LoRA Training - Audit Results
+
+### 4.1 Current State
+LoRA training pipeline is solid (~99% functional). Audit performed on:
+- API routes (`api/routes/training.py`)
+- Training service (`services/training_service.py`)
+- Kohya trainer (`services/trainers/kohya.py`)
+- TOML generator (`services/trainers/kohya_toml.py`)
+- Training config model (`services/models/training.py`)
+- Job manager (`services/jobs/job_manager.py`)
+- Frontend API client (`frontend/lib/api.ts`)
+
+**Note on enum comparisons:** `ModelType` and `LoRAType` both inherit from `(str, Enum)`, so string comparisons like `config.model_type == "Flux"` work correctly. The `normalize_model_type` validator also handles frontend variants like `'SD15'` -> `'SD1.5'` cleanly.
+
+### 4.2 Known Issues - LoRA Training
+
+**Issue LT-1: wandb_key field exists but is never used**
+- **Severity:** Medium (broken feature)
+- **Location:** `services/models/training.py:168` (defined), nowhere referenced
+- **Problem:** `TrainingConfig.wandb_key` is defined as a config field but never read by `kohya_toml.py` or set as an environment variable in `kohya.py`. W&B integration silently fails for users who set this.
+- **Fix:** In `kohya.py` env setup, add `if self.config.wandb_key: env["WANDB_API_KEY"] = self.config.wandb_key` before launching the subprocess.
+
+**Issue LT-2: enable_bucket force-enabled, user preference ignored**
+- **Severity:** Low (functionality lock)
+- **Location:** `services/trainers/kohya_toml.py:110`
+- **Problem:** `dataset["enable_bucket"] = True # Force bucketing enabled` - hard-coded, ignores `self.config.enable_bucket`. Users can't disable bucketing even if they want to (e.g., for fixed-resolution datasets).
+- **Fix:** Replace with `dataset["enable_bucket"] = self.config.enable_bucket`
+
+**Issue LT-3: network_train_unet_only added in checkpoint mode**
+- **Severity:** Medium
+- **Location:** `services/trainers/kohya_toml.py:346`
+- **Problem:** `network_train_unet_only` is added to args unconditionally in `_get_training_arguments()`, but it's a LoRA-only parameter. For checkpoint/fine-tune training (`fine_tune.py`, `sdxl_train.py`, etc.) this argument is invalid and may cause Kohya to error out or warn.
+- **Fix:** Wrap in `if self.config.training_mode != TrainingMode.CHECKPOINT:` like the network args section already does at line 184.
+
+**Issue LT-4: "Full" LoRA type semantic confusion**
+- **Severity:** Low (UX/conceptual)
+- **Location:** `services/models/training.py:36`, `services/trainers/kohya_toml.py:270-272`
+- **Problem:** `LoRAType.FULL = "Full"` is exposed as a LoRA algorithm option (mapped to `lycoris.kohya` with `algo=full`), but "Full" means native fine-tuning (DreamBooth) which conceptually belongs in checkpoint training mode. Users selecting `training_mode=lora` + `lora_type=Full` get an unusual config that may conflict with `network_train_unet_only=True`.
+- **Fix:** Either (a) auto-switch to checkpoint mode when Full is selected, (b) add validation warning, or (c) document clearly that Full is a LyCORIS algorithm distinct from `training_mode=checkpoint`.
+
+**Issue LT-5: No LyCORIS algorithm-specific validation**
+- **Severity:** Low (UX)
+- **Location:** `api/routes/training.py:33-253`
+- **Problem:** No validation warns users about algorithm-specific learning rate ranges (e.g., IA3 needs 5e-3 to 1e-2, much higher than standard LoRA), or about unused parameters (e.g., `conv_dim`/`conv_alpha` only apply to LoCon/LoHa, `factor` only to LoKR).
+- **Fix:** Add per-algorithm warnings in `validate_training_config_extended()`.
+
+**Issue LT-6: network_module field is misleading**
+- **Severity:** Low (API clarity)
+- **Location:** `services/models/training.py:197-199`
+- **Problem:** `network_module` is a writable field with default `"networks.lora"` but its docstring says "derived from lora_type". The TOML generator always overrides it via `_get_network_config()`. API users who set this field will see it silently ignored.
+- **Fix:** Either remove the field, make it computed/read-only, or actually respect user overrides.
+
+---
+
+## 5. Miscellaneous Bug Fixes for Beta
+
+### 5.1 HuggingFace Upload - Form State Doesn't Persist
+
+**Issue HF-1: HF upload form loses all data on page navigation**
+- **Severity:** Medium (significant UX pain point)
+- **Location:** `frontend/app/huggingface-upload/page.tsx:11-25`
+- **Problem:** The HF upload page uses `useState` for all form fields (token, owner, repo name, repo type, commit message, remote folder, etc.). When the user navigates away from the page and back, all data is lost. Users uploading multiple LoRAs/models in a session have to re-enter the same information repeatedly (token, owner, etc.) - reportedly 20+ times.
+- **Fix:** Migrate form state to a Zustand store with `persist` middleware (or use localStorage directly), at minimum for:
+  - `hfToken` (consider security: maybe sessionStorage instead of localStorage)
+  - `owner`
+  - `repoType`
+  - `commitMessage` (default)
+  - `createPR` preference
+- **Note:** `selectedFiles` and `uploading`/`uploadResult` should NOT persist (they're per-upload state)
+- **Security consideration:** HF tokens are sensitive. Consider:
+  - Using sessionStorage (clears on browser close) instead of localStorage
+  - Adding a "Remember token" opt-in checkbox
+  - Or storing the token via the existing settings management system that already handles HF tokens (per STATUS.md, settings management is "Working")
+- **Better approach:** The existing settings page already manages HF tokens. The upload page should READ the token from settings rather than asking for it again. Only fields like owner/repo would need their own persistence.
+
+---
+
+## 6. Feature Priority Matrix (Beta)
 
 ### Must Have (Alpha -> Beta gate)
 | Feature | Category | Effort |
 |---------|----------|--------|
 | Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny |
+| Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny |
+| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny |
+| HF upload form persistence (HF-1) | UX/Bug Fix | Small |
 | Tag Viewer with frequency counts | New Feature | Medium |
 | Bulk tag remove/replace | New Feature | Medium |
 | Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small |
@@ -227,6 +307,9 @@ Both LoRA and Checkpoint merging are implemented:
 | Merge progress reporting (MG-7) | UX | Medium |
 | SD3 merge support (MG-5) | Feature | Small |
 | Clean up redundant TOML generation (CT-6) | Tech Debt | Small |
+| Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny |
+| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium |
+| Clarify "Full" LoRA type semantics (LT-4) | UX | Small |
 
 ### Nice to Have (Beta+)
 | Feature | Category | Effort |
