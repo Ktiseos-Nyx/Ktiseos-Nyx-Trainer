@@ -143,6 +143,7 @@ export default function HuggingFaceUploadPage() {
             <h2 className="text-xl font-bold text-foreground mb-4">What would you like to upload?</h2>
             <div className="grid md:grid-cols-2 gap-4">
               <button
+                type="button"
                 onClick={() => setUploadType('lora')}
                 className={`p-4 rounded-lg border-2 transition-all ${
                   uploadType === 'lora'
@@ -157,6 +158,7 @@ export default function HuggingFaceUploadPage() {
                 </div>
               </button>
               <button
+                type="button"
                 onClick={() => setUploadType('dataset')}
                 className={`p-4 rounded-lg border-2 transition-all ${
                   uploadType === 'dataset'
@@ -173,13 +175,15 @@ export default function HuggingFaceUploadPage() {
             </div>
           </div>
 
+          {/* Single form wrapping all config + upload so password field has a meaningful submit action */}
+          <form onSubmit={(e: FormEvent) => { e.preventDefault(); handleUpload(); }} autoComplete="off">
+
           {/* Token & Repository Config */}
           <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold text-foreground mb-4">HuggingFace Configuration</h2>
 
             {/* Token */}
             <div className="mb-4">
-              <form onSubmit={(e: FormEvent) => { e.preventDefault(); handleValidateToken(); }} autoComplete="off">
               <label htmlFor="hf-token" className="block text-sm font-medium mb-2">
                 HuggingFace Token (Write Access) *
               </label>
@@ -197,11 +201,10 @@ export default function HuggingFaceUploadPage() {
                   className="flex-1"
                   placeholder="hf_..."
                 />
-                <Button type="submit">
+                <Button type="button" onClick={handleValidateToken}>
                   Validate
                 </Button>
               </div>
-              </form>
 
               {tokenValid !== null && (
                 <div className={`mt-2 flex items-center gap-2 text-sm ${tokenValid ? 'text-green-600' : 'text-red-600'}`}>
@@ -353,8 +356,8 @@ export default function HuggingFaceUploadPage() {
           </div>
 
           {/* Upload Button */}
-          <button
-            onClick={handleUpload}
+          <Button
+            type="submit"
             disabled={uploading || selectedFiles.length === 0}
             className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
@@ -369,7 +372,9 @@ export default function HuggingFaceUploadPage() {
                 Upload to HuggingFace
               </>
             )}
-          </button>
+          </Button>
+
+          </form>
 
           {/* Error */}
           {error && (
