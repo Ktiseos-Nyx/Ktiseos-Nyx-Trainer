@@ -68,7 +68,7 @@ imagesize>=1.4.1
 setuptools>=78.1.1
 
 # Monitoring & Logging
-wandb>=0.17.0
+wandb==0.17.1
 watchdog>=4.0.0
 tensorboard
 # ONNX / Tagger Dependencies
