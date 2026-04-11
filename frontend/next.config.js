@@ -24,9 +24,10 @@ const nextConfig = {
   // Fix workspace root warning (monorepo detection)
   outputFileTracingRoot: path.join(__dirname, '../'),
 
-  // API backend proxy - FALLBACK only
+  // API backend proxy - FALLBACK only (custom server.js handles routing first)
   async rewrites() {
-    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+    const backendPort = process.env.BACKEND_PORT || '8000';
+    const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${backendPort}`;
     return {
       fallback: [
         {

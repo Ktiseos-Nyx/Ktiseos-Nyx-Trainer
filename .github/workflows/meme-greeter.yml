@@ -10,6 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Meme on issues
-        uses: deep5050/memes-on-issues-action@main
+        uses: deep5050/memes-on-issues-action@d3b7ad053f57ca85da2e15381647a67c5a075ae2 # main
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

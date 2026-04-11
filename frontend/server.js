@@ -77,7 +77,8 @@ app.prepare().then(() => {
   const apiAndWsProxy = createProxyMiddleware({
     target: backendUrl,
     changeOrigin: true,
-    ws: true, // Enable WebSocket proxying
+    // ws: true is intentionally omitted — upgrade events are handled manually
+    // in server.on('upgrade') below to avoid double-handling
     logLevel: dev ? 'debug' : 'warn',
 
     // Preserve original path (don't strip /api or /ws prefix)
@@ -137,7 +138,7 @@ app.prepare().then(() => {
       if (!dev) logRequest(req, res);
 
       // Handle Node.js API routes (new migration)
-      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset'];
+      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/config', '/api/civitai', '/api/utilities', '/api/debug'];
       const nodeApiExact = ['/api/models/popular', '/api/models/list'];
       const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix)) || nodeApiExact.includes(pathname);
 
@@ -151,10 +152,12 @@ app.prepare().then(() => {
         return apiAndWsProxy(req, res);
       }
 
-      // Proxy WebSocket endpoint requests to FastAPI
-      // Note: Actual upgrade happens in server.on('upgrade')
+      // /ws paths are WebSocket-only — reject plain HTTP requests
+      // Actual upgrade handling is in server.on('upgrade') below
       if (pathname.startsWith('/ws')) {
-        return apiAndWsProxy(req, res);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'WebSocket upgrade required' }));
+        return;
       }
 
       // Handle all other requests with Next.js
@@ -265,7 +268,8 @@ app.prepare().then(() => {
       apiAndWsProxy.upgrade(req, socket, head);
     }
     else {
-      // Reject other upgrade attempts
+      // Reject other upgrade attempts with a proper HTTP response
+      socket.write('HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{"error":"WebSocket upgrade rejected: unsupported path"}');
       socket.destroy();
     }
   });
