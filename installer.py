@@ -261,7 +261,7 @@ class RemoteInstaller:
             # Fallback to old requirements.txt for backwards compatibility
             requirements_file = os.path.join(self.project_root, "requirements.txt")
             if not os.path.exists(requirements_file):
-                error_msg = f"CRITICAL: No requirements file found!"
+                error_msg = "CRITICAL: No requirements file found!"
                 self.logger.error(error_msg)
                 print(error_msg)
                 return False
@@ -377,17 +377,25 @@ class RemoteInstaller:
         }
 
         for name, path in editable_installs.items():
-            if os.path.exists(os.path.join(path, "setup.py")):
-                self.logger.info("Installing %s in editable mode from %s", name, path)
-                install_cmd = self.get_install_command("-e", ".")
-                success = self.run_command(install_cmd, f"Editable install for {name}", cwd=path, allow_failure=True)
+            setup_py = os.path.join(path, "setup.py")
+            pyproject_toml = os.path.join(path, "pyproject.toml")
+
+            if os.path.exists(setup_py) or os.path.exists(pyproject_toml):
+                abs_path = os.path.normpath(os.path.abspath(path))
+                if not os.path.isdir(abs_path):
+                    self.logger.warning("Skipping editable install for %s: path not found: %s", name, abs_path)
+                    continue
+
+                self.logger.info("Installing %s in editable mode from %s", name, abs_path)
+                install_cmd = self.package_manager["install_cmd"] + ["-e", abs_path]
+                success = self.run_command(install_cmd, f"Editable install for {name}", allow_failure=True)
 
                 if not success:
                     warning_msg = "Could not install %s in editable mode. Training might still work." % name
                     self.logger.warning(warning_msg)
                     print(f"    - {warning_msg}")
             else:
-                self.logger.debug("No setup.py found for %s at %s, skipping editable install", name, path)
+                self.logger.debug("No setup.py or pyproject.toml found for %s at %s, skipping", name, path)
 
         # --- Platform-Specific Fixes ---
 
