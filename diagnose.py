@@ -34,18 +34,12 @@ def run_command(cmd, shell=False):
         if shell and isinstance(cmd, list):
             cmd = subprocess.list2cmdline([str(c) for c in cmd])
 
-        result = subprocess.run(
-            cmd,
-            shell=shell,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        result = subprocess.run(cmd, shell=shell, capture_output=True, text=True, timeout=60)
         return {
             "success": result.returncode == 0,
             "stdout": result.stdout.strip(),
             "stderr": result.stderr.strip(),
-            "returncode": result.returncode
+            "returncode": result.returncode,
         }
     except FileNotFoundError:
         return {"success": False, "error": "Command not found", "stdout": "", "stderr": ""}
@@ -65,11 +59,11 @@ def get_python_installations():
         "version_info": {
             "major": sys.version_info.major,
             "minor": sys.version_info.minor,
-            "micro": sys.version_info.micro
+            "micro": sys.version_info.micro,
         },
         "prefix": sys.prefix,
         "base_prefix": sys.base_prefix,
-        "is_venv": sys.prefix != sys.base_prefix
+        "is_venv": sys.prefix != sys.base_prefix,
     }
 
     if platform.system() == "Windows":
@@ -96,10 +90,7 @@ def get_python_installations():
 def check_environment():
     """Check environment variables related to Python."""
     env_vars = {}
-    important_vars = [
-        "PATH", "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV",
-        "LOCALAPPDATA", "APPDATA", "TEMP", "TMP"
-    ]
+    important_vars = ["PATH", "PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "LOCALAPPDATA", "APPDATA", "TEMP", "TMP"]
 
     for var in important_vars:
         env_vars[var] = os.environ.get(var, "Not set")
@@ -174,11 +165,7 @@ def check_install_location():
             "Check folder permissions or move to a location you own."
         )
 
-    return {
-        "path": project_str,
-        "writable": writable,
-        "issues": issues
-    }
+    return {"path": project_str, "writable": writable, "issues": issues}
 
 
 def check_gpu():
@@ -202,10 +189,13 @@ def check_gpu():
         gpu_info["nvcc_available"] = False
 
     # Check PyTorch CUDA
-    torch_check = run_command([
-        sys.executable, "-c",
-        "import torch; print(f'PyTorch {torch.__version__}, CUDA available: {torch.cuda.is_available()}, CUDA version: {torch.version.cuda}')"
-    ])
+    torch_check = run_command(
+        [
+            sys.executable,
+            "-c",
+            "import torch; print(f'PyTorch {torch.__version__}, CUDA available: {torch.cuda.is_available()}, CUDA version: {torch.version.cuda}')",
+        ]
+    )
     if torch_check.get("success"):
         gpu_info["pytorch_cuda"] = torch_check["stdout"]
     else:
@@ -219,7 +209,10 @@ def check_key_packages():
     packages = {}
     checks = [
         ("torch", "import torch; print(f'{torch.__version__} (CUDA: {torch.cuda.is_available()})')"),
-        ("onnxruntime", "import onnxruntime as ort; print(f'{ort.__version__} - Providers: {ort.get_available_providers()}')"),
+        (
+            "onnxruntime",
+            "import onnxruntime as ort; print(f'{ort.__version__} - Providers: {ort.get_available_providers()}')",
+        ),
         ("diffusers", "import diffusers; print(diffusers.__version__)"),
         ("transformers", "import transformers; print(transformers.__version__)"),
         ("safetensors", "import safetensors; print(safetensors.__version__)"),
@@ -279,12 +272,12 @@ def check_installer_files():
             installer_info[filename] = {
                 "exists": True,
                 "size": filepath.stat().st_size,
-                "modified": datetime.fromtimestamp(filepath.stat().st_mtime).isoformat()
+                "modified": datetime.fromtimestamp(filepath.stat().st_mtime).isoformat(),
             }
 
             if filename == "install.bat":
                 try:
-                    content = filepath.read_text(encoding='utf-8', errors='ignore')
+                    content = filepath.read_text(encoding="utf-8", errors="ignore")
                     for line in content.splitlines():
                         if "installer" in line.lower() and ".py" in line and not line.strip().startswith("REM"):
                             installer_info[filename]["calls"] = line.strip()
@@ -300,7 +293,7 @@ def check_installer_files():
         try:
             installer_info[".install_complete"] = {
                 "exists": True,
-                "content": marker.read_text(encoding='utf-8', errors='ignore').strip()
+                "content": marker.read_text(encoding="utf-8", errors="ignore").strip(),
             }
         except Exception:
             installer_info[".install_complete"] = {"exists": True, "content": "unreadable"}
@@ -320,10 +313,7 @@ def check_venv_state():
     for venv_name in venv_names:
         venv_path = project_root / venv_name
         if venv_path.exists():
-            venv_info[venv_name] = {
-                "exists": True,
-                "path": str(venv_path.absolute())
-            }
+            venv_info[venv_name] = {"exists": True, "path": str(venv_path.absolute())}
 
             if platform.system() == "Windows":
                 venv_python = venv_path / "Scripts" / "python.exe"
@@ -354,25 +344,27 @@ def check_dependencies():
     node_version = run_command(["node", "--version"])
     deps["node"] = {
         "available": node_version.get("success", False),
-        "version": node_version.get("stdout", "Not installed")
+        "version": node_version.get("stdout", "Not installed"),
     }
 
     npm_version = run_command(["npm", "--version"])
     deps["npm"] = {
         "available": npm_version.get("success", False),
-        "version": npm_version.get("stdout", "Not installed")
+        "version": npm_version.get("stdout", "Not installed"),
     }
 
     git_version = run_command(["git", "--version"])
     deps["git"] = {
         "available": git_version.get("success", False),
-        "version": git_version.get("stdout", "Not installed")
+        "version": git_version.get("stdout", "Not installed"),
     }
 
     aria2_version = run_command(["aria2c", "--version"])
     deps["aria2c"] = {
         "available": aria2_version.get("success", False),
-        "version": aria2_version.get("stdout", "Not installed").splitlines()[0] if aria2_version.get("success") else "Not installed"
+        "version": aria2_version.get("stdout", "Not installed").splitlines()[0]
+        if aria2_version.get("success")
+        else "Not installed",
     }
 
     return deps
@@ -390,7 +382,7 @@ def check_disk_space():
             "total_gb": round(usage.total / (1024**3), 2),
             "used_gb": round(usage.used / (1024**3), 2),
             "free_gb": round(usage.free / (1024**3), 2),
-            "percent_used": round(usage.used / usage.total * 100, 2)
+            "percent_used": round(usage.used / usage.total * 100, 2),
         }
     else:
         usage = shutil.disk_usage("/")
@@ -399,7 +391,7 @@ def check_disk_space():
             "total_gb": round(usage.total / (1024**3), 2),
             "used_gb": round(usage.used / (1024**3), 2),
             "free_gb": round(usage.free / (1024**3), 2),
-            "percent_used": round(usage.used / usage.total * 100, 2)
+            "percent_used": round(usage.used / usage.total * 100, 2),
         }
 
 
@@ -436,12 +428,12 @@ def analyze_issues(diagnostics):
     issues.extend(location.get("issues", []))
 
     # Python version
-    current_py = diagnostics['python_installations']['current']['version_info']
-    if current_py['major'] < 3 or (current_py['major'] == 3 and current_py['minor'] < 10):
+    current_py = diagnostics["python_installations"]["current"]["version_info"]
+    if current_py["major"] < 3 or (current_py["major"] == 3 and current_py["minor"] < 10):
         issues.append(f"CRITICAL: Python {current_py['major']}.{current_py['minor']} is too old (requires 3.10+)")
 
     # Microsoft Store Python
-    if "WindowsApps" in diagnostics['python_installations']['current']['executable']:
+    if "WindowsApps" in diagnostics["python_installations"]["current"]["executable"]:
         issues.append(
             "WARNING: Using Microsoft Store Python. This frequently causes PATH conflicts "
             "and permission issues. Install from python.org instead."
@@ -449,7 +441,7 @@ def analyze_issues(diagnostics):
 
     # Multiple Python installations pointing to different places
     py_exes = set()
-    for key, val in diagnostics['python_installations'].items():
+    for key, val in diagnostics["python_installations"].items():
         if key.endswith("_executable") and isinstance(val, str) and val != "Not available":
             py_exes.add(val.strip().lower())
     if len(py_exes) > 1:
@@ -479,16 +471,16 @@ def analyze_issues(diagnostics):
         issues.append("WARNING: LyCORIS not installed. LoHa/LoKr/LoCon training will not work.")
 
     # Disk space
-    disk = diagnostics['disk_space']
-    if disk['free_gb'] < 20:
+    disk = diagnostics["disk_space"]
+    if disk["free_gb"] < 20:
         issues.append(f"CRITICAL: Very low disk space: {disk['free_gb']} GB free. Need at least 20 GB.")
-    elif disk['free_gb'] < 50:
+    elif disk["free_gb"] < 50:
         issues.append(f"WARNING: Low disk space: {disk['free_gb']} GB free (50+ GB recommended for models).")
 
     # Node.js
-    if not diagnostics['dependencies']['node']['available']:
+    if not diagnostics["dependencies"]["node"]["available"]:
         issues.append("CRITICAL: Node.js not installed (required for the web UI frontend).")
-    if not diagnostics['dependencies']['npm']['available']:
+    if not diagnostics["dependencies"]["npm"]["available"]:
         issues.append("CRITICAL: npm not installed (required for frontend dependency installation).")
 
     # Frontend state
@@ -498,7 +490,9 @@ def analyze_issues(diagnostics):
     if frontend.get("frontend_dir") and not frontend.get("next_build"):
         issues.append("WARNING: Frontend not built (.next/ missing). Run 'npm run build' in frontend/.")
     if frontend.get("node_modules") and not frontend.get("next_installed"):
-        issues.append("WARNING: node_modules exists but 'next' package is missing. Try deleting node_modules and reinstalling.")
+        issues.append(
+            "WARNING: node_modules exists but 'next' package is missing. Try deleting node_modules and reinstalling."
+        )
 
     # Venv state
     venv = diagnostics.get("venv_state", {})
@@ -529,7 +523,7 @@ def main():
             "release": platform.release(),
             "version": platform.version(),
             "machine": platform.machine(),
-            "processor": platform.processor()
+            "processor": platform.processor(),
         },
         "working_directory": str(Path.cwd()),
         "install_location": check_install_location(),
@@ -575,11 +569,11 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("INSTALL LOCATION\n")
         f.write("=" * 70 + "\n")
-        loc = diagnostics['install_location']
+        loc = diagnostics["install_location"]
         f.write(f"Path: {loc['path']}\n")
         f.write(f"Writable: {loc['writable']}\n")
-        if loc['issues']:
-            for issue in loc['issues']:
+        if loc["issues"]:
+            for issue in loc["issues"]:
                 f.write(f"  !! {issue}\n")
         f.write("\n")
 
@@ -591,16 +585,16 @@ def main():
         f.write(f"Version: {diagnostics['python_installations']['current']['version']}\n")
         f.write(f"In Virtual Env: {diagnostics['python_installations']['current']['is_venv']}\n\n")
 
-        if "py_launcher_list" in diagnostics['python_installations']:
+        if "py_launcher_list" in diagnostics["python_installations"]:
             f.write("Windows py launcher output:\n")
-            f.write(diagnostics['python_installations']['py_launcher_list'] + "\n\n")
+            f.write(diagnostics["python_installations"]["py_launcher_list"] + "\n\n")
             f.write(f"py -3 resolves to: {diagnostics['python_installations'].get('py_3_resolves_to', 'Unknown')}\n\n")
 
         # GPU
         f.write("=" * 70 + "\n")
         f.write("GPU & CUDA\n")
         f.write("=" * 70 + "\n")
-        gpu = diagnostics['gpu']
+        gpu = diagnostics["gpu"]
         if gpu.get("gpu_available"):
             f.write(f"GPU: {gpu.get('nvidia_smi', 'Unknown')}\n")
         else:
@@ -612,8 +606,8 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("KEY PACKAGES\n")
         f.write("=" * 70 + "\n")
-        for pkg, info in diagnostics['key_packages'].items():
-            if info['installed']:
+        for pkg, info in diagnostics["key_packages"].items():
+            if info["installed"]:
                 f.write(f"  OK {pkg}: {info['info']}\n")
             else:
                 f.write(f"  MISSING {pkg}: {info.get('error', 'Not installed')}\n")
@@ -623,9 +617,9 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("GIT STATE\n")
         f.write("=" * 70 + "\n")
-        git = diagnostics['git_state']
+        git = diagnostics["git_state"]
         f.write(f"Is Git Repo: {git.get('is_git_repo', False)}\n")
-        if git.get('is_git_repo'):
+        if git.get("is_git_repo"):
             f.write(f"Branch: {git.get('current_branch', 'Unknown')}\n")
             f.write(f"Latest Commit: {git.get('latest_commit', 'Unknown')}\n")
             f.write(f"Remote: {git.get('remote_origin', 'Unknown')}\n")
@@ -636,12 +630,12 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("INSTALLER FILES\n")
         f.write("=" * 70 + "\n")
-        for filename, info in diagnostics['installer_files'].items():
-            if isinstance(info, dict) and info.get('exists'):
+        for filename, info in diagnostics["installer_files"].items():
+            if isinstance(info, dict) and info.get("exists"):
                 f.write(f"  OK {filename}\n")
-                if 'calls' in info:
+                if "calls" in info:
                     f.write(f"     Calls: {info['calls']}\n")
-                if 'content' in info:
+                if "content" in info:
                     f.write(f"     Content: {info['content']}\n")
             else:
                 f.write(f"  -- {filename} (not found)\n")
@@ -651,13 +645,13 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("VIRTUAL ENVIRONMENTS\n")
         f.write("=" * 70 + "\n")
-        for venv_name, info in diagnostics['venv_state'].items():
+        for venv_name, info in diagnostics["venv_state"].items():
             if venv_name == "currently_in_venv":
                 f.write(f"Currently in venv: {info}\n")
                 continue
-            if info.get('exists'):
+            if info.get("exists"):
                 f.write(f"  OK {venv_name} exists\n")
-                if 'python_version' in info:
+                if "python_version" in info:
                     f.write(f"     Python: {info['python_version']}\n")
             else:
                 f.write(f"  -- {venv_name} (not found)\n")
@@ -667,9 +661,9 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("FRONTEND STATE\n")
         f.write("=" * 70 + "\n")
-        frontend = diagnostics['frontend_state']
+        frontend = diagnostics["frontend_state"]
         f.write(f"frontend/ directory: {'exists' if frontend.get('frontend_dir') else 'MISSING'}\n")
-        if frontend.get('frontend_dir'):
+        if frontend.get("frontend_dir"):
             f.write(f"node_modules: {'exists' if frontend.get('node_modules') else 'MISSING'}\n")
             f.write(f"next package: {'installed' if frontend.get('next_installed') else 'MISSING'}\n")
             f.write(f".next build: {'exists' if frontend.get('next_build') else 'MISSING'}\n")
@@ -679,8 +673,8 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("SYSTEM DEPENDENCIES\n")
         f.write("=" * 70 + "\n")
-        for dep, info in diagnostics['dependencies'].items():
-            status = "OK" if info['available'] else "MISSING"
+        for dep, info in diagnostics["dependencies"].items():
+            status = "OK" if info["available"] else "MISSING"
             f.write(f"  {status} {dep}: {info['version']}\n")
         f.write("\n")
 
@@ -688,7 +682,7 @@ def main():
         f.write("=" * 70 + "\n")
         f.write("DISK SPACE\n")
         f.write("=" * 70 + "\n")
-        disk = diagnostics['disk_space']
+        disk = diagnostics["disk_space"]
         f.write(f"Drive/Mount: {disk.get('drive') or disk.get('mount')}\n")
         f.write(f"Total: {disk['total_gb']} GB\n")
         f.write(f"Used: {disk['used_gb']} GB ({disk['percent_used']}%)\n")

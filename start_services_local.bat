@@ -206,7 +206,7 @@ REM ====================================================================
 REM Start FastAPI backend
 if exist "api\" (
     echo [Backend] Starting FastAPI backend on http://localhost:!BACKEND_PORT!...
-    start "Ktiseos Backend" /MIN %PYTHON_EXE% -m uvicorn api.main:app --host 127.0.0.1 --port !BACKEND_PORT! --reload
+    start "Ktiseos Backend" /MIN %PYTHON_EXE% -m uvicorn api.main:app --host 127.0.0.1 --port !BACKEND_PORT!
 )
 
 REM Start Next.js frontend

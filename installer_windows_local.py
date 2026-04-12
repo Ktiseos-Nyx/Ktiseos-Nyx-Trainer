@@ -235,8 +235,10 @@ class LocalWindowsInstaller:
         self.logger.info("Installing Windows dependencies from: %s", requirements_file)
         # Add CUDA 12.1 index for PyTorch installation
         install_cmd = self.package_manager["install_cmd"] + [
-            "-r", requirements_file,
-            "--extra-index-url", "https://download.pytorch.org/whl/cu121"
+            "-r",
+            requirements_file,
+            "--extra-index-url",
+            "https://download.pytorch.org/whl/cu121",
         ]
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
         return success
@@ -284,6 +286,7 @@ class LocalWindowsInstaller:
             # Give user a chance to cancel
             print("Press Ctrl+C within 10 seconds to cancel, or wait to continue...")
             import time
+
             try:
                 time.sleep(10)
             except KeyboardInterrupt:
@@ -344,6 +347,7 @@ class LocalWindowsInstaller:
             # Verify installation
             try:
                 import torch  # pyright: ignore
+
                 if torch.cuda.is_available():
                     print(f"\n✅ PyTorch {torch.__version__} + CUDA {torch.version.cuda} installed successfully!")
                     print("   GPU training is ready.\n")
@@ -380,7 +384,7 @@ class LocalWindowsInstaller:
             # 3. Check the "Gamer" custom install spots
             common_spots = [
                 os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"), "nodejs\\npm.cmd"),
-                os.path.expandvars("%APPDATA%\\npm\\npm.cmd")
+                os.path.expandvars("%APPDATA%\\npm\\npm.cmd"),
             ]
             for spot in common_spots:
                 if os.path.exists(spot):
@@ -474,7 +478,9 @@ class LocalWindowsInstaller:
                 try:
                     result = subprocess.run(
                         ["git", "log", "-1", "--format=%ct", "--", "frontend/", "api/"],
-                        capture_output=True, text=True, cwd=self.project_root
+                        capture_output=True,
+                        text=True,
+                        cwd=self.project_root,
                     )
                     latest_commit = int(result.stdout.strip()) if result.stdout.strip() else 0
                     if latest_commit > build_mtime:
@@ -501,16 +507,25 @@ class LocalWindowsInstaller:
             "Kohya's SD Scripts": self.sd_scripts_dir,
         }
         for name, path in editable_installs.items():
-            if os.path.exists(os.path.join(path, "setup.py")):
-                self.logger.info("Installing %s in editable mode from %s", name, path)
-                install_cmd = self.package_manager["install_cmd"] + ["-e", "."]
-                success = self.run_command(install_cmd, f"Editable install for {name}", cwd=path, allow_failure=True)
+            setup_py = os.path.join(path, "setup.py")
+            pyproject_toml = os.path.join(path, "pyproject.toml")
+
+            if os.path.exists(setup_py) or os.path.exists(pyproject_toml):
+                abs_path = os.path.normpath(os.path.abspath(path))
+                if not os.path.isdir(abs_path):
+                    self.logger.warning("Skipping editable install for %s: path not found: %s", name, abs_path)
+                    continue
+
+                self.logger.info("Installing %s in editable mode from %s", name, abs_path)
+                install_cmd = self.package_manager["install_cmd"] + ["-e", abs_path]
+                success = self.run_command(install_cmd, f"Editable install for {name}", allow_failure=True)
+
                 if not success:
                     warning_msg = f"Could not install {name} in editable mode. Training might still work."
                     self.logger.warning(warning_msg)
                     print(f"   - {warning_msg}")
             else:
-                self.logger.debug("No setup.py found for %s at %s, skipping", name, path)
+                self.logger.debug("No setup.py or pyproject.toml found for %s at %s, skipping", name, path)
 
         return True
 
