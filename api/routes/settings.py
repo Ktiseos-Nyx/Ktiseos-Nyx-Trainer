@@ -48,12 +48,22 @@ def ensure_settings_dir():
             # Step 3: If not writable, TRY to fix it.
             try:
                 # 0o777 gives read/write/execute permissions to everyone.
+                # NOTE: on Windows os.chmod() is effectively a no-op for these
+                # Unix permission bits, so we verify it actually worked afterwards.
                 os.chmod(SETTINGS_DIR, 0o777)
-                logger.info("✅ Successfully fixed directory permissions.")
 
-                # Also fix the settings file itself if it exists
-                if os.path.exists(SETTINGS_FILE):
-                    os.chmod(SETTINGS_FILE, 0o666)  # Read/Write for everyone
+                if os.access(SETTINGS_DIR, os.W_OK):
+                    logger.info("✅ Successfully fixed directory permissions.")
+                    if os.path.exists(SETTINGS_FILE):
+                        os.chmod(SETTINGS_FILE, 0o666)
+                else:
+                    logger.error(
+                        "❌ chmod ran but '%s' is still not writable. "
+                        "On Windows: right-click the folder → Properties → Security tab "
+                        "and grant your user Write permission. "
+                        "On Linux/Docker: run 'chown -R $USER <project_dir>'.",
+                        SETTINGS_DIR,
+                    )
 
             except PermissionError:
                 logger.error(
