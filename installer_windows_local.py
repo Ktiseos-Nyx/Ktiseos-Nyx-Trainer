@@ -117,6 +117,13 @@ class LocalWindowsInstaller:
                 else:
                     quoted_command.append(part_str)
             shell_command = " ".join(quoted_command)
+            # On Windows, subprocess.run(shell=True, cwd=...) can raise
+            # "Invalid cwd parameter" for paths on non-C: drives (e.g. I:\...).
+            # Work around this by embedding "cd /d" at the front of the command
+            # instead of relying on the cwd parameter.
+            if cwd:
+                shell_command = f'cd /d "{cwd}" && {shell_command}'
+                cwd = None
         else:
             shell_command = command
 

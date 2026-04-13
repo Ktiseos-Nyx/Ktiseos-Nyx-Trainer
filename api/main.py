@@ -64,15 +64,16 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS for Next.js frontend
+# Configure CORS for Next.js frontend.
+# allow_credentials=True + allow_origins=["*"] is a CORS spec violation and
+# newer Starlette versions raise ValueError at startup for this combination.
+# This app passes tokens in request bodies (not cookies), so credentials
+# mode is not required. allow_origins=["*"] covers local dev AND VastAI/RunPod
+# dynamic proxy URLs without needing to enumerate every possible hostname.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Local development
-        "http://127.0.0.1:3000",
-        "*",  # Allow all origins (VastAI port forwarding)
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],  # Needed for canvas image manipulation
@@ -135,7 +136,7 @@ async def root_health_check():
 async def global_exception_handler(request, exc):
     """Global exception handler"""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(status_code=500, content={"error": "Internal server error", "detail": str(exc)})
+    return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 if __name__ == "__main__":

@@ -90,6 +90,33 @@ class TrainingService:
                 validation_errors=[{"field": "system", "message": str(e), "severity": "error"}]
             )
 
+        except NotImplementedError:
+            # Windows-specific: asyncio.create_subprocess_exec raises NotImplementedError
+            # when running on a SelectorEventLoop instead of ProactorEventLoop.
+            # This happens when the backend is started with 'python -m uvicorn' directly
+            # and uvicorn creates the event loop before our policy-setter runs.
+            # Fix: start the backend via run_backend.py or start_services_local.bat.
+            logger.error(
+                "Windows asyncio error: SelectorEventLoop does not support subprocesses. "
+                "Start the backend with start_services_local.bat or run_backend.py."
+            )
+            return TrainingStartResponse(
+                success=False,
+                message=(
+                    "Windows event loop error: cannot launch training subprocess. "
+                    "Please restart the backend using start_services_local.bat "
+                    "(or run_backend.py directly)."
+                ),
+                validation_errors=[{
+                    "field": "system",
+                    "message": (
+                        "Windows ProactorEventLoop required for subprocess support. "
+                        "Restart the backend with start_services_local.bat or run_backend.py."
+                    ),
+                    "severity": "error",
+                }],
+            )
+
         except RuntimeError as e:
             logger.exception("Unexpected runtime error starting training: %s", e)
             return TrainingStartResponse(
