@@ -170,7 +170,7 @@ class TaggingService:
                     # On Windows, antivirus or Explorer can briefly hold a file lock
                     # after the tagger process exits. Skip and continue rather than
                     # aborting the entire batch.
-                    logger.warning("Skipping %s (could not read/write): %s", caption_file.name, e)
+                    logger.warning("Skipping %s (could not read/write): %s", caption_file, e)
                     skipped += 1
 
             if skipped:

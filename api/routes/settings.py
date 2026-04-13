@@ -27,6 +27,29 @@ class UserSettings(BaseModel):
     extra_vae_dirs: Optional[List[str]] = None
 
 
+def _fix_settings_permissions() -> bool:
+    """
+    Attempt to repair settings directory/file permissions in Docker/server
+    environments where the directory was created by a different user (e.g. root).
+
+    Skipped entirely on Windows — os.chmod() is a no-op for Unix mode bits there,
+    and Windows permissions are managed via ACLs in Explorer/icacls instead.
+
+    Returns True if the directory is writable after the attempt.
+    """
+    if os.name == "nt":
+        # Windows: chmod does nothing useful here; caller logs guidance.
+        return False
+
+    try:
+        os.chmod(SETTINGS_DIR, 0o700)   # owner-only rwx — no world/group write
+        if os.path.exists(SETTINGS_FILE):
+            os.chmod(SETTINGS_FILE, 0o600)  # owner-only rw
+        return os.access(SETTINGS_DIR, os.W_OK)
+    except PermissionError:
+        return False
+
+
 def ensure_settings_dir():
     """
     Ensures the settings directory exists AND is writable.
@@ -46,30 +69,17 @@ def ensure_settings_dir():
                 SETTINGS_DIR
             )
             # Step 3: If not writable, TRY to fix it.
-            try:
-                # 0o777 gives read/write/execute permissions to everyone.
-                # NOTE: on Windows os.chmod() is effectively a no-op for these
-                # Unix permission bits, so we verify it actually worked afterwards.
-                os.chmod(SETTINGS_DIR, 0o777)
-
-                if os.access(SETTINGS_DIR, os.W_OK):
-                    logger.info("✅ Successfully fixed directory permissions.")
-                    if os.path.exists(SETTINGS_FILE):
-                        os.chmod(SETTINGS_FILE, 0o666)
-                else:
-                    logger.error(
-                        "❌ chmod ran but '%s' is still not writable. "
-                        "On Windows: right-click the folder → Properties → Security tab "
-                        "and grant your user Write permission. "
-                        "On Linux/Docker: run 'chown -R $USER <project_dir>'.",
-                        SETTINGS_DIR,
-                    )
-
-            except PermissionError:
+            if _fix_settings_permissions():
+                logger.info("✅ Successfully fixed directory permissions.")
+            else:
                 logger.error(
-                    "❌ Failed to fix permissions. The current user does not own the directory "
-                    "or lacks privileges to change permissions. Please fix manually."
+                    "❌ Could not make '%s' writable. "
+                    "On Windows: right-click the folder → Properties → Security tab "
+                    "and grant your user Write permission. "
+                    "On Linux/Docker: run 'chown -R $USER <project_dir>'.",
+                    SETTINGS_DIR,
                 )
+
     except Exception as e:
         logger.error(
             "An unexpected error occurred while ensuring "
