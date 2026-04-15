@@ -15,6 +15,7 @@ import datetime
 import logging
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -97,6 +98,10 @@ class LocalWindowsInstaller:
 
         if not self.verbose:
             print(f" {description}...")
+
+        if cwd is not None:
+            if not re.match(r'^[a-zA-Z0-9_\-./\\]+$', cwd):
+                raise ValueError(f"Invalid cwd parameter: {cwd}")
 
         # On Windows, use shell=True to support .cmd/.bat files (like npm.cmd)
         use_shell = platform.system() == "Windows"
