@@ -855,6 +855,16 @@ if __name__ == "__main__":
     if args.caption_extention is not None:
         args.caption_extension = args.caption_extention
 
+    # Validate caption_extension to prevent path traversal (CWE-23).
+    # Must be a simple extension like ".txt" or ".caption" — no path separators,
+    # no ".." sequences that could escape the dataset directory at line 636.
+    ext = args.caption_extension
+    if not (ext.startswith('.') and len(ext) > 1 and ext[1:].replace('-', '').replace('_', '').isalnum()):
+        parser.error(
+            f"Invalid --caption_extension '{ext}': must start with '.' and contain "
+            "only letters, digits, hyphens, or underscores (e.g. '.txt', '.caption')"
+        )
+
     if args.general_threshold is None:
         args.general_threshold = args.thresh
     if args.character_threshold is None:
