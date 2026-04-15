@@ -251,6 +251,10 @@ class KohyaTOMLGenerator:
 
         # Standard LoRA variants
         if lora_type == "LoRA":
+            # Anima has its own LoRA network module; using networks.lora would silently
+            # train the wrong module set and produce a non-functional output.
+            if self.config.model_type == ModelType.ANIMA:
+                return {"network_module": "networks.lora_anima"}
             return {"network_module": "networks.lora"}
         elif lora_type == "LoCon":
             return {"network_module": "lycoris.kohya", "network_args": ["algo=locon"]}
@@ -291,6 +295,8 @@ class KohyaTOMLGenerator:
 
         # Default fallback
         else:
+            if self.config.model_type == ModelType.ANIMA:
+                return {"network_module": "networks.lora_anima"}
             return {"network_module": "networks.lora"}
 
     def _get_training_arguments(self) -> Dict[str, Any]:

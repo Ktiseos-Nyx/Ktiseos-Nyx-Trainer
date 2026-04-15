@@ -2,7 +2,7 @@
 
 **Current Version:** Alpha (v0.1.0-dev)
 **Target:** Beta Release
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-15
 
 ---
 
@@ -519,10 +519,89 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 | Caption editor with search highlighting | Enhancement | Medium |
 | Merge presets/templates | UX | Medium |
 | Merge dry-run/preview mode | Feature | Medium |
+| EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small |
+| Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) |
 
 ---
 
-## 5. Attribution Requirements
+## 5. EQ VAE / Reflection Padding Support
+
+### 5.1 Background
+
+EQ VAEs (e.g. `KBlueLeaf/EQ-SDXL-VAE`, `Anzhc/MS-LC-EQ-D-VR_VAE`) require reflection padding on their Conv2d layers instead of the default zero padding. Without it, they produce edge artifacts. The fix is applied post-load by mutating `module.padding_mode = "reflect"` on every Conv2d with non-zero padding.
+
+Reference: https://github.com/kohya-ss/sd-scripts/issues/2189
+
+### VAE-EQ-1: SDXL EQ VAE Support
+
+**Priority:** Nice to Have (Beta+)  
+**Status:** Not started
+
+Jelosus2's fork of sd-scripts has a clean 15-line implementation (`library/sdxl_train_util.py`):
+
+```python
+def vae_with_reflection(vae):
+    for module in vae.modules():
+        if isinstance(module, torch.nn.Conv2d):
+            pad_h, pad_w = module.padding if isinstance(module.padding, tuple) else (module.padding, module.padding)
+            if pad_h > 0 or pad_w > 0:
+                module.padding_mode = "reflect"
+    return vae
+```
+
+And a `--vae_reflection` CLI arg in `train_network.py`.
+
+**Our vendored backend** (`trainer/derrian_backend/sd_scripts/`) does NOT have this patch. It only needs to be ported to `library/sdxl_train_util.py` + add `--vae_reflection` arg.
+
+**Files to change:**
+- `trainer/derrian_backend/sd_scripts/library/sdxl_train_util.py` — add `vae_with_reflection()` + call in `load_target_model()`
+- `trainer/derrian_backend/sd_scripts/train_network.py` — add `--vae_reflection` arg
+- `services/models/training.py` — add `vae_reflection: bool = False`
+- `services/trainers/kohya_toml.py` — write `vae_reflection = true` for SDXL when set
+- Frontend: add checkbox in training form (SDXL-only, shown conditionally)
+
+### VAE-EQ-2: Anima Qwen-Image VAE Reflection Padding
+
+**Priority:** Nice to Have (Beta+)  
+**Status:** Needs research
+
+The Qwen-Image VAE used by Anima is a different architecture (16-channel, 8x spatial downscale) loaded via `library/qwen_image_autoencoder_kl.py`, not `sdxl_train_util.py`. Whether reflection padding applies and what effect it has on Anima training quality needs verification.
+
+**Research needed:** Check if Circlestone Labs' Anima documentation mentions EQ VAE or reflection padding. Check `qwen_image_autoencoder_kl.py` Conv2d layer padding values to see if the patch would even touch anything meaningful.
+
+### VAE-EQ-3: HakuLatent — Long-Horizon Research Item
+
+**Priority:** Future / Research only  
+**Status:** Track, do not implement yet  
+**Reference:** https://github.com/KohakuBlueleaf/HakuLatent (Apache-2.0)
+
+HakuLatent is KohakuBlueleaf's Python framework for *training* VAEs with EQ (equivariance) regularization — it is the upstream source of the EQ VAEs that VAE-EQ-1 and VAE-EQ-2 are about consuming. It applies rotation/scale/crop/affine transforms during VAE training to produce more geometry-consistent latent spaces.
+
+**What it is not:** A Kohya SS plugin, a LoRA tool, or anything with a web UI integration surface. It produces better VAEs; our job is using those VAEs correctly (reflection padding).
+
+**Plausible future connection:** If the project ever adds VAE fine-tuning (training or adapting a VAE on a custom dataset — e.g. improving a domain-specific VAE for a character artist's style), HakuLatent would be the correct library to wrap. This is a research-grade, long-tail feature.
+
+**Current status of the library:** Active WIP, no stable releases, explicit TODO list with unfinished trainers. Not ready to integrate even if we wanted to.
+
+**When to revisit:** After VAE-EQ-1 and VAE-EQ-2 land and users start asking "can I train my own EQ VAE here?"
+
+---
+
+### 5.2 Session Notes (2026-04-15) — Anima Audit
+
+During an Anima support audit, the following bug was found and **fixed**:
+
+**FIXED: `networks.lora` → `networks.lora_anima` bug (`services/trainers/kohya_toml.py`)**
+- `_get_network_config()` was returning `networks.lora` for all standard LoRA, including Anima
+- Anima requires `networks.lora_anima` (confirmed by official docs + real training metadata)
+- Using `networks.lora` would train wrong layer sets entirely — silently broken output
+- Fix: added `ModelType.ANIMA` check in both the LoRA case and the default fallback
+
+**Anima support status post-fix:** Complete for basic training. All required args (qwen3 path, AE path, per-layer LRs, timestep/flow args, blocks_to_swap) are wired. Default tokenizer configs (`configs/t5_old/`, `configs/qwen3_06b/`) are bundled. Training scripts exist. One minor gap: `optimizer_args` UI description says "JSON" but Kohya expects space-separated `key=value` pairs — relevant for CAME users needing `state_storage_dtype=bfloat16 state_storage_device=cuda` for 4070-class GPUs.
+
+---
+
+## 6. Attribution Requirements
 
 When implementing features inspired by Civitai's codebase, add to `ATTRIBUTIONS.md`:
 
