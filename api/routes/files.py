@@ -54,16 +54,16 @@ class DirectoryListing(BaseModel):
     files: List[FileInfo]
 
 
-def is_safe_path(base_path: Path, user_path: str) -> bool:
-    """Check if path is within allowed directories"""
-    try:
-        full_path = (base_path / user_path).resolve()
-        return any(
-            str(full_path).startswith(str(allowed_dir.resolve()))
-            for allowed_dir in ALLOWED_DIRS
-        )
-    except Exception:
-        return False
+def is_safe_path(resolved_path: Path) -> bool:
+    """Return True if *resolved_path* lies within one of the ALLOWED_DIRS.
+
+    Uses Path.is_relative_to() so that a prefix like /home/dusk never
+    accidentally matches /home/dusk2 (the old startswith check had that flaw).
+    """
+    return any(
+        resolved_path == allowed.resolve() or resolved_path.is_relative_to(allowed.resolve())
+        for allowed in ALLOWED_DIRS
+    )
 
 
 def get_file_info(path: Path) -> FileInfo:
@@ -108,7 +108,7 @@ async def list_directory(path: str = Query(default=None)):
         target_path = Path(path).resolve()
 
         # Security check
-        if not any(str(target_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(target_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not target_path.exists():
@@ -161,14 +161,15 @@ async def upload_file(
         dest_path = Path(destination).resolve()
 
         # Security check
-        if not any(str(dest_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(dest_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Create destination directory if needed
         dest_path.mkdir(parents=True, exist_ok=True)
 
-        # Full file path
-        file_path = dest_path / file.filename
+        # Strip any directory components from the uploaded filename to prevent
+        # path traversal (e.g. filename="../../etc/evil" → "evil")
+        file_path = dest_path / Path(file.filename).name
 
         # Check if file exists
         if file_path.exists():
@@ -205,7 +206,7 @@ async def serve_image(path: str):
         file_path = (PROJECT_ROOT / "datasets" / path).resolve()
 
         # Security check
-        if not any(str(file_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(file_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -238,7 +239,7 @@ async def download_file(path: str):
         file_path = Path("/" + path).resolve()
 
         # Security check
-        if not any(str(file_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(file_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -267,7 +268,7 @@ async def delete_file(path: str = Query(...)):
         target_path = Path(path).resolve()
 
         # Security check
-        if not any(str(target_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(target_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not target_path.exists():
@@ -295,10 +296,12 @@ async def rename_file(old_path: str, new_name: str):
     """Rename a file or directory"""
     try:
         old = Path(old_path).resolve()
-        new = old.parent / new_name
+        # Strip directory components from new_name to prevent traversal
+        # (e.g. new_name="../../etc/cron.d/evil" → "evil")
+        new = old.parent / Path(new_name).name
 
         # Security checks
-        if not any(str(old).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(old):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not old.exists():
@@ -329,10 +332,11 @@ async def create_directory(path: str, name: str):
     """Create a new directory"""
     try:
         parent_path = Path(path).resolve()
-        new_dir = parent_path / name
+        # Strip directory components from name to prevent traversal
+        new_dir = parent_path / Path(name).name
 
         # Security check
-        if not any(str(parent_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(parent_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if new_dir.exists():
@@ -361,7 +365,7 @@ async def read_file(path: str):
         file_path = Path("/" + path).resolve()
 
         # Security check
-        if not any(str(file_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(file_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -396,7 +400,7 @@ async def write_file(path: str, content: str):
         file_path = Path(path).resolve()
 
         # Security check
-        if not any(str(file_path).startswith(str(d.resolve())) for d in ALLOWED_DIRS):
+        if not is_safe_path(file_path):
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Create parent directories if needed

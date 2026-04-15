@@ -196,6 +196,16 @@ class TaggingService:
         Raises:
             ValidationError: If validation fails
         """
+        # Validate caption_extension to prevent path traversal (CWE-23).
+        # Must be a simple file extension like ".txt" or ".caption" — no path
+        # separators, no ".." sequences.
+        ext = config.caption_extension
+        if not (ext.startswith('.') and len(ext) > 1 and ext[1:].replace('-', '').replace('_', '').isalnum()):
+            raise ValidationError(
+                f"Invalid caption_extension '{ext}': must start with '.' and contain "
+                "only letters, digits, hyphens, or underscores (e.g. '.txt', '.caption')"
+            )
+
         # Validate dataset path
         dataset_path = validate_dataset_path(config.dataset_dir)
 
