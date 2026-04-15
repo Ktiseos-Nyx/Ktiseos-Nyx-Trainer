@@ -551,8 +551,8 @@ class KohyaTOMLGenerator:
                 args["blocks_to_swap"] = self.config.blocks_to_swap
             if self.config.unsloth_offload_checkpointing:
                 args["unsloth_offload_checkpointing"] = True
-            if self.config.ae_path:
-                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+            # Note: ae_path for Anima is passed via the --vae CLI arg (handled by
+            # anima_train_utils), not --ae. Do not set args["ae"] here.
 
         # HunyuanImage-specific args
         if self.config.model_type == ModelType.HUNYUAN_IMAGE:

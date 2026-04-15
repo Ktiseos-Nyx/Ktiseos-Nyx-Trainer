@@ -524,9 +524,9 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 ---
 
-## 5. EQ VAE / Reflection Padding Support
+## 7. EQ VAE / Reflection Padding Support
 
-### 5.1 Background
+### 7.1 Background
 
 EQ VAEs (e.g. `KBlueLeaf/EQ-SDXL-VAE`, `Anzhc/MS-LC-EQ-D-VR_VAE`) require reflection padding on their Conv2d layers instead of the default zero padding. Without it, they produce edge artifacts. The fix is applied post-load by mutating `module.padding_mode = "reflect"` on every Conv2d with non-zero padding.
 
@@ -587,7 +587,7 @@ HakuLatent is KohakuBlueleaf's Python framework for *training* VAEs with EQ (equ
 
 ---
 
-### 5.2 Session Notes (2026-04-15) — Anima Audit
+### 7.2 Session Notes (2026-04-15) — Anima Audit
 
 During an Anima support audit, the following bug was found and **fixed**:
 
@@ -601,7 +601,7 @@ During an Anima support audit, the following bug was found and **fixed**:
 
 ---
 
-## 6. Attribution Requirements
+## 8. Attribution Requirements
 
 When implementing features inspired by Civitai's codebase, add to `ATTRIBUTIONS.md`:
 
@@ -619,7 +619,7 @@ The following features were inspired by Civitai's training interface:
 
 ---
 
-## 6. Notes
+## 9. Notes
 
 - Checkpoint training backend appears functional but needs real-world testing with actual full fine-tune runs
 - Merging tool is mostly solid - the issues are UX and reliability, not correctness

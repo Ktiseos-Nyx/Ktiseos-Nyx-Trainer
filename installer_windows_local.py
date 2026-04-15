@@ -402,7 +402,7 @@ class LocalWindowsInstaller:
         npm to use that directory as its project root, side-stepping the subprocess
         cwd issue entirely because npm handles the chdir internally.
         """
-        cmd = [npm_exe, "--prefix", frontend_dir] + args
+        cmd = [npm_exe, "--prefix", frontend_dir, *args]
         return self.run_command(cmd, description)
 
     def install_frontend_deps(self):
@@ -647,12 +647,16 @@ class LocalWindowsInstaller:
             try:
                 if not self.install_frontend_deps():
                     self.logger.warning("Frontend dependency installation failed.")
+            except (KeyboardInterrupt, SystemExit):
+                raise
             except Exception as fe:
                 self.logger.warning("Unexpected error in frontend dep install: %s", fe)
                 print(f" ⚠️  Frontend dependency install skipped due to error: {fe}")
             try:
                 if not self.build_frontend():
                     self.logger.warning("Frontend build failed.")
+            except (KeyboardInterrupt, SystemExit):
+                raise
             except Exception as fe:
                 self.logger.warning("Unexpected error in frontend build: %s", fe)
                 print(f" ⚠️  Frontend build skipped due to error: {fe}")
