@@ -251,6 +251,10 @@ class KohyaTOMLGenerator:
 
         # Standard LoRA variants
         if lora_type == "LoRA":
+            # Anima has its own LoRA network module; using networks.lora would silently
+            # train the wrong module set and produce a non-functional output.
+            if self.config.model_type == ModelType.ANIMA:
+                return {"network_module": "networks.lora_anima"}
             return {"network_module": "networks.lora"}
         elif lora_type == "LoCon":
             return {"network_module": "lycoris.kohya", "network_args": ["algo=locon"]}
@@ -291,6 +295,8 @@ class KohyaTOMLGenerator:
 
         # Default fallback
         else:
+            if self.config.model_type == ModelType.ANIMA:
+                return {"network_module": "networks.lora_anima"}
             return {"network_module": "networks.lora"}
 
     def _get_training_arguments(self) -> Dict[str, Any]:
@@ -545,8 +551,8 @@ class KohyaTOMLGenerator:
                 args["blocks_to_swap"] = self.config.blocks_to_swap
             if self.config.unsloth_offload_checkpointing:
                 args["unsloth_offload_checkpointing"] = True
-            if self.config.ae_path:
-                args["ae"] = str(Path(self.config.ae_path).resolve().as_posix())
+            # Note: ae_path for Anima is passed via the --vae CLI arg (handled by
+            # anima_train_utils), not --ae. Do not set args["ae"] here.
 
         # HunyuanImage-specific args
         if self.config.model_type == ModelType.HUNYUAN_IMAGE:
