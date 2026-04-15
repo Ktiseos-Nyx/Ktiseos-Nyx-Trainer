@@ -63,12 +63,12 @@ Jinja2>=3.1.6  # CVE fixes: alerts #60, #61, #63 (sandbox breakouts)
 imagesize>=1.4.1
 setuptools>=78.1.1
 zipp>=3.19.1  # SNYK-PYTHON-ZIPP-7430899 (CWE-770): resource exhaustion via crafted zip
-pyasn1>=0.6.1  # SNYK-PYTHON-PYASN1-15032639/15674561: transitive via wandb→google-auth
+pyasn1>=0.6.3  # SNYK-PYTHON-PYASN1-15032639/15674561: transitive via wandb→google-auth
 anyio>=4.4.0  # SNYK-PYTHON-ANYIO-7361842: transitive via FastAPI/starlette/watchfiles
-werkzeug>=3.0.3  # SNYK-PYTHON-WERKZEUG-6035177/6808933: transitive via wandb/tensorboard
-filelock>=3.16.0  # SNYK-PYTHON-FILELOCK-14458335/14912448: transitive via huggingface-hub
-urllib3>=2.4.0  # SNYK-PYTHON-URLLIB3-14192442/14192443/14896210: transitive via requests
-Markdown>=3.7.0  # SNYK-PYTHON-MARKDOWN-15428352: transitive via tensorboard/wandb
+werkzeug>=3.1.6  # SNYK-PYTHON-WERKZEUG-6035177/6808933: transitive via wandb/tensorboard
+filelock>=3.20.3  # SNYK-PYTHON-FILELOCK-14458335/14912448: transitive via huggingface-hub
+urllib3>=2.6.3  # SNYK-PYTHON-URLLIB3-14192442/14192443/14896210: transitive via requests
+Markdown>=3.8.1  # SNYK-PYTHON-MARKDOWN-15428352: transitive via tensorboard/wandb
 
 # Monitoring & Logging
 wandb==0.17.1
