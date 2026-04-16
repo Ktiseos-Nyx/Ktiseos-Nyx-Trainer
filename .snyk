@@ -1,0 +1,16 @@
+# Snyk policy file — https://docs.snyk.io/snyk-cli/commands/ignore
+# Suppresses findings that are correct in an enterprise/web context but are
+# not exploitable in this project's actual threat model.
+
+version: v1.25.0
+
+ignore:
+  SNYK-PYTHON-UNKNOWN-CWE78:
+    - installer_windows_local.py:
+        reason: >
+          Local single-user Windows installer script — no HTTP or network
+          attack surface. The flagged env var (ProgramFiles) is Windows
+          system-controlled; an attacker who can manipulate it already has
+          OS-level access. Restructuring the Windows shell=True workaround
+          would add complexity for zero real-world risk reduction.
+        expires: 2027-01-01T00:00:00.000Z
