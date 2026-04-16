@@ -202,11 +202,14 @@ async def upload_file(
 async def serve_image(path: str):
     """Serve an image file (for thumbnails/previews)"""
     try:
-        # Construct path relative to datasets directory
-        file_path = (PROJECT_ROOT / "datasets" / path).resolve()
+        # Constrain to the datasets subdirectory only (not all of PROJECT_ROOT).
+        # Using is_relative_to() on the resolved path so that "../" traversal
+        # that escapes datasets/ is rejected even when it stays under PROJECT_ROOT.
+        datasets_base = (PROJECT_ROOT / "datasets").resolve()
+        file_path = (datasets_base / path).resolve()
 
-        # Security check
-        if not is_safe_path(file_path):
+        # Security check: must remain within datasets/
+        if not file_path.is_relative_to(datasets_base):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -238,8 +241,11 @@ async def download_file(path: str):
     try:
         file_path = Path("/" + path).resolve()
 
-        # Security check
-        if not is_safe_path(file_path):
+        # Security check: path must reside within one of the known safe roots.
+        # Inline is_relative_to() so static-analysis tools can trace the guard
+        # without resolving the custom is_safe_path() helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(file_path == d or file_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -364,8 +370,10 @@ async def read_file(path: str):
     try:
         file_path = Path("/" + path).resolve()
 
-        # Security check
-        if not is_safe_path(file_path):
+        # Security check: inline is_relative_to() so static-analysis tools can
+        # trace the containment guard without resolving the custom helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(file_path == d or file_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
