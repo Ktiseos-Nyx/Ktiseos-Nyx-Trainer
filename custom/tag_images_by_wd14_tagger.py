@@ -865,6 +865,17 @@ if __name__ == "__main__":
             "only letters, digits, hyphens, or underscores (e.g. '.txt', '.caption')"
         )
 
+    # Validate model_dir to prevent path traversal (CWE-23).
+    # model_dir is joined with repo_id to form the download location; an absolute
+    # path or one containing ".." could write model files outside the project.
+    # The service always passes "wd14_tagger_model" (relative, no ".."), but we
+    # guard here so the script is safe when called directly too.
+    model_dir_path = Path(args.model_dir)
+    if model_dir_path.is_absolute() or '..' in model_dir_path.parts:
+        parser.error(
+            f"--model_dir '{args.model_dir}' must be a relative path without '..' components"
+        )
+
     if args.general_threshold is None:
         args.general_threshold = args.thresh
     if args.character_threshold is None:
