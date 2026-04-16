@@ -4,6 +4,17 @@
 
 version: v1.25.0
 
+# Exclude vendored third-party code from all Snyk Code (SAST) scans.
+# trainer/derrian_backend/ is a vendored copy of Kohya SS + LyCORIS training
+# scripts. These files are upstream code we do not maintain — any path traversal
+# or injection findings in them reflect patterns that require direct local machine
+# access to exploit (the scripts run as a local subprocess, not a web endpoint).
+# Fixing them would mean diverging from upstream with no real security benefit
+# for a single-user training tool.
+exclude:
+  code:
+    - trainer/derrian_backend/**
+
 ignore:
   SNYK-PYTHON-UNKNOWN-CWE78:
     - installer_windows_local.py:
@@ -13,4 +24,42 @@ ignore:
           system-controlled; an attacker who can manipulate it already has
           OS-level access. Restructuring the Windows shell=True workaround
           would add complexity for zero real-world risk reduction.
+        expires: 2027-01-01T00:00:00.000Z
+
+  SNYK-JS-UNKNOWN-CLEARTEXT:
+    - frontend/server.js:
+        reason: >
+          http.createServer is intentional. TLS termination is handled
+          upstream at the infrastructure layer (VastAI portal proxy,
+          Caddy, or Cloudflare tunnel). The Node.js server only ever
+          listens on localhost/internal interfaces — it is never directly
+          internet-exposed. Requiring users to provision and manage SSL
+          certificates on the application server is inappropriate for a
+          single-user local/VastAI training tool.
+        expires: 2027-01-01T00:00:00.000Z
+
+  SNYK-JS-UNKNOWN-DOMXSS-APPENDCHILD:
+    - frontend/hooks/use-download-file.ts:
+        reason: >
+          appendChild is used to attach a programmatically created <a>
+          element to trigger a file download (standard browser pattern).
+          The href is a blob: URL produced by createObjectURL() which
+          cannot execute scripts. The download attribute is already
+          sanitized to safe characters. No remote HTML content is
+          inserted into the DOM.
+        expires: 2027-01-01T00:00:00.000Z
+
+  SNYK-JS-UNKNOWN-DOMXSS-DANGEROUSLYSETINNERHTML:
+    - frontend/app/docs/page.tsx:
+        reason: >
+          dangerouslySetInnerHTML renders inline markdown (bold/code
+          spans) from hardcoded static strings defined in the component
+          itself. There are no fetch() calls or remote data sources in
+          this file — content cannot be attacker-controlled.
+        expires: 2027-01-01T00:00:00.000Z
+    - frontend/components/effects/glitch-text.tsx:
+        reason: >
+          dangerouslySetInnerHTML injects a <style> block containing
+          CSS keyframe animations. Values are numeric component props
+          (intensity, offset), not user-supplied HTML. No XSS vector exists.
         expires: 2027-01-01T00:00:00.000Z
