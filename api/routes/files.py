@@ -204,14 +204,28 @@ async def upload_file(
 async def serve_image(path: str):
     """Serve an image file (for thumbnails/previews)"""
     try:
-        # Constrain to the datasets subdirectory only (not all of PROJECT_ROOT).
-        # Using is_relative_to() on the resolved path so that "../" traversal
-        # that escapes datasets/ is rejected even when it stays under PROJECT_ROOT.
-        datasets_base = (PROJECT_ROOT / "datasets").resolve()
+        # Support both 'datasets/' (plural) and 'dataset/' (singular) roots —
+        # some installs use one, some the other. Prefer whichever exists on disk;
+        # if both exist, prefer plural. If neither exists the path lookup will
+        # simply return 404 below, which is the correct behaviour.
+        _datasets_plural = (PROJECT_ROOT / "datasets").resolve()
+        _datasets_singular = (PROJECT_ROOT / "dataset").resolve()
+        if _datasets_plural.exists():
+            datasets_base = _datasets_plural
+        elif _datasets_singular.exists():
+            datasets_base = _datasets_singular
+        else:
+            datasets_base = _datasets_plural  # fall back; 404 will fire below
+
         file_path = (datasets_base / path).resolve()
 
-        # Security check: must remain within datasets/
-        if not file_path.is_relative_to(datasets_base):
+        # Security check: resolved path must remain within the chosen base.
+        # is_relative_to() catches "../" traversal that would escape it even
+        # when the result is still somewhere under PROJECT_ROOT.
+        if not (
+            file_path.is_relative_to(_datasets_plural)
+            or file_path.is_relative_to(_datasets_singular)
+        ):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
