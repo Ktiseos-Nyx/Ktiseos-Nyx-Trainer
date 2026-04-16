@@ -4,6 +4,17 @@
 
 version: v1.25.0
 
+# Exclude vendored third-party code from all Snyk Code (SAST) scans.
+# trainer/derrian_backend/ is a vendored copy of Kohya SS + LyCORIS training
+# scripts. These files are upstream code we do not maintain — any path traversal
+# or injection findings in them reflect patterns that require direct local machine
+# access to exploit (the scripts run as a local subprocess, not a web endpoint).
+# Fixing them would mean diverging from upstream with no real security benefit
+# for a single-user training tool.
+exclude:
+  code:
+    - trainer/derrian_backend/**
+
 ignore:
   SNYK-PYTHON-UNKNOWN-CWE78:
     - installer_windows_local.py:
