@@ -160,8 +160,10 @@ async def upload_file(
 
         dest_path = Path(destination).resolve()
 
-        # Security check
-        if not is_safe_path(dest_path):
+        # Security check: inline is_relative_to() so static-analysis tools can
+        # trace the containment guard without resolving the custom helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(dest_path == d or dest_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Create destination directory if needed
@@ -407,8 +409,10 @@ async def write_file(path: str, content: str):
     try:
         file_path = Path(path).resolve()
 
-        # Security check
-        if not is_safe_path(file_path):
+        # Security check: inline is_relative_to() so static-analysis tools can
+        # trace the containment guard without resolving the custom helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(file_path == d or file_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Create parent directories if needed
