@@ -664,18 +664,21 @@ async def serve_dataset_image(dataset_name: str, filename: str):
 
     # 1. Construct the full path safely
     dataset_dir = validate_dataset_path(dataset_name)  # Ensure no "../" hacks
-    file_path = dataset_dir / filename
+    # Strip any directory components from filename before joining
+    # (e.g. filename="../../etc/passwd" → "etc" stripped to just "passwd")
+    safe_filename = Path(filename).name
+    file_path = dataset_dir / safe_filename
 
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image not found")
 
     # 2. Determine MIME type (Critical for WebP!)
     media_type = "application/octet-stream"  # Default
-    if filename.lower().endswith(".webp"):
+    if safe_filename.lower().endswith(".webp"):
         media_type = "image/webp"
-    elif filename.lower().endswith(".png"):
+    elif safe_filename.lower().endswith(".png"):
         media_type = "image/png"
-    elif filename.lower().endswith((".jpg", ".jpeg")):
+    elif safe_filename.lower().endswith((".jpg", ".jpeg")):
         media_type = "image/jpeg"
 
     # 3. Serve the file with the explicit header

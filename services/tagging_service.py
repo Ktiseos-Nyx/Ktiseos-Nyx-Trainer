@@ -146,26 +146,37 @@ class TaggingService:
             
             # Find all caption files
             count = 0
+            skipped = 0
             # Handle multiple extensions if needed, but config usually specifies one
             for caption_file in dataset_path.rglob(f"*{config.caption_extension}"):
                 if not caption_file.is_file():
                     continue
 
-                content = caption_file.read_text(encoding='utf-8').strip()
-                existing_tags = [t.strip() for t in content.split(config.caption_separator.strip()) if t.strip()]
-                
-                # Filter out activation tags from existing to prevent duplicates
-                clean_tags = [t for t in existing_tags if t not in activation_tags]
-                
-                # Prepend activation tags
-                new_tags = activation_tags + clean_tags
-                
-                # Write back
-                new_content = config.caption_separator.join(new_tags)
-                caption_file.write_text(new_content, encoding='utf-8')
-                count += 1
+                try:
+                    content = caption_file.read_text(encoding='utf-8').strip()
+                    existing_tags = [t.strip() for t in content.split(config.caption_separator.strip()) if t.strip()]
 
-            logger.info(f"Applied activation tags to {count} files.")
+                    # Filter out activation tags from existing to prevent duplicates
+                    clean_tags = [t for t in existing_tags if t not in activation_tags]
+
+                    # Prepend activation tags
+                    new_tags = activation_tags + clean_tags
+
+                    # Write back
+                    new_content = config.caption_separator.join(new_tags)
+                    caption_file.write_text(new_content, encoding='utf-8')
+                    count += 1
+                except OSError as e:
+                    # On Windows, antivirus or Explorer can briefly hold a file lock
+                    # after the tagger process exits. Skip and continue rather than
+                    # aborting the entire batch.
+                    logger.warning("Skipping %s (could not read/write): %s", caption_file, e)
+                    skipped += 1
+
+            if skipped:
+                logger.warning("Applied activation tags to %d files; %d skipped due to file lock/permission errors.", count, skipped)
+            else:
+                logger.info("Applied activation tags to %d files.", count)
 
         except Exception as e:
             logger.error(f"Failed to apply activation tags: {e}", exc_info=True)
@@ -185,6 +196,16 @@ class TaggingService:
         Raises:
             ValidationError: If validation fails
         """
+        # Validate caption_extension to prevent path traversal (CWE-23).
+        # Must be a simple file extension like ".txt" or ".caption" — no path
+        # separators, no ".." sequences.
+        ext = config.caption_extension
+        if not (ext.startswith('.') and len(ext) > 1 and ext[1:].replace('-', '').replace('_', '').isalnum()):
+            raise ValidationError(
+                f"Invalid caption_extension '{ext}': must start with '.' and contain "
+                "only letters, digits, hyphens, or underscores (e.g. '.txt', '.caption')"
+            )
+
         # Validate dataset path
         dataset_path = validate_dataset_path(config.dataset_dir)
 

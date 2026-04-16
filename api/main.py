@@ -2,6 +2,8 @@
 FastAPI Main Application
 Provides REST API and WebSocket endpoints for the Next.js frontend.
 """
+
+import asyncio
 import logging
 import sys
 import time
@@ -14,6 +16,10 @@ from fastapi.responses import JSONResponse
 
 from api.routes import civitai, config, dataset, files, models, settings, training, utilities
 from services import websocket
+
+# Windows: ensure ProactorEventLoop so asyncio.create_subprocess_exec works
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -29,16 +35,18 @@ logs_dir.mkdir(exist_ok=True)
 # Create log filename with date (one file per day)
 log_file = logs_dir / f"app_{datetime.now().strftime('%Y%m%d')}.log"
 
-_log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+_log_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 _root_logger = logging.getLogger()
 _root_logger.setLevel(logging.INFO)
 
 # Only construct and add the FileHandler if not already present (guards against
 # double-attachment on reload and avoids leaking file descriptors on each reload).
-if not any(isinstance(h, logging.FileHandler) and getattr(h, 'baseFilename', None) == str(log_file)
-           for h in _root_logger.handlers):
-    _file_handler = logging.FileHandler(log_file, encoding='utf-8', errors='replace')
+if not any(
+    isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) == str(log_file)
+    for h in _root_logger.handlers
+):
+    _file_handler = logging.FileHandler(log_file, encoding="utf-8", errors="replace")
     _file_handler.setFormatter(_log_formatter)
     _root_logger.addHandler(_file_handler)
 
@@ -53,22 +61,24 @@ app = FastAPI(
     description="LoRA training API with real-time progress tracking",
     version="0.1.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
-# Configure CORS for Next.js frontend
+# Configure CORS for Next.js frontend.
+# allow_credentials=True + allow_origins=["*"] is a CORS spec violation and
+# newer Starlette versions raise ValueError at startup for this combination.
+# This app passes tokens in request bodies (not cookies), so credentials
+# mode is not required. allow_origins=["*"] covers local dev AND VastAI/RunPod
+# dynamic proxy URLs without needing to enumerate every possible hostname.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # Local development
-        "http://127.0.0.1:3000",
-        "*"  # Allow all origins (VastAI port forwarding)
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],  # Needed for canvas image manipulation
 )
+
 
 # Request logging middleware — logs every request to the file handler
 # so local dev (Windows) gets visibility into what's hitting FastAPI.
@@ -107,12 +117,7 @@ app.include_router(websocket.router, tags=["WebSocket"])
 @app.get("/")
 async def root():
     """Root endpoint - API status check"""
-    return {
-        "name": "Ktiseos-Nyx-Trainer API",
-        "version": "0.1.0",
-        "status": "running",
-        "docs": "/docs"
-    }
+    return {"name": "Ktiseos-Nyx-Trainer API", "version": "0.1.0", "status": "running", "docs": "/docs"}
 
 
 @app.get("/api/health")
@@ -131,21 +136,10 @@ async def root_health_check():
 async def global_exception_handler(request, exc):
     """Global exception handler"""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "detail": str(exc)
-        }
-    )
+    return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 if __name__ == "__main__":
     import uvicorn  # pyright: ignore[reportMissingImports]
-    uvicorn.run(
-        "api.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=False, log_level="info")

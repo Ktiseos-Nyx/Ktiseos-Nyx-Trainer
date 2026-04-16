@@ -22,7 +22,10 @@ export function useDownloadFile() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = fileName || fileKey.split('/').pop() || 'download';
+      // Sanitize the download filename: keep only safe characters so that
+      // a malicious server-supplied name can't inject special content.
+      const rawName = fileName || fileKey.split('/').pop() || 'download';
+      link.download = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
       document.body.appendChild(link);
       link.click();
       link.remove();

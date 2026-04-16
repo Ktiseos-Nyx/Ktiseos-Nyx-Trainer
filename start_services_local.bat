@@ -203,10 +203,12 @@ REM ====================================================================
 REM Step 2: Start Services
 REM ====================================================================
 
-REM Start FastAPI backend
+REM Start FastAPI backend via run_backend.py which sets WindowsProactorEventLoopPolicy
+REM BEFORE uvicorn creates its event loop. Calling -m uvicorn directly sets the
+REM policy too late (inside the already-running loop), which breaks subprocess launch.
 if exist "api\" (
     echo [Backend] Starting FastAPI backend on http://localhost:!BACKEND_PORT!...
-    start "Ktiseos Backend" /MIN %PYTHON_EXE% -m uvicorn api.main:app --host 127.0.0.1 --port !BACKEND_PORT! --reload
+    start "Ktiseos Backend" /MIN %PYTHON_EXE% run_backend.py --host 127.0.0.1 --port !BACKEND_PORT!
 )
 
 REM Start Next.js frontend

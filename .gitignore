@@ -16,6 +16,7 @@ tmp/
 *.bak
 .kilocode
 .install_complete
+install_complete.marker
 .write_test_diagnostic
 diagnostics_*.json
 diagnostics_*.txt
@@ -279,6 +280,8 @@ cache/
 .agents/
 skills-lock.json
 FEATURE_CREEP.md
+entities.json
+mempalace.yaml
 nul
 SESSION_SUMMARY_*.md
 README_BACKUP.md

@@ -223,10 +223,40 @@ def collate_fn_remove_corrupted(batch):
     return batch
 
 
+def _sanitize_repo_id(repo_id: str) -> str:
+    """Return a filesystem-safe directory name derived from a HuggingFace repo_id.
+
+    Prevents path traversal (CWE-23) when repo_id is joined with model_dir:
+    - Replaces path separators (/ and \\) with underscores so 'user/repo'
+      becomes 'user_repo', preserving uniqueness across orgs.
+    - Strips drive-letter colons (C: -> C).
+    - Removes '..' components so traversal sequences collapse harmlessly.
+    - Keeps only alphanumeric, underscore, hyphen, and dot characters.
+    - Returns an empty string if nothing safe remains (caller must reject it).
+    """
+    # Normalize both slash types to underscore (don't treat as path separators)
+    safe = repo_id.replace("\\", "_").replace("/", "_")
+    # Strip drive-letter colons (e.g. 'C_' after normalizing 'C:\\')
+    safe = safe.replace(":", "")
+    # Remove any '..' tokens that survived normalization
+    safe = "_".join(part for part in safe.split("_") if part != "..")
+    # Keep only safe characters; replace everything else with underscore
+    safe = "".join(
+        c if c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."
+        else "_"
+        for c in safe
+    )
+    # Collapse repeated underscores and strip leading/trailing unsafe chars
+    while "__" in safe:
+        safe = safe.replace("__", "_")
+    return safe.strip("_.")
+
+
 def main(args):
-    # model location is model_dir + repo_id
-    # repo id may be like "user/repo" or "user/repo/branch", so we need to remove slash
-    model_location = os.path.join(args.model_dir, args.repo_id.replace("/", "_"))
+    # model location is model_dir + sanitized repo_id fragment.
+    # _sanitize_repo_id() strips path separators, drive letters, and ".."
+    # so os.path.join cannot escape the validated model_dir.
+    model_location = os.path.join(args.model_dir, _sanitize_repo_id(args.repo_id))
 
     # hf_hub_downloadをそのまま使うとsymlink関係で問題があるらしいので、キャッシュディレクトリとforce_filenameを指定してなんとかする
     # depreacatedの警告が出るけどなくなったらその時
@@ -854,6 +884,35 @@ if __name__ == "__main__":
     # スペルミスしていたオプションを復元する
     if args.caption_extention is not None:
         args.caption_extension = args.caption_extention
+
+    # Validate caption_extension to prevent path traversal (CWE-23).
+    # Must be a simple extension like ".txt" or ".caption" — no path separators,
+    # no ".." sequences that could escape the dataset directory at line 636.
+    ext = args.caption_extension
+    if not (ext.startswith('.') and len(ext) > 1 and ext[1:].replace('-', '').replace('_', '').isalnum()):
+        parser.error(
+            f"Invalid --caption_extension '{ext}': must start with '.' and contain "
+            "only letters, digits, hyphens, or underscores (e.g. '.txt', '.caption')"
+        )
+
+    # Validate model_dir to prevent path traversal (CWE-23).
+    # model_dir is joined with repo_id to form the download location; an absolute
+    # path or one containing ".." could write model files outside the project.
+    # The service always passes "wd14_tagger_model" (relative, no ".."), but we
+    # guard here so the script is safe when called directly too.
+    model_dir_path = Path(args.model_dir)
+    if model_dir_path.is_absolute() or '..' in model_dir_path.parts:
+        parser.error(
+            f"--model_dir '{args.model_dir}' must be a relative path without '..' components"
+        )
+
+    # Sanitize repo_id before it is joined with model_dir in main().
+    # _sanitize_repo_id() strips separators, drive letters, and ".." so the
+    # resulting fragment is safe to pass to os.path.join.
+    if not _sanitize_repo_id(args.repo_id):
+        parser.error(
+            f"--repo_id '{args.repo_id}' contains no safe characters after sanitization"
+        )
 
     if args.general_threshold is None:
         args.general_threshold = args.thresh

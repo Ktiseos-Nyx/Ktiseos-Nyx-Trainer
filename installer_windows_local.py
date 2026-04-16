@@ -117,6 +117,13 @@ class LocalWindowsInstaller:
                 else:
                     quoted_command.append(part_str)
             shell_command = " ".join(quoted_command)
+            # On Windows, subprocess.run(shell=True, cwd=...) can raise
+            # "Invalid cwd parameter" for paths on non-C: drives (e.g. I:\...).
+            # Work around this by embedding "cd /d" at the front of the command
+            # instead of relying on the cwd parameter.
+            if cwd:
+                shell_command = f'cd /d "{cwd}" && {shell_command}'
+                cwd = None
         else:
             shell_command = command
 
@@ -235,8 +242,10 @@ class LocalWindowsInstaller:
         self.logger.info("Installing Windows dependencies from: %s", requirements_file)
         # Add CUDA 12.1 index for PyTorch installation
         install_cmd = self.package_manager["install_cmd"] + [
-            "-r", requirements_file,
-            "--extra-index-url", "https://download.pytorch.org/whl/cu121"
+            "-r",
+            requirements_file,
+            "--extra-index-url",
+            "https://download.pytorch.org/whl/cu121",
         ]
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
         return success
@@ -284,6 +293,7 @@ class LocalWindowsInstaller:
             # Give user a chance to cancel
             print("Press Ctrl+C within 10 seconds to cancel, or wait to continue...")
             import time
+
             try:
                 time.sleep(10)
             except KeyboardInterrupt:
@@ -344,6 +354,7 @@ class LocalWindowsInstaller:
             # Verify installation
             try:
                 import torch  # pyright: ignore
+
                 if torch.cuda.is_available():
                     print(f"\n✅ PyTorch {torch.__version__} + CUDA {torch.version.cuda} installed successfully!")
                     print("   GPU training is ready.\n")
@@ -380,13 +391,24 @@ class LocalWindowsInstaller:
             # 3. Check the "Gamer" custom install spots
             common_spots = [
                 os.path.join(os.environ.get("ProgramFiles", "C:\\Program Files"), "nodejs\\npm.cmd"),
-                os.path.expandvars("%APPDATA%\\npm\\npm.cmd")
+                os.path.expandvars("%APPDATA%\\npm\\npm.cmd"),
             ]
             for spot in common_spots:
                 if os.path.exists(spot):
                     return spot
 
         return "npm"  # Fallback to string and pray
+
+    def _npm_run(self, npm_exe, frontend_dir, args, description):
+        """Run an npm command scoped to frontend_dir without relying on subprocess cwd=.
+
+        On Windows, passing cwd= to subprocess.run can raise "Invalid cwd parameter"
+        for paths on non-C: drives (e.g. I:\\...).  Using ``npm --prefix <dir>`` tells
+        npm to use that directory as its project root, side-stepping the subprocess
+        cwd issue entirely because npm handles the chdir internally.
+        """
+        cmd = [npm_exe, "--prefix", frontend_dir, *args]
+        return self.run_command(cmd, description)
 
     def install_frontend_deps(self):
         """Install frontend dependencies if node_modules is missing (or --force)."""
@@ -403,9 +425,21 @@ class LocalWindowsInstaller:
             print(" ⚠️  npm not found! Please install Node.js 18+ from https://nodejs.org/")
             return False
 
+        # Verify npm is actually executable before doing anything destructive.
+        # This prevents the case where we delete node_modules and then can't reinstall.
+        # Note: do NOT use allow_failure=True here - we need the real pass/fail result.
+        npm_ok = self.run_command([npm_exe, "--version"], "Checking npm version")
+        if not npm_ok:
+            self.logger.warning("npm --version failed. Skipping frontend dependency install.")
+            print(" ⚠️  npm does not appear to be working. Skipping frontend install.")
+            return False
+
         node_modules = os.path.join(frontend_dir, "node_modules")
+
+        # Only wipe node_modules AFTER we know npm can run.
+        # Previously this happened before the npm call, which could leave the user
+        # with no node_modules and no way to reinstall if npm then failed.
         if self.force and os.path.exists(node_modules):
-            # --force: wipe node_modules so package.json changes are picked up
             self.logger.info("--force: removing existing node_modules for clean reinstall...")
             print(" 🔄 --force: removing node_modules for clean reinstall...")
             try:
@@ -416,19 +450,19 @@ class LocalWindowsInstaller:
         if self.force or not os.path.exists(node_modules):
             self.logger.info("Installing frontend dependencies...")
             print(" 📦 Installing frontend (Next.js) dependencies...")
-            success = self.run_command(
-                [npm_exe, "install", "--legacy-peer-deps"],
+            success = self._npm_run(
+                npm_exe, frontend_dir,
+                ["install", "--legacy-peer-deps"],
                 "Installing npm packages",
-                cwd=frontend_dir,
             )
             if not success:
                 # Retry with --force for stubborn platform-specific dep issues
                 self.logger.warning("npm install failed, retrying with --force...")
                 print(" ⚠️  Retrying npm install with --force...")
-                success = self.run_command(
-                    [npm_exe, "install", "--legacy-peer-deps", "--force"],
+                success = self._npm_run(
+                    npm_exe, frontend_dir,
+                    ["install", "--legacy-peer-deps", "--force"],
                     "Installing npm packages (force)",
-                    cwd=frontend_dir,
                 )
             return success
         else:
@@ -460,7 +494,7 @@ class LocalWindowsInstaller:
         if self.force or not os.path.exists(build_dir):
             self.logger.info("Building Next.js production frontend...")
             print(" 🏗️  Building Next.js production frontend...")
-            success = self.run_command([npm_exe, "run", "build"], "Building Next.js app", cwd=frontend_dir)
+            success = self._npm_run(npm_exe, frontend_dir, ["run", "build"], "Building Next.js app")
             if not success:
                 self.logger.warning("Frontend build failed.")
                 print(" ⚠️  Frontend build failed. Backend will still work.")
@@ -470,17 +504,24 @@ class LocalWindowsInstaller:
             build_id = os.path.join(build_dir, "BUILD_ID")
             if os.path.exists(build_id):
                 build_mtime = os.path.getmtime(build_id)
-                # Check git for latest commit time touching frontend/ or api/
+                # Check git for latest commit time touching frontend/ or api/.
+                # Use shell=True + cd /d to avoid subprocess cwd= issues on Windows.
                 try:
+                    git_cmd = (
+                        f'cd /d "{self.project_root}" && '
+                        'git log -1 --format=%ct -- frontend/ api/'
+                    )
                     result = subprocess.run(
-                        ["git", "log", "-1", "--format=%ct", "--", "frontend/", "api/"],
-                        capture_output=True, text=True, cwd=self.project_root
+                        git_cmd,
+                        capture_output=True,
+                        text=True,
+                        shell=True,
                     )
                     latest_commit = int(result.stdout.strip()) if result.stdout.strip() else 0
                     if latest_commit > build_mtime:
                         self.logger.info("Build is stale — source updated since last build.")
                         print(" 🔄 Build is stale (source files updated since last build). Rebuilding...")
-                        success = self.run_command([npm_exe, "run", "build"], "Building Next.js app", cwd=frontend_dir)
+                        success = self._npm_run(npm_exe, frontend_dir, ["run", "build"], "Building Next.js app")
                         if not success:
                             self.logger.warning("Frontend rebuild failed.")
                             print(" ⚠️  Frontend rebuild failed. Backend will still work.")
@@ -501,16 +542,25 @@ class LocalWindowsInstaller:
             "Kohya's SD Scripts": self.sd_scripts_dir,
         }
         for name, path in editable_installs.items():
-            if os.path.exists(os.path.join(path, "setup.py")):
-                self.logger.info("Installing %s in editable mode from %s", name, path)
-                install_cmd = self.package_manager["install_cmd"] + ["-e", "."]
-                success = self.run_command(install_cmd, f"Editable install for {name}", cwd=path, allow_failure=True)
+            setup_py = os.path.join(path, "setup.py")
+            pyproject_toml = os.path.join(path, "pyproject.toml")
+
+            if os.path.exists(setup_py) or os.path.exists(pyproject_toml):
+                abs_path = os.path.normpath(os.path.abspath(path))
+                if not os.path.isdir(abs_path):
+                    self.logger.warning("Skipping editable install for %s: path not found: %s", name, abs_path)
+                    continue
+
+                self.logger.info("Installing %s in editable mode from %s", name, abs_path)
+                install_cmd = self.package_manager["install_cmd"] + ["-e", abs_path]
+                success = self.run_command(install_cmd, f"Editable install for {name}", allow_failure=True)
+
                 if not success:
                     warning_msg = f"Could not install {name} in editable mode. Training might still work."
                     self.logger.warning(warning_msg)
                     print(f"   - {warning_msg}")
             else:
-                self.logger.debug("No setup.py found for %s at %s, skipping", name, path)
+                self.logger.debug("No setup.py or pyproject.toml found for %s at %s, skipping", name, path)
 
         return True
 
@@ -596,11 +646,25 @@ class LocalWindowsInstaller:
                 print(f" {warning_msg}")
 
             # =============== NEW: FRONTEND SETUP ===============
-            # Always ensure frontend is ready, even with --skip-install
-            if not self.install_frontend_deps():
-                self.logger.warning("Frontend dependency installation failed.")
-            if not self.build_frontend():
-                self.logger.warning("Frontend build failed.")
+            # Always ensure frontend is ready, even with --skip-install.
+            # Wrapped in try/except so any unexpected exception here does NOT
+            # kill the entire installation (Python backend is already installed).
+            try:
+                if not self.install_frontend_deps():
+                    self.logger.warning("Frontend dependency installation failed.")
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as fe:
+                self.logger.warning("Unexpected error in frontend dep install: %s", fe)
+                print(f" ⚠️  Frontend dependency install skipped due to error: {fe}")
+            try:
+                if not self.build_frontend():
+                    self.logger.warning("Frontend build failed.")
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as fe:
+                self.logger.warning("Unexpected error in frontend build: %s", fe)
+                print(f" ⚠️  Frontend build skipped due to error: {fe}")
             # ===================================================
 
             end_time = datetime.datetime.now()
