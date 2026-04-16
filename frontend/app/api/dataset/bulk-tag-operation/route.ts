@@ -110,7 +110,19 @@ export async function POST(request: NextRequest) {
 
     for (const imagePath of imageFiles) {
       try {
-        const captionPath = imagePath.replace(path.extname(imagePath), '.txt');
+        // Build caption path using path.join/basename to avoid String.replace()
+        // pitfalls (e.g. a dir component containing the extension getting swapped).
+        const captionPath = path.join(
+          path.dirname(imagePath),
+          path.basename(imagePath, path.extname(imagePath)) + '.txt'
+        );
+
+        // Inline containment guard so static-analysis tools can trace that
+        // captionPath stays within the validated dataset directory.
+        if (captionPath !== resolvedPath && !captionPath.startsWith(resolvedPath + path.sep)) {
+          errors.push(`${path.basename(imagePath)}: caption path outside dataset directory, skipped`);
+          continue;
+        }
 
         // Read existing caption
         let existingTags: string[] = [];

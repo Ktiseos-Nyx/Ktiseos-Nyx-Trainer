@@ -160,8 +160,10 @@ async def upload_file(
 
         dest_path = Path(destination).resolve()
 
-        # Security check
-        if not is_safe_path(dest_path):
+        # Security check: inline is_relative_to() so static-analysis tools can
+        # trace the containment guard without resolving the custom helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(dest_path == d or dest_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Create destination directory if needed
@@ -202,11 +204,28 @@ async def upload_file(
 async def serve_image(path: str):
     """Serve an image file (for thumbnails/previews)"""
     try:
-        # Construct path relative to datasets directory
-        file_path = (PROJECT_ROOT / "datasets" / path).resolve()
+        # Support both 'datasets/' (plural) and 'dataset/' (singular) roots —
+        # some installs use one, some the other. Prefer whichever exists on disk;
+        # if both exist, prefer plural. If neither exists the path lookup will
+        # simply return 404 below, which is the correct behaviour.
+        _datasets_plural = (PROJECT_ROOT / "datasets").resolve()
+        _datasets_singular = (PROJECT_ROOT / "dataset").resolve()
+        if _datasets_plural.exists():
+            datasets_base = _datasets_plural
+        elif _datasets_singular.exists():
+            datasets_base = _datasets_singular
+        else:
+            datasets_base = _datasets_plural  # fall back; 404 will fire below
 
-        # Security check
-        if not is_safe_path(file_path):
+        file_path = (datasets_base / path).resolve()
+
+        # Security check: resolved path must remain within the chosen base.
+        # is_relative_to() catches "../" traversal that would escape it even
+        # when the result is still somewhere under PROJECT_ROOT.
+        if not (
+            file_path.is_relative_to(_datasets_plural)
+            or file_path.is_relative_to(_datasets_singular)
+        ):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -238,8 +257,11 @@ async def download_file(path: str):
     try:
         file_path = Path("/" + path).resolve()
 
-        # Security check
-        if not is_safe_path(file_path):
+        # Security check: path must reside within one of the known safe roots.
+        # Inline is_relative_to() so static-analysis tools can trace the guard
+        # without resolving the custom is_safe_path() helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(file_path == d or file_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -364,8 +386,10 @@ async def read_file(path: str):
     try:
         file_path = Path("/" + path).resolve()
 
-        # Security check
-        if not is_safe_path(file_path):
+        # Security check: inline is_relative_to() so static-analysis tools can
+        # trace the containment guard without resolving the custom helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(file_path == d or file_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         if not file_path.exists():
@@ -399,8 +423,10 @@ async def write_file(path: str, content: str):
     try:
         file_path = Path(path).resolve()
 
-        # Security check
-        if not is_safe_path(file_path):
+        # Security check: inline is_relative_to() so static-analysis tools can
+        # trace the containment guard without resolving the custom helper.
+        allowed = [d.resolve() for d in ALLOWED_DIRS]
+        if not any(file_path == d or file_path.is_relative_to(d) for d in allowed):
             raise HTTPException(status_code=403, detail="Access denied")
 
         # Create parent directories if needed
