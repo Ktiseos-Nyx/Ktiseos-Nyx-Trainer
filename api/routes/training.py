@@ -311,7 +311,7 @@ async def start_training(config: TrainingConfig):
             success=response.success,
             message=response.message,
             job_id=response.job_id,
-            validation_errors=validation_errors,
+            validation_errors=validation_errors if response.success else response.validation_errors,
         )
 
     except Exception as e:

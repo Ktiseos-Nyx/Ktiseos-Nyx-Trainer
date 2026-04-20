@@ -228,7 +228,7 @@ class KohyaTrainer(BaseTrainer):
         self.toml_generator.generate_config_toml(config_toml_runtime)
 
         # Copy to user config folder
-        user_config_dir = Path("config")
+        user_config_dir = self.project_root / "config"
         user_config_dir.mkdir(exist_ok=True)
 
         dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
@@ -250,7 +250,7 @@ class KohyaTrainer(BaseTrainer):
             Command as list of strings
         """
         # Get config file paths (they should exist from generate_config_files)
-        user_config_dir = Path("config")
+        user_config_dir = self.project_root / "config"
         dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
         config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
 

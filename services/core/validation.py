@@ -126,15 +126,21 @@ def validate_model_path(model_name: str) -> Path:
 
     try:
         resolved = model_path.resolve()
-        if not _in_model_dirs(resolved):
+        if _in_model_dirs(resolved):
+            if resolved.exists():
+                return model_path
+            # Path is within model dirs but file not found there — try VAE dir
             vae_check = (VAE_DIR / clean_name).resolve()
             if vae_check.exists() and _in_model_dirs(vae_check):
                 return vae_check
             raise ValidationError(f"Invalid model path: {model_name}")
+        # Path is outside all model dirs — try VAE dir before rejecting
+        vae_check = (VAE_DIR / clean_name).resolve()
+        if vae_check.exists() and _in_model_dirs(vae_check):
+            return vae_check
+        raise ValidationError(f"Invalid model path: {model_name}")
     except (ValueError, OSError) as e:
         raise ValidationError(f"Invalid model path: {e}")
-
-    return model_path
 
 
 def validate_image_filename(filename: str) -> str:
