@@ -75,15 +75,23 @@ class TrainingService:
             )
 
         except ValidationError as e:
-            logger.warning("Training validation failed: %s", e)
+            logger.warning("Training validation failed: %s", e, exc_info=True)
             return TrainingStartResponse(
                 success=False,
                 message=str(e),
                 validation_errors=[{"field": "config", "message": str(e), "severity": "error"}]
             )
 
+        except FileNotFoundError as e:
+            logger.error("Training startup failed — file not found: %s", e, exc_info=True)
+            return TrainingStartResponse(
+                success=False,
+                message=f"File not found during training setup: {e}",
+                validation_errors=[{"field": "system", "message": str(e), "severity": "error"}]
+            )
+
         except (ConfigError, ProcessError) as e:
-            logger.error("Training startup failed: %s", e)
+            logger.error("Training startup failed: %s", e, exc_info=True)
             return TrainingStartResponse(
                 success=False,
                 message=f"Failed to start training: {e}",

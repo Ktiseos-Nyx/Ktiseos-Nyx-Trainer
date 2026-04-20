@@ -1,0 +1,8 @@
+# Development / testing dependencies — NOT needed for production
+# Install with: pip install -r requirements_dev.txt
+# Run tests with: pytest tests/test_api_plumbing.py -v
+
+pytest>=8.0
+pytest-asyncio>=0.23        # async test support (asyncio_mode = "auto" in pyproject.toml)
+pytest-mock>=3.12           # mocker fixture (convenient wrapper around unittest.mock)
+httpx>=0.27                 # required by FastAPI TestClient for async route support

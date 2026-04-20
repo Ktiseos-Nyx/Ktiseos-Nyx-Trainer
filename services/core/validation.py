@@ -42,21 +42,28 @@ def validate_dataset_path(dataset_name: str) -> Path:
         >>> str(path)
         '/path/to/datasets/my_character'
     """
+    datasets_resolved = DATASETS_DIR.resolve()
+
     # Check if absolute path provided
     path_obj = Path(dataset_name)
     if path_obj.is_absolute():
         try:
             resolved = path_obj.resolve()
-            if str(resolved).startswith(str(DATASETS_DIR)):
+            # Use is_relative_to for proper cross-platform comparison.
+            # str.startswith fails on Windows when drive letter casing differs
+            # (e.g. "i:\" vs "I:\"), causing the check to fall through and strip
+            # all backslashes from the Windows path — producing garbage like
+            # "IKtiseos-Nyx-TrainerdatasetsBlueBra" that obviously doesn't exist.
+            if resolved == datasets_resolved or resolved.is_relative_to(datasets_resolved):
                 return resolved
         except (ValueError, OSError):
             pass  # Fall through to relative handling
 
     # Strip "datasets/" prefix if user included it (be forgiving!)
     if dataset_name.startswith("datasets/"):
-        dataset_name = dataset_name[9:]  # Remove "datasets/"
+        dataset_name = dataset_name[9:]
     elif dataset_name.startswith("datasets\\"):
-        dataset_name = dataset_name[9:]  # Remove "datasets\"
+        dataset_name = dataset_name[9:]
 
     # Remove path traversal attempts
     clean_name = dataset_name.replace("..", "").replace("/", "").replace("\\", "").strip()
@@ -70,7 +77,7 @@ def validate_dataset_path(dataset_name: str) -> Path:
     # Ensure it resolves within datasets directory
     try:
         resolved = dataset_path.resolve()
-        if not str(resolved).startswith(str(DATASETS_DIR)):
+        if not (resolved == datasets_resolved or resolved.is_relative_to(datasets_resolved)):
             raise ValidationError(f"Invalid dataset path: {dataset_name}")
     except (ValueError, OSError) as e:
         raise ValidationError(f"Invalid dataset path: {e}")
@@ -91,13 +98,19 @@ def validate_model_path(model_name: str) -> Path:
     Raises:
         ValidationError: If path traversal detected or invalid name
     """
+    models_resolved = MODELS_DIR.resolve()
+    vae_resolved = VAE_DIR.resolve()
+
+    def _in_model_dirs(p: Path) -> bool:
+        return p == models_resolved or p.is_relative_to(models_resolved) or \
+               p == vae_resolved or p.is_relative_to(vae_resolved)
+
     # Check if absolute path provided
     path_obj = Path(model_name)
     if path_obj.is_absolute():
         try:
             resolved = path_obj.resolve()
-            # Allow models in both MODELS_DIR and VAE_DIR (for flexible VAE selection)
-            if str(resolved).startswith(str(MODELS_DIR)) or str(resolved).startswith(str(VAE_DIR)):
+            if _in_model_dirs(resolved):
                 return resolved
         except (ValueError, OSError):
             pass
@@ -111,19 +124,13 @@ def validate_model_path(model_name: str) -> Path:
     # Construct path
     model_path = MODELS_DIR / clean_name
 
-    # Ensure it resolves within models directory
     try:
         resolved = model_path.resolve()
-        # Again, allow VAE directory as fallback for relative paths if needed, 
-        # but usually relative paths are for main models.
-        if not str(resolved).startswith(str(MODELS_DIR)) and not str(resolved).startswith(str(VAE_DIR)):
-             # One last check: maybe it IS in VAE dir but constructed with MODELS_DIR?
-             # Try reconstructing in VAE dir
-             vae_check = VAE_DIR / clean_name
-             if vae_check.resolve().exists() and str(vae_check.resolve()).startswith(str(VAE_DIR)):
-                 return vae_check.resolve()
-             
-             raise ValidationError(f"Invalid model path: {model_name}")
+        if not _in_model_dirs(resolved):
+            vae_check = (VAE_DIR / clean_name).resolve()
+            if vae_check.exists() and _in_model_dirs(vae_check):
+                return vae_check
+            raise ValidationError(f"Invalid model path: {model_name}")
     except (ValueError, OSError) as e:
         raise ValidationError(f"Invalid model path: {e}")
 
@@ -185,7 +192,8 @@ def validate_image_path(image_path: str) -> Path:
         raise ValidationError(f"Invalid image path: {e}")
 
     # Ensure it's within DATASETS_DIR
-    if not str(img_path).startswith(str(DATASETS_DIR)):
+    datasets_resolved = DATASETS_DIR.resolve()
+    if not (img_path == datasets_resolved or img_path.is_relative_to(datasets_resolved)):
         raise ValidationError(f"Image path must be within datasets directory: {image_path}")
 
     # Check it has valid image extension
@@ -208,12 +216,14 @@ def validate_output_path(filename: str) -> Path:
     Raises:
         ValidationError: If path traversal detected
     """
+    output_resolved = OUTPUT_DIR.resolve()
+
     # Check if absolute path provided
     path_obj = Path(filename)
     if path_obj.is_absolute():
         try:
             resolved = path_obj.resolve()
-            if str(resolved).startswith(str(OUTPUT_DIR)):
+            if resolved == output_resolved or resolved.is_relative_to(output_resolved):
                 return resolved
         except (ValueError, OSError):
             pass
@@ -227,7 +237,7 @@ def validate_output_path(filename: str) -> Path:
 
     try:
         resolved = output_path.resolve()
-        if not str(resolved).startswith(str(OUTPUT_DIR)):
+        if not (resolved == output_resolved or resolved.is_relative_to(output_resolved)):
             raise ValidationError(f"Invalid output path: {filename}")
     except (ValueError, OSError) as e:
         raise ValidationError(f"Invalid output path: {e}")
@@ -249,8 +259,6 @@ def validate_path_within(user_path: str, allowed_dirs: list) -> Path:
     Raises:
         ValidationError: If path is outside all allowed directories
     """
-    import os
-
     try:
         resolved = Path(user_path).resolve()
     except (ValueError, OSError) as e:
@@ -259,7 +267,7 @@ def validate_path_within(user_path: str, allowed_dirs: list) -> Path:
     for allowed_dir in allowed_dirs:
         allowed_resolved = Path(allowed_dir).resolve()
         # Check exact match or is a child (with separator to prevent prefix attacks)
-        if resolved == allowed_resolved or str(resolved).startswith(str(allowed_resolved) + os.sep):
+        if resolved == allowed_resolved or resolved.is_relative_to(allowed_resolved):
             return resolved
 
     raise ValidationError("Access denied: path outside allowed directories")

@@ -62,6 +62,16 @@ ignore = [
 # Allow unused imports in __init__.py files
 "__init__.py" = ["F401"]
 
+# ========== PYTEST CONFIGURATION ==========
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# No GPU, no sd-scripts, no torch — these run on a potato
+markers = [
+    "slow: mark test as needing real hardware (skip with -m 'not slow')",
+]
+
+# ========== RUFF CONFIGURATION ==========
 [tool.ruff.format]
 # Use double quotes for strings
 quote-style = "double"
