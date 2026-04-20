@@ -29,7 +29,7 @@
     "shuffle_caption": true,
     "text_encoder_lr": 1.0,
     "train_batch_size": 1,
-    "training_comment": "rentry.co/ProdiAgy",
+    "training_comment": "",
     "unet_lr": 1.0
   },
   "is_builtin": true,

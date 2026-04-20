@@ -85,7 +85,7 @@
     "text_encoder_lr": 2e-05,
     "train_batch_size": 8,
     "train_on_input": true,
-    "training_comment": "2 repeats for styles, 3 repeats for characters, 1 repeat for styles when used together with characters",
+    "training_comment": "",
     "unet_lr": 2e-05,
     "unit": 1,
     "up_lr_weight": "",

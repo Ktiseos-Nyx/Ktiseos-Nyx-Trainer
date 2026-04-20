@@ -85,7 +85,7 @@
     "text_encoder_lr": 3e-05,
     "train_batch_size": 3,
     "train_on_input": true,
-    "training_comment": "3 repeats. More info: https://civitai.com/articles/1771",
+    "training_comment": "",
     "unet_lr": 3e-05,
     "unit": 1,
     "up_lr_weight": "",
