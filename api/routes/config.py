@@ -171,6 +171,8 @@ async def save_config(request: SaveConfigRequest):
             "path": str(config_path)
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to save config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

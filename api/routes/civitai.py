@@ -5,6 +5,8 @@ Attribution: Inspired by sd-webui-civbrowser extension
 https://github.com/SignalFlagZ/sd-webui-civbrowser
 """
 
+import asyncio
+
 import aiohttp
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List
@@ -105,8 +107,12 @@ async def browse_models(
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -141,6 +147,8 @@ async def get_model_details(model_id: int):
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
     except HTTPException:
@@ -188,8 +196,12 @@ async def get_tags(
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -224,6 +236,8 @@ async def get_model_version(version_id: int):
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
     except HTTPException:

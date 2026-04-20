@@ -88,6 +88,11 @@ class JobManager:
             if not job.process.stdout:
                 job.status = JobStatusEnum.FAILED
                 job.error = "Subprocess stdout not available for monitoring"
+                job.completed_at = datetime.now()
+                try:
+                    job.process.terminate()
+                except Exception:
+                    pass
                 return
 
             # Read stdout line by line
@@ -141,6 +146,8 @@ class JobManager:
                 job.status = JobStatusEnum.COMPLETED
                 job.progress = 100
                 logger.info(f"Job {job_id} completed successfully")
+            elif job.status == JobStatusEnum.CANCELLED:
+                logger.info(f"Job {job_id} process exited after cancellation")
             else:
                 job.status = JobStatusEnum.FAILED
                 if not job.error:

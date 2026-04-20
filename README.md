@@ -82,7 +82,7 @@ Active development. Core training is working and verified across multiple LoRA t
 
 
 - **Next.js 16** — upgrade when ComfyUI integration work begins, not before; that phase also brings in the team's own dataset tools / metadata viewer (already built in Next 16) plus reference from an older Python edition of the same tool. Batching the upgrade with real new functionality avoids churn.
-- **Tauri desktop wrapper** — post-beta, wrap the trainer in Tauri (not Electron) for a proper desktop app experience: system tray, native file dialogs, auto-start, smaller binary. Tauri uses the OS native webview so no bundled Chromium. Standardize on Tauri for both the trainer and the dataset tools — native file open/save calls via `@tauri-apps/api/dialog` and `@tauri-apps/api/fs`, written once and shared. Note: Electron requires baking into the architecture from day one; Tauri is more forgiving about being added to an existing Next.js app later.
+- **Tauri desktop wrapper** — post-beta, wrap the trainer in Tauri (not Electron) for a proper desktop app experience: system tray, native file dialogs, auto-start, smaller binary. Tauri uses the OS native webview so no bundled Chromium. Standardize on Tauri for both the trainer and the dataset tools — native file open/save calls via `@tauri-apps/plugin-dialog` and `@tauri-apps/plugin-fs` (Tauri v2 plugin API), written once and shared. Note: Electron requires baking into the architecture from day one; Tauri is more forgiving about being added to an existing Next.js app later.
 
 ### Post-Beta / Pre-Stable — Future Model Types
 - **Qwen Image LoRA** — `networks.lora_qwen_image`, base model version `qwen_image`; vendored sd-scripts has the VAE autoencoder but no training script yet; needs upstream support before we can wire UI
