@@ -166,7 +166,7 @@ class TestTrainingStartEndpoint:
     All subprocess/trainer calls are mocked — no actual training runs.
     """
 
-    def test_invalid_dataset_path_returns_failure(self, client):
+    def test_invalid_dataset_path_returns_failure(self, client, tmp_path):
         """
         Validation failure must surface in the response body (success=False).
 
@@ -179,7 +179,13 @@ class TestTrainingStartEndpoint:
             "services.core.validation.validate_dataset_path",
             side_effect=ValidationError("Dataset not found: /evil/path"),
         ):
-            resp = client.post("/api/training/start", json=_minimal_config_dict())
+            resp = client.post(
+                "/api/training/start",
+                json=_minimal_config_dict(
+                    train_data_dir=str(tmp_path / "datasets" / "test"),
+                    output_dir=str(tmp_path / "output"),
+                ),
+            )
 
         data = resp.json()
         assert data.get("success") is False, "Validation failure must return success=False"
@@ -255,13 +261,16 @@ class TestSubprocessLaunch:
         )
 
     @pytest.mark.asyncio
-    async def test_config_dir_is_absolute_not_cwd_relative(self, tmp_path):
+    async def test_config_dir_is_absolute_not_cwd_relative(self, tmp_path, monkeypatch):
         """
-        Config TOML copies must go to project_root/config, not to a CWD-relative 'config/'.
+        project_root must be anchored to the source file, not to the process CWD.
 
-        Bug: Path('config') resolves against the process CWD at runtime. On remote
-        deployments where the service starts outside the repo root, config files
-        land in the wrong directory and Kohya can't find them — issue #328.
+        Bug: Path.cwd() in KohyaTrainer.__init__ resolved against the process CWD
+        at runtime. On VastAI/RunPod where the service starts from /root or similar,
+        config files landed in the wrong directory — issue #328.
+
+        Fix: KohyaTrainer now uses Path(__file__).resolve().parents[2].
+        This test verifies that changing CWD does NOT change project_root.
         """
         from services.models.training import TrainingConfig, ModelType
         from services.trainers.kohya import KohyaTrainer
@@ -274,13 +283,18 @@ class TestSubprocessLaunch:
             output_dir=str(tmp_path / "output"),
             resolution=1024,
         )
+
+        # Simulate starting the service from a completely different directory
+        monkeypatch.chdir(tmp_path)
         trainer = KohyaTrainer(config)
 
-        # The config dir must be anchored to self.project_root, not Path("config")
-        expected_config_dir = trainer.project_root / "config"
-        assert expected_config_dir.is_absolute(), (
-            "trainer.project_root / 'config' must be an absolute path. "
-            "Path('config') would be CWD-relative and break on remote deployments."
+        # project_root must NOT equal the tmp CWD — it must be the repo root
+        assert trainer.project_root != tmp_path, (
+            "KohyaTrainer.project_root must not equal Path.cwd(). "
+            "Use Path(__file__).resolve().parents[2] for VastAI/RunPod compatibility."
+        )
+        assert (trainer.project_root / "config").is_absolute(), (
+            "trainer.project_root / 'config' must be absolute."
         )
 
 

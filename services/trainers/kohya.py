@@ -38,8 +38,9 @@ class KohyaTrainer(BaseTrainer):
         """
         super().__init__(config)
 
-        # Project paths
-        self.project_root = Path.cwd()
+        # Project paths — anchor to the source file, not the process CWD.
+        # Path.cwd() was wrong on VastAI/RunPod where the service starts from /root or similar.
+        self.project_root = Path(__file__).resolve().parents[2]
         self.sd_scripts_dir = self.project_root / "trainer" / "derrian_backend" / "sd_scripts"
         self.config_dir = self.project_root / "trainer" / "runtime_store"
 
