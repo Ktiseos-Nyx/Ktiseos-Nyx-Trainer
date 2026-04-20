@@ -82,14 +82,15 @@ async def browse_models(
             params["types"] = types
         if baseModel:
             params["baseModel"] = baseModel
-        if not nsfw:
-            params["nsfw"] = "false"
+        params["nsfw"] = "true" if nsfw else "false"
 
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/models",
                 params=params,
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -118,10 +119,12 @@ async def get_model_details(model_id: int):
     Proxy endpoint for Civitai API /v1/models/{id} endpoint.
     """
     try:
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/models/{model_id}",
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -164,11 +167,13 @@ async def get_tags(
         if query:
             params["query"] = query
 
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/tags",
                 params=params,
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -197,10 +202,12 @@ async def get_model_version(version_id: int):
     Proxy endpoint for Civitai API /v1/model-versions/{id} endpoint.
     """
     try:
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/model-versions/{version_id}",
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()

@@ -298,15 +298,6 @@ async def start_training(config: TrainingConfig):
         # Use new service layer
         response = await training_service.start_training(config)
 
-        # Add our validation warnings/info to the response
-        if validation_errors and response.success:
-            response.validation_errors.extend(
-                [
-                    {"field": e.field, "message": e.message, "severity": e.severity}
-                    for e in validation_errors
-                ]
-            )
-
         return TrainingStartResponse(
             success=response.success,
             message=response.message,
@@ -368,6 +359,9 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
         limit: max number of log lines to return (0 = no limit)
     """
     try:
+        if since < 0 or limit < 0:
+            raise HTTPException(status_code=400, detail="since and limit must be non-negative")
+
         from services.jobs import job_manager as py_job_manager
 
         job = py_job_manager.store.get(job_id)
@@ -379,7 +373,7 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
 
         # Apply limit if specified
         if limit > 0:
-            logs = logs[-limit:]
+            logs = logs[:limit]
 
         # Format logs to match the Node.js /api/jobs/[id]/logs response format
         import time

@@ -85,6 +85,11 @@ class JobManager:
             return
 
         try:
+            if not job.process.stdout:
+                job.status = JobStatusEnum.FAILED
+                job.error = "Subprocess stdout not available for monitoring"
+                return
+
             # Read stdout line by line
             async for line in job.process.stdout:
                 # Decode and normalise line endings — Windows emits \r\n and tqdm uses
@@ -206,11 +211,11 @@ class JobManager:
         if job.process:
             try:
                 job.process.terminate()
-                await asyncio.sleep(1)
-
-                # Force kill if still running
-                if job.process.returncode is None:
+                try:
+                    await asyncio.wait_for(job.process.wait(), timeout=1.0)
+                except asyncio.TimeoutError:
                     job.process.kill()
+                    await job.process.wait()
 
                 job.status = JobStatusEnum.CANCELLED
                 job.completed_at = datetime.now()

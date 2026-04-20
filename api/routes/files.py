@@ -255,7 +255,7 @@ async def serve_image(path: str):
 async def download_file(path: str):
     """Download a file"""
     try:
-        file_path = Path("/" + path).resolve()
+        file_path = Path(path).resolve()
 
         # Security check: path must reside within one of the known safe roots.
         # Inline is_relative_to() so static-analysis tools can trace the guard
@@ -384,7 +384,7 @@ async def create_directory(path: str, name: str):
 async def read_file(path: str):
     """Read text file contents (for editor)"""
     try:
-        file_path = Path("/" + path).resolve()
+        file_path = Path(path).resolve()
 
         # Security check: inline is_relative_to() so static-analysis tools can
         # trace the containment guard without resolving the custom helper.

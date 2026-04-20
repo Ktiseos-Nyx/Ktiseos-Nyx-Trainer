@@ -172,7 +172,7 @@ class KohyaTrainer(BaseTrainer):
 
         # Validate output directory
         try:
-            validate_output_path(self.config.output_name)
+            validate_output_path(self.config.output_dir)
         except PathValidationError as e:
             errors.append(f"Invalid output path: {e}")
 

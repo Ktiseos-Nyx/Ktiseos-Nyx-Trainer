@@ -77,6 +77,13 @@ Active development. Core training is working and verified across multiple LoRA t
 - **KohakuClip** (KohakuBlueleaf) — Rust-backed video frame loader with FFmpeg integration, outputs PyTorch tensors with minimal memory overhead; prerequisite research for video LoRA training (Wan, Mochi, etc.) if that gets added
 - **KohakuEngine** (KohakuBlueleaf) — Python-first config and execution runner; supports parallel hyperparameter sweeps and sequential workflows without touching script code; investigate alongside KohakuVault when job queue work happens
 
+### Tech Upgrades — Gated on Milestones
+- **Dev-branch installer access** — add `--branch dev` (or similar) flag to `install.bat`/`install.sh` so beta testers can opt into the dev branch without manual git commands; not needed in alpha but useful once beta testing ramps up
+
+
+- **Next.js 16** — upgrade when ComfyUI integration work begins, not before; that phase also brings in the team's own dataset tools / metadata viewer (already built in Next 16) plus reference from an older Python edition of the same tool. Batching the upgrade with real new functionality avoids churn.
+- **Tauri desktop wrapper** — post-beta, wrap the trainer in Tauri (not Electron) for a proper desktop app experience: system tray, native file dialogs, auto-start, smaller binary. Tauri uses the OS native webview so no bundled Chromium. Standardize on Tauri for both the trainer and the dataset tools — native file open/save calls via `@tauri-apps/api/dialog` and `@tauri-apps/api/fs`, written once and shared. Note: Electron requires baking into the architecture from day one; Tauri is more forgiving about being added to an existing Next.js app later.
+
 ### Post-Beta / Pre-Stable — Future Model Types
 - **Qwen Image LoRA** — `networks.lora_qwen_image`, base model version `qwen_image`; vendored sd-scripts has the VAE autoencoder but no training script yet; needs upstream support before we can wire UI
 
