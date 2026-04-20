@@ -141,6 +141,11 @@ class JobManager:
                 if not job.error:
                     job.error = f"Process exited with code {returncode}"
                 logger.error(f"Job {job_id} failed: {job.error}")
+                # Log the last 30 lines so the full traceback appears in app.log
+                all_logs = job.get_logs(0)
+                tail = all_logs[-30:] if len(all_logs) > 30 else all_logs
+                if tail:
+                    logger.error(f"Job {job_id} final output:\n" + "\n".join(tail))
 
         except asyncio.CancelledError:
             job.status = JobStatusEnum.CANCELLED

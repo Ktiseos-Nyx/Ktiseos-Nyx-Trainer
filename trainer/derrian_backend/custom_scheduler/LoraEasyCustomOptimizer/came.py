@@ -33,6 +33,13 @@ class CAME(BaseOptimizer):
     :param eps2: float. term added to the denominator to improve numerical stability.
     """
 
+    # Maps string dtype names (from optimizer_args) to torch dtypes
+    _DTYPE_MAP = {
+        "float32": torch.float32, "float": torch.float32,
+        "float16": torch.float16, "fp16": torch.float16,
+        "bfloat16": torch.bfloat16, "bf16": torch.bfloat16,
+    }
+
     def __init__(
         self,
         params: PARAMETERS,
@@ -45,6 +52,8 @@ class CAME(BaseOptimizer):
         ams_bound: bool = False,
         eps1: float = 1e-30,
         eps2: float = 1e-16,
+        state_storage_dtype: Optional[Union[str, torch.dtype]] = None,
+        state_storage_device: Optional[Union[str, torch.device]] = None,
         **kwargs,
     ):
         self.validate_learning_rate(lr)
@@ -56,6 +65,12 @@ class CAME(BaseOptimizer):
         self.clip_threshold = clip_threshold
         self.eps1 = eps1
         self.eps2 = eps2
+
+        # Optional low-precision state storage (e.g. bfloat16 on cuda saves VRAM)
+        if isinstance(state_storage_dtype, str):
+            state_storage_dtype = self._DTYPE_MAP.get(state_storage_dtype.lower())
+        self._state_storage_dtype = state_storage_dtype
+        self._state_storage_device = state_storage_device
 
         defaults: DEFAULTS = {
             "lr": lr,
@@ -84,18 +99,22 @@ class CAME(BaseOptimizer):
         state = self.state[p]
         state["exp_avg"] = torch.zeros_like(p)
 
+        # Use requested storage dtype/device if provided, else match gradient
+        s_dtype = self._state_storage_dtype if self._state_storage_dtype is not None else grad.dtype
+        s_device = self._state_storage_device if self._state_storage_device is not None else grad.device
+
         if factored:
             state["exp_avg_sq_row"] = torch.zeros(
-                grad_shape[:-1], dtype=grad.dtype, device=grad.device
+                grad_shape[:-1], dtype=s_dtype, device=s_device
             )
             state["exp_avg_sq_col"] = torch.zeros(
-                grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
+                grad_shape[:-2] + grad_shape[-1:], dtype=s_dtype, device=s_device
             )
             state["exp_avg_res_row"] = torch.zeros(
-                grad_shape[:-1], dtype=grad.dtype, device=grad.device
+                grad_shape[:-1], dtype=s_dtype, device=s_device
             )
             state["exp_avg_res_col"] = torch.zeros(
-                grad_shape[:-2] + grad_shape[-1:], dtype=grad.dtype, device=grad.device
+                grad_shape[:-2] + grad_shape[-1:], dtype=s_dtype, device=s_device
             )
         else:
             state["exp_avg_sq"] = torch.zeros_like(grad)

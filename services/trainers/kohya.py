@@ -68,7 +68,7 @@ class KohyaTrainer(BaseTrainer):
         self.toml_generator.generate_config_toml(config_toml_runtime)
 
         # 4. Copy to User Config Folder
-        user_config_dir = Path("config")
+        user_config_dir = self.project_root / "config"
         user_config_dir.mkdir(exist_ok=True)
 
         dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
@@ -109,9 +109,13 @@ class KohyaTrainer(BaseTrainer):
             # so LoraEasyCustomOptimizer.came.CAME etc. resolve even if editable install failed
             new_paths = f"{derrian_dir}{os.pathsep}{custom_sched_dir}"
             env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_paths
+            # Force unbuffered stdout so logs stream in real-time instead of arriving
+            # all at once when the process exits (Python buffers stdout when piped).
+            env["PYTHONUNBUFFERED"] = "1"
 
             process = await asyncio.create_subprocess_exec(
                 cmd[0],  # Program (python)
+                "-u",    # Unbuffered — belt-and-suspenders with PYTHONUNBUFFERED=1
                 *cmd[1:],  # Arguments
                 cwd=self.sd_scripts_dir,
                 stdout=asyncio.subprocess.PIPE,  # Capture stdout
@@ -224,7 +228,7 @@ class KohyaTrainer(BaseTrainer):
         self.toml_generator.generate_config_toml(config_toml_runtime)
 
         # Copy to user config folder
-        user_config_dir = Path("config")
+        user_config_dir = self.project_root / "config"
         user_config_dir.mkdir(exist_ok=True)
 
         dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
@@ -246,7 +250,7 @@ class KohyaTrainer(BaseTrainer):
             Command as list of strings
         """
         # Get config file paths (they should exist from generate_config_files)
-        user_config_dir = Path("config")
+        user_config_dir = self.project_root / "config"
         dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
         config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
 
