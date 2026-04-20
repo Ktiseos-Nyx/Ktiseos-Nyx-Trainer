@@ -118,6 +118,7 @@ class CAME(BaseOptimizer):
             )
         else:
             state["exp_avg_sq"] = torch.zeros_like(grad)
+            state["exp_avg_res_sq"] = torch.zeros_like(grad)
 
         if ams_bound:
             state["exp_avg_sq_hat"] = torch.zeros_like(grad)
@@ -213,8 +214,6 @@ class CAME(BaseOptimizer):
                 if len(state) == 0:
                     self._init_param_state(p, grad, grad_shape, factored, group["ams_bound"])
 
-                state["RMS"] = self.get_rms(p)
-
                 p_data_fp32 = p
                 if p.dtype in {torch.float16, torch.bfloat16}:
                     p_data_fp32 = p_data_fp32.to(torch.float32)
@@ -257,7 +256,10 @@ class CAME(BaseOptimizer):
                     self.approximate_sq_grad(exp_avg_res_row, exp_avg_res_col, update)
                     update.mul_(exp_avg)
                 else:
-                    update = exp_avg
+                    exp_avg_res_sq = state["exp_avg_res_sq"]
+                    exp_avg_res_sq.mul_(beta3).add_(res, alpha=1.0 - beta3)
+                    torch.rsqrt(exp_avg_res_sq, out=update)
+                    update.mul_(exp_avg)
 
                 self.apply_weight_decay(
                     p=p_data_fp32,
@@ -279,6 +281,7 @@ class CAME(BaseOptimizer):
 
 
 def copy_stochastic_(target: torch.Tensor, source: torch.Tensor):
+    assert source.dtype == torch.float32, f"copy_stochastic_ requires float32 source, got {source.dtype}"
     # create a random 16 bit integer
     result = torch.randint_like(
         source,

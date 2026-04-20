@@ -87,7 +87,7 @@
     "text_encoder_lr": 0.0001,
     "train_batch_size": 1,
     "train_on_input": true,
-    "training_comment": "lxrssrrd woman",
+    "training_comment": "",
     "unet_lr": 0.0001,
     "unit": 1,
     "up_lr_weight": "",

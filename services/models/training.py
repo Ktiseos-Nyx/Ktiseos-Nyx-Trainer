@@ -7,7 +7,8 @@ Matches frontend TrainingConfig interface from api.ts.
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ModelType(str, Enum):
@@ -225,7 +226,7 @@ class TrainingConfig(BaseModel):
     weight_decay: float = Field(0.01, ge=0.0, description="Weight decay")
     gradient_accumulation_steps: int = Field(1, ge=1, description="Gradient accumulation")
     max_grad_norm: float = Field(1.0, gt=0, description="Max gradient norm")
-    optimizer_args: Optional[str] = Field(None, description="Custom optimizer args JSON")
+    optimizer_args: Optional[str] = Field(None, description="Space-separated CLI args (e.g. 'd0=1e-5 weight_decay=0.1')")
 
     # ========== CAPTION & TOKEN CONTROL ==========
     keep_tokens: int = Field(0, ge=0, description="Tokens to keep (no dropout)")
@@ -402,8 +403,7 @@ class TrainingConfig(BaseModel):
         # Pydantic will handle validation errors appropriately
         return v
 
-    class Config:
-        use_enum_values = True  # Store enum values as strings in dict
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class TrainingStartRequest(BaseModel):
@@ -422,7 +422,7 @@ class TrainingStartResponse(BaseModel):
 class TrainingStatusResponse(BaseModel):
     """Training status response."""
     job_id: str
-    status: str
+    status: Literal["pending", "running", "completed", "failed", "cancelled"]
     progress: int = Field(ge=0, le=100)
     current_epoch: Optional[int] = None
     total_epochs: Optional[int] = None

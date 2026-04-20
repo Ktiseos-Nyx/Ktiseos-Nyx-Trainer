@@ -65,8 +65,9 @@ def validate_dataset_path(dataset_name: str) -> Path:
     elif dataset_name.startswith("datasets\\"):
         dataset_name = dataset_name[9:]
 
-    # Remove path traversal attempts
-    clean_name = dataset_name.replace("..", "").replace("/", "").replace("\\", "").strip()
+    # Strip whitespace only — resolve() handles .. and symlinks safely.
+    # Preserves valid subdirectory paths like "character/v2".
+    clean_name = dataset_name.strip()
 
     if not clean_name:
         raise ValidationError("Dataset name cannot be empty")
@@ -82,7 +83,7 @@ def validate_dataset_path(dataset_name: str) -> Path:
     except (ValueError, OSError) as e:
         raise ValidationError(f"Invalid dataset path: {e}")
 
-    return dataset_path
+    return resolved
 
 
 def validate_model_path(model_name: str) -> Path:
@@ -115,8 +116,8 @@ def validate_model_path(model_name: str) -> Path:
         except (ValueError, OSError):
             pass
 
-    # Remove path traversal attempts
-    clean_name = model_name.replace("..", "").replace("/", "").replace("\\", "").strip()
+    # Strip whitespace only — resolve() handles .. and symlinks safely.
+    clean_name = model_name.strip()
 
     if not clean_name:
         raise ValidationError("Model name cannot be empty")
@@ -128,7 +129,7 @@ def validate_model_path(model_name: str) -> Path:
         resolved = model_path.resolve()
         if _in_model_dirs(resolved):
             if resolved.exists():
-                return model_path
+                return resolved
             # Path is within model dirs but file not found there — try VAE dir
             vae_check = (VAE_DIR / clean_name).resolve()
             if vae_check.exists() and _in_model_dirs(vae_check):
@@ -234,7 +235,7 @@ def validate_output_path(filename: str) -> Path:
         except (ValueError, OSError):
             pass
 
-    clean_name = filename.replace("..", "").replace("/", "").replace("\\", "").strip()
+    clean_name = filename.strip()
 
     if not clean_name:
         raise ValidationError("Output filename cannot be empty")
@@ -248,7 +249,7 @@ def validate_output_path(filename: str) -> Path:
     except (ValueError, OSError) as e:
         raise ValidationError(f"Invalid output path: {e}")
 
-    return output_path
+    return resolved
 
 
 def validate_path_within(user_path: str, allowed_dirs: list) -> Path:

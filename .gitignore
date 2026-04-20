@@ -240,6 +240,9 @@ test_*.py
 debug_*.py
 *_test.py
 *_debug.py
+# Allow the actual test suite
+!tests/test_*.py
+!tests/*_test.py
 
 # ----------------------------------------------------------------------------
 # AI/ML Specific

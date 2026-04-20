@@ -2,7 +2,7 @@
 Pydantic models for caption editing operations.
 """
 
-from typing import Optional, List
+from typing import Literal, Optional, List
 from pydantic import BaseModel, Field
 
 
@@ -18,14 +18,14 @@ class AddTriggerWordRequest(BaseModel):
     """Request to add trigger word to captions."""
     dataset_dir: str = Field(..., description="Dataset directory path")
     trigger_word: str = Field(..., min_length=1, description="Trigger word to add")
-    position: str = Field("start", description="'start' or 'end'")
+    position: Literal["start", "end"] = "start"
     caption_extension: str = Field(".txt", description="Caption file extension")
 
 
 class RemoveTagsRequest(BaseModel):
     """Request to remove tags from captions."""
     dataset_dir: str = Field(..., description="Dataset directory path")
-    tags_to_remove: List[str] = Field(..., min_items=1, description="Tags to remove")
+    tags_to_remove: List[str] = Field(..., min_length=1, description="Tags to remove")
     caption_extension: str = Field(".txt", description="Caption file extension")
 
 

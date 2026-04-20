@@ -7,7 +7,7 @@ import logging
 import mimetypes
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 # Ensure WebP and other formats are registered on minimal systems that lack them
 mimetypes.add_type('image/webp', '.webp')
@@ -40,7 +40,7 @@ class FileInfo(BaseModel):
     """File or directory information"""
     name: str
     path: str
-    type: str  # "file" or "dir"
+    type: Literal["file", "dir"]
     size: int
     modified: float
     is_image: bool = False
@@ -52,6 +52,19 @@ class DirectoryListing(BaseModel):
     path: str
     parent: Optional[str]
     files: List[FileInfo]
+
+
+def _resolve_route_path(path: str) -> Path:
+    """Reconstruct an absolute path from a FastAPI {path:path} capture.
+
+    FastAPI strips the leading slash from absolute paths (e.g. /home/user/file
+    becomes home/user/file). On Linux we re-add the slash; on Windows the path
+    is already absolute (C:/Users/...) so we leave it alone.
+    """
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    return Path(f"/{path}").resolve()
 
 
 def is_safe_path(resolved_path: Path) -> bool:
@@ -255,7 +268,7 @@ async def serve_image(path: str):
 async def download_file(path: str):
     """Download a file"""
     try:
-        file_path = Path("/" + path).resolve()
+        file_path = _resolve_route_path(path)
 
         # Security check: path must reside within one of the known safe roots.
         # Inline is_relative_to() so static-analysis tools can trace the guard
@@ -384,7 +397,7 @@ async def create_directory(path: str, name: str):
 async def read_file(path: str):
     """Read text file contents (for editor)"""
     try:
-        file_path = Path("/" + path).resolve()
+        file_path = _resolve_route_path(path)
 
         # Security check: inline is_relative_to() so static-analysis tools can
         # trace the containment guard without resolving the custom helper.

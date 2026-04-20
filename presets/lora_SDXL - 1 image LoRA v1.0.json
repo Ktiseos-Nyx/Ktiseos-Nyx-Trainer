@@ -96,7 +96,7 @@
     "train_batch_size": 1,
     "train_norm": false,
     "train_on_input": true,
-    "training_comment": "trigger: 1girl, solo, long hair, breasts, looking at viewer, smile, large breasts, brown hair, holding, brown eyes, standing, swimsuit, flower, bikini, lips, highleg, realistic, pink bikini, holding flower",
+    "training_comment": "",
     "unet_lr": 1.0,
     "unit": 1,
     "up_lr_weight": "",

@@ -85,6 +85,16 @@ class JobManager:
             return
 
         try:
+            if not job.process.stdout:
+                job.status = JobStatusEnum.FAILED
+                job.error = "Subprocess stdout not available for monitoring"
+                job.completed_at = datetime.now()
+                try:
+                    job.process.terminate()
+                except Exception:
+                    pass
+                return
+
             # Read stdout line by line
             async for line in job.process.stdout:
                 # Decode and normalise line endings — Windows emits \r\n and tqdm uses
@@ -136,6 +146,8 @@ class JobManager:
                 job.status = JobStatusEnum.COMPLETED
                 job.progress = 100
                 logger.info(f"Job {job_id} completed successfully")
+            elif job.status == JobStatusEnum.CANCELLED:
+                logger.info(f"Job {job_id} process exited after cancellation")
             else:
                 job.status = JobStatusEnum.FAILED
                 if not job.error:
@@ -206,11 +218,11 @@ class JobManager:
         if job.process:
             try:
                 job.process.terminate()
-                await asyncio.sleep(1)
-
-                # Force kill if still running
-                if job.process.returncode is None:
+                try:
+                    await asyncio.wait_for(job.process.wait(), timeout=1.0)
+                except asyncio.TimeoutError:
                     job.process.kill()
+                    await job.process.wait()
 
                 job.status = JobStatusEnum.CANCELLED
                 job.completed_at = datetime.now()

@@ -68,7 +68,7 @@ class SavePresetRequest(BaseModel):
 async def list_config_templates():
     """List available configuration templates"""
     try:
-        templates_dir = Path("example_configs")
+        templates_dir = PROJECT_ROOT / "example_configs"
 
         if not templates_dir.exists():
             return {"templates": []}
@@ -150,11 +150,15 @@ async def save_config(request: SaveConfigRequest):
     both dataset.toml and config.toml files that sd-scripts expects.
     """
     try:
-        # Use relative path from project root
-        config_dir = Path(__file__).parent.parent.parent / "config"
+        import re
+        safe_name = re.sub(r'[^a-zA-Z0-9_\- ]', '_', request.name).strip()
+        if not safe_name:
+            raise HTTPException(status_code=400, detail="Invalid config name")
+
+        config_dir = PROJECT_ROOT / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
 
-        config_path = config_dir / f"{request.name}.toml"
+        config_path = config_dir / f"{safe_name}.toml"
 
         # Save as TOML
         with open(config_path, 'w') as f:
@@ -167,6 +171,8 @@ async def save_config(request: SaveConfigRequest):
             "path": str(config_path)
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to save config: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -363,6 +369,9 @@ async def get_preset(preset_id: str):
         preset_id: The preset filename (without .json extension)
     """
     try:
+        if "/" in preset_id or "\\" in preset_id or ".." in preset_id:
+            raise HTTPException(status_code=400, detail="Invalid preset identifier")
+
         preset_path = PRESETS_DIR / f"{preset_id}.json"
 
         if not preset_path.exists():
@@ -447,6 +456,9 @@ async def delete_preset(preset_id: str):
     Built-in presets cannot be deleted
     """
     try:
+        if "/" in preset_id or "\\" in preset_id or ".." in preset_id:
+            raise HTTPException(status_code=400, detail="Invalid preset identifier")
+
         preset_path = PRESETS_DIR / f"{preset_id}.json"
 
         if not preset_path.exists():

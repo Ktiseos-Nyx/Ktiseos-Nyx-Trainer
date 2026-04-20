@@ -92,7 +92,7 @@
     "train_batch_size": 2,
     "train_norm": false,
     "train_on_input": false,
-    "training_comment": "KoopaTroopa",
+    "training_comment": "",
     "unet_lr": 1.0,
     "unit": 1,
     "up_lr_weight": "",

@@ -2,7 +2,7 @@
 Pydantic models for dataset operations.
 """
 
-from typing import Optional, List
+from typing import Literal, Optional, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -11,7 +11,7 @@ class FileInfo(BaseModel):
     """Information about a file or directory."""
     name: str
     path: str
-    type: str = Field(..., description="'file' or 'dir'")
+    type: Literal["file", "dir"]
     size: int = Field(0, description="File size in bytes")
     modified: float = Field(..., description="Last modified timestamp")
     is_image: bool = Field(False, description="Whether file is an image")

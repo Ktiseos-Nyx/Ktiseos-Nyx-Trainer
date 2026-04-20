@@ -680,6 +680,8 @@ async def serve_dataset_image(dataset_name: str, filename: str):
         media_type = "image/png"
     elif safe_filename.lower().endswith((".jpg", ".jpeg")):
         media_type = "image/jpeg"
+    elif safe_filename.lower().endswith(".bmp"):
+        media_type = "image/bmp"
 
     # 3. Serve the file with the explicit header
     return FileResponse(file_path, media_type=media_type)

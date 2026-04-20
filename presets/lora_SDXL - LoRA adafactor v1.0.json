@@ -83,7 +83,7 @@
     "text_encoder_lr": 1.0,
     "train_batch_size": 5,
     "train_on_input": false,
-    "training_comment": "trigger: the white queen",
+    "training_comment": "",
     "unet_lr": 1.0,
     "unit": 1,
     "up_lr_weight": "",

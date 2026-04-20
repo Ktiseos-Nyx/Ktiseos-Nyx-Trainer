@@ -5,6 +5,8 @@ Attribution: Inspired by sd-webui-civbrowser extension
 https://github.com/SignalFlagZ/sd-webui-civbrowser
 """
 
+import asyncio
+
 import aiohttp
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List
@@ -82,14 +84,15 @@ async def browse_models(
             params["types"] = types
         if baseModel:
             params["baseModel"] = baseModel
-        if not nsfw:
-            params["nsfw"] = "false"
+        params["nsfw"] = "true" if nsfw else "false"
 
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/models",
                 params=params,
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -104,8 +107,12 @@ async def browse_models(
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -118,10 +125,12 @@ async def get_model_details(model_id: int):
     Proxy endpoint for Civitai API /v1/models/{id} endpoint.
     """
     try:
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/models/{model_id}",
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -138,6 +147,8 @@ async def get_model_details(model_id: int):
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
     except HTTPException:
@@ -164,11 +175,13 @@ async def get_tags(
         if query:
             params["query"] = query
 
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/tags",
                 params=params,
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -183,8 +196,12 @@ async def get_tags(
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -197,10 +214,12 @@ async def get_model_version(version_id: int):
     Proxy endpoint for Civitai API /v1/model-versions/{id} endpoint.
     """
     try:
+        timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{CIVITAI_API_BASE}/model-versions/{version_id}",
-                headers=get_civitai_headers()
+                headers=get_civitai_headers(),
+                timeout=timeout,
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -217,6 +236,8 @@ async def get_model_version(version_id: int):
                         detail=f"Civitai API error: {error_text}"
                     )
 
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Civitai API request timed out")
     except aiohttp.ClientError as e:
         raise HTTPException(status_code=503, detail=f"Failed to connect to Civitai: {str(e)}")
     except HTTPException:
