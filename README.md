@@ -18,6 +18,7 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
   - [Starting the App](#starting-the-app)
   - [Updating](#updating)
 - [What It Does](#what-it-does)
+- [Testing](#testing)
 - [Documentation](#documentation)
 - [Support](#support)
 - [Credits](#credits--acknowledgements)
@@ -38,7 +39,7 @@ Active development. Core training is working and verified across multiple LoRA t
 - ✅ **HuggingFace upload** — Direct upload after training
 - ✅ **Custom optimizers** — CAME, Compass, LPFAdamW, RMSProp via vendored LoraEasyCustomOptimizer
 - ✅ **Security** — Path traversal prevention, input validation across all endpoints
-- ✅ **Cross-platform** — Linux primary, Windows supported (WSL2 recommended for best results)
+- ✅ **Cross-platform** — Windows and Linux for local use; VastAI and RunPod for remote GPU
 
 ### Known Rough Edges
 
@@ -53,15 +54,33 @@ Active development. Core training is working and verified across multiple LoRA t
 
 ## Roadmap
 
-### Beta (next)
+### Beta (multi-phase — not a one-month sprint)
+
+**Phase 1 — Core stability**
 - Training progress display that actually works
 - Job queue for sequential training runs
-- Preset UI reorganization — filter by model family and use case
-- Expose missing optimizers and schedulers in UI
 - Upload progress indicator for large datasets
+
+**Phase 2 — UX polish**
+- Preset UI reorganization — filter by model family and use case
 - Caption sanitization pre-flight check
 
-### Post-Beta / Pre-Stable
+**Phase 3 — Optimizer & scheduler expansion**
+- Expose missing optimizers in UI: Compass, LPFAdamW, RMSProp
+- Expose missing schedulers in UI: Rex, CosineAnnealing
+- Schedule-free optimizers: AdamWScheduleFree, SGDScheduleFree, RAdamScheduleFree (Facebook Research schedulefree), AdamWminiScheduleFree (muooon) — with smart UI that sets scheduler to constant automatically
+- FlashOptim (Databricks) — research item, may be out of scope depending on complexity
+
+### Maybe Beta — Under Consideration
+- **musubi-tuner** (kohya-ss) — Kohya's newer tuning framework. Same dev as sd-scripts so likely compatible, but needs research into how much integration work it requires vs. what it unlocks
+- **KohakuVault** (KohakuBlueleaf) — database system; investigate pairing with the job queue once that lands for persistent training run storage and history
+- **KohakuClip** (KohakuBlueleaf) — Rust-backed video frame loader with FFmpeg integration, outputs PyTorch tensors with minimal memory overhead; prerequisite research for video LoRA training (Wan, Mochi, etc.) if that gets added
+- **KohakuEngine** (KohakuBlueleaf) — Python-first config and execution runner; supports parallel hyperparameter sweeps and sequential workflows without touching script code; investigate alongside KohakuVault when job queue work happens
+
+### Post-Beta / Pre-Stable — Future Model Types
+- **Qwen Image LoRA** — `networks.lora_qwen_image`, base model version `qwen_image`; vendored sd-scripts has the VAE autoencoder but no training script yet; needs upstream support before we can wire UI
+
+
 - ComfyUI inference integration — generate images directly from the trainer UI without a separate WebUI
 - Embedding merge tool — create and combine TI embeddings via vector arithmetic (port of klimaleksus/embedding-merge concept)
 - VAE fine-tuning support
@@ -233,6 +252,55 @@ REM Linux
 - LoRA resizing and metadata editing
 - HuggingFace uploads direct from the web UI
 - Model downloads from Civitai and HuggingFace
+
+---
+
+## Testing
+
+The test suite validates the API plumbing without requiring a GPU, PyTorch, or an actual training run. Tests mock the ML stack entirely — think of it as testing the mailroom, not the letters.
+
+**Why this matters:** the primary dev machine runs an AMD RX 580 (no CUDA), so tests must run on commodity hardware. See [issue #329](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues/329) for the full rationale.
+
+### Setup
+
+```bash
+# Activate your venv first (if you have one)
+source .venv/bin/activate      # Linux
+.venv\Scripts\activate         # Windows
+
+# Install dev dependencies (separate from production requirements)
+pip install -r requirements_dev.txt
+```
+
+### Running the tests
+
+```bash
+# Run all plumbing tests (~5 seconds, no GPU needed)
+pytest tests/test_api_plumbing.py -v
+
+# Run a specific test class
+pytest tests/test_api_plumbing.py::TestPathValidation -v
+
+# Skip any future tests marked as needing real hardware
+pytest tests/ -m "not slow"
+```
+
+### What the tests cover
+
+| Area | What's tested |
+|---|---|
+| **Path validation** | Windows absolute paths aren't mangled by drive-letter casing; out-of-bounds paths rejected |
+| **Training endpoint** | Validation failures surface as `success=False`; malformed payloads get 422 |
+| **Subprocess launch** | `-u` flag and `PYTHONUNBUFFERED=1` present so logs stream in real-time |
+| **Config paths** | TOML config dir anchored to project root, not process CWD |
+| **Job failure logging** | Full traceback (not just the first line) written to `app.log` on crash |
+| **Log buffer** | Subprocess stdout lines reach the in-memory buffer the UI polls |
+
+### Adding new tests
+
+- Add test files to `tests/`
+- Tests that need a real GPU or sd-scripts: mark with `@pytest.mark.slow`
+- No torch, no CUDA, no actual training — mock it all at the subprocess layer
 
 ---
 
