@@ -7,7 +7,7 @@ Used for job status tracking and WebSocket responses.
 from enum import Enum
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JobType(str, Enum):
@@ -53,8 +53,8 @@ class JobStatus(BaseModel):
     error: Optional[str] = Field(None, description="Error message if failed")
     error_traceback: Optional[str] = Field(None, description="Full traceback for debugging")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "job-abc123",
                 "job_type": "training",
@@ -67,19 +67,21 @@ class JobStatus(BaseModel):
                 "started_at": "2025-11-29T10:00:05Z"
             }
         }
+    )
 
 
 class JobCreateResponse(BaseModel):
     """Response when creating a new job"""
     job_id: str
-    status: str = "started"
+    status: JobStatusEnum = JobStatusEnum.RUNNING
     message: Optional[str] = None
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "job-abc123",
-                "status": "started",
+                "status": "running",
                 "message": "Training job started successfully"
             }
         }
+    )

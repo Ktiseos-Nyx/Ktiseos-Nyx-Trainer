@@ -70,7 +70,7 @@ class ModelInfo(BaseModel):
     """Information about a downloaded model file."""
     name: str = Field(..., description="Filename")
     path: str = Field(..., description="Full file path")
-    size_mb: float = Field(..., description="File size in MB")
+    size_mb: float = Field(..., ge=0, description="File size in MB")
     type: ModelType = Field(..., description="Model type")
 
 

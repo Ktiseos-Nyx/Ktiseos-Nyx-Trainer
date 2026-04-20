@@ -3,7 +3,7 @@ Common Pydantic models shared across services.
 """
 
 from typing import Generic, TypeVar, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 # Generic type variable for pagination
 T = TypeVar('T')
@@ -24,9 +24,9 @@ class PaginatedResponse(BaseModel, Generic[T]):
         )
     """
     items: list[T]
-    total: int
-    page: int
-    page_size: int
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1)
 
     @property
     def pages(self) -> int:
@@ -54,11 +54,12 @@ class ErrorResponse(BaseModel):
     detail: Optional[str] = None
     field: Optional[str] = None  # For validation errors
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": "ValidationError",
                 "detail": "Learning rate must be between 0 and 1",
                 "field": "learning_rate"
             }
         }
+    )

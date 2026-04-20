@@ -7,7 +7,7 @@ import logging
 import mimetypes
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 # Ensure WebP and other formats are registered on minimal systems that lack them
 mimetypes.add_type('image/webp', '.webp')
@@ -40,7 +40,7 @@ class FileInfo(BaseModel):
     """File or directory information"""
     name: str
     path: str
-    type: str  # "file" or "dir"
+    type: Literal["file", "dir"]
     size: int
     modified: float
     is_image: bool = False
