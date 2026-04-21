@@ -142,12 +142,12 @@ class JobManager:
             # Update job status based on exit code
             job.completed_at = datetime.now()
 
-            if returncode == 0:
+            if job.status == JobStatusEnum.CANCELLED:
+                logger.info(f"Job {job_id} process exited after cancellation")
+            elif returncode == 0:
                 job.status = JobStatusEnum.COMPLETED
                 job.progress = 100
                 logger.info(f"Job {job_id} completed successfully")
-            elif job.status == JobStatusEnum.CANCELLED:
-                logger.info(f"Job {job_id} process exited after cancellation")
             else:
                 job.status = JobStatusEnum.FAILED
                 if not job.error:

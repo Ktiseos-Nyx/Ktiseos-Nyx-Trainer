@@ -175,7 +175,10 @@ class KohyaTrainer(BaseTrainer):
         # validate_output_path() is designed for filenames, not full directory paths,
         # so we do the containment check inline here.
         try:
-            out_resolved = Path(self.config.output_dir).resolve()
+            out_path = Path(self.config.output_dir)
+            if not out_path.is_absolute():
+                out_path = self.project_root / out_path
+            out_resolved = out_path.resolve()
             allowed = [self.project_root, Path.home()]
             if not any(out_resolved == a or out_resolved.is_relative_to(a) for a in allowed):
                 errors.append(f"Output directory outside allowed paths: {self.config.output_dir}")
