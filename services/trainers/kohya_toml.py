@@ -223,12 +223,34 @@ class KohyaTOMLGenerator:
     # (via `pip install -e .` on trainer/derrian_backend/custom_scheduler/),
     # so the import root is the package name, NOT the directory path.
     # Original paths from derrian's utils/validation.py.
+    CUSTOM_SCHEDULER_PATHS = {
+        "rex": "LoraEasyCustomOptimizer.RexAnnealingWarmRestarts.RexAnnealingWarmRestarts",
+        "cosine_annealing": "LoraEasyCustomOptimizer.CosineAnnealingWarmRestarts.CosineAnnealingWarmRestarts",
+    }
+
     CUSTOM_OPTIMIZER_PATHS = {
         "CAME": "LoraEasyCustomOptimizer.came.CAME",
         "Compass": "LoraEasyCustomOptimizer.compass.Compass",
         "LPFAdamW": "LoraEasyCustomOptimizer.lpfadamw.LPFAdamW",
         "RMSProp": "LoraEasyCustomOptimizer.rmsprop.RMSProp",
+        # Schedule-free optimizers (schedulefree package)
+        "AdamWScheduleFree": "schedulefree.AdamWScheduleFree",
+        "SGDScheduleFree": "schedulefree.SGDScheduleFree",
+        "RAdamScheduleFree": "schedulefree.RAdamScheduleFree",
     }
+
+    def _resolve_scheduler(self) -> dict:
+        """
+        Return the correct scheduler TOML key/value.
+
+        Standard schedulers use lr_scheduler = "cosine" etc.
+        Custom vendored schedulers use lr_scheduler_type = "dotted.Module.Class"
+        which Kohya resolves via importlib (same mechanism as custom optimizers).
+        """
+        path = self.CUSTOM_SCHEDULER_PATHS.get(self.config.lr_scheduler)
+        if path:
+            return {"lr_scheduler_type": path}
+        return {"lr_scheduler": self.config.lr_scheduler}
 
     def _resolve_optimizer_type(self, optimizer_type: str) -> str:
         """
@@ -311,7 +333,7 @@ class KohyaTOMLGenerator:
             "seed": self.config.seed,
             "unet_lr": self.config.unet_lr,
             "text_encoder_lr": self.config.text_encoder_lr,
-            "lr_scheduler": self.config.lr_scheduler,
+            **self._resolve_scheduler(),
             "lr_scheduler_num_cycles": self.config.lr_scheduler_number,
             # Kohya's --lr_warmup_steps accepts floats < 1 as ratios of total steps.
             # If user set a warmup ratio but no explicit steps, pass the ratio instead.

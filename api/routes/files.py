@@ -8,6 +8,7 @@ import mimetypes
 import shutil
 from pathlib import Path
 from typing import List, Literal, Optional
+from urllib.parse import quote
 
 # Ensure WebP and other formats are registered on minimal systems that lack them
 mimetypes.add_type('image/webp', '.webp')
@@ -16,7 +17,7 @@ mimetypes.add_type('image/jxl', '.jxl')
 
 import aiofiles
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -283,10 +284,31 @@ async def download_file(path: str):
         if not file_path.is_file():
             raise HTTPException(status_code=400, detail="Path is not a file")
 
-        return FileResponse(
-            path=file_path,
-            filename=file_path.name,
-            media_type="application/octet-stream"
+        # Snapshot size at request time so active log files don't stream indefinitely
+        snapshot_size = file_path.stat().st_size
+        remaining = snapshot_size
+
+        async def _file_chunks():
+            nonlocal remaining
+            async with aiofiles.open(file_path, "rb") as f:
+                while remaining > 0:
+                    chunk = await f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+
+        # RFC 5987 encoding so non-ASCII filenames don't raise UnicodeEncodeError
+        fallback_name = "".join(
+            ch if 32 <= ord(ch) < 127 and ch not in {'"', "\\"} else "_"
+            for ch in file_path.name
+        ) or "download"
+        encoded_name = quote(file_path.name, safe="")
+
+        return StreamingResponse(
+            _file_chunks(),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{fallback_name}"; filename*=UTF-8\'\'{encoded_name}'},
         )
 
     except HTTPException:

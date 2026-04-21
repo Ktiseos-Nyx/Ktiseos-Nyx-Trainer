@@ -35,7 +35,8 @@ export async function GET(request: NextRequest) {
           name: preset.name || path.parse(file).name,
           description: preset.description || '',
           model_type: preset.model_type,
-          config: preset,
+          created_at: preset.created_at,
+          is_builtin: preset.is_builtin || false,
         });
       } catch (error) {
         console.warn(`Failed to load preset ${file}:`, error);

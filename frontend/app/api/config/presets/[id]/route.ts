@@ -14,11 +14,15 @@ import { validateConfigPath } from '@/lib/node-services/path-validation';
  * Only allow alphanumeric, hyphens, underscores.
  */
 function sanitizePresetId(id: string): string {
-  const sanitized = id.replace(/[^a-zA-Z0-9_-]/g, '');
-  if (!sanitized) {
+  // Block traversal and directory separator characters; allow spaces/dots that appear in preset filenames
+  if (/[/\\]/.test(id) || id.includes('..')) {
     throw new Error('Invalid preset ID');
   }
-  return sanitized;
+  const trimmed = id.trim();
+  if (!trimmed) {
+    throw new Error('Invalid preset ID');
+  }
+  return trimmed;
 }
 
 export async function GET(
@@ -61,10 +65,22 @@ export async function GET(
     const content = await fs.readFile(filePath, 'utf-8');
     const preset = JSON.parse(content);
 
-    return NextResponse.json({
-      id,
-      ...preset,
-    });
+    // Old community presets (bmaltais GUI format) nest all training keys under a
+    // "config" sub-object with some different key names (e.g. LoRA_type).  Hoist
+    // them to the root so the frontend TrainingConfig fields are populated correctly.
+    let responseData: Record<string, unknown> = { id, ...preset };
+    if (preset.config && typeof preset.config === 'object' && !Array.isArray(preset.config)) {
+      const { config: nestedConfig, ...rest } = preset;
+      const { LoRA_type, ...otherConfig } = nestedConfig as Record<string, unknown>;
+      responseData = {
+        id,
+        ...rest,
+        ...(LoRA_type !== undefined ? { lora_type: LoRA_type } : {}),
+        ...otherConfig,
+      };
+    }
+
+    return NextResponse.json(responseData);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : String(error) },

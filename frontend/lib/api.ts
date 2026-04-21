@@ -220,8 +220,8 @@ export type LoRAType =
   | 'Diag-OFT'  // Diagonal Orthogonal Finetuning
   | 'BOFT'      // Butterfly OFT
   | 'ABBA';     // Activation-Based Block Adaptation (LyCORIS v3.2.0+)
-export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME';
-export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor';
+export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME' | 'Compass' | 'LPFAdamW' | 'RMSProp' | 'AdamWScheduleFree' | 'SGDScheduleFree' | 'RAdamScheduleFree';
+export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor' | 'rex' | 'cosine_annealing';
 
 export const fileAPI = {
   // ✅ MIGRATED: Uses Node.js /api/files/workspace endpoint

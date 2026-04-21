@@ -60,6 +60,12 @@ export function OptimizerCard({ form, onSave }: OptimizerCardProps) {
             { value: 'SGDNesterov', label: 'SGDNesterov', description: 'Nesterov SGD' },
             { value: 'SGDNesterov8bit', label: 'SGDNesterov8bit', description: 'Memory-efficient Nesterov' },
             { value: 'CAME', label: 'CAME', description: 'Confidence-guided adaptive (experimental)' },
+            { value: 'Compass', label: 'Compass', description: 'Vendored custom optimizer' },
+            { value: 'LPFAdamW', label: 'LPFAdamW', description: 'Low-pass filtered AdamW' },
+            { value: 'RMSProp', label: 'RMSProp', description: 'Vendored RMSProp' },
+            { value: 'AdamWScheduleFree', label: 'AdamW (Schedule-Free)', description: 'AdamW without LR scheduler' },
+            { value: 'SGDScheduleFree', label: 'SGD (Schedule-Free)', description: 'SGD without LR scheduler' },
+            { value: 'RAdamScheduleFree', label: 'RAdam (Schedule-Free)', description: 'Rectified Adam without LR scheduler' },
           ]}
         />
 
