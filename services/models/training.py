@@ -59,6 +59,14 @@ class OptimizerType(str, Enum):
     CAME = "CAME"
     SGDNESTEROV = "SGDNesterov"
     SGDNESTEROV8BIT = "SGDNesterov8bit"
+    # Vendored custom optimizers (LoraEasyCustomOptimizer)
+    COMPASS = "Compass"
+    LPFADAMW = "LPFAdamW"
+    RMSPROP = "RMSProp"
+    # Schedule-free optimizers (schedulefree package)
+    ADAMW_SCHEDULE_FREE = "AdamWScheduleFree"
+    SGD_SCHEDULE_FREE = "SGDScheduleFree"
+    RADAM_SCHEDULE_FREE = "RAdamScheduleFree"
 
 
 class LRScheduler(str, Enum):
@@ -70,6 +78,9 @@ class LRScheduler(str, Enum):
     LINEAR = "linear"
     POLYNOMIAL = "polynomial"
     ADAFACTOR = "adafactor"
+    # Custom schedulers (vendored LoraEasyCustomOptimizer, use lr_scheduler_type)
+    REX = "rex"
+    COSINE_ANNEALING = "cosine_annealing"
 
 
 class MixedPrecision(str, Enum):

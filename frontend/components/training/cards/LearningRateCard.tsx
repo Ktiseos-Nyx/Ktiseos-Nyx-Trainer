@@ -89,6 +89,8 @@ export function LearningRateCard({ form, onSave }: LearningRateCardProps) {
             { value: 'cosine_with_restarts', label: 'Cosine with Restarts', description: 'Periodic resets (best for most)' },
             { value: 'polynomial', label: 'Polynomial', description: 'Polynomial decay' },
             { value: 'adafactor', label: 'AdaFactor', description: 'Adaptive LR (use with AdaFactor optimizer)' },
+            { value: 'rex', label: 'Rex (Warm Restarts)', description: 'Vendored custom scheduler with warm restarts' },
+            { value: 'cosine_annealing', label: 'Cosine Annealing (Warm Restarts)', description: 'Vendored cosine annealing with warm restarts' },
           ]}
         />
 
