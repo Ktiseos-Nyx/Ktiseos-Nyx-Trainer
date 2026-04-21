@@ -151,7 +151,7 @@ async def save_config(request: SaveConfigRequest):
     """
     try:
         import re
-        safe_name = re.sub(r'[^a-zA-Z0-9_\- ]', '_', request.name).strip()
+        safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', request.name).strip('_')
         if not safe_name:
             raise HTTPException(status_code=400, detail="Invalid config name")
 

@@ -138,7 +138,7 @@ class KohyaTrainer(BaseTrainer):
             (is_valid, error_messages)
         """
         from services.core.validation import ValidationError as PathValidationError
-        from services.core.validation import validate_dataset_path, validate_model_path, validate_output_path
+        from services.core.validation import validate_dataset_path, validate_model_path
 
         errors = []
 
@@ -171,10 +171,15 @@ class KohyaTrainer(BaseTrainer):
             except PathValidationError as e:
                 errors.append(f"Invalid VAE path: {e}")
 
-        # Validate output directory
+        # Validate output directory is within safe bounds (project root or home).
+        # validate_output_path() is designed for filenames, not full directory paths,
+        # so we do the containment check inline here.
         try:
-            validate_output_path(self.config.output_dir)
-        except PathValidationError as e:
+            out_resolved = Path(self.config.output_dir).resolve()
+            allowed = [self.project_root, Path.home()]
+            if not any(out_resolved == a or out_resolved.is_relative_to(a) for a in allowed):
+                errors.append(f"Output directory outside allowed paths: {self.config.output_dir}")
+        except (ValueError, OSError) as e:
             errors.append(f"Invalid output path: {e}")
 
         # Flux/SD3/SD3.5/Chroma specific validation

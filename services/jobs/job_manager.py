@@ -217,6 +217,9 @@ class JobManager:
 
         if job.process:
             try:
+                # Set CANCELLED before terminate so _monitor_job sees the right
+                # status if it processes the process exit before we do.
+                job.status = JobStatusEnum.CANCELLED
                 job.process.terminate()
                 try:
                     await asyncio.wait_for(job.process.wait(), timeout=1.0)
@@ -224,7 +227,6 @@ class JobManager:
                     job.process.kill()
                     await job.process.wait()
 
-                job.status = JobStatusEnum.CANCELLED
                 job.completed_at = datetime.now()
                 logger.info(f"Job {job_id} stopped")
                 return True

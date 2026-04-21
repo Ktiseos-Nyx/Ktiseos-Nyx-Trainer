@@ -16,7 +16,7 @@ mimetypes.add_type('image/jxl', '.jxl')
 
 import aiofiles
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -283,10 +283,15 @@ async def download_file(path: str):
         if not file_path.is_file():
             raise HTTPException(status_code=400, detail="Path is not a file")
 
-        return FileResponse(
-            path=file_path,
-            filename=file_path.name,
-            media_type="application/octet-stream"
+        async def _file_chunks():
+            async with aiofiles.open(file_path, "rb") as f:
+                while chunk := await f.read(65536):
+                    yield chunk
+
+        return StreamingResponse(
+            _file_chunks(),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{file_path.name}"'},
         )
 
     except HTTPException:
