@@ -49,6 +49,13 @@ class KohyaTrainer(BaseTrainer):
             config=config, project_root=self.project_root, sd_scripts_dir=self.sd_scripts_dir
         )
 
+    def _resolved_output_dir(self) -> Path:
+        """Resolve output_dir anchored to project_root for relative paths."""
+        p = Path(self.config.output_dir)
+        if not p.is_absolute():
+            p = self.project_root / p
+        return p.resolve()
+
     async def start_training(self):
         """
         Launch Kohya training using AsyncIO (Required for JobManager compatibility).
@@ -87,7 +94,7 @@ class KohyaTrainer(BaseTrainer):
             "--dataset_config",
             str(dataset_toml_user.resolve()),
             "--output_dir",
-            str(Path(self.config.output_dir).resolve()),
+            str(self._resolved_output_dir()),
             "--output_name",
             self.config.project_name,
         ]
@@ -175,10 +182,7 @@ class KohyaTrainer(BaseTrainer):
         # validate_output_path() is designed for filenames, not full directory paths,
         # so we do the containment check inline here.
         try:
-            out_path = Path(self.config.output_dir)
-            if not out_path.is_absolute():
-                out_path = self.project_root / out_path
-            out_resolved = out_path.resolve()
+            out_resolved = self._resolved_output_dir()
             allowed = [self.project_root, Path.home()]
             if not any(out_resolved == a or out_resolved.is_relative_to(a) for a in allowed):
                 errors.append(f"Output directory outside allowed paths: {self.config.output_dir}")
@@ -205,10 +209,7 @@ class KohyaTrainer(BaseTrainer):
         Creates necessary directories.
         """
         # Create output directory
-        output_path = Path(self.config.output_dir)
-        if not output_path.is_absolute():
-            output_path = self.project_root / output_path
-        output_path.mkdir(parents=True, exist_ok=True)
+        self._resolved_output_dir().mkdir(parents=True, exist_ok=True)
 
         # Create config directory
         self.config_dir.mkdir(parents=True, exist_ok=True)
@@ -271,7 +272,7 @@ class KohyaTrainer(BaseTrainer):
             "--dataset_config",
             str(dataset_toml_user.resolve()),
             "--output_dir",
-            str(Path(self.config.output_dir).resolve()),
+            str(self._resolved_output_dir()),
             "--output_name",
             self.config.project_name,
         ]
