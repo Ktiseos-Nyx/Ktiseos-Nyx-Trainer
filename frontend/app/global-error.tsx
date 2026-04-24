@@ -9,6 +9,8 @@
  * layout has already failed when this renders.
  */
 
+import { useEffect } from 'react';
+
 export default function GlobalError({
   error,
   reset,
@@ -16,6 +18,20 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    fetch('/api/debug/client-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        digest: error.digest,
+        stack: error.stack,
+        url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+        boundary: 'global',
+      }),
+    }).catch(() => {});
+  }, [error]);
+
   return (
     <html lang="en">
       <body style={{
@@ -95,7 +111,7 @@ export default function GlobalError({
           </div>
 
           <p style={{ fontSize: 12, color: '#666', marginTop: 24 }}>
-            If this keeps happening, check the browser console (F12) and report the issue on GitHub.
+            If this keeps happening, please report the issue on GitHub with the error message above.
           </p>
         </div>
       </body>

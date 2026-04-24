@@ -7,6 +7,7 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { debugAPI } from '@/lib/api';
 
 export default function Error({
   error,
@@ -17,6 +18,13 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error('Route error:', error);
+    debugAPI.reportClientError({
+      message: error.message,
+      digest: error.digest,
+      stack: error.stack,
+      url: window.location.href,
+      boundary: 'route',
+    }).catch(() => {});
   }, [error]);
 
   return (
