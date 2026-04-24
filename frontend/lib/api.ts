@@ -1437,3 +1437,20 @@ export const presetsAPI = {
     return handleResponse(response);
   },
 };
+
+export const debugAPI = {
+  reportClientError: async (payload: {
+    message: string;
+    digest?: string;
+    stack?: string;
+    url?: string;
+    boundary?: string;
+  }): Promise<{ logged: boolean }> => {
+    const response = await fetch(`${API_BASE}/debug/client-error`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse(response);
+  },
+};

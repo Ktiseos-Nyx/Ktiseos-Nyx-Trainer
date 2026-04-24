@@ -17,6 +17,8 @@ router = APIRouter()
 
 
 class ClientError(BaseModel):
+    """Browser-side error payload sent by Next.js error boundaries."""
+
     message: str
     digest: Optional[str] = None
     stack: Optional[str] = None
