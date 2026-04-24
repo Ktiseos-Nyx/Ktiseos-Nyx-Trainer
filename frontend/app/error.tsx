@@ -17,6 +17,17 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error('Route error:', error);
+    fetch('/api/debug/client-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        digest: error.digest,
+        stack: error.stack,
+        url: window.location.href,
+        boundary: 'route',
+      }),
+    }).catch(() => {});
   }, [error]);
 
   return (
