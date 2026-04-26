@@ -8,6 +8,7 @@ Orchestrates BLIP/GIT captioning workflow:
 - Progress monitoring
 """
 
+import os
 import sys
 import asyncio
 import logging
@@ -75,11 +76,16 @@ class CaptioningService:
             command = self._build_blip_command(config)
 
             # Step 4: Start subprocess
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
             process = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=self.project_root,
+                env=env,
             )
 
             # Step 5: Register with job manager
@@ -136,11 +142,16 @@ class CaptioningService:
             command = self._build_git_command(config)
 
             # Step 4: Start subprocess
+            env = os.environ.copy()
+            env["PYTHONUNBUFFERED"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
             process = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=self.project_root,
+                env=env,
             )
 
             # Step 5: Register with job manager

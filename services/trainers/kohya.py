@@ -120,6 +120,10 @@ class KohyaTrainer(BaseTrainer):
             # Force unbuffered stdout so logs stream in real-time instead of arriving
             # all at once when the process exits (Python buffers stdout when piped).
             env["PYTHONUNBUFFERED"] = "1"
+            # Force UTF-8 I/O so Kohya's Unicode-rich output (box-drawing chars,
+            # arrows, emoji from accelerator.print()) doesn't crash on Windows cp1252.
+            env["PYTHONIOENCODING"] = "utf-8"
+            env["PYTHONUTF8"] = "1"
 
             process = await asyncio.create_subprocess_exec(
                 cmd[0],  # Program (python)
