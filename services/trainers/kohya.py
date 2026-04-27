@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from services.core.exceptions import ConfigError, ValidationError
+from services.core.subprocess_env import python_subprocess_env
 from services.models.training import ModelType, TrainingConfig
 from services.trainers.base import BaseTrainer
 from services.trainers.kohya_toml import KohyaTOMLGenerator
@@ -109,7 +110,7 @@ class KohyaTrainer(BaseTrainer):
         try:
             # Build env with derrian_backend on PYTHONPATH so custom optimizers
             # (CAME, Compass, etc.) are importable from the sd_scripts cwd
-            env = os.environ.copy()
+            env = python_subprocess_env()
             derrian_dir = str(self.sd_scripts_dir.parent)  # trainer/derrian_backend
             custom_sched_dir = str(self.sd_scripts_dir.parent / "custom_scheduler")  # LoraEasyCustomOptimizer
             existing_pythonpath = env.get("PYTHONPATH", "")
@@ -117,13 +118,6 @@ class KohyaTrainer(BaseTrainer):
             # so LoraEasyCustomOptimizer.came.CAME etc. resolve even if editable install failed
             new_paths = f"{derrian_dir}{os.pathsep}{custom_sched_dir}"
             env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_paths
-            # Force unbuffered stdout so logs stream in real-time instead of arriving
-            # all at once when the process exits (Python buffers stdout when piped).
-            env["PYTHONUNBUFFERED"] = "1"
-            # Force UTF-8 I/O so Kohya's Unicode-rich output (box-drawing chars,
-            # arrows, emoji from accelerator.print()) doesn't crash on Windows cp1252.
-            env["PYTHONIOENCODING"] = "utf-8"
-            env["PYTHONUTF8"] = "1"
 
             process = await asyncio.create_subprocess_exec(
                 cmd[0],  # Program (python)

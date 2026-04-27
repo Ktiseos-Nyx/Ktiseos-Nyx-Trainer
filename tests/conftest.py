@@ -46,6 +46,9 @@ _mp = _stub_if_absent("multipart")
 if not isinstance(getattr(_mp, "__version__", None), str):
     _mp.__version__ = "0.0.99"
 
-_mp_mp = _stub_if_absent("multipart.multipart")
-if not callable(getattr(_mp_mp, "parse_options_header", None)):
-    _mp_mp.parse_options_header = MagicMock()
+# Only stub multipart.multipart when the parent multipart was itself a stub
+# (i.e. not installed). If the real package is present we leave its internals alone.
+if getattr(_mp, "__version__", None) == "0.0.99":
+    _mp_mp = _stub_if_absent("multipart.multipart")
+    if not callable(getattr(_mp_mp, "parse_options_header", None)):
+        _mp_mp.parse_options_header = MagicMock()

@@ -40,6 +40,7 @@ export default function DatasetUploader() {
   // Direct Upload State
   const [datasetName, setDatasetName] = useState('my_dataset');
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const filesRef = useRef<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const uploadControllerRef = useRef<AbortController | null>(null);
 
@@ -85,6 +86,9 @@ export default function DatasetUploader() {
     const kohyaFolderName = folderName.trim() ? `${folderRepeats}_${folderName.trim()}` : '';
     setFolderExists(kohyaFolderName ? existingDatasets.includes(kohyaFolderName) : false);
   }, [folderName, folderRepeats, existingDatasets]);
+
+  // Keep filesRef in sync so the unmount cleanup always sees the latest files
+  useEffect(() => { filesRef.current = files; }, [files]);
 
   // ========== Direct Upload Handlers ==========
 
@@ -371,11 +375,13 @@ export default function DatasetUploader() {
     });
   }, []);
 
-  // Abort any in-flight upload and revoke blob URLs on unmount
+  // Abort any in-flight upload and revoke blob URLs on unmount.
+  // filesRef.current always holds the latest files list, so blob URLs created
+  // after mount are still revoked even though this effect has an empty dep array.
   useEffect(() => {
     return () => {
       uploadControllerRef.current?.abort();
-      revokePreviewUrls(files);
+      revokePreviewUrls(filesRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -8,7 +8,6 @@ Orchestrates WD14 tagger workflow:
 - Progress monitoring
 """
 
-import os
 import sys
 import asyncio
 import subprocess
@@ -24,6 +23,7 @@ from services.models.tagging import (
 from services.models.job import JobType, JobStatus
 from services.jobs import job_manager
 from services.core.exceptions import ValidationError, ProcessError
+from services.core.subprocess_env import python_subprocess_env
 from services.core.validation import validate_dataset_path
 
 logger = logging.getLogger(__name__)
@@ -70,16 +70,12 @@ class TaggingService:
             command = self._build_command(config, use_onnx)
 
             # Step 4: Start subprocess
-            env = os.environ.copy()
-            env["PYTHONUNBUFFERED"] = "1"
-            env["PYTHONIOENCODING"] = "utf-8"
-            env["PYTHONUTF8"] = "1"
             process = await asyncio.create_subprocess_exec(
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=self.project_root,
-                env=env,
+                env=python_subprocess_env(),
             )
 
             # Step 5: Register with job manager

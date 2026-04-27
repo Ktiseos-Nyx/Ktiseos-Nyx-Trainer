@@ -8,7 +8,7 @@ pytest-mock>=3.12           # mocker fixture (convenient wrapper around unittest
 httpx>=0.27                 # required by FastAPI TestClient for async route support
 
 # Runtime deps needed in the test env (tests import from services/ and api/)
-tomlkit                     # used by services/trainers/kohya_toml.py
+tomlkit>=0.13               # used by services/trainers/kohya_toml.py
 aiohttp>=3.13.3             # used by api/routes/civitai.py
 python-multipart>=0.0.22    # required by FastAPI routes that handle file uploads
 aiofiles>=23.2.1            # used by api/routes/files.py

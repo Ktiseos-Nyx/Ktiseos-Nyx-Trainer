@@ -241,13 +241,15 @@ if exist "frontend\" (
             popd
         )
         echo [Frontend] Waiting for backend health on http://127.0.0.1:!BACKEND_PORT!/api/health ...
-        for /l %%i in (1,1,60) do (
-            powershell -NoProfile -Command "try { iwr -UseBasicParsing http://127.0.0.1:!BACKEND_PORT!/api/health -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }"
-            if not errorlevel 1 goto :BACKEND_READY
-            timeout /t 1 >nul
+        set "BACKEND_READY=0"
+        for /l %%i in (1,1,30) do (
+            if "!BACKEND_READY!"=="0" (
+                powershell -NoProfile -Command "try { iwr -UseBasicParsing http://127.0.0.1:!BACKEND_PORT!/api/health -TimeoutSec 2 | Out-Null; exit 0 } catch { exit 1 }"
+                if not errorlevel 1 set "BACKEND_READY=1"
+                if "!BACKEND_READY!"=="0" timeout /t 2 >nul
+            )
         )
-        echo [WARN] Backend health not ready after 60s, continuing anyway...
-        :BACKEND_READY
+        if "!BACKEND_READY!"=="0" echo [WARN] Backend health not ready after ~60s, continuing anyway...
         echo [Frontend] Starting Next.js frontend on http://localhost:!FRONTEND_PORT!...
         start "Ktiseos Frontend" /MIN cmd /c "cd frontend && set NODE_ENV=production && set PORT=!FRONTEND_PORT! && set BACKEND_PORT=!BACKEND_PORT! && npm start"
     )
