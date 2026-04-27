@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Upload,
@@ -40,7 +40,9 @@ export default function DatasetUploader() {
   // Direct Upload State
   const [datasetName, setDatasetName] = useState('my_dataset');
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const filesRef = useRef<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+  const uploadControllerRef = useRef<AbortController | null>(null);
 
   // URL/ZIP Download State
   const [projectName, setProjectName] = useState('');
@@ -84,6 +86,9 @@ export default function DatasetUploader() {
     const kohyaFolderName = folderName.trim() ? `${folderRepeats}_${folderName.trim()}` : '';
     setFolderExists(kohyaFolderName ? existingDatasets.includes(kohyaFolderName) : false);
   }, [folderName, folderRepeats, existingDatasets]);
+
+  // Keep filesRef in sync so the unmount cleanup always sees the latest files
+  useEffect(() => { filesRef.current = files; }, [files]);
 
   // ========== Direct Upload Handlers ==========
 
@@ -160,6 +165,7 @@ export default function DatasetUploader() {
         console.error('Failed to reload datasets:', err);
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('Upload failed:', err);
       toast.error(`Upload failed: ${err}`);
     } finally {
@@ -229,6 +235,7 @@ export default function DatasetUploader() {
     formData.append('dataset_name', datasetName);
 
     const controller = new AbortController();
+    uploadControllerRef.current = controller;
     const timeoutId = setTimeout(() => controller.abort(), 600000);
 
     const response = await fetch(`${API_BASE}/dataset/upload-zip`, {
@@ -306,6 +313,7 @@ export default function DatasetUploader() {
 
       // Add timeout to prevent hanging forever (10 mins for slow networks)
       const controller = new AbortController();
+      uploadControllerRef.current = controller;
       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
 
       const response = await fetch(`${API_BASE}/dataset/upload-zip`, {
@@ -352,14 +360,9 @@ export default function DatasetUploader() {
         throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       console.error('❌ Upload error:', err);
-      if (err instanceof Error && err.name === 'AbortError') {
-        toast.error('ZIP upload timed out after 10 minutes', {
-          description: 'The network might be too slow or the backend crashed.',
-        });
-      } else {
-        toast.error(`ZIP upload failed: ${err}`);
-      }
+      toast.error(`ZIP upload failed: ${err}`);
     } finally {
       setUploading(false);
     }
@@ -372,9 +375,14 @@ export default function DatasetUploader() {
     });
   }, []);
 
-  // Revoke blob URLs on unmount
+  // Abort any in-flight upload and revoke blob URLs on unmount.
+  // filesRef.current always holds the latest files list, so blob URLs created
+  // after mount are still revoked even though this effect has an empty dep array.
   useEffect(() => {
-    return () => revokePreviewUrls(files);
+    return () => {
+      uploadControllerRef.current?.abort();
+      revokePreviewUrls(filesRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

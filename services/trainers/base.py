@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple
 
 # ✅ FIX C0415: Moved imports to top level
 from services.core.exceptions import ProcessError, ValidationError
+from services.core.subprocess_env import python_subprocess_env
 from services.models.training import TrainingConfig
 
 
@@ -93,7 +94,7 @@ class BaseTrainer(ABC):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=str(Path.cwd()),
-                env=os.environ.copy(),
+                env=python_subprocess_env(),
                 limit=1024 * 1024,  # 1MB line buffer — prevents LimitOverrunError on long Kohya output lines
             )
 

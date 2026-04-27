@@ -23,6 +23,7 @@ from services.models.tagging import (
 from services.models.job import JobType, JobStatus
 from services.jobs import job_manager
 from services.core.exceptions import ValidationError, ProcessError
+from services.core.subprocess_env import python_subprocess_env
 from services.core.validation import validate_dataset_path
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ class TaggingService:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=self.project_root,
+                env=python_subprocess_env(),
             )
 
             # Step 5: Register with job manager

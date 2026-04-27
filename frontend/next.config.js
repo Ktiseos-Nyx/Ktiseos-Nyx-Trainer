@@ -2,6 +2,20 @@
 const path = require('path');
 
 const nextConfig = {
+  // Pin React to a single copy — prevents duplicate-runtime crashes on Windows
+  // where NTFS path-casing can trick webpack into bundling react twice, breaking
+  // hooks and hydration.
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      react: path.resolve(__dirname, 'node_modules/react'),
+      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+      'react/jsx-runtime': path.resolve(__dirname, 'node_modules/react/jsx-runtime'),
+      'react/jsx-dev-runtime': path.resolve(__dirname, 'node_modules/react/jsx-dev-runtime'),
+    };
+    return config;
+  },
+
   // ✅ CVE-2026-27980: Cap image optimization disk cache (added in Next.js 15.5.14)
   images: {
     maximumDiskCacheSize: 500 * 1024 * 1024, // 500 MB

@@ -128,13 +128,14 @@ export function pollJobLogs(
   let lastTimestamp = 0;
   let stopped = false;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const controller = new AbortController();
 
   const poll = async () => {
     if (stopped) return;
 
     try {
       const url = `${API_BASE}/jobs/${jobId}/logs?since=${lastTimestamp}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: controller.signal });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -165,6 +166,7 @@ export function pollJobLogs(
         return;
       }
     } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
       if (!stopped && onError) {
         onError(err instanceof Error ? err : new Error(String(err)));
       }
@@ -181,6 +183,7 @@ export function pollJobLogs(
 
   return {
     stop: () => {
+      controller.abort();
       stopped = true;
       if (timeoutId) clearTimeout(timeoutId);
     },
@@ -847,13 +850,14 @@ export const trainingAPI = {
     let nextSince = 0;
     let stopped = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const controller = new AbortController();
 
     const poll = async () => {
       if (stopped) return;
 
       try {
         const url = `${API_BASE}/training/logs/${jobId}?since=${nextSince}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { signal: controller.signal });
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
@@ -886,6 +890,7 @@ export const trainingAPI = {
           return;
         }
       } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
         if (!stopped && onError) {
           onError(err instanceof Error ? err : new Error(String(err)));
         }
@@ -900,6 +905,7 @@ export const trainingAPI = {
 
     return {
       stop: () => {
+        controller.abort();
         stopped = true;
         if (timeoutId) clearTimeout(timeoutId);
       },
