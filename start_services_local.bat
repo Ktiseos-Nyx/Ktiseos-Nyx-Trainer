@@ -251,7 +251,7 @@ if exist "frontend\" (
         )
         if "!BACKEND_READY!"=="0" echo [WARN] Backend health not ready after ~60s, continuing anyway...
         echo [Frontend] Starting Next.js frontend on http://localhost:!FRONTEND_PORT!...
-        start "Ktiseos Frontend" /MIN cmd /c "cd frontend && set NODE_ENV=production && set PORT=!FRONTEND_PORT! && set BACKEND_PORT=!BACKEND_PORT! && npm start"
+        start "Ktiseos Frontend" /MIN cmd /c "cd /d %~dp0frontend&&set NODE_ENV=production&&set PORT=!FRONTEND_PORT!&&set BACKEND_PORT=!BACKEND_PORT!&&npm start"
     )
 )
 
