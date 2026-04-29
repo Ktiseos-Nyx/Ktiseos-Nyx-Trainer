@@ -63,7 +63,6 @@
     "@uppy/progress-bar": "^4.3.2",
     "@uppy/react": "^4.5.2",
     "@uppy/xhr-upload": "^4.4.2",
-    "@wandry/inertia-form": "^1.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "es-toolkit": "^1.43.0",
