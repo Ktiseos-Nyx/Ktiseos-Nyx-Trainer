@@ -689,6 +689,40 @@ During an Anima support audit, the following bug was found and **fixed**:
 
 ---
 
+## 7.9 Hardcoded Presets Not Wired Into Training Submit Flow
+
+**Priority:** High — blocks actual training  
+**Status:** Confirmed broken 2026-04-30  
+
+### What we know
+
+Presets hardcoded in `frontend/hooks/useTrainingForm.ts` (Citron's Illustrious, Citron's PDXL, Citron's Anima etc.) populate form fields visually but do NOT properly hook into the training submit flow. When you load one and hit Train:
+
+- No request reaches FastAPI
+- No logs appear (backend is completely silent)
+- No 422, no 500, nothing — complete silence
+- The button appears to work but nothing happens
+
+This is NOT a backend config field mismatch issue — it's the frontend never actually sending the training request at all.
+
+### Why it happened
+
+Presets were hardcoded into `useTrainingForm.ts` as a quick solution ("we needed it to work RIGHT NOW") rather than going through the proper preset save/load system. The values populate the form display but don't correctly feed into whatever the submit handler reads to build the training payload.
+
+### Fix needed
+
+- Audit how `useTrainingForm.ts` applies hardcoded preset values to form state vs how the submit handler reads form state
+- Either: fix the wiring so hardcoded presets properly update the form state the submit handler uses
+- Or better: migrate all hardcoded presets out of `useTrainingForm.ts` into proper JSON files in `presets/` and use the existing preset load system
+- The JSON migration is the RIGHT fix — hardcoding presets in a hook is the root cause of this whole class of bugs
+
+### Related
+
+- PR-1 (optimizer_args contamination) — same root cause, presets in wrong place
+- Preset UX architecture filtering (in MEMORY.md backlog) — filter by model_type, only possible once presets are proper JSON
+
+---
+
 ## 8. Anima Deep Dive — Research Session Needed
 
 **Priority:** Beta (before Anima is considered properly supported)  
