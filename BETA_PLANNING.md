@@ -2,7 +2,7 @@
 
 **Current Version:** Alpha (v0.1.0-dev)
 **Target:** Beta Release
-**Last Updated:** 2026-04-15
+**Last Updated:** 2026-04-30
 
 ---
 
@@ -481,36 +481,37 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 ## 6. Feature Priority Matrix (Beta)
 
 ### Must Have (Alpha -> Beta gate)
-| Feature | Category | Effort |
-|---------|----------|--------|
-| Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny |
-| Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny |
-| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny |
-| Add WandB/Logging UI section (UI-1) | New Feature | Small |
-| Dashboard redesign with all routes (UI-2) | UX | Medium |
-| HF upload form persistence (HF-1) | UX/Bug Fix | Small |
-| Tag Viewer with frequency counts | New Feature | Medium |
-| Bulk tag remove/replace | New Feature | Medium |
-| Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small |
-| Add subprocess timeouts to merge operations (MG-3) | Reliability | Small |
-| CUDA availability check for merges (MG-4) | Error Handling | Small |
-| Update CheckpointTrainingConfig types (CT-5) | Bug Fix | Tiny |
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny | ✅ Done (pre-existing) |
+| Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
+| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ⏳ Next session |
+| Add WandB/Logging UI section (UI-1) | New Feature | Small | ⏳ Next session |
+| Dashboard redesign with all routes (UI-2) | UX | Medium | 🔵 Design work, deferred |
+| HF upload form persistence (HF-1) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
+| Tag Viewer with frequency counts | New Feature | Medium | ⏳ Not started |
+| Bulk tag remove/replace | New Feature | Medium | ⏳ Not started |
+| Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small | ✅ Done 2026-04-30 |
+| Add subprocess timeouts to merge operations (MG-3) | Reliability | Small | ✅ Done 2026-04-30 |
+| CUDA availability check for merges (MG-4) | Error Handling | Small | ✅ Done 2026-04-30 |
+| Update CheckpointTrainingConfig types (CT-5) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
 
 ### Should Have (Beta quality)
-| Feature | Category | Effort |
-|---------|----------|--------|
-| 3-way overwrite mode for tagging | Enhancement | Small |
-| Checkpoint-specific validation (CT-1) | Enhancement | Small |
-| Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium |
-| Merge progress reporting (MG-7) | UX | Medium |
-| SD3 merge support (MG-5) | Feature | Small |
-| Clean up redundant TOML generation (CT-6) | Tech Debt | Small |
-| Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny |
-| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium |
-| Clarify "Full" LoRA type semantics (LT-4) | UX | Small |
-| Silence AbortError console noise (UI-3) | Polish | Small |
-| Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small |
-| Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny |
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| 3-way overwrite mode for tagging | Enhancement | Small | ⏳ Not started |
+| Checkpoint-specific validation (CT-1) | Enhancement | Small | ⏳ Not started |
+| Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium | 🚫 N/A — separate pages, no unified form |
+| Merge progress reporting (MG-7) | UX | Medium | ⏳ Not started |
+| SD3 merge support (MG-5) | Feature | Small | ⏳ Deferred (part of #342) |
+| Clean up redundant TOML generation (CT-6) | Tech Debt | Small | ⏳ Not started |
+| Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
+| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | ⏳ Not started |
+| Clarify "Full" LoRA type semantics (LT-4) | UX | Small | ⏳ Not started |
+| Silence AbortError console noise (UI-3) | Polish | Small | ⏳ Not started |
+| Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
+| Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny | ⏳ Next session |
+| MG-2: Document save_precision naming difference | Code Clarity | Tiny | ✅ Done 2026-04-30 |
 
 ### Nice to Have (Beta+)
 | Feature | Category | Effort |
@@ -619,7 +620,36 @@ The following features were inspired by Civitai's training interface:
 
 ---
 
-## 9. Notes
+## 9. Session Notes
+
+### 2026-04-30 — Beta Bug Bash
+
+**Completed this session (commits on `dev`):**
+- Next.js 15 → 16 upgrade (PR #355, merged to main)
+- PostCSS CVE-2026-41305 patch
+- Dev-branch provisioning scripts for VastAI and RunPod
+- CT-5: CheckpointTrainingConfig TypeScript type now includes SD35/CHROMA/ANIMA
+- MG-1: Removed deceptive alpha input from LoRA resize (resize_lora.py auto-calculates it)
+- MG-2: Commented the --save_precision vs --saving_precision naming difference
+- MG-3: asyncio.wait_for() timeouts on all merge/resize subprocesses (resize=30min, merges=1hr)
+- MG-4: _validate_device() CUDA availability check before any subprocess gets --device cuda
+- UI-4 (#346): pollLogs fixed-cadence + visibility-aware polling + visibilitychange listener
+- HF-1 (#344): HF upload page pre-fills token from saved settings; owner/repoType persist in localStorage
+- LT-2: enable_bucket now reads from config instead of hardcoded True
+- LT-3: network_train_unet_only guarded to False in checkpoint mode
+
+**Up next:**
+- LT-1 + UI-1 (#343): Wire wandb_key as WANDB_API_KEY env var + add LoggingCard to training form
+- PYTHONUNBUFFERED=1 on Kohya subprocess (UI-4 backend part)
+- MG-5: SD3 merge (deferred but part of #342)
+- #349: Upload progress indicator (needs XHR refactor, waiting a few days)
+- Tag Viewer + Bulk tag ops (larger feature work)
+
+**CT-2 closed as N/A:** `/training` and `/checkpoint-training` are already separate pages — no unified form exists where LoRA fields would need to be hidden.
+
+---
+
+## 10. Notes (Original)
 
 - Checkpoint training backend appears functional but needs real-world testing with actual full fine-tune runs
 - Merging tool is mostly solid - the issues are UX and reliability, not correctness
