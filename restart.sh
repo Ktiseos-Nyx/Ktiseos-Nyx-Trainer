@@ -21,13 +21,15 @@ else
     echo "💻 Detected local development environment"
 fi
 
-# Clean up existing processes
+# Clean up existing processes — graceful SIGTERM first, SIGKILL only as fallback
+# (kill -9 immediately confuses VastAI's Caddy proxy by yanking the connection)
 echo "🧹 Cleaning up existing processes..."
-lsof -ti:$BACKEND_PORT | xargs kill -9 2>/dev/null || true
-lsof -ti:$FRONTEND_PORT | xargs kill -9 2>/dev/null || true
-pkill -f "uvicorn.*api.main" 2>/dev/null || true
-pkill -f "node.*next" 2>/dev/null || true
-
+pkill -TERM -f "uvicorn.*api.main" 2>/dev/null || true
+pkill -TERM -f "node.*next" 2>/dev/null || true
+sleep 3
+# Force-kill anything still alive after graceful window
+lsof -ti:$BACKEND_PORT 2>/dev/null | xargs kill -9 2>/dev/null || true
+lsof -ti:$FRONTEND_PORT 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 2
 
 # Run installer with --skip-install flag
@@ -56,8 +58,15 @@ cd frontend
 NODE_ENV=production PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT npm start &
 FRONTEND_PID=$!
 
-# Wait a moment for services to start
-sleep 3
+# Wait for services to start
+sleep 5
+
+# On VastAI: make a health request so Caddy re-establishes its backend connection
+if [ -d "/workspace" ]; then
+    echo "🔄 Warming up Caddy connection..."
+    sleep 3
+    curl -sf "http://localhost:${FRONTEND_PORT}/api/health" > /dev/null 2>&1 || true
+fi
 
 DISPLAY_HOST="${HOST}"
 [ "$HOST" = "0.0.0.0" ] && DISPLAY_HOST="localhost"
