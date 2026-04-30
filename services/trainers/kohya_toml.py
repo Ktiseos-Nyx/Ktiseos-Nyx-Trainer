@@ -371,11 +371,13 @@ class KohyaTOMLGenerator:
             "mem_eff_attn": self.config.cross_attention == "mem_eff_attn",
             "v2": self.config.v2,
             "v_parameterization": self.config.v_parameterization,
-            "network_train_unet_only": self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only,
             "noise_offset": self.config.noise_offset,
             "zero_terminal_snr": self.config.zero_terminal_snr,
             "prior_loss_weight": self.config.prior_loss_weight,
         }
+
+        if self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only:
+            args["network_train_unet_only"] = True
 
         # ========== NEW FIELDS (Issue #97 Fix) ==========
         # Performance/Memory

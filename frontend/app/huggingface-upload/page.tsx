@@ -22,6 +22,7 @@ export default function HuggingFaceUploadPage() {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [useStoredToken, setUseStoredToken] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +38,8 @@ export default function HuggingFaceUploadPage() {
     fetch('/api/settings/user/huggingface_token')
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        if (data?.value) {
-          setHfToken(data.value);
-          setTokenValid(null); // don't auto-validate, just pre-fill
+        if (data?.isSet) {
+          setUseStoredToken(true);
         }
       })
       .catch(() => {}); // silently ignore if settings unavailable
@@ -98,7 +98,7 @@ export default function HuggingFaceUploadPage() {
 
   // Upload to HuggingFace
   const handleUpload = async () => {
-    if (!hfToken || !owner || !repoName || selectedFiles.length === 0) {
+    if ((!hfToken && !useStoredToken) || !owner || !repoName || selectedFiles.length === 0) {
       setError('Please fill in all required fields and select at least one file');
       return;
     }
@@ -220,11 +220,12 @@ export default function HuggingFaceUploadPage() {
                   value={hfToken}
                   onChange={(e) => {
                     setHfToken(e.target.value);
+                    setUseStoredToken(false);
                     setTokenValid(null);
                   }}
                   autoComplete="off"
                   className="flex-1"
-                  placeholder="hf_..."
+                  placeholder={useStoredToken ? 'Using saved token — type to override' : 'hf_...'}
                 />
                 <Button type="button" onClick={handleValidateToken}>
                   Validate

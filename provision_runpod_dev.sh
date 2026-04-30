@@ -54,9 +54,8 @@ provisioning_start() {
 
     if ! command -v python &> /dev/null; then
         if command -v python3 &> /dev/null; then
-            echo "Creating python alias for python3..."
-            alias python=python3
-            export PATH="/usr/bin:$PATH"
+            echo "Symlinking python3 → python..."
+            ln -sf "$(command -v python3)" /usr/local/bin/python
         else
             echo "  Neither python nor python3 found!"
             exit 1

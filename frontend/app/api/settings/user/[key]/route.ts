@@ -13,7 +13,7 @@ type ValidKey = typeof VALID_KEYS[number];
 
 /**
  * GET /api/settings/user/[key]
- * Retrieve the actual (unmasked) value of a stored API key.
+ * Returns whether a stored API key is set — never the raw value.
  * Only valid for huggingface_token and civitai_api_key.
  */
 export async function GET(
@@ -31,8 +31,8 @@ export async function GET(
     }
 
     const keys = await settingsService.getApiKeys();
-    const value = keys[key as ValidKey];
-    return NextResponse.json({ key, value: value ?? null });
+    const isSet = Boolean(keys[key as ValidKey]);
+    return NextResponse.json({ key, isSet });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : String(error) },
