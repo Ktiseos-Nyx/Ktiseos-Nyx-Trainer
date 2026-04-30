@@ -762,7 +762,31 @@ This file gets `grep`ped at session start instead of guessing from training data
 
 ---
 
-## 8. Attribution Requirements
+## 8. Session Notes (2026-04-30) — Priority for Next Week
+
+### URGENT: Full Training Logs (next 1-2 sessions)
+Training logs are essentially broken in production — the monitor dies early, stdout doesn't flush, and users have no idea what's happening mid-run. Confirmed today that a training can run for HOURS with zero visible progress (Adafactor + 305 images + 10 epochs on a 4090 took well over an hour with zero UI feedback). This is the single most important UX fix for beta.
+
+Fixes needed in priority order:
+1. **PYTHONUNBUFFERED=1** on Kohya subprocess (UI-4 backend part) — single biggest impact
+2. **tqdm line parser** (UI-5) — surface step count, ETA, it/s in the monitor
+3. **Training monitor reconnect** — if the monitor component dies, user should be able to re-attach to a running job by job ID without refreshing the whole page
+
+### Calculator Enhancement — Optimizer-Aware Time Estimation
+The step calculator currently uses basic Kohya math. Proposal: make it optimizer-aware so it can give rough time estimates based on:
+- Optimizer choice (Adafactor is slower per step than AdamW8bit, Prodigy is variable)
+- Dataset size × repeats × epochs → total steps
+- Batch size effect on step count
+- Resolution effect on VRAM and speed
+
+Not exact science but "rough estimate with caveats" is infinitely more useful than nothing. Would have saved a lot of "is this an all-nighter?" uncertainty today.
+
+### Hardcoded Presets Migration (section 7.9)
+High priority — confirmed blocks training silently. Migrate all presets from `useTrainingForm.ts` into proper JSON files in `presets/`. This fixes the silent training failure AND the PR-1 optimizer_args contamination in one shot.
+
+---
+
+## 9. Attribution Requirements
 
 When implementing features inspired by Civitai's codebase, add to `ATTRIBUTIONS.md`:
 
