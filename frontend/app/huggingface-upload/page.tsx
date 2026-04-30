@@ -7,6 +7,9 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
+const STORAGE_KEY_OWNER = 'hf_upload_owner';
+const STORAGE_KEY_REPO_TYPE = 'hf_upload_repo_type';
+
 export default function HuggingFaceUploadPage() {
   const [uploadType, setUploadType] = useState<'lora' | 'dataset'>('lora');
   const [hfToken, setHfToken] = useState('');
@@ -23,6 +26,24 @@ export default function HuggingFaceUploadPage() {
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [datasetDirectory, setDatasetDirectory] = useState('');
+
+  // Pre-fill token from saved settings and owner/repoType from localStorage
+  useEffect(() => {
+    const savedOwner = localStorage.getItem(STORAGE_KEY_OWNER);
+    const savedRepoType = localStorage.getItem(STORAGE_KEY_REPO_TYPE);
+    if (savedOwner) setOwner(savedOwner);
+    if (savedRepoType) setRepoType(savedRepoType);
+
+    fetch('/api/settings/user/huggingface_token')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.value) {
+          setHfToken(data.value);
+          setTokenValid(null); // don't auto-validate, just pre-fill
+        }
+      })
+      .catch(() => {}); // silently ignore if settings unavailable
+  }, []);
 
   // Load available files based on upload type
   useEffect(() => {
@@ -51,6 +72,10 @@ export default function HuggingFaceUploadPage() {
     loadFiles();
     setSelectedFiles([]); // Clear selections when switching type
   }, [uploadType]);
+
+  // Persist owner and repoType across navigations
+  useEffect(() => { localStorage.setItem(STORAGE_KEY_OWNER, owner); }, [owner]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEY_REPO_TYPE, repoType); }, [repoType]);
 
   // Validate token
   const handleValidateToken = async () => {
