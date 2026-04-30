@@ -551,6 +551,48 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 | Merge dry-run/preview mode | Feature | Medium |
 | EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small |
 | Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) |
+| Batch Downloader (BD-1) | New Feature | Medium |
+| Training monitor tqdm ETA parsing (UI-5) | Enhancement | Small |
+
+---
+
+## 6.5 Batch Downloader
+
+**Issue BD-1: Model sourcing is fragile and region-dependent**
+- **Priority:** Beta+ (nice to have, but solves a real accessibility problem)
+- **Status:** Not started
+- **Motivation:** Civitai's API geoblocks certain regions (UK datacenter IPs get 451'd due to UK Online Safety Act compliance). Users shouldn't need a working Civitai API to download models — they should be able to paste any link and have it work.
+
+### Concept
+
+A dedicated **Batch Downloader** page where users paste a list of URLs or magnet links (one per line) and the app routes each to the right downloader automatically:
+
+| Link type | Downloader |
+|-----------|-----------|
+| `https://huggingface.co/...` | `huggingface-cli` / `hf_hub_download` |
+| `magnet:?xt=...` | `aria2c` |
+| `https://civitai.com/...` | Existing Civitai API (with token) |
+| Any other HTTP/HTTPS | `aria2c` (better than wget for resumable downloads) |
+| Google Drive | `gdown` |
+
+### UI Design
+
+- Large textarea: paste URLs one per line
+- Global destination dropdown: Models / LoRAs / VAEs / Dataset / Output
+- Per-line destination override (optional, can skip for v1)
+- Progress list showing each download's status as it runs
+- aria2c is already installed on VastAI/RunPod instances (required by existing workflow)
+
+### Inspiration
+
+Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag syntax to route downloads. Our version replaces the hashtag hack with a proper destination dropdown — cleaner UX, same flexibility.
+
+### Implementation notes
+- Backend: new `POST /api/utilities/batch-download` endpoint that accepts a list of `{url, destination}` objects, spawns aria2c/hf-cli/gdown as appropriate per URL, streams progress back
+- Frontend: new page at `frontend/app/batch-download/page.tsx`
+- aria2c already present on instances — no new provisioning needed
+- gdown may need `pip install gdown` added to requirements
+- No torrent tracker/indexer integration — users provide their own links. Completely neutral technology.
 
 ---
 
