@@ -27,9 +27,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      dataset_config_path: result.dataset,
-      training_config_path: result.config,
       message: 'Training configuration generated successfully',
+      files: {
+        dataset: result.dataset,
+        config: result.config,
+      },
     });
   } catch (error) {
     console.error('Failed to save training config:', error);
