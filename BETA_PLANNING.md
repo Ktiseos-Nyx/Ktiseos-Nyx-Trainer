@@ -725,12 +725,63 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 
 ---
 
-### 11.2 Second Ecosystem App
+### 11.2 Dataset Tools Integration
 
-**Priority:** TBD  
-**Status:** Location TBD — user to provide path  
+**Priority:** Beta+ (after COMFY-1 proxy pattern is proven)  
+**Status:** App is working and maintained — integration plan drafted  
+**Source:** `C:\Users\dusk\Development\Dataset-Tools` / [Ktiseos-Nyx/Dataset-Tools](https://github.com/Ktiseos-Nyx/Dataset-Tools) (same org)  
 
-*(Placeholder — details to be filled in once the second app is shared.)*
+#### What it is
+
+Dataset Tools is a **local-first image and model browser** with deep AI metadata extraction. Key capabilities not currently in the Trainer:
+
+| Capability | Value to the Trainer ecosystem |
+|------------|-------------------------------|
+| Image metadata viewer | Inspect reference images before training — see what settings produced them (A1111, ComfyUI, NovelAI, Fooocus, InvokeAI, DrawThings, SwarmUI, etc.) |
+| Safetensors inspector | View training metadata embedded in a just-trained LoRA — steps, dataset hash, network args — without leaving the UI |
+| ComfyUI workflow viewer | Show the full node graph for ComfyUI-generated reference images; pairs with COMFY-5 |
+| Thumbnail viewport | Fast thumbnail browsing with server-side `sharp` WebP generation + disk cache (`.thumbcache/`) |
+| Custom node classifier | Identifies ComfyUI custom nodes in a workflow — which are built-in vs. which require extensions |
+
+#### Tech stack compatibility
+
+- Next.js 16 + React 19 — **identical to Trainer** ✓
+- shadcn/ui + Radix — **identical to Trainer** ✓
+- Pure Node.js API routes — no Python required for the web app
+- The `dataset_tools/` Python package in the repo is a **separate CLI tool**, not a web dependency
+
+#### Integration architecture
+
+Same proxy approach as ComfyUI (section 11.1). Dataset Tools runs as a second Next.js process on its own port; the Trainer's `server.js` proxies `/dataset-tools/*` to it.
+
+**DT-1: Proxy layer**
+- `frontend/server.js` — add `/dataset-tools` HTTP proxy block, pointing to `http://127.0.0.1:${DATASET_TOOLS_PORT}`
+- Env var: `DATASET_TOOLS_PORT=3001` (add to all startup scripts)
+- `start_services_vastai.sh` — start Dataset Tools process (`cd /workspace/Dataset-Tools && npm start`)
+- Same for `start_services_runpod.sh` and `restart.sh`
+- Add to provisioning scripts: `git clone` + `npm install` + `npm run build` of Dataset-Tools repo
+
+**DT-2: Navbar link**
+- Add "Dataset Tools" entry to the trainer navbar under a new "Ecosystem" section (or alongside "Files")
+- Links to `/dataset-tools`
+
+**DT-3: Handoff buttons (the good stuff)**
+- **"Inspect in Dataset Tools"** on the files page — deep-link to Dataset Tools with the current folder pre-set
+- **"Inspect LoRA"** on training completion — opens the trained `.safetensors` directly in Dataset Tools' safetensors panel
+- **"View reference metadata"** in the dataset image gallery — opens a selected image in Dataset Tools' metadata panel
+
+These handoffs are URL-based (no shared state stores), keeping the projects loosely coupled.
+
+**DT-4: Shared folder awareness**
+- Dataset Tools has a `settings.currentFolder` that the user sets manually
+- Ideally the Trainer can deep-link with `?folder=/path/to/dataset` so Dataset Tools opens to the right place
+- Check if Dataset Tools' settings API accepts a folder override via query param, or whether we need to add it
+
+#### Notes
+- Dataset Tools has its own settings system and thumbnail cache — these are self-contained, no conflict with Trainer settings
+- The Python `dataset_tools/` CLI is a separate tool; ignore it for web integration
+- Dataset Tools' `app/api/fs/route.ts` restricts file access to a configured base folder — on VastAI the default base should be `/workspace`
+- `.thumbcache/` directory generates WebP thumbnails via `sharp` — on VastAI this lives inside the Dataset-Tools repo directory, which is fine
 
 ---
 
@@ -754,7 +805,10 @@ As more tools are integrated, these rules keep things from becoming a mess:
 | COMFY-3: UI page + navbar link | Integration | Small | ⏳ Not started |
 | COMFY-4: Settings integration | UX | Tiny | ⏳ Not started |
 | COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
-| App 2: TBD | TBD | TBD | ⏳ Placeholder |
+| DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
+| DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
+| DT-3: Handoff buttons (inspect LoRA, view reference, files) | Feature | Small | ⏳ Not started |
+| DT-4: Deep-link folder awareness | Enhancement | Small | ⏳ Not started |
 
 ---
 
