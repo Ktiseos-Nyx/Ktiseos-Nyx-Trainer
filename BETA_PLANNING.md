@@ -996,4 +996,28 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 ---
 
+## Section 12 — Security Review Backlog
+
+### 12.1 CWE-23 Path Traversal (Snyk, low urgency)
+
+Snyk flags unsanitised path traversal (CWE-23) across several Python service files. Partially false-positive for a single-user local tool, but worth a proper review pass before any public/multi-user deployment.
+
+**Current state:**
+- `api/routes/files.py` — already protected: `is_safe_path()`, `ALLOWED_DIRS`, `is_relative_to()` used before every `open()`. Snyk false-positive here.
+- `services/lora_service.py`, `services/caption_service.py`, `services/tagging_service.py` — user-supplied paths go straight to `Path()`. Intended behaviour (user specifies their own model/dataset paths) but technically traversable.
+- `api/routes/config.py` — preset file paths from API requests, no allowlist check. Lowest-hanging real concern.
+
+**Why it's low risk now:** App is single-user, accessed via private tunnel on VastAI/RunPod. Path traversal = user accessing their own files, which they already can.
+
+**Why it matters eventually:** If the app ever supports multiple users, shared instances, or public access, these become real attack surfaces.
+
+**Investigation items (SEC-1):**
+- Check if service-layer paths can be validated against a configurable `WORKSPACE_ROOT` without breaking VastAI/RunPod users who store files outside the project directory
+- Consider `Path.resolve()` + `is_relative_to(WORKSPACE_ROOT)` pattern in services — only viable if `WORKSPACE_ROOT` is user-configurable in settings (default: `/workspace` on cloud, `PROJECT_ROOT` locally)
+- `api/routes/config.py` preset paths — add same `is_relative_to(presets_dir)` guard that `files.py` already uses for a quick partial win
+
+**Effort:** Small–Medium | **Priority:** Low (pre-public-release gate) | **Status:** ⏳ Not started
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project
