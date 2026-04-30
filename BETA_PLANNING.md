@@ -486,6 +486,22 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 
 ---
 
+### 5.1 Preset Optimizer Args Contamination
+
+**Issue PR-1: optimizer_args field picks up general training args from community presets**
+- **Severity:** Medium (causes cryptic training failures)
+- **User-reported:** Citron's Adafactor preset stuffed precision/device args (`state_storage_dtype=bfloat16 state_storage_device=cuda` style) into `optimizer_args`. Adafactor then threw `ValueError: not enough values to unpack` because those aren't valid optimizer args.
+- **Root cause:** Community presets (and possibly our own) miscategorise general training args as optimizer_args. These are actually top-level training fields (`mixed_precision`, `fp8_base`, etc.) that got bundled into the freetext `optimizer_args` blob.
+- **Workaround:** Manually clear `optimizer_args` before training if switching optimizers or loading community presets.
+
+**Fixes:**
+1. **Preset cleanup** — audit all bundled presets, move any precision/device args out of `optimizer_args` into proper top-level fields
+2. **UX warning** — when `optimizer_args` is non-empty and optimizer type changes, warn the user: "These args may be specific to a different optimizer — clear them?"
+3. **Validation** — before training starts, validate that `optimizer_args` entries look like actual optimizer args (key=value pairs that the selected optimizer recognises), not training-level settings
+4. **Community preset naming** — if a preset bundles optimizer-specific args, the name should make that clear (e.g. "Citron Adafactor - SDXL" not just "Citron")
+
+---
+
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
 **Issue HF-1: HF upload form loses all data on page navigation**
