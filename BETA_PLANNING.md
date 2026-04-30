@@ -1020,4 +1020,27 @@ Snyk flags unsanitised path traversal (CWE-23) across several Python service fil
 
 ---
 
+### 12.2 CWE-78 Command Injection (Snyk, medium — mostly false positives)
+
+Snyk flags command injection (CWE-78) in Python files that pass user-controlled values into subprocess calls.
+
+**Current state:**
+- All subprocess calls use `asyncio.create_subprocess_exec` or list-form `subprocess.run` — neither passes through a shell. OS `exec()` does not interpret shell metacharacters, so these are not injectable regardless of argument content.
+- No `shell=True`, `os.system()`, or `os.popen()` anywhere in `api/` or `services/`. The one `shell=True` in `job_manager.py` was removed in commit `ab2fb6b`.
+- `model_service.py` — aria2c and wget calls build arg lists from user-supplied URLs and API tokens. List-form, not shell-interpolated. Safe.
+- `services/trainers/`, `lora_service.py`, `captioning_service.py` etc. — training/processing commands built as lists with user-supplied paths. Same pattern, safe.
+
+**Why Snyk flags it:** Static analysis sees user-controlled values flowing into subprocess args and flags conservatively, even when list-form exec is used. It cannot always prove the list won't later be joined into a shell string.
+
+**Why it's low real risk:** List-form exec is the correct mitigation for CWE-78. No shell is invoked, no metacharacter interpretation occurs.
+
+**Investigation items (SEC-2):**
+- Audit that no call site ever does `" ".join(args)` and passes the result to a shell-based subprocess — this would re-introduce the vulnerability
+- Verify `model_service.py` wget/aria2c header args (`Authorization: Bearer {token}`) are never shell-interpreted if the download backend is swapped in future
+- Consider adding a lint rule or comment convention to flag any future `shell=True` additions at review time
+
+**Effort:** Tiny (audit only, no fixes expected) | **Priority:** Low | **Status:** ⏳ Not started
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project
