@@ -673,6 +673,45 @@ During an Anima support audit, the following bug was found and **fixed**:
 
 ---
 
+## 8. Anima Deep Dive — Research Session Needed
+
+**Priority:** Beta (before Anima is considered properly supported)  
+**Status:** Attempted training, hit size mismatch error — config fields not properly understood  
+
+### What we know
+
+- `networks.lora_anima` is correctly wired (fixed previously)
+- Training script exists in sd-scripts
+- Attempted a real training run — failed with: `size mismatch for layers.27.mlp.gate_proj.weight: copying a param with shape torch.Size([3072, 1024]) from checkpoint, the shape in current model is torch.Size([22016, 4096])`
+- This suggests something is being loaded as an LLM/text encoder that is the wrong size or wrong architecture entirely
+
+### What we don't know
+
+- Exactly which files Anima's training script expects and from where
+- Whether the LLM component is embedded in the base model or must be provided separately
+- Whether our UI fields map correctly to what `anima_train.py` actually expects
+- Whether `clip_skip`, `gemma2`, and other fields are being passed/ignored correctly for Anima
+
+### Research plan for next dedicated session
+
+1. Read `trainer/derrian_backend/sd_scripts/anima_train.py` argument list in full
+2. Find a real working Anima training config from the community (Circlestone Labs discord, ArcEnCiel community)
+3. Map actual required args → our UI fields → fix any mismatches
+4. Document the correct file structure for an Anima training setup (base model, VAE, text encoder, tokenizer configs)
+5. Add Anima-specific validation to catch wrong file types before training starts
+
+### Note on `ARCHITECTURE.md`
+
+Future Claude needs context it currently has to re-derive every session. A dedicated session to document the backend config fields per model type would save significant time. Proposed: `docs/ARCHITECTURE.md` covering:
+- What each model type (SD15, SDXL, Flux, SD3, Lumina, Anima) actually requires
+- Which UI fields map to which CLI args in Kohya
+- Which fields are model-type-specific vs universal
+- Known gotchas per model type
+
+This file gets `grep`ped at session start instead of guessing from training data.
+
+---
+
 ## 8. Attribution Requirements
 
 When implementing features inspired by Civitai's codebase, add to `ATTRIBUTIONS.md`:
