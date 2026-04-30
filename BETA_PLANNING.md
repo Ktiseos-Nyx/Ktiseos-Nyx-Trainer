@@ -658,4 +658,104 @@ The following features were inspired by Civitai's training interface:
 
 ---
 
+## 11. Ecosystem Integration
+
+The goal is a healthy, interconnected set of tools running on the same VastAI/RunPod instance — not a monolith, but a set of apps that are aware of each other and hand off naturally. Training a LoRA should flow directly into testing it. Uploading a model should be one click, not a separate workflow.
+
+---
+
+### 11.1 ComfyUI Frontend Integration
+
+**Priority:** Beta+ (after core beta bugs closed)  
+**Status:** Template acquired, architecture planned  
+**Source:** v0-generated template (`b_xNk9Kzq6SWm`), to be adapted — not dropped in wholesale  
+
+#### What the template provides
+
+A complete, well-structured ComfyUI client layer:
+
+| Layer | Files | Notes |
+|-------|-------|-------|
+| API client | `lib/comfy/client.ts` | REST + WebSocket, auto-reconnect, all ComfyUI endpoints |
+| Workflow builders | `lib/comfy/workflows/` | txt2img, img2img, upscale — clean function-based API |
+| State stores | `lib/stores/` | Zustand: connection, generation params, queue |
+| UI components | `components/comfy/` (14 files) | All shadcn/ui — prompt editor, model selector, LoRA stack, sampler settings, image gallery, queue display, dimension picker, seed control, batch controls, denoise slider, upscale settings, workflow tabs, image input, connection status |
+| Types | `lib/comfy/types.ts` | Full typing for all ComfyUI API responses |
+
+All UI components use shadcn/ui — zero styling conflicts with the existing project.
+
+#### The one real integration problem
+
+The client defaults to `http://localhost:8188` and opens a WebSocket directly from the browser. On VastAI/RunPod through Cloudflare tunnel, **the browser cannot reach port 8188** — the tunnel only exposes port 3000.
+
+**Fix:** Add a `/comfyui` reverse proxy to `server.js` (same pattern as the existing FastAPI proxy). Change the client's default `baseUrl` to `/comfyui`. One env var (`COMFYUI_PORT`, default `8188`) controls the target. WebSocket upgrades need a second handler in `server.on('upgrade')`.
+
+#### Implementation sequence
+
+**COMFY-1: Proxy layer (prerequisite for everything else)**
+- `frontend/server.js` — add `/comfyui` HTTP proxy block (mirror the FastAPI proxy pattern)
+- `frontend/server.js` — add `/ws/comfyui` WebSocket upgrade handler
+- Env var: `COMFYUI_PORT=8188` (add to `start_services_vastai.sh`, `start_services_runpod.sh`, `restart.sh`)
+- `lib/comfy/client.ts` — change default `baseUrl` from `http://localhost:8188` to `/comfyui`
+
+**COMFY-2: Drop in the library layer**
+- Copy `lib/comfy/` into `frontend/lib/comfy/`
+- Copy `lib/stores/` into `frontend/lib/stores/` (check for Zustand dep — add to package.json if missing)
+- Copy `hooks/use-generation.ts` into `frontend/hooks/`
+
+**COMFY-3: UI components**
+- Copy `components/comfy/` into `frontend/components/comfy/`
+- New page: `frontend/app/comfyui/page.tsx` (adapt from template's `app/page.tsx`)
+- Add ComfyUI to navbar under a new "Generate" section (or alongside Tools)
+- Add to `server.js` `nodeApiPrefixes` if any Next.js API routes are needed
+
+**COMFY-4: Settings integration**
+- Add ComfyUI URL field to existing settings page (`frontend/app/settings/page.tsx`)
+- Read from settings store rather than hardcoding; show connection status badge
+
+**COMFY-5 (dream feature): "Test in ComfyUI" post-training shortcut**
+- When a training job completes, show a "Open in ComfyUI" button on `TrainingMonitor`
+- Clicking it navigates to `/comfyui` with the trained LoRA pre-loaded into the LoRA stack
+- Requires: COMFY-1 through COMFY-4 complete + ComfyUI actually running on the instance
+
+#### Notes
+- ComfyUI is NOT bundled — the user installs and runs it separately on the same instance. The provisioning scripts (`vastai_setup.sh`, `provision_runpod.sh`) may eventually install it, but that's a separate decision.
+- The template has workflow builders for `inpaint`, `controlnet`, and `adetailer` types referenced in `types.ts` but not yet built in `workflows/`. Those are future scope.
+- Check whether `zustand` is already a dep before adding it — the stores use it.
+
+---
+
+### 11.2 Second Ecosystem App
+
+**Priority:** TBD  
+**Status:** Location TBD — user to provide path  
+
+*(Placeholder — details to be filled in once the second app is shared.)*
+
+---
+
+### 11.3 Ecosystem Architecture Principles
+
+As more tools are integrated, these rules keep things from becoming a mess:
+
+1. **One port, one tunnel.** All ecosystem tools proxy through port 3000 via `server.js`. No second Cloudflare tunnel endpoints. Users access everything from one URL.
+2. **One settings page.** External tool URLs/ports live in the existing settings system, not scattered `.env` files.
+3. **Handoff buttons, not deep integration.** Tools stay loosely coupled. A "Test in ComfyUI" button is fine; sharing state stores between tools is not.
+4. **Each tool is optional.** If ComfyUI isn't running, the ComfyUI page shows a friendly "not connected" state — it does not break anything else.
+
+---
+
+### 11.4 Priority Matrix — Ecosystem Features
+
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ⏳ Not started |
+| COMFY-2: Copy lib/stores/hooks layer | Integration | Tiny | ⏳ Not started |
+| COMFY-3: UI page + navbar link | Integration | Small | ⏳ Not started |
+| COMFY-4: Settings integration | UX | Tiny | ⏳ Not started |
+| COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
+| App 2: TBD | TBD | TBD | ⏳ Placeholder |
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project
