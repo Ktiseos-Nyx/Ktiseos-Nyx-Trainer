@@ -1049,7 +1049,7 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
-  resizeLora: async (inputPath: string, outputPath: string, newDim: number, newAlpha: number) => {
+  resizeLora: async (inputPath: string, outputPath: string, newDim: number) => {
     const response = await fetch(`${API_BASE}/utilities/lora/resize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1057,7 +1057,6 @@ export const utilitiesAPI = {
         input_path: inputPath,
         output_path: outputPath,
         new_dim: newDim,
-        new_alpha: newAlpha
       }),
     });
     return handleResponse(response);

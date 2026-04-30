@@ -320,7 +320,6 @@ function ResizeLoRATab() {
   const [inputFile, setInputFile] = useState('');
   const [outputPath, setOutputPath] = useState('');
   const [newDim, setNewDim] = useState(32);
-  const [newAlpha, setNewAlpha] = useState(32);
   const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
   const [availableDims, setAvailableDims] = useState<number[]>([16, 32, 64, 128]);
   const [resizing, setResizing] = useState(false);
@@ -377,7 +376,7 @@ function ResizeLoRATab() {
       setError(null);
       setResult(null);
 
-      const response = await utilitiesAPI.resizeLora(inputFile, outputPath, newDim, newAlpha);
+      const response = await utilitiesAPI.resizeLora(inputFile, outputPath, newDim);
 
       if (response.success) {
         setResult(response);
@@ -444,19 +443,6 @@ function ResizeLoRATab() {
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">New Alpha *</label>
-              <input
-                type="number"
-                value={newAlpha}
-                onChange={(e) => setNewAlpha(parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-input border border-input text-foreground rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                min="1"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Usually same as dimension
-              </p>
-            </div>
           </div>
 
           {/* Output Path */}

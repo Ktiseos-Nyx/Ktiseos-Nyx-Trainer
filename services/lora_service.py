@@ -54,6 +54,20 @@ class LoRAService:
         }
         self.checkpoint_merge_script = self.tools_path / "merge_models.py"
 
+    def _validate_device(self, device: str) -> None:
+        """Raise ValidationError if CUDA is requested but unavailable."""
+        if device == "cuda":
+            try:
+                import torch
+                if not torch.cuda.is_available():
+                    raise ValidationError(
+                        "CUDA device requested but no GPU is available. Use 'cpu' instead."
+                    )
+            except ImportError:
+                raise ValidationError(
+                    "CUDA device requested but PyTorch is not installed."
+                )
+
     async def resize_lora(self, request: LoRAResizeRequest) -> LoRAResizeResponse:
         """
         Resize a LoRA model to a different rank.
@@ -83,6 +97,8 @@ class LoRAService:
                     "LoRA resize script not found. "
                     "Please ensure the training backend is installed."
                 )
+
+            self._validate_device(request.device)
 
             # Build command
             command = [
@@ -290,12 +306,14 @@ class LoRAService:
                     "Please ensure the training backend is installed."
                 )
 
+            self._validate_device(request.device)
+
             # Build command
             command = [
                 sys.executable,
                 str(merge_script),
                 "--save_to", str(output_path),
-                "--save_precision", request.save_precision,
+                "--save_precision", request.save_precision,  # merge_lora.py uses --save_precision
                 "--precision", request.precision,
             ]
 
@@ -391,13 +409,15 @@ class LoRAService:
                     "Please ensure the training backend is installed."
                 )
 
+            self._validate_device(request.device)
+
             # Build command
             command = [
                 sys.executable,
                 str(self.checkpoint_merge_script),
                 "--output", str(output_path),
                 "--precision", request.precision,
-                "--saving_precision", request.save_precision,
+                "--saving_precision", request.save_precision,  # merge_models.py uses --saving_precision (different from merge_lora.py's --save_precision)
             ]
 
             # Collect all model paths and ratios (Kohya expects them as separate lists)
