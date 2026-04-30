@@ -7,6 +7,9 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
+const STORAGE_KEY_OWNER = 'hf_upload_owner';
+const STORAGE_KEY_REPO_TYPE = 'hf_upload_repo_type';
+
 export default function HuggingFaceUploadPage() {
   const [uploadType, setUploadType] = useState<'lora' | 'dataset'>('lora');
   const [hfToken, setHfToken] = useState('');
@@ -19,10 +22,28 @@ export default function HuggingFaceUploadPage() {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [useStoredToken, setUseStoredToken] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [datasetDirectory, setDatasetDirectory] = useState('');
+
+  // Pre-fill token from saved settings and owner/repoType from localStorage
+  useEffect(() => {
+    const savedOwner = localStorage.getItem(STORAGE_KEY_OWNER);
+    const savedRepoType = localStorage.getItem(STORAGE_KEY_REPO_TYPE);
+    if (savedOwner) setOwner(savedOwner);
+    if (savedRepoType) setRepoType(savedRepoType);
+
+    fetch('/api/settings/user/huggingface_token')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.isSet) {
+          setUseStoredToken(true);
+        }
+      })
+      .catch(() => {}); // silently ignore if settings unavailable
+  }, []);
 
   // Load available files based on upload type
   useEffect(() => {
@@ -52,6 +73,10 @@ export default function HuggingFaceUploadPage() {
     setSelectedFiles([]); // Clear selections when switching type
   }, [uploadType]);
 
+  // Persist owner and repoType across navigations
+  useEffect(() => { localStorage.setItem(STORAGE_KEY_OWNER, owner); }, [owner]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEY_REPO_TYPE, repoType); }, [repoType]);
+
   // Validate token
   const handleValidateToken = async () => {
     if (!hfToken.trim()) {
@@ -73,7 +98,7 @@ export default function HuggingFaceUploadPage() {
 
   // Upload to HuggingFace
   const handleUpload = async () => {
-    if (!hfToken || !owner || !repoName || selectedFiles.length === 0) {
+    if ((!hfToken && !useStoredToken) || !owner || !repoName || selectedFiles.length === 0) {
       setError('Please fill in all required fields and select at least one file');
       return;
     }
@@ -195,11 +220,12 @@ export default function HuggingFaceUploadPage() {
                   value={hfToken}
                   onChange={(e) => {
                     setHfToken(e.target.value);
+                    setUseStoredToken(false);
                     setTokenValid(null);
                   }}
                   autoComplete="off"
                   className="flex-1"
-                  placeholder="hf_..."
+                  placeholder={useStoredToken ? 'Using saved token — type to override' : 'hf_...'}
                 />
                 <Button type="button" onClick={handleValidateToken}>
                   Validate

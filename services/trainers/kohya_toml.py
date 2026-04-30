@@ -107,7 +107,7 @@ class KohyaTOMLGenerator:
         else:
             dataset["resolution"] = self.config.resolution
         dataset["batch_size"] = self.config.train_batch_size
-        dataset["enable_bucket"] = True # Force bucketing enabled
+        dataset["enable_bucket"] = self.config.enable_bucket
         dataset["min_bucket_reso"] = self.config.min_bucket_reso
         dataset["max_bucket_reso"] = self.config.max_bucket_reso
         if self.config.bucket_reso_steps:
@@ -371,11 +371,13 @@ class KohyaTOMLGenerator:
             "mem_eff_attn": self.config.cross_attention == "mem_eff_attn",
             "v2": self.config.v2,
             "v_parameterization": self.config.v_parameterization,
-            "network_train_unet_only": self.config.network_train_unet_only,
             "noise_offset": self.config.noise_offset,
             "zero_terminal_snr": self.config.zero_terminal_snr,
             "prior_loss_weight": self.config.prior_loss_weight,
         }
+
+        if self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only:
+            args["network_train_unet_only"] = True
 
         # ========== NEW FIELDS (Issue #97 Fix) ==========
         # Performance/Memory

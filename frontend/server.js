@@ -15,6 +15,13 @@
 
 const { createServer } = require('http');
 const next = require('next');
+
+// Guard: this project requires `node server.js` for WebSocket support.
+// Running `next start` bypasses this server and breaks WebSocket proxying.
+if (require.main === module && process.argv[1]?.includes('next') && !process.argv[1].endsWith('server.js')) {
+  console.error('❌ This project requires `node server.js` for production. Do not run `next start`.');
+  process.exit(1);
+}
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { WebSocketServer } = require('ws');
 
@@ -143,8 +150,15 @@ app.prepare().then(() => {
       const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix)) || nodeApiExact.includes(pathname);
 
       if (isNodeApi) {
-        // Let Next.js handle these routes
-        return await handle(req, res, parsedUrl);
+        try {
+          return await handle(req, res, parsedUrl);
+        } catch (e) {
+          if (e.message?.includes('parsedUrl') || e.message?.includes('argument')) {
+            console.warn('⚠️ Next.js handle() signature changed; retrying without parsedUrl');
+            return await handle(req, res);
+          }
+          throw e;
+        }
       }
 
       // Proxy other /api requests to FastAPI (backward compatibility)
@@ -161,7 +175,16 @@ app.prepare().then(() => {
       }
 
       // Handle all other requests with Next.js
-      await handle(req, res, parsedUrl);
+      try {
+        await handle(req, res, parsedUrl);
+      } catch (e) {
+        if (e.message?.includes('parsedUrl') || e.message?.includes('argument')) {
+          console.warn('⚠️ Next.js handle() signature changed; retrying without parsedUrl');
+          await handle(req, res);
+        } else {
+          throw e;
+        }
+      }
     } catch (err) {
       console.error('Error handling request:', err);
       res.statusCode = 500;

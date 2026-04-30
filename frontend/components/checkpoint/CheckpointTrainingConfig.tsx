@@ -16,7 +16,7 @@ import FileBrowser from '@/components/FileBrowser';
 interface CheckpointConfig {
   // Project & Model
   project_name: string;
-  model_type: 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'LUMINA';
+  model_type: 'SD15' | 'SDXL' | 'FLUX' | 'SD3' | 'SD35' | 'LUMINA' | 'CHROMA' | 'ANIMA';
   pretrained_model_name_or_path: string;
   vae_path?: string;
 
@@ -175,7 +175,10 @@ export default function CheckpointTrainingConfig() {
                   <SelectItem value="SDXL">Stable Diffusion XL</SelectItem>
                   <SelectItem value="FLUX">Flux</SelectItem>
                   <SelectItem value="SD3">Stable Diffusion 3</SelectItem>
+                  <SelectItem value="SD35">Stable Diffusion 3.5</SelectItem>
                   <SelectItem value="LUMINA">Lumina</SelectItem>
+                  <SelectItem value="CHROMA">Chroma</SelectItem>
+                  <SelectItem value="ANIMA">Anima</SelectItem>
                 </SelectContent>
               </Select>
             </div>

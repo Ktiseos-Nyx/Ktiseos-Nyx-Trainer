@@ -855,6 +855,15 @@ export const trainingAPI = {
     const poll = async () => {
       if (stopped) return;
 
+      // Skip when tab is hidden — browsers throttle background timers to ~1/min.
+      // The visibilitychange listener below fires an immediate poll on tab focus.
+      if (typeof document !== 'undefined' && document.hidden) {
+        timeoutId = setTimeout(poll, 1000);
+        return;
+      }
+
+      const start = Date.now();
+
       try {
         const url = `${API_BASE}/training/logs/${jobId}?since=${nextSince}`;
         const response = await fetch(url, { signal: controller.signal });
@@ -896,10 +905,25 @@ export const trainingAPI = {
         }
       }
 
+      // Fixed-cadence: schedule next poll relative to when this one started,
+      // so a slow backend response doesn't compound into a 2s+ effective interval.
       if (!stopped) {
-        timeoutId = setTimeout(poll, 1000);
+        const elapsed = Date.now() - start;
+        timeoutId = setTimeout(poll, Math.max(0, 1000 - elapsed));
       }
     };
+
+    // Resume immediately when the user switches back to this tab
+    const onVisible = () => {
+      if (!stopped && typeof document !== 'undefined' && !document.hidden) {
+        if (timeoutId) clearTimeout(timeoutId);
+        poll();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisible);
+    }
 
     poll();
 
@@ -908,6 +932,9 @@ export const trainingAPI = {
         controller.abort();
         stopped = true;
         if (timeoutId) clearTimeout(timeoutId);
+        if (typeof document !== 'undefined') {
+          document.removeEventListener('visibilitychange', onVisible);
+        }
       },
     };
   },
@@ -1049,7 +1076,7 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
-  resizeLora: async (inputPath: string, outputPath: string, newDim: number, newAlpha: number) => {
+  resizeLora: async (inputPath: string, outputPath: string, newDim: number) => {
     const response = await fetch(`${API_BASE}/utilities/lora/resize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1057,7 +1084,6 @@ export const utilitiesAPI = {
         input_path: inputPath,
         output_path: outputPath,
         new_dim: newDim,
-        new_alpha: newAlpha
       }),
     });
     return handleResponse(response);

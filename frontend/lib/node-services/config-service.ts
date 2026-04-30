@@ -200,8 +200,6 @@ export async function generateDatasetTOML(
   projectRoot: string,
   sdScriptsDir: string
 ): Promise<string> {
-  // Validate paths first
-  await validatePaths(config, projectRoot);
 
   const doc: any = {};
 
@@ -311,9 +309,6 @@ export async function generateConfigTOML(
   config: TrainingConfig,
   projectRoot: string
 ): Promise<string> {
-  // Validate paths first
-  await validatePaths(config, projectRoot);
-
   // 1. Get base training args
   const args = getTrainingArguments(config, projectRoot);
 
@@ -695,70 +690,6 @@ function isHuggingFaceId(p: string): boolean {
 function resolveConfigPath(p: string, projectRoot: string): string {
   if (isHuggingFaceId(p)) return p;
   return path.isAbsolute(p) ? p : path.resolve(projectRoot, p);
-}
-
-/**
- * Validate critical paths exist before TOML generation
- */
-async function validatePaths(config: TrainingConfig, projectRoot: string): Promise<void> {
-  const errors: string[] = [];
-
-  // Check base model — skip if it's a HuggingFace model ID (downloaded at train time)
-  if (!isHuggingFaceId(config.pretrained_model_name_or_path)) {
-    const modelPath = resolveConfigPath(config.pretrained_model_name_or_path, projectRoot);
-    try {
-      await fs.access(modelPath);
-    } catch {
-      errors.push(`Base model not found: ${modelPath}`);
-    }
-  }
-
-  // Check dataset directory (always local — resolve directly, not via resolveConfigPath)
-  const datasetPath = path.isAbsolute(config.train_data_dir)
-    ? config.train_data_dir
-    : path.resolve(projectRoot, config.train_data_dir);
-  try {
-    await fs.access(datasetPath);
-    const files = await fs.readdir(datasetPath);
-    if (files.length === 0) {
-      errors.push(`Training dataset directory is empty: ${datasetPath}`);
-    }
-  } catch {
-    errors.push(`Training dataset directory not found: ${datasetPath}`);
-  }
-
-  // Check output directory parent exists (always local)
-  const outputPath = path.isAbsolute(config.output_dir)
-    ? config.output_dir
-    : path.resolve(projectRoot, config.output_dir);
-  const outputParent = path.dirname(outputPath);
-  try {
-    await fs.access(outputParent);
-  } catch {
-    errors.push(`Output directory parent does not exist: ${outputParent}`);
-  }
-
-  // Optional paths (warn but don't fail)
-  if (config.vae_path && !isHuggingFaceId(config.vae_path)) {
-    try {
-      await fs.access(resolveConfigPath(config.vae_path, projectRoot));
-    } catch {
-      console.warn(`VAE path specified but not found: ${config.vae_path}`);
-    }
-  }
-
-  if (config.continue_from_lora && !isHuggingFaceId(config.continue_from_lora)) {
-    try {
-      await fs.access(resolveConfigPath(config.continue_from_lora, projectRoot));
-    } catch {
-      errors.push(`LoRA to continue from not found: ${config.continue_from_lora}`);
-    }
-  }
-
-  if (errors.length > 0) {
-    const errorMsg = 'Path validation failed:\n' + errors.map(e => `  - ${e}`).join('\n');
-    throw new Error(errorMsg);
-  }
 }
 
 // ========== Main Service Class ==========

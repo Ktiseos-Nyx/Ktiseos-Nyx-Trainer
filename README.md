@@ -52,6 +52,29 @@ Active development. Core training is working and verified across multiple LoRA t
 
 ---
 
+## Dev Branch — Pending Roadmap Updates for Next Main Merge
+
+> This section lives on `dev` only. When merging to main, fold these into the roadmap and known rough edges below, then delete this block.
+
+**Shipped since last main merge (2026-04-30):**
+- ✅ Next.js 16 upgrade (security bump, PR #355) — removes the "gated on ComfyUI" note below
+- ✅ PostCSS CVE-2026-41305 patched
+- ✅ Dev-branch provisioning scripts for VastAI and RunPod
+- ✅ HF upload form now pre-fills token from saved settings; owner/repo type persist across navigations
+- ✅ Training log polling fixed (visibility-aware + fixed cadence — no more frozen logs on tab switch)
+- ✅ LoRA resize alpha field removed (it was silently ignored by the backend)
+- ✅ Merge/resize subprocesses now have timeouts (30 min resize, 1 hr merges)
+- ✅ CUDA availability check before passing `--device cuda` to any merge/resize operation
+- ✅ Checkpoint training page now shows SD3.5, Chroma, and Anima model types
+- ✅ `enable_bucket` now respects user config (was hardcoded True)
+- ✅ `network_train_unet_only` no longer passed in checkpoint training mode (invalid arg there)
+
+**Known rough edges to update:**
+- Remove "Training progress display shows 0/0" if resolved by then
+- WandB logging UI still missing (LT-1 + UI-1, up next)
+
+---
+
 ## Roadmap
 
 ### Beta (multi-phase — not a one-month sprint)
@@ -81,7 +104,7 @@ Active development. Core training is working and verified across multiple LoRA t
 - **Dev-branch installer access** — add `--branch dev` (or similar) flag to `install.bat`/`install.sh` so beta testers can opt into the dev branch without manual git commands; not needed in alpha but useful once beta testing ramps up
 
 
-- **Next.js 16** — upgrade when ComfyUI integration work begins, not before; that phase also brings in the team's own dataset tools / metadata viewer (already built in Next 16) plus reference from an older Python edition of the same tool. Batching the upgrade with real new functionality avoids churn.
+- **Next.js 16** — ✅ Done (PR #355, shipped as a security bump — didn't wait for ComfyUI)
 - **Tauri desktop wrapper** — post-beta, wrap the trainer in Tauri (not Electron) for a proper desktop app experience: system tray, native file dialogs, auto-start, smaller binary. Tauri uses the OS native webview so no bundled Chromium. Standardize on Tauri for both the trainer and the dataset tools — native file open/save calls via `@tauri-apps/plugin-dialog` and `@tauri-apps/plugin-fs` (Tauri v2 plugin API), written once and shared. Note: Electron requires baking into the architecture from day one; Tauri is more forgiving about being added to an existing Next.js app later.
 
 ### Post-Beta / Pre-Stable — Future Model Types

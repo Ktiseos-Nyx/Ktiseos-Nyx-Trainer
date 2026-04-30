@@ -2,7 +2,7 @@
 
 **Current Version:** Alpha (v0.1.0-dev)
 **Target:** Beta Release
-**Last Updated:** 2026-04-15
+**Last Updated:** 2026-04-30
 
 ---
 
@@ -457,6 +457,51 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 ---
 
+### 5.0.9 Training Monitor — tqdm ETA and Step Progress Parsing
+
+**Issue UI-5: No ETA, step count, or percentage in the training monitor**
+- **Severity:** Medium (long-term imperative — fine for short runs, painful for multi-hour ones)
+- **Location:** `frontend/components/training/TrainingMonitor.tsx` + log polling
+- **User-reported:** Epoch numbers show but ETA/step progress don't. Fine for a 32-image 4090 run, a problem for anything longer.
+
+**Why it's missing:** Kohya outputs timing via tqdm progress bars in stdout. A typical line looks like:
+
+```
+steps: 100%|██████████| 320/320 [08:23<00:00,  1.57s/it]
+```
+
+The `[elapsed<remaining, it/s]` is all the data we need but we currently pass log lines through as raw text without parsing them.
+
+**Fix:** Add a tqdm line parser to the log polling pipeline:
+- Regex to detect tqdm progress lines: `/(\d+)%\|.*\|\s*(\d+)\/(\d+)\s*\[(\d+:\d+)<(\d+:\d+),\s*([\d.]+)it\/s\]/`
+- Extract: current step, total steps, elapsed, remaining (ETA), it/s
+- Surface in TrainingMonitor as: progress bar, ETA countdown, steps/s throughput
+- Epoch lines (`Epoch X/Y`) already parse fine — keep those, add step-level detail alongside
+
+**Implementation notes:**
+- Parser lives in a utility function, tested independently
+- TrainingMonitor gets a new "progress" state slot separate from raw log lines
+- tqdm output format is consistent across Kohya versions — safe to rely on
+- Only activate the parser when a training job is active (don't waste cycles on idle log polling)
+
+---
+
+### 5.1 Preset Optimizer Args Contamination
+
+**Issue PR-1: optimizer_args field picks up general training args from community presets**
+- **Severity:** Medium (causes cryptic training failures)
+- **User-reported:** Citron's Adafactor preset stuffed precision/device args (`state_storage_dtype=bfloat16 state_storage_device=cuda` style) into `optimizer_args`. Adafactor then threw `ValueError: not enough values to unpack` because those aren't valid optimizer args.
+- **Root cause:** Community presets (and possibly our own) miscategorise general training args as optimizer_args. These are actually top-level training fields (`mixed_precision`, `fp8_base`, etc.) that got bundled into the freetext `optimizer_args` blob.
+- **Workaround:** Manually clear `optimizer_args` before training if switching optimizers or loading community presets.
+
+**Fixes:**
+1. **Preset cleanup** — audit all bundled presets, move any precision/device args out of `optimizer_args` into proper top-level fields
+2. **UX warning** — when `optimizer_args` is non-empty and optimizer type changes, warn the user: "These args may be specific to a different optimizer — clear them?"
+3. **Validation** — before training starts, validate that `optimizer_args` entries look like actual optimizer args (key=value pairs that the selected optimizer recognises), not training-level settings
+4. **Community preset naming** — if a preset bundles optimizer-specific args, the name should make that clear (e.g. "Citron Adafactor - SDXL" not just "Citron")
+
+---
+
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
 **Issue HF-1: HF upload form loses all data on page navigation**
@@ -481,36 +526,37 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 ## 6. Feature Priority Matrix (Beta)
 
 ### Must Have (Alpha -> Beta gate)
-| Feature | Category | Effort |
-|---------|----------|--------|
-| Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny |
-| Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny |
-| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny |
-| Add WandB/Logging UI section (UI-1) | New Feature | Small |
-| Dashboard redesign with all routes (UI-2) | UX | Medium |
-| HF upload form persistence (HF-1) | UX/Bug Fix | Small |
-| Tag Viewer with frequency counts | New Feature | Medium |
-| Bulk tag remove/replace | New Feature | Medium |
-| Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small |
-| Add subprocess timeouts to merge operations (MG-3) | Reliability | Small |
-| CUDA availability check for merges (MG-4) | Error Handling | Small |
-| Update CheckpointTrainingConfig types (CT-5) | Bug Fix | Tiny |
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny | ✅ Done (pre-existing) |
+| Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
+| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ⏳ Next session |
+| Add WandB/Logging UI section (UI-1) | New Feature | Small | ⏳ Next session |
+| Dashboard redesign with all routes (UI-2) | UX | Medium | 🔵 Design work, deferred |
+| HF upload form persistence (HF-1) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
+| Tag Viewer with frequency counts | New Feature | Medium | ⏳ Not started |
+| Bulk tag remove/replace | New Feature | Medium | ⏳ Not started |
+| Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small | ✅ Done 2026-04-30 |
+| Add subprocess timeouts to merge operations (MG-3) | Reliability | Small | ✅ Done 2026-04-30 |
+| CUDA availability check for merges (MG-4) | Error Handling | Small | ✅ Done 2026-04-30 |
+| Update CheckpointTrainingConfig types (CT-5) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
 
 ### Should Have (Beta quality)
-| Feature | Category | Effort |
-|---------|----------|--------|
-| 3-way overwrite mode for tagging | Enhancement | Small |
-| Checkpoint-specific validation (CT-1) | Enhancement | Small |
-| Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium |
-| Merge progress reporting (MG-7) | UX | Medium |
-| SD3 merge support (MG-5) | Feature | Small |
-| Clean up redundant TOML generation (CT-6) | Tech Debt | Small |
-| Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny |
-| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium |
-| Clarify "Full" LoRA type semantics (LT-4) | UX | Small |
-| Silence AbortError console noise (UI-3) | Polish | Small |
-| Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small |
-| Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny |
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| 3-way overwrite mode for tagging | Enhancement | Small | ⏳ Not started |
+| Checkpoint-specific validation (CT-1) | Enhancement | Small | ⏳ Not started |
+| Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium | 🚫 N/A — separate pages, no unified form |
+| Merge progress reporting (MG-7) | UX | Medium | ⏳ Not started |
+| SD3 merge support (MG-5) | Feature | Small | ⏳ Deferred (part of #342) |
+| Clean up redundant TOML generation (CT-6) | Tech Debt | Small | ⏳ Not started |
+| Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
+| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | ⏳ Not started |
+| Clarify "Full" LoRA type semantics (LT-4) | UX | Small | ⏳ Not started |
+| Silence AbortError console noise (UI-3) | Polish | Small | ⏳ Not started |
+| Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
+| Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny | ⏳ Next session |
+| MG-2: Document save_precision naming difference | Code Clarity | Tiny | ✅ Done 2026-04-30 |
 
 ### Nice to Have (Beta+)
 | Feature | Category | Effort |
@@ -521,6 +567,48 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 | Merge dry-run/preview mode | Feature | Medium |
 | EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small |
 | Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) |
+| Batch Downloader (BD-1) | New Feature | Medium |
+| Training monitor tqdm ETA parsing (UI-5) | Enhancement | Small |
+
+---
+
+## 6.5 Batch Downloader
+
+**Issue BD-1: Model sourcing is fragile and region-dependent**
+- **Priority:** Beta+ (nice to have, but solves a real accessibility problem)
+- **Status:** Not started
+- **Motivation:** Civitai's API geoblocks certain regions (UK datacenter IPs get 451'd due to UK Online Safety Act compliance). Users shouldn't need a working Civitai API to download models — they should be able to paste any link and have it work.
+
+### Concept
+
+A dedicated **Batch Downloader** page where users paste a list of URLs or magnet links (one per line) and the app routes each to the right downloader automatically:
+
+| Link type | Downloader |
+|-----------|-----------|
+| `https://huggingface.co/...` | `huggingface-cli` / `hf_hub_download` |
+| `magnet:?xt=...` | `aria2c` |
+| `https://civitai.com/...` | Existing Civitai API (with token) |
+| Any other HTTP/HTTPS | `aria2c` (better than wget for resumable downloads) |
+| Google Drive | `gdown` |
+
+### UI Design
+
+- Large textarea: paste URLs one per line
+- Global destination dropdown: Models / LoRAs / VAEs / Dataset / Output
+- Per-line destination override (optional, can skip for v1)
+- Progress list showing each download's status as it runs
+- aria2c is already installed on VastAI/RunPod instances (required by existing workflow)
+
+### Inspiration
+
+Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag syntax to route downloads. Our version replaces the hashtag hack with a proper destination dropdown — cleaner UX, same flexibility.
+
+### Implementation notes
+- Backend: new `POST /api/utilities/batch-download` endpoint that accepts a list of `{url, destination}` objects, spawns aria2c/hf-cli/gdown as appropriate per URL, streams progress back
+- Frontend: new page at `frontend/app/batch-download/page.tsx`
+- aria2c already present on instances — no new provisioning needed
+- gdown may need `pip install gdown` added to requirements
+- No torrent tracker/indexer integration — users provide their own links. Completely neutral technology.
 
 ---
 
@@ -601,7 +689,104 @@ During an Anima support audit, the following bug was found and **fixed**:
 
 ---
 
-## 8. Attribution Requirements
+## 7.9 Hardcoded Presets Not Wired Into Training Submit Flow
+
+**Priority:** High — blocks actual training  
+**Status:** Confirmed broken 2026-04-30  
+
+### What we know
+
+Presets hardcoded in `frontend/hooks/useTrainingForm.ts` (Citron's Illustrious, Citron's PDXL, Citron's Anima etc.) populate form fields visually but do NOT properly hook into the training submit flow. When you load one and hit Train:
+
+- No request reaches FastAPI
+- No logs appear (backend is completely silent)
+- No 422, no 500, nothing — complete silence
+- The button appears to work but nothing happens
+
+This is NOT a backend config field mismatch issue — it's the frontend never actually sending the training request at all.
+
+### Why it happened
+
+Presets were hardcoded into `useTrainingForm.ts` as a quick solution ("we needed it to work RIGHT NOW") rather than going through the proper preset save/load system. The values populate the form display but don't correctly feed into whatever the submit handler reads to build the training payload.
+
+### Fix needed
+
+- Audit how `useTrainingForm.ts` applies hardcoded preset values to form state vs how the submit handler reads form state
+- Either: fix the wiring so hardcoded presets properly update the form state the submit handler uses
+- Or better: migrate all hardcoded presets out of `useTrainingForm.ts` into proper JSON files in `presets/` and use the existing preset load system
+- The JSON migration is the RIGHT fix — hardcoding presets in a hook is the root cause of this whole class of bugs
+
+### Related
+
+- PR-1 (optimizer_args contamination) — same root cause, presets in wrong place
+- Preset UX architecture filtering (in MEMORY.md backlog) — filter by model_type, only possible once presets are proper JSON
+
+---
+
+## 8. Anima Deep Dive — Research Session Needed
+
+**Priority:** Beta (before Anima is considered properly supported)  
+**Status:** Attempted training, hit size mismatch error — config fields not properly understood  
+
+### What we know
+
+- `networks.lora_anima` is correctly wired (fixed previously)
+- Training script exists in sd-scripts
+- Attempted a real training run — failed with: `size mismatch for layers.27.mlp.gate_proj.weight: copying a param with shape torch.Size([3072, 1024]) from checkpoint, the shape in current model is torch.Size([22016, 4096])`
+- This suggests something is being loaded as an LLM/text encoder that is the wrong size or wrong architecture entirely
+
+### What we don't know
+
+- Exactly which files Anima's training script expects and from where
+- Whether the LLM component is embedded in the base model or must be provided separately
+- Whether our UI fields map correctly to what `anima_train.py` actually expects
+- Whether `clip_skip`, `gemma2`, and other fields are being passed/ignored correctly for Anima
+
+### Research plan for next dedicated session
+
+1. Read `trainer/derrian_backend/sd_scripts/anima_train.py` argument list in full
+2. Find a real working Anima training config from the community (Circlestone Labs discord, ArcEnCiel community)
+3. Map actual required args → our UI fields → fix any mismatches
+4. Document the correct file structure for an Anima training setup (base model, VAE, text encoder, tokenizer configs)
+5. Add Anima-specific validation to catch wrong file types before training starts
+
+### Note on `ARCHITECTURE.md`
+
+Future Claude needs context it currently has to re-derive every session. A dedicated session to document the backend config fields per model type would save significant time. Proposed: `docs/ARCHITECTURE.md` covering:
+- What each model type (SD15, SDXL, Flux, SD3, Lumina, Anima) actually requires
+- Which UI fields map to which CLI args in Kohya
+- Which fields are model-type-specific vs universal
+- Known gotchas per model type
+
+This file gets `grep`ped at session start instead of guessing from training data.
+
+---
+
+## 8. Session Notes (2026-04-30) — Priority for Next Week
+
+### URGENT: Full Training Logs (next 1-2 sessions)
+Training logs are essentially broken in production — the monitor dies early, stdout doesn't flush, and users have no idea what's happening mid-run. Confirmed today that a training can run for HOURS with zero visible progress (Adafactor + 305 images + 10 epochs on a 4090 took well over an hour with zero UI feedback). This is the single most important UX fix for beta.
+
+Fixes needed in priority order:
+1. **PYTHONUNBUFFERED=1** on Kohya subprocess (UI-4 backend part) — single biggest impact
+2. **tqdm line parser** (UI-5) — surface step count, ETA, it/s in the monitor
+3. **Training monitor reconnect** — if the monitor component dies, user should be able to re-attach to a running job by job ID without refreshing the whole page
+
+### Calculator Enhancement — Optimizer-Aware Time Estimation
+The step calculator currently uses basic Kohya math. Proposal: make it optimizer-aware so it can give rough time estimates based on:
+- Optimizer choice (Adafactor is slower per step than AdamW8bit, Prodigy is variable)
+- Dataset size × repeats × epochs → total steps
+- Batch size effect on step count
+- Resolution effect on VRAM and speed
+
+Not exact science but "rough estimate with caveats" is infinitely more useful than nothing. Would have saved a lot of "is this an all-nighter?" uncertainty today.
+
+### Hardcoded Presets Migration (section 7.9)
+High priority — confirmed blocks training silently. Migrate all presets from `useTrainingForm.ts` into proper JSON files in `presets/`. This fixes the silent training failure AND the PR-1 optimizer_args contamination in one shot.
+
+---
+
+## 9. Attribution Requirements
 
 When implementing features inspired by Civitai's codebase, add to `ATTRIBUTIONS.md`:
 
@@ -619,12 +804,195 @@ The following features were inspired by Civitai's training interface:
 
 ---
 
-## 9. Notes
+## 9. Session Notes
+
+### 2026-04-30 — Beta Bug Bash
+
+**Completed this session (commits on `dev`):**
+- Next.js 15 → 16 upgrade (PR #355, merged to main)
+- PostCSS CVE-2026-41305 patch
+- Dev-branch provisioning scripts for VastAI and RunPod
+- CT-5: CheckpointTrainingConfig TypeScript type now includes SD35/CHROMA/ANIMA
+- MG-1: Removed deceptive alpha input from LoRA resize (resize_lora.py auto-calculates it)
+- MG-2: Commented the --save_precision vs --saving_precision naming difference
+- MG-3: asyncio.wait_for() timeouts on all merge/resize subprocesses (resize=30min, merges=1hr)
+- MG-4: _validate_device() CUDA availability check before any subprocess gets --device cuda
+- UI-4 (#346): pollLogs fixed-cadence + visibility-aware polling + visibilitychange listener
+- HF-1 (#344): HF upload page pre-fills token from saved settings; owner/repoType persist in localStorage
+- LT-2: enable_bucket now reads from config instead of hardcoded True
+- LT-3: network_train_unet_only guarded to False in checkpoint mode
+
+**Up next:**
+- LT-1 + UI-1 (#343): Wire wandb_key as WANDB_API_KEY env var + add LoggingCard to training form
+- PYTHONUNBUFFERED=1 on Kohya subprocess (UI-4 backend part)
+- MG-5: SD3 merge (deferred but part of #342)
+- #349: Upload progress indicator (needs XHR refactor, waiting a few days)
+- Tag Viewer + Bulk tag ops (larger feature work)
+
+**CT-2 closed as N/A:** `/training` and `/checkpoint-training` are already separate pages — no unified form exists where LoRA fields would need to be hidden.
+
+---
+
+## 10. Notes (Original)
 
 - Checkpoint training backend appears functional but needs real-world testing with actual full fine-tune runs
 - Merging tool is mostly solid - the issues are UX and reliability, not correctness
 - The tag system upgrades are the highest-impact changes for Beta since they directly improve the dataset preparation workflow
 - All Civitai-inspired features are UI patterns only - we do NOT use their cloud orchestrator, S3 upload, or SignalR approach
+
+---
+
+## 11. Ecosystem Integration
+
+The goal is a healthy, interconnected set of tools running on the same VastAI/RunPod instance — not a monolith, but a set of apps that are aware of each other and hand off naturally. Training a LoRA should flow directly into testing it. Uploading a model should be one click, not a separate workflow.
+
+---
+
+### 11.1 ComfyUI Frontend Integration
+
+**Priority:** Beta+ (after core beta bugs closed)  
+**Status:** Template acquired, architecture planned  
+**Source:** v0-generated template (`b_xNk9Kzq6SWm`), to be adapted — not dropped in wholesale  
+
+#### What the template provides
+
+A complete, well-structured ComfyUI client layer:
+
+| Layer | Files | Notes |
+|-------|-------|-------|
+| API client | `lib/comfy/client.ts` | REST + WebSocket, auto-reconnect, all ComfyUI endpoints |
+| Workflow builders | `lib/comfy/workflows/` | txt2img, img2img, upscale — clean function-based API |
+| State stores | `lib/stores/` | Zustand: connection, generation params, queue |
+| UI components | `components/comfy/` (14 files) | All shadcn/ui — prompt editor, model selector, LoRA stack, sampler settings, image gallery, queue display, dimension picker, seed control, batch controls, denoise slider, upscale settings, workflow tabs, image input, connection status |
+| Types | `lib/comfy/types.ts` | Full typing for all ComfyUI API responses |
+
+All UI components use shadcn/ui — zero styling conflicts with the existing project.
+
+#### The one real integration problem
+
+The client defaults to `http://localhost:8188` and opens a WebSocket directly from the browser. On VastAI/RunPod through Cloudflare tunnel, **the browser cannot reach port 8188** — the tunnel only exposes port 3000.
+
+**Fix:** Add a `/comfyui` reverse proxy to `server.js` (same pattern as the existing FastAPI proxy). Change the client's default `baseUrl` to `/comfyui`. One env var (`COMFYUI_PORT`, default `8188`) controls the target. WebSocket upgrades need a second handler in `server.on('upgrade')`.
+
+#### Implementation sequence
+
+**COMFY-1: Proxy layer (prerequisite for everything else)**
+- `frontend/server.js` — add `/comfyui` HTTP proxy block (mirror the FastAPI proxy pattern)
+- `frontend/server.js` — add `/ws/comfyui` WebSocket upgrade handler
+- Env var: `COMFYUI_PORT=8188` (add to `start_services_vastai.sh`, `start_services_runpod.sh`, `restart.sh`)
+- `lib/comfy/client.ts` — change default `baseUrl` from `http://localhost:8188` to `/comfyui`
+
+**COMFY-2: Drop in the library layer**
+- Copy `lib/comfy/` into `frontend/lib/comfy/`
+- Copy `lib/stores/` into `frontend/lib/stores/` (check for Zustand dep — add to package.json if missing)
+- Copy `hooks/use-generation.ts` into `frontend/hooks/`
+
+**COMFY-3: UI components**
+- Copy `components/comfy/` into `frontend/components/comfy/`
+- New page: `frontend/app/comfyui/page.tsx` (adapt from template's `app/page.tsx`)
+- Add ComfyUI to navbar under a new "Generate" section (or alongside Tools)
+- Add to `server.js` `nodeApiPrefixes` if any Next.js API routes are needed
+
+**COMFY-4: Settings integration**
+- Add ComfyUI URL field to existing settings page (`frontend/app/settings/page.tsx`)
+- Read from settings store rather than hardcoding; show connection status badge
+
+**COMFY-5 (dream feature): "Test in ComfyUI" post-training shortcut**
+- When a training job completes, show a "Open in ComfyUI" button on `TrainingMonitor`
+- Clicking it navigates to `/comfyui` with the trained LoRA pre-loaded into the LoRA stack
+- Requires: COMFY-1 through COMFY-4 complete + ComfyUI actually running on the instance
+
+#### Notes
+- ComfyUI is NOT bundled — the user installs and runs it separately on the same instance. The provisioning scripts (`vastai_setup.sh`, `provision_runpod.sh`) may eventually install it, but that's a separate decision.
+- The template has workflow builders for `inpaint`, `controlnet`, and `adetailer` types referenced in `types.ts` but not yet built in `workflows/`. Those are future scope.
+- Check whether `zustand` is already a dep before adding it — the stores use it.
+
+---
+
+### 11.2 Dataset Tools Integration
+
+**Priority:** Beta+ (after COMFY-1 proxy pattern is proven)  
+**Status:** App is working and maintained — integration plan drafted  
+**Source:** `C:\Users\dusk\Development\Dataset-Tools` / [Ktiseos-Nyx/Dataset-Tools](https://github.com/Ktiseos-Nyx/Dataset-Tools) (same org)  
+
+#### What it is
+
+Dataset Tools is a **local-first image and model browser** with deep AI metadata extraction. Key capabilities not currently in the Trainer:
+
+| Capability | Value to the Trainer ecosystem |
+|------------|-------------------------------|
+| Image metadata viewer | Inspect reference images before training — see what settings produced them (A1111, ComfyUI, NovelAI, Fooocus, InvokeAI, DrawThings, SwarmUI, etc.) |
+| Safetensors inspector | View training metadata embedded in a just-trained LoRA — steps, dataset hash, network args — without leaving the UI |
+| ComfyUI workflow viewer | Show the full node graph for ComfyUI-generated reference images; pairs with COMFY-5 |
+| Thumbnail viewport | Fast thumbnail browsing with server-side `sharp` WebP generation + disk cache (`.thumbcache/`) |
+| Custom node classifier | Identifies ComfyUI custom nodes in a workflow — which are built-in vs. which require extensions |
+
+#### Tech stack compatibility
+
+- Next.js 16 + React 19 — **identical to Trainer** ✓
+- shadcn/ui + Radix — **identical to Trainer** ✓
+- Pure Node.js API routes — no Python required for the web app
+- The `dataset_tools/` Python package in the repo is a **separate CLI tool**, not a web dependency
+
+#### Integration architecture
+
+Same proxy approach as ComfyUI (section 11.1). Dataset Tools runs as a second Next.js process on its own port; the Trainer's `server.js` proxies `/dataset-tools/*` to it.
+
+**DT-1: Proxy layer**
+- `frontend/server.js` — add `/dataset-tools` HTTP proxy block, pointing to `http://127.0.0.1:${DATASET_TOOLS_PORT}`
+- Env var: `DATASET_TOOLS_PORT=3001` (add to all startup scripts)
+- `start_services_vastai.sh` — start Dataset Tools process (`cd /workspace/Dataset-Tools && npm start`)
+- Same for `start_services_runpod.sh` and `restart.sh`
+- Add to provisioning scripts: `git clone` + `npm install` + `npm run build` of Dataset-Tools repo
+
+**DT-2: Navbar link**
+- Add "Dataset Tools" entry to the trainer navbar under a new "Ecosystem" section (or alongside "Files")
+- Links to `/dataset-tools`
+
+**DT-3: Handoff buttons (the good stuff)**
+- **"Inspect in Dataset Tools"** on the files page — deep-link to Dataset Tools with the current folder pre-set
+- **"Inspect LoRA"** on training completion — opens the trained `.safetensors` directly in Dataset Tools' safetensors panel
+- **"View reference metadata"** in the dataset image gallery — opens a selected image in Dataset Tools' metadata panel
+
+These handoffs are URL-based (no shared state stores), keeping the projects loosely coupled.
+
+**DT-4: Shared folder awareness**
+- Dataset Tools has a `settings.currentFolder` that the user sets manually
+- Ideally the Trainer can deep-link with `?folder=/path/to/dataset` so Dataset Tools opens to the right place
+- Check if Dataset Tools' settings API accepts a folder override via query param, or whether we need to add it
+
+#### Notes
+- Dataset Tools has its own settings system and thumbnail cache — these are self-contained, no conflict with Trainer settings
+- The Python `dataset_tools/` CLI is a separate tool; ignore it for web integration
+- Dataset Tools' `app/api/fs/route.ts` restricts file access to a configured base folder — on VastAI the default base should be `/workspace`
+- `.thumbcache/` directory generates WebP thumbnails via `sharp` — on VastAI this lives inside the Dataset-Tools repo directory, which is fine
+
+---
+
+### 11.3 Ecosystem Architecture Principles
+
+As more tools are integrated, these rules keep things from becoming a mess:
+
+1. **One port, one tunnel.** All ecosystem tools proxy through port 3000 via `server.js`. No second Cloudflare tunnel endpoints. Users access everything from one URL.
+2. **One settings page.** External tool URLs/ports live in the existing settings system, not scattered `.env` files.
+3. **Handoff buttons, not deep integration.** Tools stay loosely coupled. A "Test in ComfyUI" button is fine; sharing state stores between tools is not.
+4. **Each tool is optional.** If ComfyUI isn't running, the ComfyUI page shows a friendly "not connected" state — it does not break anything else.
+
+---
+
+### 11.4 Priority Matrix — Ecosystem Features
+
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ⏳ Not started |
+| COMFY-2: Copy lib/stores/hooks layer | Integration | Tiny | ⏳ Not started |
+| COMFY-3: UI page + navbar link | Integration | Small | ⏳ Not started |
+| COMFY-4: Settings integration | UX | Tiny | ⏳ Not started |
+| COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
+| DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
+| DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
+| DT-3: Handoff buttons (inspect LoRA, view reference, files) | Feature | Small | ⏳ Not started |
+| DT-4: Deep-link folder awareness | Enhancement | Small | ⏳ Not started |
 
 ---
 

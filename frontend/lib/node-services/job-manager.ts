@@ -145,7 +145,7 @@ class JobManager {
       const proc = spawn(job.command, job.args, {
         cwd: job.cwd,
         env: { ...process.env },
-        shell: true,
+        shell: false,
       });
 
       this.processes.set(jobId, proc);

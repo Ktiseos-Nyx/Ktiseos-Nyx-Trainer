@@ -2,9 +2,13 @@
 const path = require('path');
 
 const nextConfig = {
-  // Pin React to a single copy — prevents duplicate-runtime crashes on Windows
-  // where NTFS path-casing can trick webpack into bundling react twice, breaking
-  // hooks and hydration.
+  // Empty turbopack config confirms we know Turbopack is the default in Next 16.
+  // Webpack config below is kept for `npm run dev:webpack` fallback only.
+  turbopack: {},
+
+  // Webpack-only: pin React to a single copy to prevent duplicate-runtime crashes
+  // on Windows where NTFS path-casing can trick webpack into bundling react twice.
+  // Turbopack (default in Next 16) handles this natively — no alias needed there.
   webpack: (config) => {
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
@@ -53,7 +57,6 @@ const nextConfig = {
   },
 
   reactStrictMode: true,
-  eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
 
 };

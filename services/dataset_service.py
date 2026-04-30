@@ -328,37 +328,19 @@ class DatasetService:
         errors = []
         tmp_path = None
 
-        try:
-            # Save ZIP to temp file with streaming (1MB chunks)
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
-                while chunk := await file.read(1024 * 1024):  # 1MB chunks
-                    tmp.write(chunk)
-                tmp_path = tmp.name
-
-            # Extract ZIP
+        def _extract_zip(tmp_path: str) -> tuple[list, list]:
+            extracted = []
+            errs = []
             with zipfile.ZipFile(tmp_path, 'r') as zip_ref:
-                # Get list of files
-                zip_files = zip_ref.namelist()
-
-                for zip_file in zip_files:
-                    # Skip directories and hidden files
+                for zip_file in zip_ref.namelist():
                     if zip_file.endswith('/') or Path(zip_file).name.startswith('.'):
                         continue
-
-                    # Check if it's an image
                     file_path = Path(zip_file)
                     if file_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
-                        errors.append(f"{zip_file}: Not an image file, skipped")
+                        errs.append(f"{zip_file}: Not an image file, skipped")
                         continue
-
                     try:
-                        # Extract file
-                        extracted_data = zip_ref.read(zip_file)
-
-                        # Save to dataset (flatten directory structure)
                         destination = dataset_path / file_path.name
-
-                        # Handle duplicate filenames
                         if destination.exists():
                             base = destination.stem
                             ext = destination.suffix
@@ -366,12 +348,28 @@ class DatasetService:
                             while destination.exists():
                                 destination = dataset_path / f"{base}_{counter}{ext}"
                                 counter += 1
-
-                        destination.write_bytes(extracted_data)
-                        extracted_files.append(str(destination))
-
+                        # Stream directly from zip into destination — no full-file RAM buffer
+                        with zip_ref.open(zip_file) as src, open(destination, 'wb') as dst:
+                            while True:
+                                chunk = src.read(1024 * 1024)  # 1MB chunks
+                                if not chunk:
+                                    break
+                                dst.write(chunk)
+                        extracted.append(str(destination))
                     except Exception as e:
-                        errors.append(f"{zip_file}: {str(e)}")
+                        errs.append(f"{zip_file}: {str(e)}")
+            return extracted, errs
+
+        try:
+            # Save ZIP to temp file with streaming (1MB chunks)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+                while chunk := await file.read(1024 * 1024):  # 1MB chunks
+                    tmp.write(chunk)
+                tmp_path = tmp.name
+
+            # Run extraction in a thread — zip reads are synchronous and block the event loop
+            import asyncio
+            extracted_files, errors = await asyncio.to_thread(_extract_zip, tmp_path)
 
         except zipfile.BadZipFile:
             errors.append("Invalid ZIP file")

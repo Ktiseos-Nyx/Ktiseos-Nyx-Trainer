@@ -293,3 +293,6 @@ RUNPOD_TEMPLATE_README.md
 # TypeScript build info
 # ----------------------------------------------------------------------------
 *.tsbuildinfo
+
+# Git worktrees
+.worktrees/
