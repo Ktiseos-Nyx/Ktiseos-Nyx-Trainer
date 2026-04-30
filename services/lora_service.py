@@ -130,7 +130,12 @@ class LoRAService:
                 cwd=self.project_root,
             )
 
-            stdout, stderr = await process.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=1800)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise ProcessError("LoRA resize timed out after 30 minutes")
 
             if process.returncode != 0:
                 error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
@@ -342,7 +347,12 @@ class LoRAService:
                 cwd=self.project_root,
             )
 
-            stdout, stderr = await process.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise ProcessError("LoRA merge timed out after 1 hour")
 
             if process.returncode != 0:
                 error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
@@ -452,7 +462,12 @@ class LoRAService:
                 cwd=self.project_root,
             )
 
-            stdout, stderr = await process.communicate()
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise ProcessError("Checkpoint merge timed out after 1 hour")
 
             if process.returncode != 0:
                 error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
