@@ -457,6 +457,35 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 ---
 
+### 5.0.9 Training Monitor — tqdm ETA and Step Progress Parsing
+
+**Issue UI-5: No ETA, step count, or percentage in the training monitor**
+- **Severity:** Medium (long-term imperative — fine for short runs, painful for multi-hour ones)
+- **Location:** `frontend/components/training/TrainingMonitor.tsx` + log polling
+- **User-reported:** Epoch numbers show but ETA/step progress don't. Fine for a 32-image 4090 run, a problem for anything longer.
+
+**Why it's missing:** Kohya outputs timing via tqdm progress bars in stdout. A typical line looks like:
+
+```
+steps: 100%|██████████| 320/320 [08:23<00:00,  1.57s/it]
+```
+
+The `[elapsed<remaining, it/s]` is all the data we need but we currently pass log lines through as raw text without parsing them.
+
+**Fix:** Add a tqdm line parser to the log polling pipeline:
+- Regex to detect tqdm progress lines: `/(\d+)%\|.*\|\s*(\d+)\/(\d+)\s*\[(\d+:\d+)<(\d+:\d+),\s*([\d.]+)it\/s\]/`
+- Extract: current step, total steps, elapsed, remaining (ETA), it/s
+- Surface in TrainingMonitor as: progress bar, ETA countdown, steps/s throughput
+- Epoch lines (`Epoch X/Y`) already parse fine — keep those, add step-level detail alongside
+
+**Implementation notes:**
+- Parser lives in a utility function, tested independently
+- TrainingMonitor gets a new "progress" state slot separate from raw log lines
+- tqdm output format is consistent across Kohya versions — safe to rely on
+- Only activate the parser when a training job is active (don't waste cycles on idle log polling)
+
+---
+
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
 **Issue HF-1: HF upload form loses all data on page navigation**
