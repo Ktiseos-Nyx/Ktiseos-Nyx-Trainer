@@ -1621,8 +1621,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--use_zero_cond_dropout",
-        type=bool,
-        default=False,
+        action="store_true",
         help="For full caption dropout, use zero conditioning instead of empty caption"
     )
 
