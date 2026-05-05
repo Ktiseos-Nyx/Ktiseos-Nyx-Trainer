@@ -18,7 +18,7 @@ export const ModelTypeSchema = z.enum(['SD15', 'SDXL', 'FLUX', 'SD3', 'SD3.5', '
  */
 export const LoRATypeSchema = z.enum([
   'LoRA', 'LoCon', 'LoHa', 'LoKr', 'DoRA',
-  'Full', 'IA3', 'DyLoRA', 'GLoRA', 'Diag-OFT', 'BOFT', 'ABBA',
+  'Full', 'IA3', 'DyLoRA', 'GLoRA', 'Diag-OFT', 'BOFT', 'ABBA', 'TLoRA',
 ], {
   message: 'Please select a valid LoRA type',
 });

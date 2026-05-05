@@ -41,6 +41,7 @@ class LoRAType(str, Enum):
     DIAG_OFT = "Diag-OFT"  # Diagonal Orthogonal Finetuning
     BOFT = "BOFT"  # Butterfly OFT
     ABBA = "ABBA"  # LyCORIS v3.2.0+ - Activation-Based Block Adaptation
+    TLORA = "TLoRA"  # Timestep-dependent LoRA (SVD-orthogonal init)
 
 
 class OptimizerType(str, Enum):

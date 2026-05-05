@@ -312,6 +312,9 @@ class KohyaTOMLGenerator:
         elif lora_type == "ABBA":
             # Activation-Based Block Adaptation (LyCORIS v3.2.0+)
             return {"network_module": "lycoris.kohya", "network_args": ["algo=abba"]}
+        elif lora_type == "TLoRA":
+            # Timestep-dependent LoRA with SVD-orthogonal initialization
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=tlora"]}
 
         # Default fallback
         else:
