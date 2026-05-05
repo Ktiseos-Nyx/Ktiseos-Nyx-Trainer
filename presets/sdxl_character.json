@@ -1,0 +1,17 @@
+{
+  "is_builtin": true,
+  "name": "SDXL Character",
+  "description": "Optimized for training character LoRAs on SDXL",
+  "model_type": "SDXL",
+  "resolution": 1024,
+  "network_dim": 32,
+  "network_alpha": 32,
+  "unet_lr": 0.0001,
+  "text_encoder_lr": 5e-05,
+  "lr_scheduler": "cosine_with_restarts",
+  "lr_scheduler_number": 3,
+  "optimizer_type": "AdamW8bit",
+  "max_train_epochs": 10,
+  "train_batch_size": 1,
+  "clip_skip": 2
+}

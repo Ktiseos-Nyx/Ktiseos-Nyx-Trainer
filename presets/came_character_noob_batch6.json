@@ -1,0 +1,20 @@
+{
+  "is_builtin": true,
+  "name": "CAME Character (NoobAI, batch 6)",
+  "description": "CAME character LoRA for NoobAI epsilon. Higher batch (6), SNR=8, UNet LR (6e-5) lower than base LR (1e-4). Stopped at epoch 10 of 15 — pick best checkpoint.",
+  "model_type": "SDXL",
+  "resolution": 1024,
+  "network_dim": 8,
+  "network_alpha": 4,
+  "unet_lr": 6e-05,
+  "text_encoder_lr": 1e-06,
+  "lr_scheduler": "cosine",
+  "optimizer_type": "CAME",
+  "optimizer_args": "weight_decay=0.04",
+  "max_train_epochs": 15,
+  "save_every_n_epochs": 1,
+  "train_batch_size": 6,
+  "mixed_precision": "bf16",
+  "min_snr_gamma": 8,
+  "min_snr_gamma_enabled": true
+}

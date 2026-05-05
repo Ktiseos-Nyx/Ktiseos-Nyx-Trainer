@@ -144,7 +144,7 @@ def _modulation_shift_scale_fn(x, scale, shift):
 
 
 def _modulation_gate_fn(x, gate, gate_params):
-    return x + gate * gate_params
+    return x + gate * gate_params.to(device=x.device, non_blocking=True) # TODO: To device is bandaid fix, need to evaluate further
 
 
 class DoubleStreamBlock(nn.Module):
@@ -271,7 +271,7 @@ class DoubleStreamBlock(nn.Module):
             attn = attention(q, k, v, pe=pe[i : i + 1, :, : q.shape[2]], attn_mask=None)  # attn = (1, L, D)
             del q, k, v
             img_attn_i = attn[:, :img_len, :]
-            txt_attn_i = torch.zeros((1, max_txt_len, attn.shape[-1]), dtype=attn.dtype, device=self.device)
+            txt_attn_i = torch.zeros((1, max_txt_len, attn.shape[-1]), dtype=attn.dtype, device=img.device)
             txt_attn_i[:, : txt_seq_len[i], :] = attn[:, img_len:, :]
             del attn
             txt_attn.append(txt_attn_i)
@@ -411,7 +411,7 @@ class SingleStreamBlock(nn.Module):
             k[i] = None
             v[i] = None
 
-            attn_i = torch.zeros((1, x.shape[1], attn_trimmed.shape[-1]), dtype=attn_trimmed.dtype, device=self.device)
+            attn_i = torch.zeros((1, x.shape[1], attn_trimmed.shape[-1]), dtype=attn_trimmed.dtype, device=x.device)
             attn_i[:, : img_len + txt_seq_len[i], :] = attn_trimmed
             del attn_trimmed
             attn.append(attn_i)

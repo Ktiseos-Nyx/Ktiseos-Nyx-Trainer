@@ -44,6 +44,7 @@ def train(args):
     train_util.verify_training_args(args)
     train_util.prepare_dataset_args(args, True)
     deepspeed_utils.prepare_deepspeed_args(args)
+    train_util.set_torch_cuda_reduced_precision(args)
     setup_logging(args, reset=True)
 
     # backward compatibility
@@ -76,7 +77,7 @@ def train(args):
     use_dreambooth_method = args.in_json is None
 
     if args.seed is not None:
-        set_seed(args.seed)
+        train_util.args_set_seed(args)
 
     # prepare caching strategy: must be set before preparing dataset
     if args.cache_latents:
@@ -126,6 +127,19 @@ def train(args):
     else:
         train_dataset_group = train_util.load_arbitrary_dataset(args)
         val_dataset_group = None
+
+    if args.protected_tags_file:
+        logger.info(f"Injecting protected_tags_file into datasets: {args.protected_tags_file}")
+        for ds in train_dataset_group.datasets:
+            ds.protected_tags_file = args.protected_tags_file
+    if args.log_caption_tag_dropout:
+        logger.info("Enabling caption tag dropout logging for datasets...")
+        for ds in train_dataset_group.datasets:
+            ds.log_caption_tag_dropout = True
+    if args.log_caption_dropout:
+        logger.info("Enabling caption dropout logging for datasets...")
+        for ds in train_dataset_group.datasets:
+            ds.log_caption_dropout = True
 
     current_epoch = Value("i", 0)
     current_step = Value("i", 0)
@@ -561,6 +575,10 @@ def train(args):
                     )
                 model_pred = model_pred.squeeze(2)  # 5D to 4D, (B, C, H, W)
 
+                # Upcast for grokking
+                latents = latents.to(torch.float64)
+                noise = noise.to(torch.float64)
+
                 # Compute loss (rectified flow: target = noise - latents)
                 target = noise - latents
 
@@ -568,6 +586,9 @@ def train(args):
                 weighting = anima_train_utils.compute_loss_weighting_for_anima(
                     weighting_scheme=args.weighting_scheme, sigmas=sigmas
                 )
+
+                # Upcast for grokking
+                model_pred = model_pred.to(dtype=torch.float64)
 
                 # Loss
                 huber_c = train_util.get_huber_threshold_if_needed(args, timesteps, None)

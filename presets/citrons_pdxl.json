@@ -1,0 +1,21 @@
+{
+  "is_builtin": true,
+  "name": "Citron's PDXL",
+  "description": "Pony Diffusion XL style LoRA. Balanced 1:1 dim/alpha, equal TE/UNet LR, low noise offset, warmup steps.",
+  "model_type": "SDXL",
+  "resolution": 1024,
+  "network_dim": 32,
+  "network_alpha": 32,
+  "unet_lr": 0.0001,
+  "text_encoder_lr": 0.0001,
+  "lr_scheduler": "cosine_with_restarts",
+  "lr_warmup_steps": 78,
+  "optimizer_type": "AdamW8bit",
+  "optimizer_args": "weight_decay=0.1 betas=(0.9,0.99)",
+  "max_train_epochs": 10,
+  "save_every_n_epochs": 1,
+  "train_batch_size": 1,
+  "mixed_precision": "bf16",
+  "noise_offset": 0.03,
+  "multires_noise_iterations": 0
+}

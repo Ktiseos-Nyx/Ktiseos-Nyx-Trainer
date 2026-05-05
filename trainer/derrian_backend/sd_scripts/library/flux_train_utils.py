@@ -469,12 +469,23 @@ def compute_loss_weighting_for_sd3(weighting_scheme: str, sigmas=None):
 
 
 def get_noisy_model_input_and_timesteps(
-    args, noise_scheduler, latents: torch.Tensor, noise: torch.Tensor, device, dtype
+    args, 
+    noise_scheduler, 
+    latents: torch.Tensor, 
+    noise: torch.Tensor, 
+    device, 
+    dtype, 
+    fixed_timesteps=None, 
+    is_train=True
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     bsz, h, w = latents.shape[0], latents.shape[-2], latents.shape[-1]
     assert bsz > 0, "Batch size not large enough"
     num_timesteps = noise_scheduler.config.num_train_timesteps
-    if args.timestep_sampling == "uniform" or args.timestep_sampling == "sigmoid":
+
+    if fixed_timesteps is not None:
+        timesteps = fixed_timesteps
+        sigmas = timesteps / num_timesteps
+    elif args.timestep_sampling == "uniform" or args.timestep_sampling == "sigmoid":
         # Simple random sigma-based noise sampling
         if args.timestep_sampling == "sigmoid":
             # https://github.com/XLabs-AI/x-flux/tree/main
@@ -516,7 +527,7 @@ def get_noisy_model_input_and_timesteps(
 
     # Add noise to the latents according to the noise magnitude at each timestep
     # (this is the forward diffusion process)
-    if args.ip_noise_gamma:
+    if is_train and args.ip_noise_gamma:
         xi = torch.randn_like(latents, device=latents.device, dtype=dtype)
         if args.ip_noise_gamma_random_strength:
             ip_noise_gamma = torch.rand(1, device=latents.device, dtype=dtype) * args.ip_noise_gamma
@@ -526,7 +537,7 @@ def get_noisy_model_input_and_timesteps(
     else:
         noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
 
-    return noisy_model_input.to(dtype), timesteps.to(dtype), sigmas
+    return noisy_model_input.to(dtype=dtype, device=device), timesteps.to(dtype=dtype, device=device), sigmas.to(dtype=dtype, device=device)
 
 
 def apply_model_prediction_type(args, model_pred, noisy_model_input, sigmas):

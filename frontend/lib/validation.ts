@@ -18,7 +18,7 @@ export const ModelTypeSchema = z.enum(['SD15', 'SDXL', 'FLUX', 'SD3', 'SD3.5', '
  */
 export const LoRATypeSchema = z.enum([
   'LoRA', 'LoCon', 'LoHa', 'LoKr', 'DoRA',
-  'Full', 'IA3', 'DyLoRA', 'GLoRA', 'Diag-OFT', 'BOFT', 'ABBA',
+  'Full', 'IA3', 'DyLoRA', 'GLoRA', 'Diag-OFT', 'BOFT', 'ABBA', 'TLoRA',
 ], {
   message: 'Please select a valid LoRA type',
 });
@@ -300,6 +300,8 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
   vae_batch_size: z.number().int().min(0),
 
   no_half_vae: z.boolean(),
+
+  vae_reflection_padding: z.boolean(),
 
   cache_latents: z.boolean(),
 

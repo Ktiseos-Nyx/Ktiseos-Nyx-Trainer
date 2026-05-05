@@ -24,6 +24,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+try:
+    from ramtorch.modules.linear import CPUBouncingLinear
+except ImportError:
+    logger.error("Failed to import ramtorch, please check ramtorch is installed correctly into the venv.")
+    CPUBouncingLinear = type(None)
+
 
 NUM_DOUBLE_BLOCKS = 20
 NUM_SINGLE_BLOCKS = 40
@@ -278,11 +284,13 @@ class HunyuanImageLoRANetwork(lora_flux.LoRANetwork):
                 if target_replace_modules is None or module.__class__.__name__ in target_replace_modules:
                     if target_replace_modules is None:  # dirty hack for all modules
                         module = root_module  # search all modules
+                    module.is_ramtorch_org = isinstance(module, CPUBouncingLinear)
 
                     for child_name, child_module in module.named_modules():
-                        is_linear = child_module.__class__.__name__ == "Linear"
+                        is_linear = child_module.__class__.__name__ in ["Linear", "CPUBouncingLinear"]
                         is_conv2d = child_module.__class__.__name__ == "Conv2d"
                         is_conv2d_1x1 = is_conv2d and child_module.kernel_size == (1, 1)
+                        child_module.is_ramtorch_org = isinstance(child_module, CPUBouncingLinear)
 
                         if is_linear or is_conv2d:
                             lora_name = prefix + "." + (name + "." if name else "") + child_name

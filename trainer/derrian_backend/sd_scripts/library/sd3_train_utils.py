@@ -915,7 +915,7 @@ def compute_loss_weighting_for_sd3(weighting_scheme: str, sigmas=None):
 # endregion
 
 
-def get_noisy_model_input_and_timesteps(args, latents, noise, device, dtype) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def get_noisy_model_input_and_timesteps(args, latents, noise, device, dtype, fixed_timesteps=None, is_train=True) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     bsz = latents.shape[0]
 
     # Sample a random timestep for each image

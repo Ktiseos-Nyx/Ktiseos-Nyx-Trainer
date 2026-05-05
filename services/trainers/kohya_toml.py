@@ -199,8 +199,6 @@ class KohyaTOMLGenerator:
                 args["rank_dropout"] = self.config.rank_dropout
             if self.config.module_dropout > 0:
                 args["module_dropout"] = self.config.module_dropout
-            if self.config.train_norm:
-                args["train_norm"] = True
 
             if self.config.dim_from_weights:
                 args["dim_from_weights"] = True
@@ -314,6 +312,9 @@ class KohyaTOMLGenerator:
         elif lora_type == "ABBA":
             # Activation-Based Block Adaptation (LyCORIS v3.2.0+)
             return {"network_module": "lycoris.kohya", "network_args": ["algo=abba"]}
+        elif lora_type == "TLoRA":
+            # Timestep-dependent LoRA with SVD-orthogonal initialization
+            return {"network_module": "lycoris.kohya", "network_args": ["algo=tlora"]}
 
         # Default fallback
         else:
@@ -378,6 +379,9 @@ class KohyaTOMLGenerator:
 
         if self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only:
             args["network_train_unet_only"] = True
+
+        if self.config.vae_reflection_padding:
+            args["vae_reflection_padding"] = True
 
         # ========== NEW FIELDS (Issue #97 Fix) ==========
         # Performance/Memory

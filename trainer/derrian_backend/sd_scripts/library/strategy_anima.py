@@ -274,7 +274,7 @@ class AnimaLatentsCachingStrategy(LatentsCachingStrategy):
     ) -> Tuple[Optional[np.ndarray], Optional[List[int]], Optional[List[int]], Optional[np.ndarray], Optional[np.ndarray]]:
         return self._default_load_latents_from_disk(8, npz_path, bucket_reso)
 
-    def cache_batch_latents(self, vae, image_infos: List, flip_aug: bool, alpha_mask: bool, random_crop: bool):
+    def cache_batch_latents(self, vae, image_infos: List, flip_aug: bool, alpha_mask: bool, random_crop: bool, random_crop_padding_percent: float = 0.05):
         """Cache batch of latents using Qwen Image VAE.
 
         vae is expected to be the Qwen Image VAE (AutoencoderKLQwenImage).
@@ -295,7 +295,7 @@ class AnimaLatentsCachingStrategy(LatentsCachingStrategy):
             return latents.to("cpu")
 
         self._default_cache_batch_latents(
-            encode_by_vae, vae_device, vae_dtype, image_infos, flip_aug, alpha_mask, random_crop, multi_resolution=True
+            encode_by_vae, vae_device, vae_dtype, image_infos, flip_aug, alpha_mask, random_crop, multi_resolution=True, random_crop_padding_percent=random_crop_padding_percent
         )
 
         if not train_util.HIGH_VRAM:

@@ -218,6 +218,100 @@ class TokenizeStrategy:
         )
         return torch.tensor(tokens).unsqueeze(0), torch.tensor(weights).unsqueeze(0)
 
+    def _tokenize_tags(self, tokenizer, text_prompts: list, num_chunks: int = 3) -> tuple[
+        torch.Tensor, torch.Tensor]:
+        """
+        Advanced tokenizer with granular padding masks, specifically designed to output
+        the shapes required by Kohya's sd-scripts data loading pipeline.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]:
+                - final_input_ids: Shape [B * N, S] for direct use with the encoder.
+                - final_cross_attention_mask: Shape [B, N, S] for later reshaping for the U-Net.
+        """
+        B = len(text_prompts)
+
+        text_input = tokenizer(
+            text=text_prompts,
+            padding="max_length",
+            max_length=77 * num_chunks,
+            truncation=True,
+            return_tensors="pt"
+        )
+
+        device = text_input['input_ids'].device
+        bos_token_id = 49406
+        eos_token_id = 49407
+        comma_token_ids = torch.tensor([267, 2361], device=device)
+
+        token_chunks = torch.zeros(B, num_chunks, 77, dtype=torch.long, device=device)
+        token_cross_attention_mask = torch.zeros(B, num_chunks, 77, dtype=torch.bool, device=device)
+
+        # --- Create the SAFE unconditional chunk and masks once to reuse ---
+        uncond_chunk = torch.full((77,), eos_token_id, dtype=torch.long, device=device)
+        uncond_chunk[0] = bos_token_id
+        ones_mask_chunk = torch.ones(77, dtype=torch.bool, device=device)  # A mask of all True
+
+        for j in range(B):
+            prompt_tokens: torch.Tensor = text_input['input_ids'][j]
+            start_index = 0
+            is_comma = (prompt_tokens[:, None] == comma_token_ids).any(dim=1)
+            comma_indices = torch.where(is_comma)[0]
+
+            # --- Handle Caption Dropout ---
+            is_dropout = prompt_tokens[1] == eos_token_id
+            if is_dropout:
+                # The first chunk is the "meaningful" unconditional concept.
+                # It gets the standard empty prompt tokens and a MASK OF ALL ONES.
+                token_chunks[j, 0] = uncond_chunk
+                token_cross_attention_mask[j, 0] = ones_mask_chunk
+
+                # Subsequent chunks are ignored padding.
+                # They get the same tokens, but their mask remains all zeros.
+                for i in range(1, num_chunks):
+                    token_chunks[j, i] = uncond_chunk
+
+                # Skip the rest of the loop for this prompt.
+                continue
+            # --- End of Dropout Logic ---
+
+            for i in range(num_chunks):
+                valid_comma_indices = comma_indices[comma_indices < start_index + 75]
+                if len(valid_comma_indices) == 0:
+                    eos_indices = torch.where(prompt_tokens == eos_token_id)[0]
+                    split_point = eos_indices[0] if len(eos_indices) > 0 else (start_index + 75)
+                else:
+                    split_point = valid_comma_indices[-1]
+
+                # If a split results in an empty chunk, it's an ignored padding chunk.
+                if split_point <= start_index:
+                    token_chunks[j, i] = uncond_chunk
+                    continue  # Mask remains all zeros
+
+                chunk = prompt_tokens[start_index + 1: split_point + 1]
+                if len(chunk) == 1 and chunk[0] in comma_token_ids:
+                    token_chunks[j, i] = uncond_chunk
+                    continue  # Mask remains all zeros
+
+                bos_tensor = torch.tensor([bos_token_id], device=device)
+                chunk_with_bos = torch.cat([bos_tensor, chunk])
+
+                padded_chunk = torch.full((77,), eos_token_id, dtype=torch.long, device=device)
+                actual_len = min(len(chunk_with_bos), 77)
+                padded_chunk[:actual_len] = chunk_with_bos[:actual_len]
+
+                mask_chunk = torch.zeros(77, dtype=torch.bool, device=device)
+                mask_chunk[:actual_len] = True
+
+                token_chunks[j, i] = padded_chunk
+                token_cross_attention_mask[j, i] = mask_chunk
+                start_index = split_point
+
+        final_input_ids = token_chunks.view(B * num_chunks, 77)
+        final_cross_attention_mask = token_cross_attention_mask
+
+        return final_input_ids, final_cross_attention_mask
+
     def _get_input_ids(
         self, tokenizer: CLIPTokenizer, text: str, max_length: Optional[int] = None, weighted: bool = False
     ) -> torch.Tensor:
@@ -298,8 +392,12 @@ class TextEncodingStrategy:
         return cls._strategy
 
     def encode_tokens(
-        self, tokenize_strategy: TokenizeStrategy, models: List[Any], tokens: List[torch.Tensor]
-    ) -> List[torch.Tensor]:
+        self,
+        tokenize_strategy: TokenizeStrategy,
+        models: List[Any],
+        tokens: list[torch.Tensor],
+        attn_masks: Optional[list[Optional[torch.Tensor]]] = None,
+    ) -> tuple[List[torch.Tensor], List[Optional[torch.Tensor]]]:
         """
         Encode tokens into embeddings and outputs.
         :param tokens: list of token tensors for each TextModel
@@ -382,6 +480,8 @@ class LatentsCachingStrategy:
 
     _strategy = None  # strategy instance: actual strategy class
 
+    _warned_fallback_to_old_npz = False  # to avoid spamming logs about fallback
+
     def __init__(self, cache_to_disk: bool, batch_size: int, skip_disk_cache_validity_check: bool) -> None:
         self._cache_to_disk = cache_to_disk
         self._batch_size = batch_size
@@ -421,7 +521,7 @@ class LatentsCachingStrategy:
     ) -> bool:
         raise NotImplementedError
 
-    def cache_batch_latents(self, model: Any, batch: List, flip_aug: bool, alpha_mask: bool, random_crop: bool):
+    def cache_batch_latents(self, model: Any, batch: List, flip_aug: bool, alpha_mask: bool, random_crop: bool, random_crop_padding_percent: float = 0.05):
         raise NotImplementedError
 
     def _default_is_disk_cached_latents_expected(
@@ -459,11 +559,14 @@ class LatentsCachingStrategy:
 
         try:
             npz = np.load(npz_path)
-            if "latents" + key_reso_suffix not in npz:
+
+            # In old SD/SDXL npz files, if the actual latents shape does not match the expected shape, it doesn't raise an error as long as "latents" key exists (backward compatibility)
+            # In non-SD/SDXL npz files (multi-resolution support), the latents key always has the resolution suffix, and no latents key without suffix exists, so it raises an error if the expected resolution suffix key is not found (this doesn't change the behavior for non-SD/SDXL npz files).
+            if "latents" + key_reso_suffix not in npz and "latents" not in npz:
                 return False
-            if flip_aug and "latents_flipped" + key_reso_suffix not in npz:
+            if flip_aug and ("latents_flipped" + key_reso_suffix not in npz and "latents_flipped" not in npz):
                 return False
-            if apply_alpha_mask and "alpha_mask" + key_reso_suffix not in npz:
+            if apply_alpha_mask and ("alpha_mask" + key_reso_suffix not in npz and "alpha_mask" not in npz):
                 return False
         except Exception as e:
             logger.error(f"Error loading file: {npz_path}")
@@ -482,6 +585,7 @@ class LatentsCachingStrategy:
         apply_alpha_mask: bool,
         random_crop: bool,
         multi_resolution: bool = False,
+        random_crop_padding_percent: float = 0.05,
     ):
         """
         Default implementation for cache_batch_latents. Image loading, VAE, flipping, alpha mask handling are common.
@@ -495,14 +599,14 @@ class LatentsCachingStrategy:
             apply_alpha_mask: whether to apply alpha mask
             random_crop: whether to random crop images
             multi_resolution: whether to use multi-resolution latents
-        
-        Returns: 
+
+        Returns:
             None
         """
         from library import train_util  # import here to avoid circular import
 
         img_tensor, alpha_masks, original_sizes, crop_ltrbs = train_util.load_images_and_masks_for_caching(
-            image_infos, apply_alpha_mask, random_crop
+            image_infos, apply_alpha_mask, random_crop, random_crop_padding_percent=random_crop_padding_percent
         )
         img_tensor = img_tensor.to(device=vae_device, dtype=vae_dtype)
 
@@ -543,18 +647,18 @@ class LatentsCachingStrategy:
         self, npz_path: str, bucket_reso: Tuple[int, int]
     ) -> Tuple[Optional[np.ndarray], Optional[List[int]], Optional[List[int]], Optional[np.ndarray], Optional[np.ndarray]]:
         """
-        for SD/SDXL
+        For single resolution architectures (currently no architecture is single resolution specific). Kept for reference.
 
         Args:
             npz_path (str): Path to the npz file.
             bucket_reso (Tuple[int, int]): The resolution of the bucket.
-        
+
         Returns:
             Tuple[
-                Optional[np.ndarray], 
-                Optional[List[int]], 
-                Optional[List[int]], 
-                Optional[np.ndarray], 
+                Optional[np.ndarray],
+                Optional[List[int]],
+                Optional[List[int]],
+                Optional[np.ndarray],
                 Optional[np.ndarray]
             ]: Latent np tensors, original size, crop (left top, right bottom), flipped latents, alpha mask
         """
@@ -568,25 +672,34 @@ class LatentsCachingStrategy:
             latents_stride (Optional[int]): Stride for latents. If None, load all latents.
             npz_path (str): Path to the npz file.
             bucket_reso (Tuple[int, int]): The resolution of the bucket.
-       
+
         Returns:
             Tuple[
-                Optional[np.ndarray], 
-                Optional[List[int]], 
-                Optional[List[int]], 
-                Optional[np.ndarray], 
+                Optional[np.ndarray],
+                Optional[List[int]],
+                Optional[List[int]],
+                Optional[np.ndarray],
                 Optional[np.ndarray]
             ]: Latent np tensors, original size, crop (left top, right bottom), flipped latents, alpha mask
         """
         if latents_stride is None:
             key_reso_suffix = ""
         else:
-            latents_size = (bucket_reso[1] // latents_stride, bucket_reso[0] // latents_stride)  # bucket_reso is (W, H)
-            key_reso_suffix = f"_{latents_size[0]}x{latents_size[1]}"  # e.g. "_32x64", HxW
+            expected_latents_size = (bucket_reso[1] // latents_stride, bucket_reso[0] // latents_stride)  # bucket_reso is (W, H)
+            key_reso_suffix = f"_{expected_latents_size[0]}x{expected_latents_size[1]}"  # e.g. "_32x64", HxW
 
         npz = np.load(npz_path)
         if "latents" + key_reso_suffix not in npz:
-            raise ValueError(f"latents{key_reso_suffix} not found in {npz_path}")
+            # raise ValueError(f"latents{key_reso_suffix} not found in {npz_path}")
+            # Fallback to old npz without resolution suffix
+            if "latents" not in npz:
+                raise ValueError(f"latents not found in {npz_path} (either with or without resolution suffix: {key_reso_suffix})")
+            if not self._warned_fallback_to_old_npz:
+                logger.warning(
+                    f"latents{key_reso_suffix} not found in {npz_path}. Falling back to latents without resolution suffix (old npz). This warning will only be shown once. To avoid this warning, please re-cache the latents with the latest version."
+                )
+                self._warned_fallback_to_old_npz = True
+            key_reso_suffix = ""
 
         latents = npz["latents" + key_reso_suffix]
         original_size = npz["original_size" + key_reso_suffix].tolist()

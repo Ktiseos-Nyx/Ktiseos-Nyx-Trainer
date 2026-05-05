@@ -222,7 +222,8 @@ export type LoRAType =
   | 'GLoRA'     // Generalized LoRA
   | 'Diag-OFT'  // Diagonal Orthogonal Finetuning
   | 'BOFT'      // Butterfly OFT
-  | 'ABBA';     // Activation-Based Block Adaptation (LyCORIS v3.2.0+)
+  | 'ABBA'      // Activation-Based Block Adaptation (LyCORIS v3.2.0+)
+  | 'TLoRA';    // Timestep-dependent LoRA (SVD-orthogonal init)
 export type OptimizerType = 'AdamW' | 'AdamW8bit' | 'Lion' | 'Lion8bit' | 'SGDNesterov' | 'SGDNesterov8bit' | 'DAdaptation' | 'DAdaptAdam' | 'DAdaptAdaGrad' | 'DAdaptAdan' | 'DAdaptSGD' | 'Prodigy' | 'AdaFactor' | 'CAME' | 'Compass' | 'LPFAdamW' | 'RMSProp' | 'AdamWScheduleFree' | 'SGDScheduleFree' | 'RAdamScheduleFree';
 export type SchedulerType = 'linear' | 'cosine' | 'cosine_with_restarts' | 'polynomial' | 'constant' | 'constant_with_warmup' | 'adafactor' | 'rex' | 'cosine_annealing';
 
@@ -677,6 +678,7 @@ export interface TrainingConfig {
   fp8_base: boolean;
   vae_batch_size: number;
   no_half_vae: boolean;
+  vae_reflection_padding: boolean;
   cache_latents: boolean;
   cache_latents_to_disk: boolean;
   cache_text_encoder_outputs: boolean;

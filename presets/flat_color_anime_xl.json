@@ -1,0 +1,18 @@
+{
+  "is_builtin": true,
+  "name": "Flat Color Anime Style (Base SDXL)",
+  "description": "Base SDXL flat color anime style. Extreme dim 128/alpha 1 ratio (1:128 scaling), Adafactor fixed-LR mode, active TE at 5e-5, stopped at epoch 23/25. Long run (~8h).",
+  "model_type": "SDXL",
+  "resolution": 1024,
+  "network_dim": 128,
+  "network_alpha": 1,
+  "unet_lr": 0.0001,
+  "text_encoder_lr": 5e-05,
+  "lr_scheduler": "cosine_with_restarts",
+  "optimizer_type": "AdaFactor",
+  "optimizer_args": "scale_parameter=False relative_step=False warmup_init=False",
+  "max_train_epochs": 25,
+  "save_every_n_epochs": 1,
+  "train_batch_size": 5,
+  "mixed_precision": "bf16"
+}

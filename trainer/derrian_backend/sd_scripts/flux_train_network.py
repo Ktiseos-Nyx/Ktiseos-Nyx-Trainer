@@ -8,6 +8,7 @@ import torch
 from accelerate import Accelerator
 
 from library.device_utils import clean_memory_on_device, init_ipex
+from library.ramtorch_util import apply_ramtorch_to_module
 
 init_ipex()
 
@@ -21,6 +22,7 @@ from library import (
     strategy_flux,
     train_util,
 )
+from library import utils
 from library.utils import setup_logging
 
 setup_logging()
@@ -74,6 +76,8 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
         if args.max_token_length is not None:
             logger.warning("max_token_length is not used in Flux training / max_token_lengthはFluxのトレーニングでは使用されません")
 
+        args.blocks_to_swap = utils.getattr_cast(args, "blocks_to_swap", 0)
+
         assert (
             args.blocks_to_swap is None or args.blocks_to_swap == 0
         ) or not args.cpu_offload_checkpointing, "blocks_to_swap is not supported with cpu_offload_checkpointing / blocks_to_swapはcpu_offload_checkpointingと併用できません"
@@ -126,6 +130,10 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
         # if args.split_mode:
         #     model = self.prepare_split_model(model, weight_dtype, accelerator)
 
+        if args.use_ramtorch:
+            logger.info("Applying RamTorch to FLUX model.")
+            model = apply_ramtorch_to_module(model, "unet/dit", accelerator.device, model.dtype)
+
         self.is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
         if self.is_swapping_blocks:
             # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
@@ -155,6 +163,10 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
                 logger.info("Loaded fp8 T5XXL model")
 
         ae = flux_utils.load_ae(args.ae, weight_dtype, "cpu", disable_mmap=args.disable_mmap_load_safetensors)
+
+        if args.use_ramtorch and not args.cache_text_encoder_outputs:
+            clip_l = apply_ramtorch_to_module(clip_l, "clip_l", accelerator.device, weight_dtype)
+            t5xxl = apply_ramtorch_to_module(t5xxl, "t5xxl", accelerator.device, t5xxl.dtype)
 
         model_version = flux_utils.MODEL_VERSION_FLUX_V1 if self.model_type != "chroma" else flux_utils.MODEL_VERSION_CHROMA
         return model_version, [clip_l, t5xxl], ae, model
@@ -317,10 +329,12 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
         latents,
         batch,
         text_encoder_conds,
+        text_encoder_masks,
         unet: flux_models.Flux,
         network,
         weight_dtype,
         train_unet,
+        fixed_timesteps=None,
         is_train=True,
     ):
         # Sample noise that we'll add to the latents
@@ -329,7 +343,7 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
 
         # get noisy model input and timesteps
         noisy_model_input, timesteps, sigmas = flux_train_utils.get_noisy_model_input_and_timesteps(
-            args, noise_scheduler, latents, noise, accelerator.device, weight_dtype
+            args, noise_scheduler, latents, noise, accelerator.device, weight_dtype, fixed_timesteps=fixed_timesteps, is_train=is_train
         )
 
         # pack latents and get img_ids
@@ -345,7 +359,7 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
         with accelerator.autocast(), torch.no_grad():
             mod_vectors = unet.get_mod_vectors(timesteps=timesteps / 1000, guidance=guidance_vec, batch_size=bsz)
 
-        if args.gradient_checkpointing:
+        if is_train and args.gradient_checkpointing:
             noisy_model_input.requires_grad_(True)
             for t in text_encoder_conds:
                 if t is not None and t.dtype.is_floating_point:
@@ -354,6 +368,9 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
             guidance_vec.requires_grad_(True)
             if mod_vectors is not None:
                 mod_vectors.requires_grad_(True)
+
+        # Set T-LoRA timestep mask before the forward pass
+        self.apply_tlora_mask(timesteps)
 
         # Predict the noise residual
         l_pooled, t5_out, txt_ids, t5_attn_mask = text_encoder_conds
@@ -388,6 +405,9 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
             t5_attn_mask=t5_attn_mask,
             mod_vectors=mod_vectors,
         )
+
+        # Clear T-LoRA mask after the forward pass
+        self.clear_tlora_mask_if_needed()
 
         # unpack latents
         model_pred = flux_utils.unpack_latents(model_pred, packed_latent_height, packed_latent_width)
@@ -431,7 +451,7 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
                 )
                 target[diff_output_pr_indices] = model_pred_prior.to(target.dtype)
 
-        return model_pred, target, timesteps, weighting
+        return model_pred, target, timesteps, weighting, noise
 
     def post_process_loss(self, loss, args, timesteps, noise_scheduler):
         return loss

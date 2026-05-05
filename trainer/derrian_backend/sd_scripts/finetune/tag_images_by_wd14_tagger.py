@@ -246,13 +246,13 @@ def main(args):
         escaped_tag_replacements = tag_replacements_arg.replace("\\,", "@@@@").replace("\\;", "####")
         tag_replacements = escaped_tag_replacements.split(";")
 
-        for replacement in tag_replacements:
-            pair = replacement.split(",")
+        for replacement_spec in tag_replacements:
+            parts = replacement_spec.split(",")  # source, target
             assert (
-                len(pair) == 2
+                len(parts) == 2
             ), f"tag replacement must be in the format of `source,target` / タグの置換は `置換元,置換先` の形式で指定してください: {args.tag_replacement}"
 
-            source, target = [p.replace("@@@@", ",").replace("####", ";") for p in pair]
+            source, target = [p.replace("@@@@", ",").replace("####", ";") for p in parts]
             logger.info(f"replacing tag: {source} -> {target}")
 
             if source in tags:

@@ -996,4 +996,51 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 ---
 
+## Section 12 — Security Review Backlog
+
+### 12.1 CWE-23 Path Traversal (Snyk, low urgency)
+
+Snyk flags unsanitised path traversal (CWE-23) across several Python service files. Partially false-positive for a single-user local tool, but worth a proper review pass before any public/multi-user deployment.
+
+**Current state:**
+- `api/routes/files.py` — already protected: `is_safe_path()`, `ALLOWED_DIRS`, `is_relative_to()` used before every `open()`. Snyk false-positive here.
+- `services/lora_service.py`, `services/caption_service.py`, `services/tagging_service.py` — user-supplied paths go straight to `Path()`. Intended behaviour (user specifies their own model/dataset paths) but technically traversable.
+- `api/routes/config.py` — preset file paths from API requests, no allowlist check. Lowest-hanging real concern.
+
+**Why it's low risk now:** App is single-user, accessed via private tunnel on VastAI/RunPod. Path traversal = user accessing their own files, which they already can.
+
+**Why it matters eventually:** If the app ever supports multiple users, shared instances, or public access, these become real attack surfaces.
+
+**Investigation items (SEC-1):**
+- Check if service-layer paths can be validated against a configurable `WORKSPACE_ROOT` without breaking VastAI/RunPod users who store files outside the project directory
+- Consider `Path.resolve()` + `is_relative_to(WORKSPACE_ROOT)` pattern in services — only viable if `WORKSPACE_ROOT` is user-configurable in settings (default: `/workspace` on cloud, `PROJECT_ROOT` locally)
+- `api/routes/config.py` preset paths — add same `is_relative_to(presets_dir)` guard that `files.py` already uses for a quick partial win
+
+**Effort:** Small–Medium | **Priority:** Low (pre-public-release gate) | **Status:** ⏳ Not started
+
+---
+
+### 12.2 CWE-78 Command Injection (Snyk, medium — mostly false positives)
+
+Snyk flags command injection (CWE-78) in Python files that pass user-controlled values into subprocess calls.
+
+**Current state:**
+- All subprocess calls use `asyncio.create_subprocess_exec` or list-form `subprocess.run` — neither passes through a shell. OS `exec()` does not interpret shell metacharacters, so these are not injectable regardless of argument content.
+- No `shell=True`, `os.system()`, or `os.popen()` anywhere in `api/` or `services/`. The one `shell=True` in `job_manager.py` was removed in commit `ab2fb6b`.
+- `model_service.py` — aria2c and wget calls build arg lists from user-supplied URLs and API tokens. List-form, not shell-interpolated. Safe.
+- `services/trainers/`, `lora_service.py`, `captioning_service.py` etc. — training/processing commands built as lists with user-supplied paths. Same pattern, safe.
+
+**Why Snyk flags it:** Static analysis sees user-controlled values flowing into subprocess args and flags conservatively, even when list-form exec is used. It cannot always prove the list won't later be joined into a shell string.
+
+**Why it's low real risk:** List-form exec is the correct mitigation for CWE-78. No shell is invoked, no metacharacter interpretation occurs.
+
+**Investigation items (SEC-2):**
+- Audit that no call site ever does `" ".join(args)` and passes the result to a shell-based subprocess — this would re-introduce the vulnerability
+- Verify `model_service.py` wget/aria2c header args (`Authorization: Bearer {token}`) are never shell-interpreted if the download backend is swapped in future
+- Consider adding a lint rule or comment convention to flag any future `shell=True` additions at review time
+
+**Effort:** Tiny (audit only, no fixes expected) | **Priority:** Low | **Status:** ⏳ Not started
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project

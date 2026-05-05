@@ -115,6 +115,7 @@ interface TrainingConfig {
   cache_text_encoder_outputs_to_disk?: boolean;
   vae_batch_size: number;
   no_half_vae: boolean;
+  vae_reflection_padding: boolean;
   persistent_data_loader_workers: boolean;
   max_data_loader_n_workers?: number;
   fp8_base: boolean;
@@ -433,6 +434,7 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     cache_text_encoder_outputs: config.cache_text_encoder_outputs,
     vae_batch_size: config.vae_batch_size,
     no_half_vae: config.no_half_vae,
+    vae_reflection_padding: config.vae_reflection_padding,
     persistent_data_loader_workers: config.persistent_data_loader_workers ? 1 : 0,
     fp8_base: config.fp8_base,
     full_fp16: config.full_fp16,

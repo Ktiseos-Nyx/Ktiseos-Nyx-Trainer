@@ -1,0 +1,17 @@
+{
+  "is_builtin": true,
+  "name": "SD1.5 Character",
+  "description": "Classic SD1.5 character training",
+  "model_type": "SD15",
+  "resolution": 512,
+  "network_dim": 32,
+  "network_alpha": 32,
+  "unet_lr": 0.0001,
+  "text_encoder_lr": 5e-05,
+  "lr_scheduler": "cosine_with_restarts",
+  "lr_scheduler_number": 3,
+  "optimizer_type": "AdamW8bit",
+  "max_train_epochs": 10,
+  "train_batch_size": 4,
+  "clip_skip": 1
+}

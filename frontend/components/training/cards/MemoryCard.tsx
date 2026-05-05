@@ -21,6 +21,7 @@ interface MemoryCardProps {
 export function MemoryCard({ form, onSave }: MemoryCardProps) {
   const cacheLatents = form.watch('cache_latents');
   const cacheText = form.watch('cache_text_encoder_outputs');
+  const isSDXL = form.watch('model_type') === 'SDXL';
 
   return (
     <Card className="border-cyan-500/30">
@@ -152,6 +153,15 @@ export function MemoryCard({ form, onSave }: MemoryCardProps) {
             label="No Half VAE"
             description="Use full precision VAE (if you get NaN errors)"
           />
+
+          {isSDXL && (
+            <CheckboxFormField
+              form={form}
+              name="vae_reflection_padding"
+              label="VAE Reflection Padding"
+              description="Enable for EQ VAEs (e.g. KBlueLeaf/EQ-SDXL-VAE, Anzhc/MS-LC-EQ-D-VR_VAE) to prevent edge artifacts"
+            />
+          )}
 
           <NumberFormField
             form={form}

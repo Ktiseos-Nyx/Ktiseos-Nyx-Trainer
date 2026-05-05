@@ -563,6 +563,8 @@ class SdxlStableDiffusionLongPromptWeightingPipeline:
         self.requires_safety_checker = requires_safety_checker
         self.vae = vae
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
+        self.latent_scale_factor = sdxl_model_util.VAE_SCALE_FACTOR
+        self.latent_shift = 0.0
         self.progress_bar = lambda x: tqdm(x, leave=False)
 
         self.clip_skip = clip_skip
@@ -642,7 +644,11 @@ class SdxlStableDiffusionLongPromptWeightingPipeline:
 
     def decode_latents(self, latents):
         with torch.no_grad():
-            latents = 1 / sdxl_model_util.VAE_SCALE_FACTOR * latents
+            scale = getattr(self, "latent_scale_factor", sdxl_model_util.VAE_SCALE_FACTOR)
+            shift = getattr(self, "latent_shift", 0.0)
+            latents = latents / scale
+            if shift != 0.0:
+                latents = latents + shift
 
             # print("post_quant_conv dtype:", self.vae.post_quant_conv.weight.dtype)  # torch.float32
             # x = torch.nn.functional.conv2d(latents, self.vae.post_quant_conv.weight.detach(), stride=1, padding=0)
@@ -700,7 +706,11 @@ class SdxlStableDiffusionLongPromptWeightingPipeline:
         else:
             init_latent_dist = self.vae.encode(image).latent_dist
             init_latents = init_latent_dist.sample(generator=generator)
-            init_latents = sdxl_model_util.VAE_SCALE_FACTOR * init_latents
+            scale = getattr(self, "latent_scale_factor", sdxl_model_util.VAE_SCALE_FACTOR)
+            shift = getattr(self, "latent_shift", 0.0)
+            if shift != 0.0:
+                init_latents = init_latents - shift
+            init_latents = init_latents * scale
             init_latents = torch.cat([init_latents] * batch_size, dim=0)
             init_latents_orig = init_latents
             shape = init_latents.shape

@@ -26,7 +26,9 @@ import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -53,15 +55,25 @@ interface BaseFieldProps<T extends FieldValues> {
   readOnly?: boolean;
 }
 
-// Add this right after the BaseFieldProps interface
 type FieldOption = {
   value: string;
   label: string;
-  description?: string;  // 👈 Add this line
+  description?: string;
 };
 
-interface SelectFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+type OptionGroup = {
+  group: string;
   options: FieldOption[];
+};
+
+type SelectOptions = FieldOption[] | OptionGroup[];
+
+function isGrouped(options: SelectOptions): options is OptionGroup[] {
+  return options.length > 0 && 'group' in options[0];
+}
+
+interface SelectFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
+  options: SelectOptions;
 }
 
 interface ComboboxFormFieldProps<T extends FieldValues> extends BaseFieldProps<T> {
@@ -191,9 +203,19 @@ export function SelectFormField<T extends FieldValues>({
           >
             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
             <SelectContent>
-              {options.map((opt) => (  // ✅ Correct location: inside return
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
+              {isGrouped(options)
+                ? options.map((grp) => (
+                    <SelectGroup key={grp.group}>
+                      <SelectLabel>{grp.group}</SelectLabel>
+                      {grp.options.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))
+                : options.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))
+              }
             </SelectContent>
           </Select>
           {description && <FormDescription>{description}</FormDescription>}

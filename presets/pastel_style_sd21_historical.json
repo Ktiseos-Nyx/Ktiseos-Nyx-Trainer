@@ -1,0 +1,17 @@
+{
+  "is_builtin": true,
+  "name": "Pastel Style (SD 2.1 — Historical)",
+  "description": "Feb 2023 Platdiffusion/SD 2.1 pastel style LoRA. HISTORICAL — predates standardized metadata. dim 96/alpha 12 (1:8 ratio), UNet 2x TE LR, 512px. WARNING: SD 2.1 not in model type enum — needs v2=true and OpenCLIP ViT-H. Use SD1.5 slot as workaround.",
+  "model_type": "SD15",
+  "resolution": 512,
+  "network_dim": 96,
+  "network_alpha": 12,
+  "unet_lr": 0.0004,
+  "text_encoder_lr": 0.0002,
+  "lr_scheduler": "cosine",
+  "optimizer_type": "AdamW",
+  "max_train_epochs": 6,
+  "save_every_n_epochs": 1,
+  "train_batch_size": 2,
+  "mixed_precision": "fp16"
+}

@@ -41,6 +41,7 @@ class LoRAType(str, Enum):
     DIAG_OFT = "Diag-OFT"  # Diagonal Orthogonal Finetuning
     BOFT = "BOFT"  # Butterfly OFT
     ABBA = "ABBA"  # LyCORIS v3.2.0+ - Activation-Based Block Adaptation
+    TLORA = "TLoRA"  # Timestep-dependent LoRA (SVD-orthogonal init)
 
 
 class OptimizerType(str, Enum):
@@ -216,7 +217,6 @@ class TrainingConfig(BaseModel):
     network_dropout: float = Field(0.0, ge=0.0, le=1.0, description="Network dropout")
     dim_from_weights: bool = Field(False, description="Derive dim from weights")
     factor: int = Field(-1, description="LoKR decomposition factor")
-    train_norm: bool = Field(False, description="Train norm layers (LyCORIS)")
 
     # Advanced LyCORIS
     rank_dropout: float = Field(0.0, ge=0.0, le=1.0, description="LyCORIS rank dropout")
@@ -282,6 +282,7 @@ class TrainingConfig(BaseModel):
     fp8_base: bool = Field(False, description="FP8 base model (experimental)")
     vae_batch_size: int = Field(1, ge=1, description="VAE batch size")
     no_half_vae: bool = Field(False, description="Disable half VAE")
+    vae_reflection_padding: bool = Field(False, description="Apply reflection padding to VAE convolutions (for EQ VAEs)")
     cache_latents: bool = Field(True, description="Cache latents")
     cache_latents_to_disk: bool = Field(False, description="Cache latents to disk")
     cache_text_encoder_outputs: bool = Field(False, description="Cache text encoder outputs")

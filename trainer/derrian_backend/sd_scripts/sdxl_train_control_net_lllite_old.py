@@ -16,7 +16,7 @@ from library.device_utils import init_ipex, clean_memory_on_device
 init_ipex()
 
 from torch.nn.parallel import DistributedDataParallel as DDP
-from accelerate.utils import set_seed
+
 from diffusers import DDPMScheduler, ControlNetModel
 from safetensors.torch import load_file
 from library import deepspeed_utils, sai_model_spec, sdxl_model_util, sdxl_original_unet, sdxl_train_util
@@ -72,9 +72,7 @@ def train(args):
     cache_latents = args.cache_latents
     use_user_config = args.dataset_config is not None
 
-    if args.seed is None:
-        args.seed = random.randint(0, 2**32)
-    set_seed(args.seed)
+    train_util.args_set_seed(args)
 
     tokenizer1, tokenizer2 = sdxl_train_util.load_tokenizers(args)
 
@@ -317,9 +315,11 @@ def train(args):
     noise_scheduler = DDPMScheduler(
         beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
     )
-    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
+
     if args.zero_terminal_snr:
         custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
+
+    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
 
     if accelerator.is_main_process:
         init_kwargs = {}
@@ -431,7 +431,7 @@ def train(args):
                     target = noise
 
                 huber_c = train_util.get_huber_threshold_if_needed(args, timesteps, noise_scheduler)
-                loss = train_util.conditional_loss(noise_pred.float(), target.float(), args.loss_type, "none", huber_c)
+                loss = train_util.conditional_loss(noise_pred.float(), target.float(), args.loss_type, "none", huber_c, scale=float(args.loss_scale))
                 loss = loss.mean([1, 2, 3])
 
                 loss_weights = batch["loss_weights"]  # 各sampleごとのweight

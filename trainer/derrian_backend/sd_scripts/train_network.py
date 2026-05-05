@@ -11,6 +11,8 @@ import time
 import json
 from multiprocessing import Value
 import numpy as np
+import ast
+import itertools
 
 from tqdm import tqdm
 
@@ -18,14 +20,17 @@ import torch
 import torch.nn as nn
 from torch.types import Number
 from library.device_utils import init_ipex, clean_memory_on_device
+from library.edm2_loss_utils import prepare_edm2_loss_weighting, plot_edm2_loss_weighting_check, plot_edm2_loss_weighting
+from library.ramtorch_util import apply_ramtorch_to_module
 
 init_ipex()
 
-from accelerate.utils import set_seed
+
 from accelerate import Accelerator
 from diffusers import DDPMScheduler
 from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
 from library import deepspeed_utils, model_util, sai_model_spec, strategy_base, strategy_sd, sai_model_spec
+from library.strategy_sdxl import SdxlTextEncodingStrategy
 
 import library.train_util as train_util
 from library.train_util import DreamBoothDataset
@@ -47,6 +52,13 @@ from library.custom_train_functions import (
 )
 from library.utils import setup_logging, add_logging_arguments
 
+# T-LoRA timestep-dependent rank masking support
+try:
+    from lycoris.modules.tlora import set_timestep_mask, clear_timestep_mask, compute_timestep_mask, compute_timestep_mask_batch
+    TLORA_AVAILABLE = True
+except ImportError:
+    TLORA_AVAILABLE = False
+
 setup_logging()
 import logging
 
@@ -57,6 +69,14 @@ class NetworkTrainer:
     def __init__(self):
         self.vae_scale_factor = 0.18215
         self.is_sdxl = False
+        self.latent_shift = 0.0
+
+        # T-LoRA timestep-dependent rank masking config
+        self.tlora_enabled = False
+        self.tlora_max_rank = 0
+        self.tlora_min_rank = 1
+        self.tlora_mask_alpha = 1.0
+        self.tlora_max_timestep = 1000
 
     # TODO 他のスクリプトと共通化する
     def generate_step_logs(
@@ -72,8 +92,23 @@ class NetworkTrainer:
         maximum_norm=None,
         mean_grad_norm=None,
         mean_combined_norm=None,
+        edm2_lr_scheduler=None,
+        current_loss_scaled=None, 
+        average_loss_scaled=None, 
+        current_loss_edm2=None, 
+        average_loss_edm2=None, 
+        current_val_loss=None,
+        average_val_loss=None,
     ):
         logs = {"loss/current": current_loss, "loss/average": avr_loss}
+
+        if current_loss_scaled is not None:
+            logs["loss/current_scaled"] = current_loss_scaled
+            logs["loss/average_scaled"] = average_loss_scaled
+
+        if current_loss_edm2 is not None:
+            logs["loss/current_edm2"] = current_loss_edm2
+            logs["loss/average_edm2"] = average_loss_edm2
 
         if keys_scaled is not None:
             logs["max_norm/keys_scaled"] = keys_scaled
@@ -85,45 +120,35 @@ class NetworkTrainer:
         if mean_combined_norm is not None:
             logs["norm/avg_combined_norm"] = mean_combined_norm
 
+        if current_val_loss is not None:
+            logs["loss/current_val_loss"] = current_val_loss                      
+            logs["loss/average_val_loss"] = average_val_loss
+
         lrs = lr_scheduler.get_last_lr()
         for i, lr in enumerate(lrs):
             if lr_descriptions is not None:
                 lr_desc = lr_descriptions[i]
             else:
-                idx = i - (0 if args.network_train_unet_only else -1)
+                idx = i - (0 if args.network_train_unet_only else 1)
                 if idx == -1:
                     lr_desc = "textencoder"
                 else:
                     if len(lrs) > 2:
-                        lr_desc = f"group{idx}"
+                        lr_desc = f"group{i}"
                     else:
                         lr_desc = "unet"
 
             logs[f"lr/{lr_desc}"] = lr
 
-            if args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower():
-                # tracking d*lr value
-                logs[f"lr/d*lr/{lr_desc}"] = (
-                    lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"]
-                )
-            if (
-                args.optimizer_type.lower().endswith("ProdigyPlusScheduleFree".lower()) and optimizer is not None
-            ):  # tracking d*lr value of unet.
-                logs["lr/d*lr"] = optimizer.param_groups[0]["d"] * optimizer.param_groups[0]["lr"]
-        else:
-            idx = 0
-            if not args.network_train_unet_only:
-                logs["lr/textencoder"] = float(lrs[0])
-                idx = 1
+            if args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower().startswith("Prodigy".lower()):
+                opt = lr_scheduler.optimizers[-1] if hasattr(lr_scheduler, "optimizers") else optimizer
+                if opt is not None:
+                    logs[f"lr/d*lr/{lr_desc}"] = opt.param_groups[i]["d"] * opt.param_groups[i]["lr"]
+                    if "effective_lr" in opt.param_groups[i]:
+                        logs[f"lr/d*eff_lr/{lr_desc}"] = opt.param_groups[i]["d"] * opt.param_groups[i]["effective_lr"]
 
-            for i in range(idx, len(lrs)):
-                logs[f"lr/group{i}"] = float(lrs[i])
-                if args.optimizer_type.lower().startswith("DAdapt".lower()) or args.optimizer_type.lower() == "Prodigy".lower():
-                    logs[f"lr/d*lr/group{i}"] = (
-                        lr_scheduler.optimizers[-1].param_groups[i]["d"] * lr_scheduler.optimizers[-1].param_groups[i]["lr"]
-                    )
-                if args.optimizer_type.lower().endswith("ProdigyPlusScheduleFree".lower()) and optimizer is not None:
-                    logs[f"lr/d*lr/group{i}"] = optimizer.param_groups[i]["d"] * optimizer.param_groups[i]["lr"]
+        if edm2_lr_scheduler is not None:
+            logs[f"lr/edm2"] = edm2_lr_scheduler.get_last_lr()[0]
 
         return logs
 
@@ -133,12 +158,8 @@ class NetworkTrainer:
     def epoch_logging(self, accelerator: Accelerator, logs: dict, global_step: int, epoch: int):
         self.accelerator_logging(accelerator, logs, epoch, global_step, epoch)
 
-    def val_logging(self, accelerator: Accelerator, logs: dict, global_step: int, epoch: int, val_step: int):
-        self.accelerator_logging(accelerator, logs, global_step + val_step, global_step, epoch, val_step)
-
     def accelerator_logging(
-        self, accelerator: Accelerator, logs: dict, step_value: int, global_step: int, epoch: int, val_step: Optional[int] = None
-    ):
+        self, accelerator: Accelerator, logs: dict, step_value: int, global_step: int, epoch: int):
         """
         step_value is for tensorboard, other values are for wandb
         """
@@ -159,8 +180,6 @@ class NetworkTrainer:
         if wandb_tracker is not None:
             logs["global_step"] = global_step
             logs["epoch"] = epoch
-            if val_step is not None:
-                logs["val_step"] = val_step
             wandb_tracker.log(logs)
 
         for tracker in other_trackers:
@@ -178,6 +197,11 @@ class NetworkTrainer:
 
     def load_target_model(self, args, weight_dtype, accelerator) -> tuple[str, nn.Module, nn.Module, Optional[nn.Module]]:
         text_encoder, vae, unet, _ = train_util.load_target_model(args, weight_dtype, accelerator)
+
+        if args.use_ramtorch:
+            logger.info("Applying RamTorch to SD model.")
+            unet = apply_ramtorch_to_module(unet, "unet", accelerator.device, weight_dtype)
+            text_encoder = apply_ramtorch_to_module(text_encoder, "clip_l", accelerator.device, weight_dtype)
 
         # モデルに xformers とか memory efficient attention を組み込む
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)
@@ -218,6 +242,9 @@ class NetworkTrainer:
     def get_text_encoders_train_flags(self, args, text_encoders):
         return [True] * len(text_encoders) if self.is_train_text_encoder(args) else [False] * len(text_encoders)
 
+    def get_flow_pixel_counts(self, args, batch, latents):
+        return None
+
     def is_train_text_encoder(self, args):
         return not args.network_train_unet_only
 
@@ -225,12 +252,21 @@ class NetworkTrainer:
         for t_enc in text_encoders:
             t_enc.to(accelerator.device, dtype=weight_dtype)
 
-    def call_unet(self, args, accelerator, unet, noisy_latents, timesteps, text_conds, batch, weight_dtype, **kwargs):
-        noise_pred = unet(noisy_latents, timesteps, text_conds[0]).sample
+    def call_unet(self, args, accelerator, unet, noisy_latents, timesteps, text_conds, text_masks, batch, weight_dtype, **kwargs):
+        noisy_latents = noisy_latents.to(weight_dtype)
+        noise_pred = unet(noisy_latents, timesteps, text_conds[0], text_masks).sample
         return noise_pred
 
     def all_reduce_network(self, accelerator, network):
         for param in network.parameters():
+            if param.grad is not None:
+                param.grad = accelerator.reduce(param.grad, reduction="mean")
+
+    def all_reduce_edm2_model(self, accelerator, edm2_model):
+        """Manually synchronize EDM2 model gradients across GPUs."""
+        if edm2_model is None:
+            return
+        for param in edm2_model.parameters():
             if param.grad is not None:
                 param.grad = accelerator.reduce(param.grad, reduction="mean")
 
@@ -246,16 +282,18 @@ class NetworkTrainer:
         noise_scheduler = DDPMScheduler(
             beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
         )
-        prepare_scheduler_for_custom_training(noise_scheduler, device)
+
         if args.zero_terminal_snr:
             custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
+
+        prepare_scheduler_for_custom_training(noise_scheduler, device)
         return noise_scheduler
 
     def encode_images_to_latents(self, args, vae: AutoencoderKL, images: torch.FloatTensor) -> torch.FloatTensor:
         return vae.encode(images).latent_dist.sample()
 
     def shift_scale_latents(self, args, latents: torch.FloatTensor) -> torch.FloatTensor:
-        return latents * self.vae_scale_factor
+        return (latents - self.latent_shift) * self.vae_scale_factor
 
     def get_noise_pred_and_target(
         self,
@@ -265,22 +303,35 @@ class NetworkTrainer:
         latents,
         batch,
         text_encoder_conds,
+        text_encoder_masks,
         unet,
         network,
         weight_dtype,
         train_unet,
+        fixed_timesteps=None,
         is_train=True,
     ):
         # Sample noise, sample a random timestep for each image, and add noise to the latents,
         # with noise offset and/or multires noise if specified
-        noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(args, noise_scheduler, latents)
+        encoder_attention_mask_bias = text_encoder_masks[1] #[(1 - t.to(dtype=text_encoder_conds[0].dtype)).unsqueeze(1) * -10000.0 for t in text_encoder_masks]
+
+        pixel_counts = None
+        if hasattr(self, "get_flow_pixel_counts"):
+            pixel_counts = self.get_flow_pixel_counts(args, batch, latents.device)
+
+        noise, noisy_latents, timesteps = train_util.get_noise_noisy_latents_and_timesteps(
+            args, noise_scheduler, latents, fixed_timesteps=fixed_timesteps, is_train=is_train, pixel_counts=pixel_counts
+        )
 
         # ensure the hidden state will require grad
-        if args.gradient_checkpointing:
+        if is_train and args.gradient_checkpointing:
             for x in noisy_latents:
                 x.requires_grad_(True)
             for t in text_encoder_conds:
                 t.requires_grad_(True)
+
+        # Set T-LoRA timestep mask before the forward pass
+        self.apply_tlora_mask(timesteps)
 
         # Predict the noise residual
         with torch.set_grad_enabled(is_train), accelerator.autocast():
@@ -291,11 +342,21 @@ class NetworkTrainer:
                 noisy_latents.requires_grad_(train_unet),
                 timesteps,
                 text_encoder_conds,
+                encoder_attention_mask_bias,
                 batch,
                 weight_dtype,
             )
 
-        if args.v_parameterization:
+        # Clear T-LoRA mask after the forward pass
+        self.clear_tlora_mask_if_needed()
+
+        # Upcast for grokking
+        latents = latents.to(torch.float64)
+        noise = noise.to(torch.float64)
+
+        if getattr(args, "flow_model", False):
+            target = noise - latents
+        elif args.v_parameterization:
             # v-parameterization training
             target = noise_scheduler.get_velocity(latents, noise, timesteps)
         else:
@@ -318,6 +379,7 @@ class NetworkTrainer:
                         noisy_latents,
                         timesteps,
                         text_encoder_conds,
+                        encoder_attention_mask_bias,
                         batch,
                         weight_dtype,
                         indices=diff_output_pr_indices,
@@ -325,7 +387,7 @@ class NetworkTrainer:
                 network.set_multiplier(1.0)  # may be overwritten by "network_multipliers" in the next step
                 target[diff_output_pr_indices] = noise_pred_prior.to(target.dtype)
 
-        return noise_pred, target, timesteps, None
+        return noise_pred, target, timesteps, None, noise
 
     def post_process_loss(self, loss, args, timesteps: torch.IntTensor, noise_scheduler) -> torch.FloatTensor:
         if args.min_snr_gamma:
@@ -365,6 +427,76 @@ class NetworkTrainer:
     def on_validation_step_end(self, args, accelerator, network, text_encoders, unet, batch, weight_dtype):
         pass
 
+    def setup_tlora_masking(self, net_kwargs, network_dim, noise_scheduler):
+        """
+        Initialize T-LoRA timestep masking if the algo is tlora.
+
+        Reads tlora_min_rank and tlora_mask_alpha from network_args.
+        Must be called after the network is created.
+        """
+        algo = (net_kwargs.get("algo", "lora") or "lora").lower()
+        if algo != "tlora":
+            return
+        if not TLORA_AVAILABLE:
+            logger.warning("T-LoRA requested but lyco_tlora is not available. Skipping T-LoRA setup.")
+            return
+
+
+        self.tlora_enabled = True
+        self.tlora_max_rank = int(network_dim) if network_dim is not None else 4
+        tlora_min_rank = net_kwargs.get("tlora_min_rank", None)
+        if tlora_min_rank is None:
+            self.tlora_min_rank = int(math.ceil(self.tlora_max_rank * 0.5))
+        else:
+            self.tlora_min_rank = int(tlora_min_rank)
+        self.tlora_min_rank = max(0, min(self.tlora_min_rank, self.tlora_max_rank))
+        self.tlora_mask_alpha = float(net_kwargs.get("tlora_mask_alpha", 1.0))
+        self.tlora_max_timestep = noise_scheduler.config.num_train_timesteps
+        logger.info(
+            f"T-LoRA masking enabled: max_rank={self.tlora_max_rank}, "
+            f"min_rank={self.tlora_min_rank}, mask_alpha={self.tlora_mask_alpha}, "
+            f"max_timestep={self.tlora_max_timestep}"
+        )
+
+    def apply_tlora_mask(self, timesteps: torch.Tensor):
+        """
+        Compute and set the T-LoRA timestep mask for the current batch.
+
+        Computes a per-sample mask so each sample in the batch gets a rank
+        mask matching its own noise level, avoiding the bias of a single
+        shared mask (e.g. max timestep penalizing low-noise samples).
+        For batch_size=1 (common in LoRA training), this is equivalent to
+        computing a single mask.
+        """
+        if not self.tlora_enabled:
+            return
+
+        if timesteps.numel() == 1:
+            # Fast path for batch_size=1: avoid tensor ops
+            mask = compute_timestep_mask(
+                timestep=int(timesteps.item()),
+                max_timestep=self.tlora_max_timestep,
+                max_rank=self.tlora_max_rank,
+                min_rank=self.tlora_min_rank,
+                alpha=self.tlora_mask_alpha,
+            )
+        else:
+            # Per-sample masks: shape (B, max_rank)
+            mask = compute_timestep_mask_batch(
+                timesteps=timesteps,
+                max_timestep=self.tlora_max_timestep,
+                max_rank=self.tlora_max_rank,
+                min_rank=self.tlora_min_rank,
+                alpha=self.tlora_mask_alpha,
+            )
+        set_timestep_mask(mask)
+
+    def clear_tlora_mask_if_needed(self):
+        """Clear the T-LoRA mask after the forward pass."""
+        if not self.tlora_enabled:
+            return
+        clear_timestep_mask()
+
     # endregion
 
     def process_batch(
@@ -384,17 +516,18 @@ class NetworkTrainer:
         is_train=True,
         train_text_encoder=True,
         train_unet=True,
+        edm2_model=None
     ) -> torch.Tensor:
         """
         Process a batch for the network
         """
         with torch.no_grad():
             if "latents" in batch and batch["latents"] is not None:
-                latents = typing.cast(torch.FloatTensor, batch["latents"].to(accelerator.device))
+                latents = typing.cast(torch.FloatTensor, batch["latents"].to(device=accelerator.device))
             else:
                 # latentに変換
                 if args.vae_batch_size is None or len(batch["images"]) <= args.vae_batch_size:
-                    latents = self.encode_images_to_latents(args, vae, batch["images"].to(accelerator.device, dtype=vae_dtype))
+                    latents = self.encode_images_to_latents(args, vae, batch["images"].to(device=accelerator.device, dtype=vae_dtype))
                 else:
                     chunks = [
                         batch["images"][i : i + args.vae_batch_size] for i in range(0, len(batch["images"]), args.vae_batch_size)
@@ -402,7 +535,7 @@ class NetworkTrainer:
                     list_latents = []
                     for chunk in chunks:
                         with torch.no_grad():
-                            chunk = self.encode_images_to_latents(args, vae, chunk.to(accelerator.device, dtype=vae_dtype))
+                            chunk = self.encode_images_to_latents(args, vae, chunk.to(device=accelerator.device, dtype=vae_dtype))
                             list_latents.append(chunk)
                     latents = torch.cat(list_latents, dim=0)
 
@@ -414,9 +547,12 @@ class NetworkTrainer:
             latents = self.shift_scale_latents(args, latents)
 
         text_encoder_conds = []
+        masks_reshaped = []
         text_encoder_outputs_list = batch.get("text_encoder_outputs_list", None)
         if text_encoder_outputs_list is not None:
             text_encoder_conds = text_encoder_outputs_list  # List of text encoder outputs
+            if isinstance(text_encoding_strategy, SdxlTextEncodingStrategy):
+                masks_reshaped = text_encoder_outputs_list[3:]
 
         if len(text_encoder_conds) == 0 or text_encoder_conds[0] is None or train_text_encoder:
             # TODO this does not work if 'some text_encoders are trained' and 'some are not and not cached'
@@ -432,11 +568,20 @@ class NetworkTrainer:
                     )
                 else:
                     input_ids = [ids.to(accelerator.device) for ids in batch["input_ids_list"]]
-                    encoded_text_encoder_conds = text_encoding_strategy.encode_tokens(
-                        tokenize_strategy,
-                        self.get_models_for_text_encoding(args, accelerator, text_encoders),
-                        input_ids,
-                    )
+                    if isinstance(text_encoding_strategy, SdxlTextEncodingStrategy):
+                        masks = [mask.to(accelerator.device) for mask in batch["attn_mask_list"]]
+                        encoded_text_encoder_conds, masks_reshaped = text_encoding_strategy.encode_tokens(
+                            tokenize_strategy,
+                            self.get_models_for_text_encoding(args, accelerator, text_encoders),
+                            input_ids,
+                            attn_masks=masks,
+                        )
+                    else:
+                        encoded_text_encoder_conds = text_encoding_strategy.encode_tokens(
+                            tokenize_strategy,
+                            self.get_models_for_text_encoding(args, accelerator, text_encoders),
+                            input_ids
+                        )
                 if args.full_fp16:
                     encoded_text_encoder_conds = [c.to(weight_dtype) for c in encoded_text_encoder_conds]
 
@@ -450,13 +595,14 @@ class NetworkTrainer:
                         text_encoder_conds[i] = encoded_text_encoder_conds[i]
 
         # sample noise, call unet, get target
-        noise_pred, target, timesteps, weighting = self.get_noise_pred_and_target(
+        noise_pred, target, timesteps, weighting, noise = self.get_noise_pred_and_target(
             args,
             accelerator,
             noise_scheduler,
             latents,
             batch,
             text_encoder_conds,
+            masks_reshaped,
             unet,
             network,
             weight_dtype,
@@ -464,20 +610,189 @@ class NetworkTrainer:
             is_train=is_train,
         )
 
-        huber_c = train_util.get_huber_threshold_if_needed(args, timesteps, noise_scheduler)
-        loss = train_util.conditional_loss(noise_pred.float(), target.float(), args.loss_type, "none", huber_c)
-        if weighting is not None:
-            loss = loss * weighting
-        if args.masked_loss or ("alpha_masks" in batch and batch["alpha_masks"] is not None):
-            loss = apply_masked_loss(loss, batch)
+        # Cast to float64 (Double Precision) for Grokking
+        noise_pred = noise_pred.to(dtype=torch.float64)
+        target = target.to(dtype=torch.float64)
+
+        if is_train:
+            if args.differential_guidance:
+                target = noise_pred + (float(args.differential_guidance_scale) * (target - noise_pred))
+
+            huber_c = train_util.get_huber_threshold_if_needed(args, timesteps, noise_scheduler)
+            loss = train_util.conditional_loss(noise_pred, target, args.loss_type, "none", huber_c, scale=float(args.loss_scale))
+            if weighting is not None:
+                loss = loss * weighting
+
+            if args.contrastive_flow_matching and latents.size(0) > 1:
+                # CRITICAL FIX: Add .detach() to prevent gradients flowing through negative samples
+                negative_latents = latents.roll(1, 0).detach()
+                negative_noise = noise.roll(1, 0).detach()
+                with torch.no_grad():
+                    if getattr(args, "flow_model", False):
+                        target_negative = negative_noise - negative_latents
+                    else:
+                        target_negative = noise_scheduler.get_velocity(negative_latents, negative_noise, timesteps)
+
+                # Handle cast for CFM
+                target_negative = target_negative.to(dtype=torch.float64)
+
+                loss_contrastive = torch.nn.functional.mse_loss(
+                    noise_pred, target_negative, reduction="none"
+                )
+                # Store CFM component for logging (before applying lambda)
+                #loss_cfm = loss_contrastive.mean([1, 2, 3]).mean().detach()
+                loss = loss - float(args.cfm_lambda) * loss_contrastive
+            if args.masked_loss or ("alpha_masks" in batch and batch["alpha_masks"] is not None):
+                loss = apply_masked_loss(loss, batch)
+        else:
+                loss = train_util.conditional_loss(noise_pred, target, "l2", "none", None)
         loss = loss.mean(dim=list(range(1, loss.ndim)))  # mean over all dims except batch
 
-        loss_weights = batch["loss_weights"]  # 各sampleごとのweight
-        loss = loss * loss_weights
+        if is_train:
+            loss_weights = batch["loss_weights"]  # 各sampleごとのweight
+            loss = loss * loss_weights
+            loss = self.post_process_loss(loss, args, timesteps, noise_scheduler)
 
-        loss = self.post_process_loss(loss, args, timesteps, noise_scheduler)
+        if is_train and args.loss_multiplier:
+            loss.mul_(float(args.loss_multiplier) if args.loss_multiplier is not None else 1.0)
 
-        return loss.mean()
+        # For logging
+        pre_scaling_loss = loss.mean()
+
+        if is_train and args.edm2_loss_weighting:
+            loss, loss_scaled = edm2_model(loss, timesteps)
+            loss_scaled = loss_scaled.mean()
+        else:
+            loss_scaled = None
+
+        return loss.mean(), pre_scaling_loss, loss_scaled
+    
+    def process_val_batch(
+        self,
+        batch,
+        text_encoders,
+        unet,
+        network,
+        vae,
+        noise_scheduler,
+        vae_dtype,
+        weight_dtype,
+        accelerator,
+        args,
+        text_encoding_strategy: strategy_base.TextEncodingStrategy,
+        tokenize_strategy: strategy_base.TokenizeStrategy,
+        train_text_encoder=True,
+        train_unet=True,
+        timesteps_list: list = [50, 350, 500, 650, 950]
+    ) -> torch.Tensor:
+        """
+        Process a batch for the network to determine val loss
+        """
+        total_loss = 0.0 
+        with torch.no_grad():
+            if "latents" in batch and batch["latents"] is not None:
+                latents = typing.cast(torch.FloatTensor, batch["latents"].to(device=accelerator.device))
+            else:
+                # latentに変換
+                if args.vae_batch_size is None or len(batch["images"]) <= args.vae_batch_size:
+                    latents = self.encode_images_to_latents(args, vae, batch["images"].to(device=accelerator.device, dtype=vae_dtype))
+                else:
+                    chunks = [
+                        batch["images"][i : i + args.vae_batch_size] for i in range(0, len(batch["images"]), args.vae_batch_size)
+                    ]
+                    list_latents = []
+                    for chunk in chunks:
+                        chunk = self.encode_images_to_latents(args, vae, chunk.to(accelerator.device, dtype=vae_dtype))
+                        list_latents.append(chunk)
+                    latents = torch.cat(list_latents, dim=0)
+
+                # NaNが含まれていれば警告を表示し0に置き換える
+                if torch.any(torch.isnan(latents)):
+                    accelerator.print("NaN found in latents, replacing with zeros")
+                    latents = typing.cast(torch.FloatTensor, torch.nan_to_num(latents, 0, out=latents))
+
+            latents = self.shift_scale_latents(args, latents)
+
+            text_encoder_conds = []
+            masks_reshaped = []
+            text_encoder_outputs_list = batch.get("text_encoder_outputs_list", None)
+            if text_encoder_outputs_list is not None:
+                text_encoder_conds = text_encoder_outputs_list  # List of text encoder outputs
+                if isinstance(text_encoding_strategy, SdxlTextEncodingStrategy):
+                    masks_reshaped = text_encoder_outputs_list[3:]
+
+            if len(text_encoder_conds) == 0 or text_encoder_conds[0] is None or train_text_encoder:
+                # TODO this does not work if 'some text_encoders are trained' and 'some are not and not cached'
+                with accelerator.autocast():
+                    # Get the text embedding for conditioning
+                    if args.weighted_captions:
+                        input_ids_list, weights_list = tokenize_strategy.tokenize_with_weights(batch["captions"])
+                        encoded_text_encoder_conds = text_encoding_strategy.encode_tokens_with_weights(
+                            tokenize_strategy,
+                            self.get_models_for_text_encoding(args, accelerator, text_encoders),
+                            input_ids_list,
+                            weights_list,
+                        )
+                    else:
+                        input_ids = [ids.to(accelerator.device) for ids in batch["input_ids_list"]]
+                        if isinstance(text_encoding_strategy, SdxlTextEncodingStrategy):
+                            masks = [mask.to(accelerator.device) for mask in batch["attn_mask_list"]]
+                            encoded_text_encoder_conds, masks_reshaped = text_encoding_strategy.encode_tokens(
+                                tokenize_strategy,
+                                self.get_models_for_text_encoding(args, accelerator, text_encoders),
+                                input_ids,
+                                attn_masks=masks,
+                            )
+                        else:
+                            encoded_text_encoder_conds = text_encoding_strategy.encode_tokens(
+                                tokenize_strategy,
+                                self.get_models_for_text_encoding(args, accelerator, text_encoders),
+                                input_ids
+                            )
+                    if args.full_fp16:
+                        encoded_text_encoder_conds = [c.to(weight_dtype) for c in encoded_text_encoder_conds]
+
+                # if text_encoder_conds is not cached, use encoded_text_encoder_conds
+                if len(text_encoder_conds) == 0:
+                    text_encoder_conds = encoded_text_encoder_conds
+                else:
+                    # if encoded_text_encoder_conds is not None, update cached text_encoder_conds
+                    for i in range(len(encoded_text_encoder_conds)):
+                        if encoded_text_encoder_conds[i] is not None:
+                            text_encoder_conds[i] = encoded_text_encoder_conds[i]
+
+            batch_size = latents.shape[0]
+            for fixed_timesteps in timesteps_list:
+                timesteps = torch.full((batch_size,), fixed_timesteps, dtype=torch.long, device=latents.device)
+                # sample noise, call unet, get target
+                noise_pred, target, _, _, _ = self.get_noise_pred_and_target(
+                    args,
+                    accelerator,
+                    noise_scheduler,
+                    latents,
+                    batch,
+                    text_encoder_conds,
+                    masks_reshaped,
+                    unet,
+                    network,
+                    weight_dtype,
+                    train_unet,
+                    fixed_timesteps=timesteps,
+                    is_train=False,
+                )
+
+                # Cast to float64 (Double Precision) for Grokking
+                noise_pred = noise_pred.to(dtype=torch.float64)
+                target = target.to(dtype=torch.float64)
+
+                loss = train_util.conditional_loss(noise_pred, target, "l2", "none", None)
+                loss = loss.mean(dim=list(range(1, loss.ndim)))  # mean over all dims except batch
+                loss = loss.mean()
+                total_loss += loss
+
+        average_loss = total_loss / len(timesteps_list)    
+
+        return average_loss
 
     def cast_text_encoder(self, args):
         return True  # default for other than HunyuanImage
@@ -488,21 +803,183 @@ class NetworkTrainer:
     def cast_unet(self, args):
         return True  # default for other than HunyuanImage
 
+    def switch_rng_state(self, val_seed: int, accelerator) -> tuple[torch.ByteTensor, Optional[torch.ByteTensor], tuple]:
+        cpu_rng_state = torch.get_rng_state()
+        python_rng_state = random.getstate()
+        numpy_rng_state = np.random.get_state()
+        if accelerator.device.type == "cuda":
+            gpu_rng_state = torch.cuda.get_rng_state()
+        elif accelerator.device.type == "xpu":
+            gpu_rng_state = torch.xpu.get_rng_state()
+        elif accelerator.device.type == "mps":
+            gpu_rng_state = torch.cuda.get_rng_state()
+        else:
+            gpu_rng_state = None
+
+        random.seed(val_seed)
+        np.random.seed(val_seed)
+        torch.manual_seed(val_seed)
+        if accelerator.device.type == "cuda":
+            torch.cuda.manual_seed_all(val_seed)
+
+        return (cpu_rng_state, gpu_rng_state, python_rng_state, numpy_rng_state)
+
+    def restore_rng_state(self, rng_states: tuple[torch.ByteTensor, Optional[torch.ByteTensor], tuple], accelerator):
+        cpu_rng_state, gpu_rng_state, python_rng_state, numpy_rng_state = rng_states
+        torch.set_rng_state(cpu_rng_state)
+        random.setstate(python_rng_state)
+        np.random.set_state(numpy_rng_state)
+        if gpu_rng_state is not None:
+            if accelerator.device.type == "cuda":
+                torch.cuda.set_rng_state(gpu_rng_state)
+            elif accelerator.device.type == "xpu":
+                torch.xpu.set_rng_state(gpu_rng_state)
+            elif accelerator.device.type == "mps":
+                torch.cuda.set_rng_state(gpu_rng_state)
+
+    def calculate_val_loss(self, 
+                           global_step,
+                           epoch_step,
+                           train_dataloader,
+                           val_loss_recorder,
+                           val_dataloader,
+                           cyclic_val_dataloader,
+                           network, 
+                           tokenize_strategy, 
+                           text_encoders, 
+                           text_encoding_strategy, 
+                           unet, 
+                           vae, 
+                           noise_scheduler, 
+                           vae_dtype, 
+                           weight_dtype, 
+                           accelerator, 
+                           args, 
+                           epoch,
+                           batch=None,
+                           train_text_encoder=True):
+        if not train_util.calculate_val_loss_check(args,global_step,epoch_step,val_dataloader,train_dataloader):
+            return None, None, None
+        
+        if batch is not None:
+            self.on_step_start(args, accelerator, network, text_encoders, unet, batch, weight_dtype, is_train=False)
+   
+        rng_states = self.switch_rng_state(int(args.validation_seed) if args.validation_seed else 23, accelerator)
+
+        timesteps_list = ast.literal_eval(args.validation_timesteps)
+              
+        accelerator.print("") 
+        accelerator.print("Validating バリデーション処理...")
+        total_loss = 0.0
+        with torch.no_grad():
+            validation_steps = min(int(args.max_validation_steps), len(val_dataloader)) if args.max_validation_steps is not None else len(val_dataloader)
+            val_dataloader_seed = random.randint(global_step, 0x7FFFFFFF)
+            val_dataloader_state = random.Random(val_dataloader_seed).getstate()
+            for val_step in tqdm(range(validation_steps), desc='Validation Steps'):
+                val_original_state = random.getstate()
+                random.setstate(val_dataloader_state)
+                batch = next(cyclic_val_dataloader)
+                val_dataloader_state = random.getstate()
+                random.setstate(val_original_state)
+                loss = self.process_val_batch(batch, text_encoders, unet, network, vae, noise_scheduler, vae_dtype, 
+                                              weight_dtype, accelerator, args, text_encoding_strategy, tokenize_strategy, 
+                                              train_text_encoder=train_text_encoder,
+                                              timesteps_list=timesteps_list)
+                total_loss += loss.detach().item()
+            current_val_loss = total_loss / validation_steps
+            val_loss_recorder.add(current_val_loss)   
+                     
+        average_val_loss: float = val_loss_recorder.average
+        logs = {"loss/current_val_loss": current_val_loss, "loss/average_val_loss": average_val_loss}
+
+        self.restore_rng_state(rng_states, accelerator)
+
+        return current_val_loss, average_val_loss, logs
+
+
     def train(self, args):
         session_id = random.randint(0, 2**32)
         training_started_at = time.time()
         train_util.verify_training_args(args)
         train_util.prepare_dataset_args(args, True)
+        train_util.set_torch_cuda_reduced_precision(args)
         deepspeed_utils.prepare_deepspeed_args(args)
         setup_logging(args, reset=True)
+
+        if getattr(args, "flow_model", False):
+            logger.info("Using Rectified Flow training objective.")
+            if args.v_parameterization:
+                raise ValueError("`--flow_model` is incompatible with `--v_parameterization`; Rectified Flow already predicts velocity.")
+            if args.min_snr_gamma:
+                logger.warning("`--min_snr_gamma` is ignored when Rectified Flow is enabled.")
+                args.min_snr_gamma = None
+            if args.debiased_estimation_loss:
+                logger.warning("`--debiased_estimation_loss` is ignored when Rectified Flow is enabled.")
+                args.debiased_estimation_loss = False
+            if args.scale_v_pred_loss_like_noise_pred:
+                logger.warning("`--scale_v_pred_loss_like_noise_pred` is ignored when Rectified Flow is enabled.")
+                args.scale_v_pred_loss_like_noise_pred = False
+            if args.v_pred_like_loss:
+                logger.warning("`--v_pred_like_loss` is ignored when Rectified Flow is enabled.")
+                args.v_pred_like_loss = None
+            if args.flow_use_ot:
+                logger.info("Using cosine optimal transport pairing for Rectified Flow batches.")
+                
+            shift_enabled = args.flow_uniform_shift or args.flow_uniform_static_ratio is not None
+            distribution = getattr(args, "flow_timestep_distribution", "logit_normal")
+            if distribution == "logit_normal":
+                flow_logit_std = float(getattr(args, "flow_logit_std", 1.0))
+                flow_logit_mean = float(getattr(args, "flow_logit_mean", 0.0))
+                if flow_logit_std == 0:
+                    raise ValueError("`--flow_logit_std` must be non-zero.")
+                logger.info(
+                    "Rectified Flow timesteps sampled from logit-normal distribution with "
+                    f"mean={flow_logit_mean}, std={flow_logit_std}."
+                )
+            elif distribution == "uniform":
+                logger.info("Rectified Flow timesteps sampled uniformly in [0, 1].")
+            else:
+                raise ValueError(f"Unknown Rectified Flow timestep distribution: {distribution}")
+
+            if shift_enabled:
+                if args.flow_uniform_static_ratio is not None:
+                    flow_uniform_static_ratio = float(getattr(args, "flow_uniform_static_ratio", 0.0))
+                    if flow_uniform_static_ratio <= 0:
+                        raise ValueError("`--flow_uniform_static_ratio` must be positive.")
+                    logger.info(
+                        f"Rectified Flow timestep shift uses static ratio={flow_uniform_static_ratio}."
+                    )
+                else:
+                    logger.info(
+                        f"Rectified Flow timestep shift uses base pixels={args.flow_uniform_base_pixels}."
+                    )
+
+        if args.contrastive_flow_matching and not (args.v_parameterization or getattr(args, "flow_model", False)):
+            raise ValueError("`--contrastive_flow_matching` requires either v-parameterization or Rectified Flow.")
+
+        if getattr(args, "vae_custom_scale", None) is not None:
+            try:
+                self.vae_scale_factor = float(args.vae_custom_scale)
+            except (TypeError, ValueError):
+                raise ValueError("`--vae_custom_scale` must be a valid number")
+            logger.info(f"Using custom VAE scale factor: {self.vae_scale_factor}")
+        if getattr(args, "vae_custom_shift", None) is not None:
+            try:
+                self.latent_shift = float(args.vae_custom_shift)
+            except (TypeError, ValueError):
+                raise ValueError("`--vae_custom_shift` must be a valid number")
+            logger.info(f"Using custom VAE shift factor: {self.latent_shift}")
+        else:
+            self.latent_shift = 0.0
+
+        args.vae_scale_factor = self.vae_scale_factor
+        args.vae_shift_factor = self.latent_shift
 
         cache_latents = args.cache_latents
         use_dreambooth_method = args.in_json is None
         use_user_config = args.dataset_config is not None
 
-        if args.seed is None:
-            args.seed = random.randint(0, 2**32)
-        set_seed(args.seed)
+        train_util.args_set_seed(args)
 
         tokenize_strategy = self.get_tokenize_strategy(args)
         strategy_base.TokenizeStrategy.set_strategy(tokenize_strategy)
@@ -559,6 +1036,19 @@ class NetworkTrainer:
             train_dataset_group = train_util.load_arbitrary_dataset(args)
             val_dataset_group = None  # placeholder until validation dataset supported for arbitrary
 
+        if args.protected_tags_file:
+            logger.info("Injecting protected_tags_file into datasets...")
+            for ds in train_dataset_group.datasets:
+                ds.protected_tags_file = args.protected_tags_file
+        if args.log_caption_tag_dropout:
+            logger.info("Enabling caption tag dropout logging for datasets...")
+            for ds in train_dataset_group.datasets:
+                ds.log_caption_tag_dropout = True
+        if args.log_caption_dropout:
+            logger.info("Enabling caption dropout logging for datasets...")
+            for ds in train_dataset_group.datasets:
+                ds.log_caption_dropout = True
+
         current_epoch = Value("i", 0)
         current_step = Value("i", 0)
         ds_for_collator = train_dataset_group if args.max_data_loader_n_workers == 0 else None
@@ -590,8 +1080,9 @@ class NetworkTrainer:
         self.assert_extra_args(args, train_dataset_group, val_dataset_group)  # may change some args
 
         # acceleratorを準備する
-        logger.info("preparing accelerator")
+        logger.info(f"preparing accelerator")
         accelerator = train_util.prepare_accelerator(args)
+        logger.info(f"prepared accelerator on {accelerator.device}")
         is_main_process = accelerator.is_main_process
 
         # mixed precisionに対応した型を用意しておき適宜castする
@@ -603,6 +1094,12 @@ class NetworkTrainer:
         if vae_dtype is None:
             vae_dtype = vae.dtype
             logger.info(f"vae_dtype is set to {vae_dtype} by the model since cast_vae() is false")
+
+        if getattr(args, "vae_reflection_padding", False):
+            vae = model_util.use_reflection_padding(vae)
+
+        if args.use_ramtorch_vae:
+            vae = apply_ramtorch_to_module(vae, "vae", accelerator.device, vae_dtype)
 
         # text_encoder is List[CLIPTextModel] or CLIPTextModel
         text_encoders = text_encoder if isinstance(text_encoder, list) else [text_encoder]
@@ -642,6 +1139,12 @@ class NetworkTrainer:
         sys.path.append(os.path.dirname(__file__))
         accelerator.print("import network module:", args.network_module)
         network_module = importlib.import_module(args.network_module)
+
+        if args.base_weights is not None and not isinstance(args.base_weights, list):
+            args.base_weights = [args.base_weights]
+
+        if args.base_weights_multiplier is not None and not isinstance(args.base_weights_multiplier, list):
+            args.base_weights_multiplier = [float(x) for x in [args.base_weights_multiplier]]
 
         if args.base_weights is not None:
             # base_weights が指定されている場合は、指定された重みを読み込みマージする
@@ -713,6 +1216,14 @@ class NetworkTrainer:
             info = network.load_weights(args.network_weights)
             accelerator.print(f"load network weights from {args.network_weights}: {info}")
 
+        if args.use_ramtorch_network:
+            #move all network weights to cpu first as base device
+            network = network.to("cpu")
+            logger.info("Applying RamTorch to network/lora.")
+            network = apply_ramtorch_to_module(network, "network/lora", accelerator.device)
+            # Make sure the rest of the network is moved to the accelerator.device
+            network = network.to(accelerator.device)
+
         if args.gradient_checkpointing:
             if args.cpu_offload_checkpointing:
                 unet.enable_gradient_checkpointing(cpu_offload=True)
@@ -729,43 +1240,15 @@ class NetworkTrainer:
         # 学習に必要なクラスを準備する
         accelerator.print("prepare optimizer, data loader etc.")
 
-        # make backward compatibility for text_encoder_lr
-        support_multiple_lrs = hasattr(network, "prepare_optimizer_params_with_multiple_te_lrs")
-        if support_multiple_lrs:
-            text_encoder_lr = args.text_encoder_lr
-        else:
-            # toml backward compatibility
-            if args.text_encoder_lr is None or isinstance(args.text_encoder_lr, float) or isinstance(args.text_encoder_lr, int):
-                text_encoder_lr = args.text_encoder_lr
-            else:
-                text_encoder_lr = None if len(args.text_encoder_lr) == 0 else args.text_encoder_lr[0]
-        try:
-            if support_multiple_lrs:
-                results = network.prepare_optimizer_params_with_multiple_te_lrs(text_encoder_lr, args.unet_lr, args.learning_rate)
-            else:
-                results = network.prepare_optimizer_params(text_encoder_lr, args.unet_lr, args.learning_rate)
-            if type(results) is tuple:
-                trainable_params = results[0]
-                lr_descriptions = results[1]
-            else:
-                trainable_params = results
-                lr_descriptions = None
-        except TypeError as e:
-            trainable_params = network.prepare_optimizer_params(text_encoder_lr, args.unet_lr)
-            lr_descriptions = None
-
-        # if len(trainable_params) == 0:
-        #     accelerator.print("no trainable parameters found / 学習可能なパラメータが見つかりませんでした")
-        # for params in trainable_params:
-        #     for k, v in params.items():
-        #         if type(v) == float:
-        #             pass
-        #         else:
-        #             v = len(v)
-        #         accelerator.print(f"trainable_params: {k} = {v}")
-
-        optimizer_name, optimizer_args, optimizer = train_util.get_optimizer(args, trainable_params)
-        optimizer_train_fn, optimizer_eval_fn = train_util.get_optimizer_train_eval_fn(optimizer, args)
+        (
+            optimizer_name, 
+            optimizer_args, 
+            optimizer, 
+            optimizer_train_fn, 
+            optimizer_eval_fn, 
+            lr_descriptions, 
+            text_encoder_lr
+         ) = train_util.prepare_optimizer(args, network, accelerator)
 
         # prepare dataloader
         # strategies are set here because they cannot be referenced in another process. Copy them with the dataset
@@ -784,16 +1267,25 @@ class NetworkTrainer:
             collate_fn=collator,
             num_workers=n_workers,
             persistent_workers=args.persistent_data_loader_workers,
+            pin_memory=args.pin_data_loader_memory or args.pin_memory,
         )
 
-        val_dataloader = torch.utils.data.DataLoader(
-            val_dataset_group if val_dataset_group is not None else [],
-            shuffle=False,
-            batch_size=1,
-            collate_fn=collator,
-            num_workers=n_workers,
-            persistent_workers=args.persistent_data_loader_workers,
-        )
+        if val_dataset_group is not None:
+            val_dataloader = torch.utils.data.DataLoader(
+                val_dataset_group if val_dataset_group is not None else [],
+                shuffle=False,
+                batch_size=1,
+                collate_fn=collator,
+                num_workers=n_workers,
+                persistent_workers=args.persistent_data_loader_workers,
+                pin_memory=args.pin_data_loader_memory or args.pin_memory,
+            )
+
+        if val_dataset_group is not None:
+            val_dataloader = accelerator.prepare(val_dataloader)
+            cyclic_val_dataloader = itertools.cycle(val_dataloader)
+        else:
+            val_dataloader, cyclic_val_dataloader = None, None
 
         # 学習ステップ数を計算する
         if args.max_train_epochs is not None:
@@ -870,8 +1362,8 @@ class NetworkTrainer:
                 text_encoder2=(text_encoders[1] if flags[1] else None) if len(text_encoders) > 1 else None,
                 network=network,
             )
-            ds_model, optimizer, train_dataloader, val_dataloader, lr_scheduler = accelerator.prepare(
-                ds_model, optimizer, train_dataloader, val_dataloader, lr_scheduler
+            ds_model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                ds_model, optimizer, train_dataloader, lr_scheduler
             )
             training_model = ds_model
         else:
@@ -893,10 +1385,16 @@ class NetworkTrainer:
             else:
                 pass  # if text_encoder is not trained, no need to prepare. and device and dtype are already set
 
-            network, optimizer, train_dataloader, val_dataloader, lr_scheduler = accelerator.prepare(
-                network, optimizer, train_dataloader, val_dataloader, lr_scheduler
+            network, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+                network, optimizer, train_dataloader, lr_scheduler
             )
             training_model = network
+
+        if val_dataset_group is not None:
+            val_dataloader = accelerator.prepare(val_dataloader)
+            cyclic_val_dataloader = itertools.cycle(val_dataloader)
+        else:
+            val_dataloader, cyclic_val_dataloader = None, None
 
         if args.gradient_checkpointing:
             # according to TI example in Diffusers, train is required
@@ -1057,7 +1555,7 @@ class NetworkTrainer:
             "ss_fp8_base": bool(args.fp8_base),
             "ss_fp8_base_unet": bool(args.fp8_base_unet),
             "ss_validation_seed": args.validation_seed,
-            "ss_validation_split": args.validation_split,
+            "ss_validation_split": float(args.validation_split),
             "ss_max_validation_steps": args.max_validation_steps,
             "ss_validate_every_n_epochs": args.validate_every_n_epochs,
             "ss_validate_every_n_steps": args.validate_every_n_steps,
@@ -1085,6 +1583,7 @@ class NetworkTrainer:
                     "enable_bucket": bool(dataset.enable_bucket),
                     "min_bucket_reso": dataset.min_bucket_reso,
                     "max_bucket_reso": dataset.max_bucket_reso,
+                    "skip_image_resolution": dataset.skip_image_resolution,
                     "tag_frequency": dataset.tag_frequency,
                     "bucket_info": dataset.bucket_info,
                     "resize_interpolation": dataset.resize_interpolation,
@@ -1098,6 +1597,7 @@ class NetworkTrainer:
                         "color_aug": bool(subset.color_aug),
                         "flip_aug": bool(subset.flip_aug),
                         "random_crop": bool(subset.random_crop),
+                        "random_crop_padding_percent": float(getattr(subset, "random_crop_padding_percent", 0.05)),
                         "shuffle_caption": bool(subset.shuffle_caption),
                         "keep_tokens": subset.keep_tokens,
                         "keep_tokens_separator": subset.keep_tokens_separator,
@@ -1117,7 +1617,8 @@ class NetworkTrainer:
                     if is_dreambooth_dataset:
                         subset_metadata["class_tokens"] = subset.class_tokens
                         subset_metadata["is_reg"] = subset.is_reg
-                        if subset.is_reg:
+                        subset_metadata["is_val"] = subset.is_val
+                        if subset.is_reg or subset.is_val:
                             image_dir_or_metadata_file = None  # not merging reg dataset
                     else:
                         metadata_file = os.path.basename(subset.metadata_file)
@@ -1167,9 +1668,15 @@ class NetworkTrainer:
 
             dataset_dirs_info = {}
             reg_dataset_dirs_info = {}
+            val_dataset_dirs_info = {}
             if use_dreambooth_method:
                 for subset in dataset.subsets:
-                    info = reg_dataset_dirs_info if subset.is_reg else dataset_dirs_info
+                    if subset.is_reg:
+                        info = reg_dataset_dirs_info
+                    elif subset.is_val:
+                        info = val_dataset_dirs_info
+                    else:
+                        info = dataset_dirs_info
                     info[os.path.basename(subset.image_dir)] = {"n_repeats": subset.num_repeats, "img_count": subset.img_count}
             else:
                 for subset in dataset.subsets:
@@ -1186,11 +1693,14 @@ class NetworkTrainer:
                     "ss_color_aug": bool(args.color_aug),
                     "ss_flip_aug": bool(args.flip_aug),
                     "ss_random_crop": bool(args.random_crop),
+                    "ss_random_crop_padding_percent": float(getattr(args, "random_crop_padding_percent", 0.05)),
                     "ss_shuffle_caption": bool(args.shuffle_caption),
                     "ss_enable_bucket": bool(dataset.enable_bucket),
                     "ss_bucket_no_upscale": bool(dataset.bucket_no_upscale),
+                    "ss_multires_training": bool(getattr(dataset, "multires_training", False)),
                     "ss_min_bucket_reso": dataset.min_bucket_reso,
                     "ss_max_bucket_reso": dataset.max_bucket_reso,
+                    "ss_skip_image_resolution": dataset.skip_image_resolution,
                     "ss_keep_tokens": args.keep_tokens,
                     "ss_dataset_dirs": json.dumps(dataset_dirs_info),
                     "ss_reg_dataset_dirs": json.dumps(reg_dataset_dirs_info),
@@ -1220,6 +1730,10 @@ class NetworkTrainer:
                 vae_name = os.path.basename(vae_name)
             metadata["ss_vae_name"] = vae_name
 
+        metadata["ss_vae_scale_factor"] = self.vae_scale_factor
+        metadata["ss_vae_shift_factor"] = self.latent_shift
+        metadata["ss_vae_reflection_padding"] = getattr(args, "vae_reflection_padding", False)
+
         metadata = {k: str(v) for k, v in metadata.items()}
 
         # make minimum metadata for filtering
@@ -1239,9 +1753,9 @@ class NetworkTrainer:
             if args.initial_step is not None:
                 initial_step = args.initial_step
             else:
-                # num steps per epoch is calculated by num_processes and gradient_accumulation_steps
+                # num steps per epoch is calculated by gradient_accumulation_steps (dataloader len is already divided by num_processes)
                 initial_step = (args.initial_epoch - 1) * math.ceil(
-                    len(train_dataloader) / accelerator.num_processes / args.gradient_accumulation_steps
+                    len(train_dataloader) / args.gradient_accumulation_steps
                 )
         else:
             # if initial_epoch and initial_step are not specified, steps_from_state is used when resuming
@@ -1254,6 +1768,7 @@ class NetworkTrainer:
                 args.max_train_steps > initial_step
             ), f"max_train_steps should be greater than initial step / max_train_stepsは初期ステップより大きい必要があります: {args.max_train_steps} vs {initial_step}"
 
+        resumed_step = initial_step
         epoch_to_start = 0
         if initial_step > 0:
             if args.skip_until_initial_step:
@@ -1262,25 +1777,33 @@ class NetworkTrainer:
                     logger.info(
                         f"initial_step is specified but not resuming. lr scheduler will be started from the beginning / initial_stepが指定されていますがresumeしていないため、lr schedulerは最初から始まります"
                     )
-                logger.info(f"skipping {initial_step} steps / {initial_step}ステップをスキップします")
-                initial_step *= args.gradient_accumulation_steps
-
-                # set epoch to start to make initial_step less than len(train_dataloader)
-                epoch_to_start = initial_step // math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+                update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+                epoch_to_start = resumed_step // update_steps_per_epoch
+                # Calculate exactly how many batches to skip in the starting epoch
+                initial_step = (resumed_step % update_steps_per_epoch) * args.gradient_accumulation_steps
+                logger.info(f"skipping {epoch_to_start} epochs and {initial_step} batches / {epoch_to_start}エポックと{initial_step}バッチをスキップします")
             else:
                 # if not, only epoch no is skipped for informative purpose
-                epoch_to_start = initial_step // math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+                epoch_to_start = resumed_step // math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
                 initial_step = 0  # do not skip
 
-        global_step = 0
+        global_step = resumed_step
 
         noise_scheduler = self.get_noise_scheduler(args, accelerator.device)
 
+        # Initialize T-LoRA timestep masking if applicable
+        self.setup_tlora_masking(net_kwargs, args.network_dim, noise_scheduler)
+
+        edm2_model, edm2_optimizer, edm2_lr_scheduler = prepare_edm2_loss_weighting(args, noise_scheduler, accelerator)
+
         train_util.init_trackers(accelerator, args, "network_train")
 
-        loss_recorder = train_util.LossRecorder()
-        val_step_loss_recorder = train_util.LossRecorder()
-        val_epoch_loss_recorder = train_util.LossRecorder()
+        loss_recorder = train_util.EMARecorder()
+        val_loss_recorder = train_util.EMARecorder()
+
+        if args.edm2_loss_weighting:
+            loss_scaled_recorder = train_util.EMARecorder()
+            loss_edm2_recorder = train_util.EMARecorder()
 
         del train_dataset_group
         if val_dataset_group is not None:
@@ -1293,7 +1816,7 @@ class NetworkTrainer:
             on_step_start_for_network = lambda *args, **kwargs: None
 
         # function for saving/removing
-        def save_model(ckpt_name, unwrapped_nw, steps, epoch_no, force_sync_upload=False):
+        def save_model(ckpt_name, unwrapped_nw, steps, epoch_no, force_sync_upload=False, dtype_override=None):
             os.makedirs(args.output_dir, exist_ok=True)
             ckpt_file = os.path.join(args.output_dir, ckpt_name)
 
@@ -1306,7 +1829,7 @@ class NetworkTrainer:
             sai_metadata = self.get_sai_model_spec(args)
             metadata_to_save.update(sai_metadata)
 
-            unwrapped_nw.save_weights(ckpt_file, save_dtype, metadata_to_save)
+            unwrapped_nw.save_weights(ckpt_file, dtype_override or save_dtype, metadata_to_save)
             if args.huggingface_repo_id is not None:
                 huggingface_util.upload(args, ckpt_file, "/" + ckpt_name, force_sync_upload=force_sync_upload)
 
@@ -1327,21 +1850,75 @@ class NetworkTrainer:
             gc.collect()
             clean_memory_on_device(accelerator.device)
 
+        current_val_loss, average_val_loss, val_logs = None, None, {}
+        keys_scaled, mean_norm, maximum_norm = None, None, None
+        mean_grad_norm, mean_combined_norm = None, None
+        max_mean_logs = {}
+        current_global_step_loss = 0.0
+        current_global_step_loss_scaled = 0.0 if args.edm2_loss_weighting else None
+        average_loss_scaled = 0.0 if args.edm2_loss_weighting else None
+        current_global_step_loss_edm2 = 0.0 if args.edm2_loss_weighting else None
+        average_loss_edm2 = 0.0 if args.edm2_loss_weighting else None
+        avr_loss = 0.0
+        accumulation_counter = 0
+
         # For --sample_at_first
-        optimizer_eval_fn()
-        self.sample_images(accelerator, args, 0, global_step, accelerator.device, vae, tokenizers, text_encoder, unet)
-        optimizer_train_fn()
+        if train_util.sample_images_check(args, 0, global_step) or train_util.calculate_val_loss_check(args, global_step, 0, val_dataloader, train_dataloader):
+            with torch.no_grad():
+                #Switch network to eval mode
+                accelerator.unwrap_model(network).eval()
+                if args.gradient_checkpointing:
+                    accelerator.unwrap_model(unet).eval()
+                    for t_enc in text_encoders:
+                        accelerator.unwrap_model(t_enc).eval()
+
+                optimizer_eval_fn()
+                self.sample_images(accelerator, args, 0, global_step, accelerator.device, vae, tokenizers, text_encoder, unet)
+                if train_util.calculate_val_loss_check(args, global_step, 0, val_dataloader, train_dataloader):
+                    current_val_loss, average_val_loss, val_logs = self.calculate_val_loss(
+                        global_step, 0, train_dataloader, val_loss_recorder, val_dataloader, 
+                        cyclic_val_dataloader, network, tokenize_strategy, 
+                        text_encoders, text_encoding_strategy, unet, vae, noise_scheduler, 
+                        vae_dtype, weight_dtype, accelerator, args, 0, None, train_text_encoder)
+                #Switch network to train mode
+                optimizer_train_fn()
+                accelerator.unwrap_model(network).train()
+                if args.gradient_checkpointing:
+                    accelerator.unwrap_model(unet).train()
+                    for t_enc in text_encoders:
+                        accelerator.unwrap_model(t_enc).train()
+
+        if plot_edm2_loss_weighting_check(args, global_step):
+            plot_edm2_loss_weighting(args, global_step, edm2_model, 1000, accelerator.device)
+
         is_tracking = len(accelerator.trackers) > 0
         if is_tracking:
+            logs = self.generate_step_logs(
+                args,
+                current_global_step_loss,
+                avr_loss,
+                lr_scheduler,
+                lr_descriptions,
+                optimizer,
+                keys_scaled,
+                mean_norm,
+                maximum_norm,
+                mean_grad_norm,
+                mean_combined_norm,
+                edm2_lr_scheduler,
+                current_global_step_loss_scaled,
+                average_loss_scaled,
+                current_global_step_loss_edm2,
+                average_loss_edm2,
+                current_val_loss=current_val_loss, 
+                average_val_loss=average_val_loss
+            )
             # log empty object to commit the sample images to wandb
-            accelerator.log({}, step=0)
+            accelerator.log(logs, step=0) 
 
         # training loop
         if initial_step > 0:  # only if skip_until_initial_step is specified
-            for skip_epoch in range(epoch_to_start):  # skip epochs
-                logger.info(f"skipping epoch {skip_epoch+1} because initial_step (multiplied) is {initial_step}")
-                initial_step -= len(train_dataloader)
-            global_step = initial_step
+            logger.info(f"skipping {initial_step} batches in the first epoch / 最初の{epoch_to_start}エポック内で{initial_step}バッチをスキップします")
 
         # log device and dtype for each model
         logger.info(f"unet dtype: {unet_weight_dtype}, device: {unet.device}")
@@ -1355,54 +1932,14 @@ class NetworkTrainer:
         clean_memory_on_device(accelerator.device)
 
         progress_bar = tqdm(
-            range(args.max_train_steps - initial_step), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps"
+            range(args.max_train_steps - global_step), smoothing=0, disable=not accelerator.is_local_main_process, desc="steps"
         )
-
-        validation_steps = (
-            min(args.max_validation_steps, len(val_dataloader)) if args.max_validation_steps is not None else len(val_dataloader)
-        )
-        NUM_VALIDATION_TIMESTEPS = 4  # 200, 400, 600, 800 TODO make this configurable
-        min_timestep = 0 if args.min_timestep is None else args.min_timestep
-        max_timestep = noise_scheduler.config.num_train_timesteps if args.max_timestep is None else args.max_timestep
-        validation_timesteps = np.linspace(min_timestep, max_timestep, (NUM_VALIDATION_TIMESTEPS + 2), dtype=int)[1:-1]
-        validation_total_steps = validation_steps * len(validation_timesteps)
-        original_args_min_timestep = args.min_timestep
-        original_args_max_timestep = args.max_timestep
-
-        def switch_rng_state(seed: int) -> tuple[torch.ByteTensor, Optional[torch.ByteTensor], tuple]:
-            cpu_rng_state = torch.get_rng_state()
-            if accelerator.device.type == "cuda":
-                gpu_rng_state = torch.cuda.get_rng_state()
-            elif accelerator.device.type == "xpu":
-                gpu_rng_state = torch.xpu.get_rng_state()
-            elif accelerator.device.type == "mps":
-                gpu_rng_state = torch.cuda.get_rng_state()
-            else:
-                gpu_rng_state = None
-            python_rng_state = random.getstate()
-
-            torch.manual_seed(seed)
-            random.seed(seed)
-
-            return (cpu_rng_state, gpu_rng_state, python_rng_state)
-
-        def restore_rng_state(rng_states: tuple[torch.ByteTensor, Optional[torch.ByteTensor], tuple]):
-            cpu_rng_state, gpu_rng_state, python_rng_state = rng_states
-            torch.set_rng_state(cpu_rng_state)
-            if gpu_rng_state is not None:
-                if accelerator.device.type == "cuda":
-                    torch.cuda.set_rng_state(gpu_rng_state)
-                elif accelerator.device.type == "xpu":
-                    torch.xpu.set_rng_state(gpu_rng_state)
-                elif accelerator.device.type == "mps":
-                    torch.cuda.set_rng_state(gpu_rng_state)
-            random.setstate(python_rng_state)
 
         for epoch in range(epoch_to_start, num_train_epochs):
-            accelerator.print(f"\nepoch {epoch+1}/{num_train_epochs}\n")
             current_epoch.value = epoch + 1
+            accelerator.print(f"\nepoch {current_epoch.value}/{num_train_epochs}\n")
 
-            metadata["ss_epoch"] = str(epoch + 1)
+            metadata["ss_epoch"] = str(current_epoch.value)
 
             accelerator.unwrap_model(network).on_epoch_start(text_encoder, unet)  # network.train() is called here
 
@@ -1414,17 +1951,20 @@ class NetworkTrainer:
 
             for step, batch in enumerate(skipped_dataloader or train_dataloader):
                 current_step.value = global_step
+
                 if initial_step > 0:
                     initial_step -= 1
                     continue
 
-                with accelerator.accumulate(training_model):
+                with train_util.determine_grad_sync_context(args, accelerator, None, training_model, edm2_model):
                     on_step_start_for_network(text_encoder, unet)
+
+                    accumulation_counter += 1
 
                     # preprocess batch for each model
                     self.on_step_start(args, accelerator, network, text_encoders, unet, batch, weight_dtype, is_train=True)
 
-                    loss = self.process_batch(
+                    loss, pre_scaling_loss, loss_scaled = self.process_batch(
                         batch,
                         text_encoders,
                         unet,
@@ -1440,273 +1980,272 @@ class NetworkTrainer:
                         is_train=True,
                         train_text_encoder=train_text_encoder,
                         train_unet=train_unet,
+                        edm2_model=edm2_model,
                     )
 
+                    if loss.ndim != 0:
+                        loss = loss.mean()
+
                     accelerator.backward(loss)
+
+                    if args.use_ramtorch or args.use_ramtorch_network:
+                        torch.cuda.synchronize() 
+
+                    edm2_loss = loss
+                    loss = pre_scaling_loss
+
                     if accelerator.sync_gradients:
                         self.all_reduce_network(accelerator, network)  # sync DDP grad manually
+
+                        # Sync and clip EDM2 gradients
+                        if args.edm2_loss_weighting:
+                            self.all_reduce_edm2_model(accelerator, edm2_model)
+
+                        if args.max_grad_norm != 0.0 or args.edm2_loss_weighting:
+                            accelerator.unscale_gradients()
+
                         if args.max_grad_norm != 0.0:
                             params_to_clip = accelerator.unwrap_model(network).get_trainable_params()
-                            accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+                            torch.nn.utils.clip_grad_norm_(params_to_clip, args.max_grad_norm)
 
-                        if hasattr(network, "update_grad_norms"):
-                            network.update_grad_norms()
-                        if hasattr(network, "update_norms"):
-                            network.update_norms()
+                        if args.edm2_loss_weighting:
+                            # Use edm2-specific grad norm if provided, otherwise use max_grad_norm
+                            edm2_grad_norm = (args.edm2_loss_weighting_max_grad_norm
+                                             if args.edm2_loss_weighting_max_grad_norm is not None
+                                             else args.max_grad_norm)
+                            if edm2_grad_norm != 0.0:
+                                edm2_params = list(accelerator.unwrap_model(edm2_model).parameters())
+                                torch.nn.utils.clip_grad_norm_(edm2_params, edm2_grad_norm)
+
+                        #if hasattr(network, "update_grad_norms"):
+                        #    network.update_grad_norms()
+                        #if hasattr(network, "update_norms"):
+                        #    network.update_norms()
 
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
 
-                if args.scale_weight_norms:
+                    if args.edm2_loss_weighting:
+                        edm2_optimizer.step()
+                        edm2_lr_scheduler.step()
+                        # swap to pre_scaling_loss for logging
+                        edm2_optimizer.zero_grad(set_to_none=True)
+
+                if args.scale_weight_norms and accelerator.sync_gradients:
                     keys_scaled, mean_norm, maximum_norm = accelerator.unwrap_model(network).apply_max_norm_regularization(
                         args.scale_weight_norms, accelerator.device
                     )
                     mean_grad_norm = None
                     mean_combined_norm = None
+                    mean_norm = mean_norm.detach().item() if isinstance(mean_norm, torch.Tensor) else mean_norm
                     max_mean_logs = {"Keys Scaled": keys_scaled, "Average key norm": mean_norm}
                 else:
-                    if hasattr(network, "weight_norms"):
-                        weight_norms = network.weight_norms()
-                        mean_norm = weight_norms.mean().item() if weight_norms is not None else None
-                        grad_norms = network.grad_norms()
-                        mean_grad_norm = grad_norms.mean().item() if grad_norms is not None else None
-                        combined_weight_norms = network.combined_weight_norms()
-                        mean_combined_norm = combined_weight_norms.mean().item() if combined_weight_norms is not None else None
-                        maximum_norm = weight_norms.max().item() if weight_norms is not None else None
-                        keys_scaled = None
-                        max_mean_logs = {}
-                    else:
-                        keys_scaled, mean_norm, maximum_norm = None, None, None
-                        mean_grad_norm = None
-                        mean_combined_norm = None
-                        max_mean_logs = {}
+                    #if hasattr(network, "weight_norms"):
+                    #    weight_norms = network.weight_norms()
+                    #    mean_norm = weight_norms.mean().item() if weight_norms is not None else None
+                    #    grad_norms = network.grad_norms()
+                    #    mean_grad_norm = grad_norms.mean().item() if grad_norms is not None else None
+                    #    combined_weight_norms = network.combined_weight_norms()
+                    #    mean_combined_norm = combined_weight_norms.mean().item() if combined_weight_norms is not None else None
+                    #    maximum_norm = weight_norms.max().item() if weight_norms is not None and weight_norms.numel() > 0 else None
+                    #    keys_scaled = None
+                    #    max_mean_logs = {}
+                    # else:
+                    keys_scaled, mean_norm, maximum_norm = None, None, None
+                    mean_grad_norm = None
+                    mean_combined_norm = None
+                    max_mean_logs = {}
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
 
-                    optimizer_eval_fn()
-                    self.sample_images(
-                        accelerator, args, None, global_step, accelerator.device, vae, tokenizers, text_encoder, unet
-                    )
-                    progress_bar.unpause()
+                    if (train_util.sample_images_check(args, None, global_step) or 
+                        train_util.calculate_val_loss_check(args, global_step, step, val_dataloader, train_dataloader) or 
+                        args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0):
+                        with torch.no_grad():
+                            accelerator.unwrap_model(network).eval()
+                            if args.gradient_checkpointing:
+                                accelerator.unwrap_model(unet).eval()
+                                for t_enc in text_encoders:
+                                    accelerator.unwrap_model(t_enc).eval()
 
-                    # 指定ステップごとにモデルを保存
-                    if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
-                        accelerator.wait_for_everyone()
-                        if accelerator.is_main_process:
-                            ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
-                            save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
-
-                            if args.save_state:
-                                train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
-
-                            remove_step_no = train_util.get_remove_step_no(args, global_step)
-                            if remove_step_no is not None:
-                                remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
-                                remove_model(remove_ckpt_name)
-                    optimizer_train_fn()
-
-                current_loss = loss.detach().item()
-                loss_recorder.add(epoch=epoch, step=step, loss=current_loss)
-                avr_loss: float = loss_recorder.moving_average
-                logs = {"avr_loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
-                progress_bar.set_postfix(**{**max_mean_logs, **logs})
-
-                if is_tracking:
-                    logs = self.generate_step_logs(
-                        args,
-                        current_loss,
-                        avr_loss,
-                        lr_scheduler,
-                        lr_descriptions,
-                        optimizer,
-                        keys_scaled,
-                        mean_norm,
-                        maximum_norm,
-                        mean_grad_norm,
-                        mean_combined_norm,
-                    )
-                    self.step_logging(accelerator, logs, global_step, epoch + 1)
-
-                # VALIDATION PER STEP: global_step is already incremented
-                # for example, if validate_every_n_steps=100, validate at step 100, 200, 300, ...
-                should_validate_step = args.validate_every_n_steps is not None and global_step % args.validate_every_n_steps == 0
-                if accelerator.sync_gradients and validation_steps > 0 and should_validate_step:
-                    optimizer_eval_fn()
-                    accelerator.unwrap_model(network).eval()
-                    rng_states = switch_rng_state(args.validation_seed if args.validation_seed is not None else args.seed)
-
-                    val_progress_bar = tqdm(
-                        range(validation_total_steps),
-                        smoothing=0,
-                        disable=not accelerator.is_local_main_process,
-                        desc="validation steps",
-                    )
-                    val_timesteps_step = 0
-                    for val_step, batch in enumerate(val_dataloader):
-                        if val_step >= validation_steps:
-                            break
-
-                        for timestep in validation_timesteps:
-                            self.on_step_start(args, accelerator, network, text_encoders, unet, batch, weight_dtype, is_train=False)
-
-                            args.min_timestep = args.max_timestep = timestep  # dirty hack to change timestep
-
-                            loss = self.process_batch(
-                                batch,
-                                text_encoders,
-                                unet,
-                                network,
-                                vae,
-                                noise_scheduler,
-                                vae_dtype,
-                                weight_dtype,
-                                accelerator,
-                                args,
-                                text_encoding_strategy,
-                                tokenize_strategy,
-                                is_train=False,
-                                train_text_encoder=train_text_encoder,  # this is needed for validation because Text Encoders must be called if train_text_encoder is True
-                                train_unet=train_unet,
+                            optimizer_eval_fn()
+                            self.sample_images(
+                                accelerator, args, None, global_step, accelerator.device, vae, tokenizers, text_encoder, unet
                             )
 
-                            current_loss = loss.detach().item()
-                            val_step_loss_recorder.add(epoch=epoch, step=val_timesteps_step, loss=current_loss)
-                            val_progress_bar.update(1)
-                            val_progress_bar.set_postfix(
-                                {"val_avg_loss": val_step_loss_recorder.moving_average, "timestep": timestep}
-                            )
+                            if train_util.calculate_val_loss_check(args, global_step, step, val_dataloader, train_dataloader):
+                                current_val_loss, average_val_loss, val_logs = self.calculate_val_loss(global_step, step, 
+                                                                                                        skipped_dataloader or train_dataloader, 
+                                                                                                        val_loss_recorder, 
+                                                                                                        val_dataloader, 
+                                                                                                        cyclic_val_dataloader, 
+                                                                                                        network,
+                                                                                                        tokenize_strategy, 
+                                                                                                        text_encoders, 
+                                                                                                        text_encoding_strategy, 
+                                                                                                        unet, 
+                                                                                                        vae, 
+                                                                                                        noise_scheduler, 
+                                                                                                        vae_dtype, 
+                                                                                                        weight_dtype, 
+                                                                                                        accelerator, 
+                                                                                                        args, 
+                                                                                                        current_epoch.value,
+                                                                                                        batch,
+                                                                                                        train_text_encoder)
+                            else:
+                                current_val_loss, average_val_loss, val_logs = None, None, {}
+                            progress_bar.unpause()
 
-                            # if is_tracking:
-                            #     logs = {f"loss/validation/step_current_{timestep}": current_loss}
-                            #     self.val_logging(accelerator, logs, global_step, epoch + 1, val_step)
+                            # 指定ステップごとにモデルを保存
+                            if args.save_every_n_steps is not None and global_step % args.save_every_n_steps == 0:
+                                accelerator.wait_for_everyone()
+                                if accelerator.is_main_process:
+                                    ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step)
+                                    save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch)
 
-                            self.on_validation_step_end(args, accelerator, network, text_encoders, unet, batch, weight_dtype)
-                            val_timesteps_step += 1
+                                    if args.edm2_loss_weighting:
+                                        loss_weights_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, global_step, "_edm2_loss_weights")
+                                        save_model(loss_weights_ckpt_name, accelerator.unwrap_model(edm2_model), global_step, epoch, dtype_override=torch.float32)
+
+                                    if args.save_state:
+                                        train_util.save_and_remove_state_stepwise(args, accelerator, global_step)
+
+                                    remove_step_no = train_util.get_remove_step_no(args, global_step)
+                                    if remove_step_no is not None:
+                                        remove_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no)
+                                        remove_model(remove_ckpt_name)
+
+                                        if args.edm2_loss_weighting:
+                                            remove_loss_weights_ckpt_name = train_util.get_step_ckpt_name(args, "." + args.save_model_as, remove_step_no, "_edm2_loss_weights")
+                                            remove_model(remove_loss_weights_ckpt_name)
+
+                            optimizer_train_fn()
+                            accelerator.unwrap_model(network).train()
+                            if args.gradient_checkpointing:
+                                accelerator.unwrap_model(unet).train()
+                                for t_enc in text_encoders:
+                                    accelerator.unwrap_model(t_enc).train()
+                    else:
+                        current_val_loss, average_val_loss, val_logs = None, None, None
+
+                    # EDM2 graph generation - moved outside the sample/val/save conditional
+                    if plot_edm2_loss_weighting_check(args, global_step):
+                        plot_edm2_loss_weighting(args, global_step, edm2_model, 1000, accelerator.device)
+
+                current_global_step_loss += loss.detach().item()
+                if args.edm2_loss_weighting:
+                    current_global_step_loss_scaled += loss_scaled.detach().item()
+                    current_global_step_loss_edm2 += edm2_loss.detach().item()
+                else:
+                    current_global_step_loss_scaled = None
+                    current_global_step_loss_edm2 = None
+
+                if accelerator.sync_gradients:
+                    loss_recorder.add(current_global_step_loss / accumulation_counter)
+                    if args.edm2_loss_weighting:
+                        loss_scaled_recorder.add(current_global_step_loss_scaled / accumulation_counter)
+                        loss_edm2_recorder.add(current_global_step_loss_edm2 / accumulation_counter)
+                        
+                    avr_loss: float = loss_recorder.average
+                    logs = {"avr_loss": avr_loss}  # , "lr": lr_scheduler.get_last_lr()[0]}
+                    progress_bar.set_postfix(**{**max_mean_logs, **logs})
 
                     if is_tracking:
-                        loss_validation_divergence = val_step_loss_recorder.moving_average - loss_recorder.moving_average
-                        logs = {
-                            "loss/validation/step_average": val_step_loss_recorder.moving_average,
-                            "loss/validation/step_divergence": loss_validation_divergence,
-                        }
-                        self.step_logging(accelerator, logs, global_step, epoch=epoch + 1)
+                        current_global_step_loss = (current_global_step_loss / accumulation_counter)
+                        if args.edm2_loss_weighting:
+                            current_global_step_loss_scaled = (current_global_step_loss_scaled / accumulation_counter)
+                            average_loss_scaled: float = loss_scaled_recorder.average
+                            current_global_step_loss_edm2 = (current_global_step_loss_edm2 / accumulation_counter)
+                            average_loss_edm2: float = loss_edm2_recorder.average
+                        else:
+                            current_global_step_loss_scaled = None
+                            average_loss_scaled = None
+                            current_global_step_loss_edm2 = None
+                            average_loss_edm2 = None
 
-                    restore_rng_state(rng_states)
-                    args.min_timestep = original_args_min_timestep
-                    args.max_timestep = original_args_max_timestep
-                    optimizer_train_fn()
-                    accelerator.unwrap_model(network).train()
-                    progress_bar.unpause()
+                        logs = self.generate_step_logs(
+                            args,
+                            current_global_step_loss,
+                            avr_loss,
+                            lr_scheduler,
+                            lr_descriptions,
+                            optimizer,
+                            keys_scaled,
+                            mean_norm,
+                            maximum_norm,
+                            mean_grad_norm,
+                            mean_combined_norm,
+                            edm2_lr_scheduler,
+                            current_global_step_loss_scaled,
+                            average_loss_scaled,
+                            current_global_step_loss_edm2,
+                            average_loss_edm2,
+                            current_val_loss=current_val_loss, 
+                            average_val_loss=average_val_loss
+                        )
+                        accelerator.log(logs, step=global_step)
+                    current_global_step_loss = 0.0
+                    if args.edm2_loss_weighting:
+                        current_global_step_loss_scaled = 0.0
+                        current_global_step_loss_edm2 = 0.0
+                    accumulation_counter = 0
 
                 if global_step >= args.max_train_steps:
                     break
 
-            # EPOCH VALIDATION
-            should_validate_epoch = (
-                (epoch + 1) % args.validate_every_n_epochs == 0 if args.validate_every_n_epochs is not None else True
-            )
-
-            if should_validate_epoch and len(val_dataloader) > 0:
-                optimizer_eval_fn()
-                accelerator.unwrap_model(network).eval()
-                rng_states = switch_rng_state(args.validation_seed if args.validation_seed is not None else args.seed)
-
-                val_progress_bar = tqdm(
-                    range(validation_total_steps),
-                    smoothing=0,
-                    disable=not accelerator.is_local_main_process,
-                    desc="epoch validation steps",
-                )
-
-                val_timesteps_step = 0
-                for val_step, batch in enumerate(val_dataloader):
-                    if val_step >= validation_steps:
-                        break
-
-                    for timestep in validation_timesteps:
-                        args.min_timestep = args.max_timestep = timestep
-
-                        # temporary, for batch processing
-                        self.on_step_start(args, accelerator, network, text_encoders, unet, batch, weight_dtype, is_train=False)
-
-                        loss = self.process_batch(
-                            batch,
-                            text_encoders,
-                            unet,
-                            network,
-                            vae,
-                            noise_scheduler,
-                            vae_dtype,
-                            weight_dtype,
-                            accelerator,
-                            args,
-                            text_encoding_strategy,
-                            tokenize_strategy,
-                            is_train=False,
-                            train_text_encoder=train_text_encoder,
-                            train_unet=train_unet,
-                        )
-
-                        current_loss = loss.detach().item()
-                        val_epoch_loss_recorder.add(epoch=epoch, step=val_timesteps_step, loss=current_loss)
-                        val_progress_bar.update(1)
-                        val_progress_bar.set_postfix(
-                            {"val_epoch_avg_loss": val_epoch_loss_recorder.moving_average, "timestep": timestep}
-                        )
-
-                        # if is_tracking:
-                        #     logs = {f"loss/validation/epoch_current_{timestep}": current_loss}
-                        #     self.val_logging(accelerator, logs, global_step, epoch + 1, val_step)
-
-                        self.on_validation_step_end(args, accelerator, network, text_encoders, unet, batch, weight_dtype)
-                        val_timesteps_step += 1
-
-                if is_tracking:
-                    avr_loss: float = val_epoch_loss_recorder.moving_average
-                    loss_validation_divergence = val_epoch_loss_recorder.moving_average - loss_recorder.moving_average
-                    logs = {
-                        "loss/validation/epoch_average": avr_loss,
-                        "loss/validation/epoch_divergence": loss_validation_divergence,
-                    }
-                    self.epoch_logging(accelerator, logs, global_step, epoch + 1)
-
-                restore_rng_state(rng_states)
-                args.min_timestep = original_args_min_timestep
-                args.max_timestep = original_args_max_timestep
-                optimizer_train_fn()
-                accelerator.unwrap_model(network).train()
-                progress_bar.unpause()
-
             # END OF EPOCH
             if is_tracking:
-                logs = {"loss/epoch_average": loss_recorder.moving_average}
-                self.epoch_logging(accelerator, logs, global_step, epoch + 1)
+                logs = {"loss/epoch_average": loss_recorder.average}
+                accelerator.log(logs, step=global_step)
 
             accelerator.wait_for_everyone()
 
-            # 指定エポックごとにモデルを保存
-            optimizer_eval_fn()
-            if args.save_every_n_epochs is not None:
-                saving = (epoch + 1) % args.save_every_n_epochs == 0 and (epoch + 1) < num_train_epochs
-                if is_main_process and saving:
-                    ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, epoch + 1)
-                    save_model(ckpt_name, accelerator.unwrap_model(network), global_step, epoch + 1)
+            if (train_util.sample_images_check(args, current_epoch.value, global_step) or 
+                args.save_every_n_epochs is not None):
+                with torch.no_grad():
+                    # 指定エポックごとにモデルを保存
+                    optimizer_eval_fn()
+                    accelerator.unwrap_model(network).eval()
+                    if args.gradient_checkpointing:
+                        accelerator.unwrap_model(unet).eval()
+                        for t_enc in text_encoders:
+                            accelerator.unwrap_model(t_enc).eval()
 
-                    remove_epoch_no = train_util.get_remove_epoch_no(args, epoch + 1)
-                    if remove_epoch_no is not None:
-                        remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
-                        remove_model(remove_ckpt_name)
+                    if args.save_every_n_epochs is not None:
+                        saving = (current_epoch.value) % args.save_every_n_epochs == 0 and (current_epoch.value) < num_train_epochs
+                        if is_main_process and saving:
+                            ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, current_epoch.value)
+                            save_model(ckpt_name, accelerator.unwrap_model(network), global_step, current_epoch.value)
 
-                    if args.save_state:
-                        train_util.save_and_remove_state_on_epoch_end(args, accelerator, epoch + 1)
+                            if args.edm2_loss_weighting:
+                                loss_weights_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, current_epoch.value, "_edm2_loss_weights")
+                                save_model(loss_weights_ckpt_name, accelerator.unwrap_model(edm2_model), global_step, current_epoch.value, dtype_override=torch.float32)
 
-            self.sample_images(accelerator, args, epoch + 1, global_step, accelerator.device, vae, tokenizers, text_encoder, unet)
-            progress_bar.unpause()
-            optimizer_train_fn()
+                            remove_epoch_no = train_util.get_remove_epoch_no(args, current_epoch.value)
+                            if remove_epoch_no is not None:
+                                remove_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no)
+                                remove_model(remove_ckpt_name)
+
+                                if args.edm2_loss_weighting:
+                                    remove_loss_weights_ckpt_name = train_util.get_epoch_ckpt_name(args, "." + args.save_model_as, remove_epoch_no, "_edm2_loss_weights")
+                                    remove_model(remove_loss_weights_ckpt_name)
+
+                            if args.save_state:
+                                train_util.save_and_remove_state_on_epoch_end(args, accelerator, current_epoch.value)
+
+                    self.sample_images(accelerator, args, current_epoch.value, global_step, accelerator.device, vae, tokenizers, text_encoder, unet)
+                    progress_bar.unpause()
+                    optimizer_train_fn()
+                    accelerator.unwrap_model(network).train()
+                    if args.gradient_checkpointing:
+                        accelerator.unwrap_model(unet).train()
+                        for t_enc in text_encoders:
+                            accelerator.unwrap_model(t_enc).train()
 
             # end of epoch
 
@@ -1725,6 +2264,10 @@ class NetworkTrainer:
         if is_main_process:
             ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as)
             save_model(ckpt_name, network, global_step, num_train_epochs, force_sync_upload=True)
+
+            if args.edm2_loss_weighting:
+                loss_weights_ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as, "_edm2_loss_weights")
+                save_model(loss_weights_ckpt_name, accelerator.unwrap_model(edm2_model), global_step, num_train_epochs, force_sync_upload=True, dtype_override=torch.float32)
 
             logger.info("model saved.")
 
@@ -1758,6 +2301,11 @@ def setup_parser() -> argparse.ArgumentParser:
         default="safetensors",
         choices=[None, "ckpt", "pt", "safetensors"],
         help="format to save the model (default is .safetensors) / モデル保存時の形式（デフォルトはsafetensors）",
+    )
+    parser.add_argument(
+        "--disable_cross_attn_mask",
+        action="store_true",
+        help="Disable SDXL cross-attention masking so padded tokens participate normally / SDXLのcross-attentionマスク機能を無効化する",
     )
 
     parser.add_argument("--unet_lr", type=float, default=None, help="learning rate for U-Net / U-Netの学習率")
@@ -1899,6 +2447,291 @@ def setup_parser() -> argparse.ArgumentParser:
         default=None,
         help="Max number of validation dataset items processed. By default, validation will run the entire validation dataset / 処理される検証データセット項目の最大数。デフォルトでは、検証は検証データセット全体を実行します",
     )
+
+    parser.add_argument(
+        "--validation_timesteps",
+        type=str,
+        default=r"[50, 350, 500, 650, 950]",
+        help="A list of timesteps to use for each validation step."
+    )  
+
+    parser.add_argument(
+        "--use_ramtorch_network",
+        action="store_true",
+        help="Use RamTorch to reduce GPU memory usage by keeping network/lora linear weights in system RAM. " \
+        "Requires use of optimizers that have been modified to support it, currently only SimplifiedAdEMAMix, SimplifiedAdEMAMixExM, and OCGOpt.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting",
+        action="store_true",
+        help="Use EDM2 loss weighting.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_laplace",
+        action="store_true",
+        help="Use EDM2 loss weighting to calculate timestep sampling using laplace.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_optimizer",
+        type=str,
+        default="torch.optim.AdamW",
+        help="Fully qualified optimizer class name to use with the edm2 loss weighting optimizer.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_optimizer_lr",
+        type=float,
+        default=2e-2,
+        help="Learning rate as a float for the edm2 loss weighting optimizer.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_optimizer_args",
+        type=str,
+        default=r"{'weight_decay': 0, 'betas': (0.9,0.999)}",
+        help="A JSON object as a string of optimizer args for the edm2 loss weighting optimizer.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_lr_scheduler",
+        action="store_true",
+        help="Use lr scheduler with EDM2 loss weighting optimizer.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_lr_scheduler_warmup_percent",
+        type=float,
+        default=0.1,
+        help="Percent of training steps to use for warmup.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_lr_scheduler_constant_percent",
+        type=float,
+        default=0.1,
+        help="Percent of training steps to maintain constant LR before decay.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_generate_graph",
+        action="store_true",
+        help="Enable generation of graph images that show the loss weighting per timestep.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_generate_graph_every_x_steps",
+        type=int,
+        default=20,
+        help="Every x steps generate a graph image.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_generate_graph_output_dir",
+        type=str,
+        default=None,
+        help="""The parent directory where loss weighting graph images should be stored, 
+        with sub directories automatically created and named after the model's defined name.""",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_generate_graph_y_limit",
+        type=int,
+        default=None,
+        help="""Set the max limit of the y axis, if not set, uses dynamic scaling of the y-axis, which can make it harder to follow. 
+        6 is a good value for v-pred + ztsnr without any augmentation (i.e. low min snr gamma, debiased loss, or scaled v-pred loss). 
+        If any of the noted augmentations are used, weighting values can reach ~100-150.""",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_generate_graph_y_scale",
+        type=str,
+        default="linear",
+        choices=["linear", "log"],
+        help="""Select between linear or log scaling for the y-axis.""",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_num_channels",
+        type=int,
+        default=128,
+        help="The number of channels used by for the loss weighting module. Additional channels allows for greater granularity in the weighting.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_initial_weights",
+        type=str,
+        default=None,
+        help="The full filepath to initial weights and state of edm2 weighting model to use instead of random.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_lr_scheduler_decay_scaling",
+        type=float,
+        default=1.0,
+        help="A scaling factor to apply to the decay rate of the edm2_loss_weighting_lr_scheduler, lower values result in slower decay, higher values result in faster decay.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_importance_weighting",
+        action="store_true",
+        help="If edm2 loss scaling weights are weighted by importance, which is based using a specific min snr gamma value and SNR for the given timestep. " \
+        "Default behavior when edm2_loss_weighting_importance_weighting is enabled is to disable normal min snr gamma and debiased loss if enabled." \
+        "It is not advised to stack with either, as there is a possiblity of loss curving to 0 as SNR approaches 0." \
+        "If you still wish to, set edm2_loss_weighting_importance_weighting_safety_override=True at your own risk."
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_importance_weighting_max",
+        type=float,
+        default=10.0,
+        help="The max loss weighting/scaling to apply when using edm2 importance weighting, has no effect otherwise.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_importance_min_snr_gamma",
+        type=float,
+        default=1.0,
+        help="The min snr gamma used for edm2 importance weighting as a heuristic, has no effect if not using importance weighting. " \
+        "Not related to the typical application of min snr gamma.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_importance_weighting_safety_override",
+        action="store_true",
+        help="At your own risk, you may set this to true to ALLOW stacking debiased loss and/or typical min snr gamma with EDM2 using importance weighting.",
+    )
+
+    parser.add_argument(
+        "--edm2_loss_weighting_max_grad_norm",
+        type=float,
+        default=None,
+        help="Maximum gradient norm for EDM2 loss weighting model. If not specified, uses --max_grad_norm value. Set to 0 to disable clipping for EDM2. / EDM2損失重み付けモデルの最大勾配ノルム。指定しない場合は--max_grad_normの値を使用。0に設定するとEDM2のクリッピングを無効化。"
+    )
+
+    parser.add_argument(
+        "--orthograd_targets",
+        type=str,
+        default=r"['lora_down.weight','lora_up.weight','lora_down1.weight','lora_up1.weight','lora_down2.weight','lora_up2.weight','a1.weight','a2.weight','b1.weight','b2.weight','c1.weight']",
+        help="A list of strings to determine which named parameters should subject to orthgrad, based on their name containing the string."
+    )
+
+    parser.add_argument(
+        "--pin_data_loader_memory",
+        action="store_true",
+        help="Pins dataloader memory, may speed up dataloader operations.",
+    )
+
+    parser.add_argument(
+        "--pin_memory",
+        action="store_true",
+        help="Pin memory for faster GPU loading / GPU の読み込みを高速化するためのピンメモリ",
+    )
+
+    parser.add_argument(
+        "--differential_guidance",
+        action="store_true",
+        help="Differential Guidance amplifies applies an amplification between the difference of the model prediction and the target during training to make " \
+        "a new target. This may help improve convergence to the actual target. " \
+        "See original code at https://github.com/ostris/ai-toolkit/commit/2e7b2d9926de40a7b9119322c1d8fc085b1283e4#diff-fb148217f864741f0e90717dc8ab38dff83a42e917a20540f65afb1c3aedaa85",
+    )
+
+    parser.add_argument(
+        "--differential_guidance_scale",
+        type=float,
+        default=3.0,
+        help="Differential Guidance Scale is used to determine the multiplier of the difference of the model prediction and the target. " \
+        "--differential_guidance arg must be passed for this to be applied. " \
+        "See original code at https://github.com/ostris/ai-toolkit/commit/2e7b2d9926de40a7b9119322c1d8fc085b1283e4#diff-fb148217f864741f0e90717dc8ab38dff83a42e917a20540f65afb1c3aedaa85",
+    )
+
+
+    parser.add_argument(
+        "--vae_reflection_padding",
+        action="store_true",
+        help="switch VAE convolutions to reflection padding (improves border quality for some custom VAEs) / VAEの畳み込みを反射パディングに切り替える",
+    )
+    parser.add_argument(
+        "--vae_custom_scale",
+        type=float,
+        default=None,
+        help="override the latent scaling factor applied after VAE encode / VAEエンコード後のスケーリング係数を上書きする",
+    )
+    parser.add_argument(
+        "--vae_custom_shift",
+        type=float,
+        default=None,
+        help="apply a constant latent shift before scaling (e.g. Flux-style offset) / スケーリング前に潜在表現へ定数シフトを適用する",
+    )
+
+    parser.add_argument(
+        "--flow_model",
+        action="store_true",
+        help="enable Rectified Flow training objective instead of standard diffusion / 通常の拡散ではなくRectified Flowで学習する",
+    )
+    parser.add_argument(
+        "--flow_use_ot",
+        action="store_true",
+        help="pair latents and noise with cosine optimal transport when using Rectified Flow / Rectified Flow使用時にOTでlatentとノイズを対応付ける",
+    )
+    parser.add_argument(
+        "--flow_timestep_distribution",
+        type=str,
+        default="logit_normal",
+        choices=["logit_normal", "uniform"],
+        help="sampling distribution over Rectified Flow sigmas (default: logit_normal) / Rectified Flowのシグマの分布（デフォルトlogit_normal）",
+    )
+    parser.add_argument(
+        "--flow_logit_mean",
+        type=float,
+        default=0.0,
+        help="mean of the logit-normal distribution when using Rectified Flow / Rectified Flowでlogit-normal分布を用いるときの平均値",
+    )
+    parser.add_argument(
+        "--flow_logit_std",
+        type=float,
+        default=1.0,
+        help="stddev of the logit-normal distribution when using Rectified Flow / Rectified Flowでlogit-normal分布を用いるときの標準偏差",
+    )
+    parser.add_argument(
+        "--flow_uniform_shift",
+        action="store_true",
+        help="apply resolution-dependent shift to Rectified Flow timesteps (SD3-style) / Rectified Flowタイムステップに解像度依存のシフトを適用する",
+    )
+    parser.add_argument(
+        "--flow_uniform_base_pixels",
+        type=float,
+        default=1024.0 * 1024.0,
+        help="reference pixel count used for the resolution-dependent timestep shift / タイムステップシフトで使用する基準ピクセル数",
+    )
+    parser.add_argument(
+        "--flow_uniform_static_ratio",
+        type=float,
+        default=None,
+        help="use a fixed sqrt(m/n) ratio (e.g. 2.5) for Rectified Flow timestep shift; overrides resolution-based shift / 一定のsqrt(m/n)比率（例:2.5）でRectified Flowタイムステップをシフトする（解像度依存シフトを上書き）",
+    )
+    parser.add_argument(
+        "--contrastive_flow_matching",
+        action="store_true",
+        help="Enable Contrastive Flow Matching (ΔFM) objective. Works with v-parameterization or Rectified Flow.",
+    )
+    parser.add_argument(
+        "--cfm_lambda",
+        type=float,
+        default=0.05,
+        help="Lambda weight for the contrastive term in ΔFM loss (default: 0.05).",
+    )
+    parser.add_argument(
+        "--use_zero_cond_dropout",
+        type=bool,
+        default=False,
+        help="For full caption dropout, use zero conditioning instead of empty caption"
+    )
+    # parser.add_argument("--loraplus_lr_ratio", default=None, type=float, help="LoRA+ learning rate ratio")
+    # parser.add_argument("--loraplus_unet_lr_ratio", default=None, type=float, help="LoRA+ UNet learning rate ratio")
+    # parser.add_argument("--loraplus_text_encoder_lr_ratio", default=None, type=float, help="LoRA+ text encoder learning rate ratio")
     return parser
 
 

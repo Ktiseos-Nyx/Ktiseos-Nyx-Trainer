@@ -8,12 +8,14 @@ import torch
 from accelerate import Accelerator
 from library import sd3_models, strategy_sd3, utils
 from library.device_utils import init_ipex, clean_memory_on_device
+from library.ramtorch_util import apply_ramtorch_to_module
 from library.safetensors_utils import load_safetensors
 
 init_ipex()
 
 from library import flux_models, flux_train_utils, flux_utils, sd3_train_utils, sd3_utils, strategy_base, strategy_sd3, train_util
 import train_network
+from library import utils
 from library.utils import setup_logging
 
 setup_logging()
@@ -56,6 +58,8 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
 
         if args.max_token_length is not None:
             logger.warning("max_token_length is not used in Flux training / max_token_lengthはFluxのトレーニングでは使用されません")
+
+        args.blocks_to_swap = utils.getattr_cast(args, "blocks_to_swap", 0)
 
         assert (
             args.blocks_to_swap is None or args.blocks_to_swap == 0
@@ -104,6 +108,11 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
                     " / SD3モデルをfp8に変換しています。これには時間がかかる場合があります。fp8チェックポイントを使用することで時間を短縮できます。"
                 )
                 mmdit.to(torch.float8_e4m3fn)
+
+        if args.use_ramtorch:
+            logger.info("Applying RamTorch to SD3 model.")
+            mmdit = apply_ramtorch_to_module(mmdit, "unet/dit", accelerator.device, mmdit.dtype)
+
         self.is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
         if self.is_swapping_blocks:
             # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
@@ -140,6 +149,11 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
         vae = sd3_utils.load_vae(
             args.vae, weight_dtype, "cpu", disable_mmap=args.disable_mmap_load_safetensors, state_dict=state_dict
         )
+
+        if args.use_ramtorch and not args.cache_text_encoder_outputs:
+            clip_l = apply_ramtorch_to_module(clip_l, "clip_l", accelerator.device, weight_dtype)
+            clip_g = apply_ramtorch_to_module(clip_g, "clip_g", accelerator.device, weight_dtype)
+            t5xxl = apply_ramtorch_to_module(t5xxl, "t5xxl", accelerator.device, t5xxl.dtype)
 
         return mmdit.model_type, [clip_l, clip_g, t5xxl], vae, mmdit
 
@@ -319,10 +333,12 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
         latents,
         batch,
         text_encoder_conds,
+        text_encoder_masks,
         unet: flux_models.Flux,
         network,
         weight_dtype,
         train_unet,
+        fixed_timesteps=None,
         is_train=True,
     ):
         # Sample noise that we'll add to the latents
@@ -330,7 +346,7 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
 
         # get noisy model input and timesteps
         noisy_model_input, timesteps, sigmas = sd3_train_utils.get_noisy_model_input_and_timesteps(
-            args, latents, noise, accelerator.device, weight_dtype
+            args, latents, noise, accelerator.device, weight_dtype, fixed_timesteps=fixed_timesteps, is_train=is_train
         )
 
         # ensure the hidden state will require grad
@@ -339,6 +355,9 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
             for t in text_encoder_conds:
                 if t is not None and t.dtype.is_floating_point:
                     t.requires_grad_(True)
+
+        # Set T-LoRA timestep mask before the forward pass
+        self.apply_tlora_mask(timesteps)
 
         # Predict the noise residual
         lg_out, t5_out, lg_pooled, l_attn_mask, g_attn_mask, t5_attn_mask = text_encoder_conds
@@ -354,6 +373,9 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
         with torch.set_grad_enabled(is_train), accelerator.autocast():
             # TODO support attention mask
             model_pred = unet(noisy_model_input, timesteps, context=context, y=lg_pooled)
+
+        # Clear T-LoRA mask after the forward pass
+        self.clear_tlora_mask_if_needed()
 
         # Follow: Section 5 of https://arxiv.org/abs/2206.00364.
         # Preconditioning of the model outputs.
@@ -390,7 +412,7 @@ class Sd3NetworkTrainer(train_network.NetworkTrainer):
 
                 target[diff_output_pr_indices] = model_pred_prior.to(target.dtype)
 
-        return model_pred, target, timesteps, weighting
+        return model_pred, target, timesteps, weighting, noise
 
     def post_process_loss(self, loss, args, timesteps, noise_scheduler):
         return loss

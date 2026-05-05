@@ -1,0 +1,18 @@
+{
+  "is_builtin": true,
+  "name": "Enigmata's Character (SD1.5)",
+  "description": "Published character LoRA by Enigmata (Igawa Asagi). SD1.5 base at 720px, large dim 64/32, higher LR 2e-4, balanced multi-subset repeats by outfit rarity.",
+  "model_type": "SD15",
+  "resolution": 720,
+  "network_dim": 64,
+  "network_alpha": 32,
+  "unet_lr": 0.0002,
+  "text_encoder_lr": 0.0001,
+  "lr_scheduler": "cosine_with_restarts",
+  "optimizer_type": "AdamW8bit",
+  "max_train_epochs": 11,
+  "save_every_n_epochs": 1,
+  "train_batch_size": 2,
+  "mixed_precision": "fp16",
+  "noise_offset": 0.05
+}

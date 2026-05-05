@@ -1,0 +1,22 @@
+{
+  "is_builtin": true,
+  "name": "motimalu's Painterly Styles (Illustrious)",
+  "description": "Published Illustrious painterly style LoRA by motimalu. Prodigy with aggressive weight_decay=0.5 and bias_correction=False, large 1278-image dataset, 50 full epochs.",
+  "model_type": "SDXL",
+  "resolution": 1024,
+  "network_dim": 32,
+  "network_alpha": 32,
+  "unet_lr": 1,
+  "text_encoder_lr": 1,
+  "lr_scheduler": "constant",
+  "optimizer_type": "Prodigy",
+  "optimizer_args": "decouple=True weight_decay=0.5 betas=(0.9,0.99) use_bias_correction=False",
+  "max_train_epochs": 50,
+  "save_every_n_epochs": 5,
+  "train_batch_size": 6,
+  "mixed_precision": "bf16",
+  "multires_noise_iterations": 6,
+  "multires_noise_discount": 0.3,
+  "min_snr_gamma": 5,
+  "min_snr_gamma_enabled": true
+}
