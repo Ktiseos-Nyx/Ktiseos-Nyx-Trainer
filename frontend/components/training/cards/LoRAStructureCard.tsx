@@ -24,7 +24,7 @@ export function LoRAStructureCard({ form, onSave }: LoRAStructureCardProps) {
   const networkDim = form.watch('network_dim');
   const networkAlpha = form.watch('network_alpha');
 
-  const isLycoris = ['LoCon', 'LoHa', 'LoKr', 'DoRA'].includes(loraType || '');
+  const hasConvLayers = ['LoCon', 'LoHa', 'LoKr'].includes(loraType || '');
 
   return (
     <Card className="border-purple-500/30">
@@ -95,13 +95,13 @@ export function LoRAStructureCard({ form, onSave }: LoRAStructureCardProps) {
         {networkDim && networkAlpha && networkDim !== networkAlpha && (
           <Alert>
             <AlertDescription className="text-xs">
-              💡 Tip: Alpha is usually set equal to dimension ({networkDim})
+              Tip: Alpha is usually set equal to dimension ({networkDim})
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Convolution Settings (LoCon/LoHa only) */}
-        {isLycoris && (
+        {/* Convolution Settings (LoCon/LoHa/LoKr only) */}
+        {hasConvLayers && (
           <div className="space-y-4 p-4 border border-purple-500/30 rounded-lg bg-purple-500/5">
             <p className="text-sm font-semibold text-purple-400">
               {loraType} Specific Settings
@@ -139,13 +139,6 @@ export function LoRAStructureCard({ form, onSave }: LoRAStructureCardProps) {
                 min={-1}
               />
             )}
-
-            <CheckboxFormField
-              form={form}
-              name="train_norm"
-              label="Train Normalization Layers"
-              description="Include normalization layers in training (LyCORIS)"
-            />
 
             <div className="grid grid-cols-2 gap-4">
               <NumberFormField

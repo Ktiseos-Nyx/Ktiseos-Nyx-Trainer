@@ -301,6 +301,8 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
 
   no_half_vae: z.boolean(),
 
+  vae_reflection_padding: z.boolean(),
+
   cache_latents: z.boolean(),
 
   cache_latents_to_disk: z.boolean(),
