@@ -1,0 +1,20 @@
+{
+  "is_builtin": true,
+  "name": "TensorArt DoRA (Illustrious)",
+  "description": "Illustrious DoRA via lycoris.kohya (algo=lora + dora_wd=True). Larger dim 64/32, frozen TE, constant_with_warmup, noise_offset=0.03. Note: original used a server-side lycoris preset.toml and factor=8 — omitted here.",
+  "model_type": "SDXL",
+  "lora_type": "DoRA",
+  "network_module": "lycoris.kohya",
+  "resolution": 1024,
+  "network_dim": 64,
+  "network_alpha": 32,
+  "unet_lr": 0.0001,
+  "text_encoder_lr": 0,
+  "lr_scheduler": "constant_with_warmup",
+  "optimizer_type": "AdamW8bit",
+  "max_train_epochs": 10,
+  "save_every_n_epochs": 1,
+  "train_batch_size": 2,
+  "mixed_precision": "bf16",
+  "noise_offset": 0.03
+}

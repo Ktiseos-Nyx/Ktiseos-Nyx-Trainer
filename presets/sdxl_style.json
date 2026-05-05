@@ -1,0 +1,16 @@
+{
+  "is_builtin": true,
+  "name": "SDXL Style",
+  "description": "For training art style LoRAs on SDXL",
+  "model_type": "SDXL",
+  "resolution": 1024,
+  "network_dim": 64,
+  "network_alpha": 64,
+  "unet_lr": 0.0002,
+  "text_encoder_lr": 0.0001,
+  "lr_scheduler": "cosine",
+  "optimizer_type": "Prodigy",
+  "max_train_epochs": 15,
+  "train_batch_size": 2,
+  "clip_skip": 2
+}

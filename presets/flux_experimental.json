@@ -1,0 +1,17 @@
+{
+  "is_builtin": true,
+  "name": "Flux (Experimental)",
+  "description": "Experimental Flux.1 training",
+  "model_type": "FLUX",
+  "resolution": 1024,
+  "network_dim": 16,
+  "network_alpha": 16,
+  "unet_lr": 0.0001,
+  "text_encoder_lr": 0,
+  "lr_scheduler": "constant",
+  "optimizer_type": "AdamW8bit",
+  "max_train_epochs": 5,
+  "train_batch_size": 1,
+  "guidance_scale": 3.5,
+  "timestep_sampling": "flux_shift"
+}

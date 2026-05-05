@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { trainingPresets } from '@/hooks/useTrainingForm';
 import { presetsAPI, type TrainingConfig, type PresetMetadata } from '@/lib/api';
 
 interface CustomPreset {
@@ -185,15 +184,6 @@ export default function PresetManager({
   };
 
   const handleLoadPreset = async (presetId: string) => {
-    // Check hardcoded presets first (from useTrainingForm hook)
-    if (trainingPresets[presetId]) {
-      onLoadPreset(trainingPresets[presetId].config);
-      toast.success(`Loaded preset: ${trainingPresets[presetId].name}`, {
-        description: 'You\'ll still need to set your dataset, model paths, and project name.',
-      });
-      return;
-    }
-
     // Check localStorage presets
     const localPreset = customPresets.find((p) => p.id === presetId);
     if (localPreset) {
@@ -311,24 +301,10 @@ export default function PresetManager({
                 <SelectValue placeholder="Choose a preset..." />
               </SelectTrigger>
               <SelectContent>
-                <div className="px-2 py-1.5 text-xs font-semibold text-purple-400">
-                  Built-in Presets
-                </div>
-                {Object.entries(trainingPresets).map(([key, preset]) => (
-                  <SelectItem key={key} value={key}>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {preset.config.model_type}
-                      </Badge>
-                      {preset.name}
-                    </div>
-                  </SelectItem>
-                ))}
-
-                {serverPresets.length > 0 && (
+                {serverPresets.filter(p => p.is_builtin).length > 0 && (
                   <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-green-400 mt-2">
-                      Community Presets
+                    <div className="px-2 py-1.5 text-xs font-semibold text-purple-400">
+                      Built-in Presets
                     </div>
                     {serverPresets.filter(p => p.is_builtin).map((preset) => (
                       <SelectItem key={preset.id} value={preset.id}>
@@ -340,24 +316,25 @@ export default function PresetManager({
                         </div>
                       </SelectItem>
                     ))}
+                  </>
+                )}
 
-                    {serverPresets.filter(p => !p.is_builtin).length > 0 && (
-                      <>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-blue-400 mt-2">
-                          Your Server Presets
+                {serverPresets.filter(p => !p.is_builtin).length > 0 && (
+                  <>
+
+                    <div className="px-2 py-1.5 text-xs font-semibold text-blue-400 mt-2">
+                      Your Server Presets
+                    </div>
+                    {serverPresets.filter(p => !p.is_builtin).map((preset) => (
+                      <SelectItem key={preset.id} value={preset.id}>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {preset.model_type}
+                          </Badge>
+                          {preset.name}
                         </div>
-                        {serverPresets.filter(p => !p.is_builtin).map((preset) => (
-                          <SelectItem key={preset.id} value={preset.id}>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {preset.model_type}
-                              </Badge>
-                              {preset.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
+                      </SelectItem>
+                    ))}
                   </>
                 )}
 
@@ -395,8 +372,7 @@ export default function PresetManager({
           {selectedPreset && (
             <Alert className="bg-accent/50 border-border">
               <AlertDescription>
-                {trainingPresets[selectedPreset]?.description ||
-                  serverPresets.find((p) => p.id === selectedPreset)?.description ||
+                {serverPresets.find((p) => p.id === selectedPreset)?.description ||
                   customPresets.find((p) => p.id === selectedPreset)?.description}
               </AlertDescription>
             </Alert>
@@ -455,8 +431,7 @@ export default function PresetManager({
             onClick={() => selectedPreset && handleDeletePreset(selectedPreset)}
             disabled={
               !selectedPreset ||
-              // Can't delete hardcoded presets or built-in server presets
-              trainingPresets[selectedPreset] !== undefined ||
+              // Can't delete built-in server presets
               serverPresets.find((p) => p.id === selectedPreset && p.is_builtin) !== undefined ||
               // Can only delete localStorage presets or user server presets
               (!customPresets.find((p) => p.id === selectedPreset) &&
