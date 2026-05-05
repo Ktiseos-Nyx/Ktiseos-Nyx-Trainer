@@ -202,6 +202,45 @@ PRESET = {
         "text_encoder_target_module": [],
         "text_encoder_target_name": [],
     },
+    "anima": {
+        "enable_conv": True,
+        "unet_target_module": [
+            "Block"
+        ],
+        "unet_target_name": [],
+        "text_encoder_target_module": [],
+        "text_encoder_target_name": [],
+        "exclude_name": [r".*(_modulation|_embedder|final_layer).*"],
+    },
+    "anima-inpaint": {
+        "enable_conv": True,
+        "unet_target_module": [
+            "Block",
+            "PatchEmbed",
+            "TimestepEmbedding",
+            "FinalLayer"
+        ],
+        "unet_target_name": [],
+        "text_encoder_target_module": [],
+        "text_encoder_target_name": [],
+        "network_reg_lrs": {r".*blocks\.(1[89]|2[0-7])\..*":6e-05, r".*blocks\.([0-9]|1[0-7])\..*":2.5e-05},
+        "network_reg_dims": {r".*blocks\.(1[89]|2[0-7])\..*":16},
+        "include_patterns": [r".*unet_blocks_([0-9]|1[0-9]|2[0-7])\..*"],
+        "exclude_patterns": [r".*_te_layers_.*", r".*adaln_modulation.*"],
+    },
+    "anima-full-no-excludes": {
+        "enable_conv": True,
+        "unet_target_module": [
+            "Block",
+            "PatchEmbed",
+            "TimestepEmbedding",
+            "FinalLayer",
+        ],
+        "unet_target_name": [],
+        "text_encoder_target_module": [],
+        "text_encoder_target_name": [],
+        "exclude_name": [],
+    },
     "ia3": {
         "enable_conv": False,
         "unet_target_module": [],

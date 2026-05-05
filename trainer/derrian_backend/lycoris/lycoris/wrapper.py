@@ -1,10 +1,11 @@
 # General LyCORIS wrapper based on kohya-ss/sd-scripts' style
 import os
+import ast
 import fnmatch
 import re
 import logging
 
-from typing import Any, List
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -25,6 +26,7 @@ from .modules.norms import NormModule
 from .modules.full import FullModule
 from .modules.diag_oft import DiagOFTModule
 from .modules.boft import ButterflyOFTModule
+from .modules.tlora import TLoraModule
 from .modules import get_module, make_module
 
 from .config import PRESET
@@ -53,6 +55,10 @@ VALID_PRESET_KEYS = [
     "text_encoder_target_module",
     "text_encoder_target_name",
     "exclude_name",
+    "exclude_patterns",
+    "include_patterns",
+    "network_reg_dims",
+    "network_reg_lrs",
 ]
 
 
@@ -68,6 +74,7 @@ network_module_dict = {
     "full": FullModule,
     "diag-oft": DiagOFTModule,
     "boft": ButterflyOFTModule,
+    "tlora": TLoraModule,
 }
 deprecated_arg_dict = {
     "disable_conv_cp": "use_tucker",
@@ -121,6 +128,12 @@ def create_lycoris(module, multiplier=1.0, linear_dim=4, linear_alpha=1, **kwarg
     torch_compile_dynamic = str_bool(kwargs.get("torch_compile_dynamic", False))
     torch_compile_fullgraph = str_bool(kwargs.get("torch_compile_fullgraph", True))
     train_llm_adapter = str_bool(kwargs.get("train_llm_adapter", False))
+
+    # exclude/include patterns and regex dims/lrs
+    exclude_patterns = kwargs.pop("exclude_patterns", None)
+    include_patterns = kwargs.pop("include_patterns", None)
+    reg_dims = kwargs.pop("reg_dims", None)
+    reg_lrs = kwargs.pop("reg_lrs", None)
 
     ggpo_beta = kwargs.get("ggpo_beta", None)
     ggpo_sigma = kwargs.get("ggpo_sigma", None)
@@ -177,12 +190,12 @@ def create_lycoris(module, multiplier=1.0, linear_dim=4, linear_alpha=1, **kwarg
         _has_block = "Block" in LycorisNetwork.TARGET_REPLACE_MODULE
         if isinstance(preset, dict):
             _has_block = _has_block or "Block" in preset.get("unet_target_module", [])
-        if _has_block:
-            anima_extra_modules = ["PatchEmbed", "TimestepEmbedding"]
-            for m in anima_extra_modules:
-                if m not in LycorisNetwork.TARGET_REPLACE_MODULE:
-                    LycorisNetwork.TARGET_REPLACE_MODULE.append(m)
-            logger.info(f"Anima model detected: added {anima_extra_modules} to target modules")
+        if "exclude_name" not in preset:
+            anima_default_excludes = [r".*(_modulation|_embedder|final_layer).*"]
+            for p in anima_default_excludes:
+                if p not in LycorisNetwork.TARGET_EXCLUDE_NAME:
+                    LycorisNetwork.TARGET_EXCLUDE_NAME.append(p)
+            logger.info(f"Anima model detected: added {anima_default_excludes} to target exclude names")
 
     logger.info(f"Using rank adaptation algo: {algo}")
 
@@ -222,6 +235,10 @@ def create_lycoris(module, multiplier=1.0, linear_dim=4, linear_alpha=1, **kwarg
         ggpo_conv_weight_sample_size=ggpo_conv_weight_sample_size,
         orthogonalize=orthogonalize,
         train_llm_adapter=train_llm_adapter,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+        reg_dims=reg_dims,
+        reg_lrs=reg_lrs,
     )
 
     if torch_compile:
@@ -296,6 +313,10 @@ class LycorisNetwork(torch.nn.Module):
     NAME_ALGO_MAP = {}
     USE_FNMATCH = False
     TARGET_EXCLUDE_NAME = []
+    EXCLUDE_PATTERNS = None
+    INCLUDE_PATTERNS = None
+    REG_DIMS = None
+    REG_LRS = None
 
     @classmethod
     def apply_preset(cls, preset):
@@ -321,6 +342,14 @@ class LycorisNetwork(torch.nn.Module):
             cls.USE_FNMATCH = preset["use_fnmatch"]
         if "exclude_name" in preset:
             cls.TARGET_EXCLUDE_NAME = preset["exclude_name"]
+        if "exclude_patterns" in preset:
+            cls.EXCLUDE_PATTERNS = preset["exclude_patterns"]
+        if "include_patterns" in preset:
+            cls.INCLUDE_PATTERNS = preset["include_patterns"]
+        if "network_reg_dims" in preset:
+            cls.REG_DIMS = preset["network_reg_dims"]
+        if "network_reg_lrs" in preset:
+            cls.REG_LRS = preset["network_reg_lrs"]
         return cls
 
     def __init__(
@@ -328,7 +357,7 @@ class LycorisNetwork(torch.nn.Module):
         module: nn.Module,
         multiplier=1.0,
         lora_dim=4,
-        conv_lora_dim=4,
+        conv_lora_dim=0,
         alpha=1,
         conv_alpha=1,
         use_tucker=False,
@@ -340,6 +369,10 @@ class LycorisNetwork(torch.nn.Module):
         train_norm=False,
         init_only=False,
         train_llm_adapter=False,
+        exclude_patterns=None,
+        include_patterns=None,
+        reg_dims=None,
+        reg_lrs=None,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -411,6 +444,64 @@ class LycorisNetwork(torch.nn.Module):
 
         self.use_tucker = use_tucker
 
+        # Merge preset values with network arg values (network args take priority)
+        effective_exclude_patterns = exclude_patterns if exclude_patterns is not None else self.EXCLUDE_PATTERNS
+        effective_include_patterns = include_patterns if include_patterns is not None else self.INCLUDE_PATTERNS
+        effective_reg_dims = reg_dims if reg_dims is not None else self.REG_DIMS
+        effective_reg_lrs = reg_lrs if reg_lrs is not None else self.REG_LRS
+
+        # Store reg_dims and reg_lrs
+        self.reg_dims = effective_reg_dims
+        self.reg_lrs = effective_reg_lrs
+
+        # Compile include/exclude regex patterns
+        def _compile_patterns(patterns):
+            compiled = []
+            if patterns:
+                for p in patterns:
+                    try:
+                        compiled.append(re.compile(p))
+                    except re.error as e:
+                        logger.error(f"Invalid regex pattern '{p}': {e}")
+            return compiled
+
+        exclude_re_patterns = _compile_patterns(effective_exclude_patterns)
+        include_re_patterns = _compile_patterns(effective_include_patterns)
+
+        if exclude_re_patterns:
+            logger.info(f"Exclude patterns: {[p.pattern for p in exclude_re_patterns]}")
+        if include_re_patterns:
+            logger.info(f"Include patterns (override exclude): {[p.pattern for p in include_re_patterns]}")
+        if self.reg_dims:
+            logger.info(f"Regex-specific dimensions: {self.reg_dims}")
+        if self.reg_lrs:
+            logger.info(f"Regex-specific learning rates: {self.reg_lrs}")
+
+        def _is_excluded(full_name, target_exclude_names=None):
+            """Check if a module name should be excluded, respecting include overrides.
+            exclude_patterns takes precedence over exclude_name/target_exclude_names."""
+            excluded = False
+            if exclude_re_patterns:
+                excluded = any(p.fullmatch(full_name) for p in exclude_re_patterns)
+            elif target_exclude_names and (
+                full_name in target_exclude_names
+                or any(self.match_fn(t, full_name) for t in target_exclude_names)
+            ):
+                excluded = True
+            if excluded and include_re_patterns:
+                if any(p.fullmatch(full_name) for p in include_re_patterns):
+                    excluded = False
+            return excluded
+
+        def _get_reg_dim(full_name):
+            """Check if a module name matches any reg_dims regex and return the override dim."""
+            if self.reg_dims:
+                for reg_pattern, d in self.reg_dims.items():
+                    if re.fullmatch(reg_pattern, full_name):
+                        logger.info(f"Module {full_name} matched regex '{reg_pattern}' -> dim: {d}")
+                        return d
+            return None
+
         def create_single_module(
             lora_name: str,
             module: torch.nn.Module,
@@ -472,11 +563,19 @@ class LycorisNetwork(torch.nn.Module):
             algo,
             current_lora_map: dict[str, Any],
             configs={},
+            full_prefix: str = "",
+            target_exclude_names=None,
         ):
             assert current_lora_map is not None, "No mapping supplied"
             loras = current_lora_map
             lora_names = []
             for name, module in root_module.named_modules():
+                full_name = (
+                    f"{full_prefix}.{name}" if full_prefix and name else (full_prefix or name)
+                )
+                if _is_excluded(full_name, target_exclude_names):
+                    continue
+
                 module_name = module.__class__.__name__
                 if module_name in self.MODULE_ALGO_MAP and module is not root_module:
                     next_config = self.MODULE_ALGO_MAP[module_name]
@@ -487,6 +586,8 @@ class LycorisNetwork(torch.nn.Module):
                         next_algo,
                         loras,
                         configs=next_config,
+                        full_prefix=full_name,
+                        target_exclude_names=target_exclude_names,
                     )
                     loras = {**loras, **new_lora_map}
                     for lora_name, lora in zip(new_lora_names, new_loras):
@@ -501,18 +602,18 @@ class LycorisNetwork(torch.nn.Module):
                 else:
                     lora_name = prefix
 
-                if f"{self.LORA_PREFIX}_." in lora_name:
-                    lora_name = lora_name.replace(
-                        f"{self.LORA_PREFIX}_.",
-                        f"{self.LORA_PREFIX}.",
-                    )
-
                 lora_name = lora_name.replace(".", "_")
                 if lora_name in loras:
                     continue
 
-                lora = create_single_module(lora_name, module, algo, **configs)
+                module_configs = dict(configs)
+                reg_dim = _get_reg_dim(full_name)
+                if reg_dim is not None:
+                    module_configs['dim'] = reg_dim
+
+                lora = create_single_module(lora_name, module, algo, **module_configs)
                 if lora is not None:
+                    lora.original_name = full_name
                     loras[lora_name] = lora
                     lora_names.append(lora_name)
             return [loras[lora_name] for lora_name in lora_names], lora_names, loras
@@ -530,9 +631,7 @@ class LycorisNetwork(torch.nn.Module):
             lora_map = {}
             next_config = {}
             for name, module in root_module.named_modules():
-                if name in target_exclude_names or any(
-                    self.match_fn(t, name) for t in target_exclude_names
-                ):
+                if _is_excluded(name, target_exclude_names):
                     continue
 
                 module_name = module.__class__.__name__
@@ -551,7 +650,10 @@ class LycorisNetwork(torch.nn.Module):
                         algo,
                         lora_map,
                         configs=next_config,
+                        full_prefix=name,
+                        target_exclude_names=target_exclude_names,
                     )
+
                     lora_map = {**lora_map, **_lora_map}
                     loras.extend(lora_lst)
                     next_config = {}
@@ -573,9 +675,14 @@ class LycorisNetwork(torch.nn.Module):
                     if lora_name in lora_map:
                         continue
 
-                    lora = create_single_module(lora_name, module, algo, **next_config)
+                    module_configs = dict(next_config)
+                    reg_dim = _get_reg_dim(name)
+                    if reg_dim is not None:
+                        module_configs['dim'] = reg_dim
+                    lora = create_single_module(lora_name, module, algo, **module_configs)
                     next_config = {}
                     if lora is not None:
+                        lora.original_name = name
                         lora_map[lora.lora_name] = lora
                         loras.append(lora)
             return loras

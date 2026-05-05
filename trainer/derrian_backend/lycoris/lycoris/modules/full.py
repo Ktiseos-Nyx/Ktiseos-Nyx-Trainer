@@ -232,7 +232,7 @@ class FullModule(LycorisBaseModule):
             diff = diff.view(shape)
         if self.bias is not None:
             org_bias = self.get_org_bias_for_compute(device)
-            if org_bias.dtype != self.bias.dtype:
+            if org_bias.dtype != diff_b.dtype:
                 org_bias = org_bias.to(self.bias.dtype)
 
             diff_b = self.bias.to(device) - org_bias

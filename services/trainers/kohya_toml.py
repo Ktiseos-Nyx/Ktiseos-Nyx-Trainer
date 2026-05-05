@@ -199,8 +199,6 @@ class KohyaTOMLGenerator:
                 args["rank_dropout"] = self.config.rank_dropout
             if self.config.module_dropout > 0:
                 args["module_dropout"] = self.config.module_dropout
-            if self.config.train_norm:
-                args["train_norm"] = True
 
             if self.config.dim_from_weights:
                 args["dim_from_weights"] = True

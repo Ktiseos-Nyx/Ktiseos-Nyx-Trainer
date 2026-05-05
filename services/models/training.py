@@ -216,7 +216,6 @@ class TrainingConfig(BaseModel):
     network_dropout: float = Field(0.0, ge=0.0, le=1.0, description="Network dropout")
     dim_from_weights: bool = Field(False, description="Derive dim from weights")
     factor: int = Field(-1, description="LoKR decomposition factor")
-    train_norm: bool = Field(False, description="Train norm layers (LyCORIS)")
 
     # Advanced LyCORIS
     rank_dropout: float = Field(0.0, ge=0.0, le=1.0, description="LyCORIS rank dropout")

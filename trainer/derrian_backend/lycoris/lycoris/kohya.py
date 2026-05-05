@@ -1,4 +1,5 @@
 import os
+import ast
 import fnmatch
 import re
 import logging
@@ -25,6 +26,7 @@ from .modules.norms import NormModule
 from .modules.full import FullModule
 from .modules.diag_oft import DiagOFTModule
 from .modules.boft import ButterflyOFTModule
+from .modules.tlora import TLoraModule
 from .modules import make_module, get_module
 
 from .config import PRESET
@@ -41,6 +43,26 @@ except ImportError:
     CPUBouncingLinear = type(None)
 
 LORA_PLUS_TARGETS = ["lora_up","a1","b1"]
+
+
+def _parse_kv_pairs(kv_pair_str: str, is_int: bool) -> Dict[str, Any]:
+    """Parse a string of key-value pairs separated by commas (e.g. 'regex1=8,regex2=16')."""
+    pairs = {}
+    for pair in kv_pair_str.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        if "=" not in pair:
+            logger.warning(f"Invalid format: {pair}, expected 'key=value'")
+            continue
+        key, value = pair.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        try:
+            pairs[key] = int(value) if is_int else float(value)
+        except ValueError:
+            logger.warning(f"Invalid value for {key}: {value}")
+    return pairs
 
 
 def create_network(
@@ -91,7 +113,28 @@ def create_network(
     torch_compile_dynamic = str_bool(kwargs.get("torch_compile_dynamic", False))
     torch_compile_fullgraph = str_bool(kwargs.get("torch_compile_fullgraph", True))
     train_llm_adapter = str_bool(kwargs.get("train_llm_adapter", False))
-    
+
+    # exclude patterns
+    exclude_patterns = kwargs.get("exclude_patterns", None)
+    if exclude_patterns is not None:
+        exclude_patterns = ast.literal_eval(exclude_patterns)
+        if not isinstance(exclude_patterns, list):
+            exclude_patterns = [exclude_patterns]
+
+    # include patterns (overrides exclude)
+    include_patterns = kwargs.get("include_patterns", None)
+    if include_patterns is not None:
+        include_patterns = ast.literal_eval(include_patterns)
+        if not isinstance(include_patterns, list):
+            include_patterns = [include_patterns]
+
+    # regex-specific learning rates / dimensions
+    network_reg_lrs_str = kwargs.get("network_reg_lrs", None)
+    reg_lrs = _parse_kv_pairs(network_reg_lrs_str, is_int=False) if network_reg_lrs_str is not None else None
+
+    network_reg_dims_str = kwargs.get("network_reg_dims", None)
+    reg_dims = _parse_kv_pairs(network_reg_dims_str, is_int=True) if network_reg_dims_str is not None else None
+
     ggpo_beta = kwargs.get("ggpo_beta", None)
     ggpo_sigma = kwargs.get("ggpo_sigma", None)
     ggpo_conv = kwargs.get("ggpo_conv", False)
@@ -155,12 +198,13 @@ def create_network(
     _is_anima = False
     if isinstance(unet, torch.nn.Module):
         _is_anima = unet.__class__.__name__.lower() == "anima"
-    if _is_anima and "Block" in LycorisNetworkKohya.UNET_TARGET_REPLACE_MODULE:
-        anima_extra_modules = ["PatchEmbed", "TimestepEmbedding"]
-        for m in anima_extra_modules:
-            if m not in LycorisNetworkKohya.UNET_TARGET_REPLACE_MODULE:
-                LycorisNetworkKohya.UNET_TARGET_REPLACE_MODULE.append(m)
-        logger.info(f"Anima model detected: added {anima_extra_modules} to target modules")
+    if _is_anima:
+        if "exclude_name" not in preset:
+            anima_default_excludes = [r".*(_modulation|_embedder|final_layer).*"]
+            for p in anima_default_excludes:
+                if p not in LycorisNetworkKohya.TARGET_EXCLUDE_NAME:
+                    LycorisNetworkKohya.TARGET_EXCLUDE_NAME.append(p)
+            logger.info(f"Anima model detected: added {anima_default_excludes} to target exclude names")
 
     logger.info(f"Using rank adaptation algo: {algo}")
 
@@ -206,6 +250,10 @@ def create_network(
         ggpo_conv_weight_sample_size=ggpo_conv_weight_sample_size,
         orthogonalize=orthogonalize,
         train_llm_adapter=train_llm_adapter,
+        exclude_patterns=exclude_patterns,
+        include_patterns=include_patterns,
+        reg_dims=reg_dims,
+        reg_lrs=reg_lrs,
     )
     if (
         loraplus_lr_ratio is not None
@@ -365,6 +413,11 @@ class LycorisNetworkKohya(LycorisNetwork):
     MODULE_ALGO_MAP = {}
     NAME_ALGO_MAP = {}
     USE_FNMATCH = False
+    TARGET_EXCLUDE_NAME = []
+    EXCLUDE_PATTERNS = None
+    INCLUDE_PATTERNS = None
+    REG_DIMS = None
+    REG_LRS = None
 
     @classmethod
     def apply_preset(cls, preset):
@@ -386,6 +439,16 @@ class LycorisNetworkKohya(LycorisNetwork):
             cls.NAME_ALGO_MAP = preset["name_algo_map"]
         if "use_fnmatch" in preset:
             cls.USE_FNMATCH = preset["use_fnmatch"]
+        if "exclude_name" in preset:
+            cls.TARGET_EXCLUDE_NAME = preset["exclude_name"]
+        if "exclude_patterns" in preset:
+            cls.EXCLUDE_PATTERNS = preset["exclude_patterns"]
+        if "include_patterns" in preset:
+            cls.INCLUDE_PATTERNS = preset["include_patterns"]
+        if "reg_dims" in preset:
+            cls.REG_DIMS = preset["reg_dims"]
+        if "reg_lrs" in preset:
+            cls.REG_LRS = preset["reg_lrs"]
         return cls
 
     def __init__(
@@ -394,7 +457,7 @@ class LycorisNetworkKohya(LycorisNetwork):
         unet,
         multiplier=1.0,
         lora_dim=4,
-        conv_lora_dim=4,
+        conv_lora_dim=0,
         alpha=1,
         conv_alpha=1,
         use_tucker=False,
@@ -406,6 +469,10 @@ class LycorisNetworkKohya(LycorisNetwork):
         train_norm=False,
         train_t5xxl=False,
         train_llm_adapter=False,
+        exclude_patterns=None,
+        include_patterns=None,
+        reg_dims=None,
+        reg_lrs=None,
         **kwargs,
     ) -> None:
         torch.nn.Module.__init__(self)
@@ -478,6 +545,64 @@ class LycorisNetworkKohya(LycorisNetwork):
 
         self.use_tucker = use_tucker
 
+        # Merge preset values with network arg values (network args take priority)
+        effective_exclude_patterns = exclude_patterns if exclude_patterns is not None else self.EXCLUDE_PATTERNS
+        effective_include_patterns = include_patterns if include_patterns is not None else self.INCLUDE_PATTERNS
+        effective_reg_dims = reg_dims if reg_dims is not None else self.REG_DIMS
+        effective_reg_lrs = reg_lrs if reg_lrs is not None else self.REG_LRS
+
+        # Store reg_dims and reg_lrs
+        self.reg_dims = effective_reg_dims
+        self.reg_lrs = effective_reg_lrs
+
+        # Compile include/exclude regex patterns
+        def _compile_patterns(patterns):
+            compiled = []
+            if patterns:
+                for p in patterns:
+                    try:
+                        compiled.append(re.compile(p))
+                    except re.error as e:
+                        logger.error(f"Invalid regex pattern '{p}': {e}")
+            return compiled
+
+        exclude_re_patterns = _compile_patterns(effective_exclude_patterns)
+        include_re_patterns = _compile_patterns(effective_include_patterns)
+
+        if exclude_re_patterns:
+            logger.info(f"Exclude patterns: {[p.pattern for p in exclude_re_patterns]}")
+        if include_re_patterns:
+            logger.info(f"Include patterns (override exclude): {[p.pattern for p in include_re_patterns]}")
+        if self.reg_dims:
+            logger.info(f"Regex-specific dimensions: {self.reg_dims}")
+        if self.reg_lrs:
+            logger.info(f"Regex-specific learning rates: {self.reg_lrs}")
+
+        def _is_excluded(full_name):
+            """Check if a module name should be excluded, respecting include overrides.
+            exclude_patterns takes precedence over exclude_name/TARGET_EXCLUDE_NAME."""
+            excluded = False
+            if exclude_re_patterns:
+                excluded = any(p.fullmatch(full_name) for p in exclude_re_patterns)
+            elif self.TARGET_EXCLUDE_NAME and (
+                full_name in self.TARGET_EXCLUDE_NAME
+                or any(self.match_fn(t, full_name) for t in self.TARGET_EXCLUDE_NAME)
+            ):
+                excluded = True
+            if excluded and include_re_patterns:
+                if any(p.fullmatch(full_name) for p in include_re_patterns):
+                    excluded = False
+            return excluded
+
+        def _get_reg_dim(full_name):
+            """Check if a module name matches any reg_dims regex and return the override dim."""
+            if self.reg_dims:
+                for reg_pattern, d in self.reg_dims.items():
+                    if re.fullmatch(reg_pattern, full_name):
+                        logger.info(f"Module {full_name} matched regex '{reg_pattern}' -> dim: {d}")
+                        return d
+            return None
+
         def create_single_module(
             lora_name: str,
             module: torch.nn.Module,
@@ -538,16 +663,27 @@ class LycorisNetworkKohya(LycorisNetwork):
             root_module: torch.nn.Module,
             algo,
             configs={},
+            full_prefix: str = "",
         ):
             loras = {}
             lora_names = []
             for name, module in root_module.named_modules():
+                full_name = (
+                    f"{full_prefix}.{name}" if full_prefix and name else (full_prefix or name)
+                )
+                if _is_excluded(full_name):
+                    continue
+
                 module_name = module.__class__.__name__
                 if module_name in self.MODULE_ALGO_MAP and module is not root_module:
                     next_config = self.MODULE_ALGO_MAP[module_name]
                     next_algo = next_config.get("algo", algo)
                     new_loras, new_lora_names = create_modules_(
-                        f"{prefix}_{name}", module, next_algo, next_config
+                        f"{prefix}_{name}",
+                        module,
+                        next_algo,
+                        next_config,
+                        full_prefix=full_name,
                     )
                     for lora_name, lora in zip(new_lora_names, new_loras):
                         if lora_name not in loras:
@@ -562,8 +698,14 @@ class LycorisNetworkKohya(LycorisNetwork):
                 if lora_name in loras:
                     continue
 
-                lora = create_single_module(lora_name, module, algo, **configs)
+                module_configs = dict(configs)
+                reg_dim = _get_reg_dim(full_name)
+                if reg_dim is not None:
+                    module_configs['dim'] = reg_dim
+
+                lora = create_single_module(lora_name, module, algo, **module_configs)
                 if lora is not None:
+                    lora.original_name = full_name
                     loras[lora_name] = lora
                     lora_names.append(lora_name)
             return [loras[lora_name] for lora_name in lora_names], lora_names
@@ -579,6 +721,9 @@ class LycorisNetworkKohya(LycorisNetwork):
             loras = []
             next_config = {}
             for name, module in root_module.named_modules():
+                if _is_excluded(name):
+                    continue
+
                 module_name = module.__class__.__name__
                 if module_name in target_replace_modules and not any(
                     self.match_fn(t, name) for t in target_replace_names
@@ -589,9 +734,13 @@ class LycorisNetworkKohya(LycorisNetwork):
                     else:
                         algo = network_module
                     loras.extend(
-                        create_modules_(f"{prefix}_{name}", module, algo, next_config)[
-                            0
-                        ]
+                        create_modules_(
+                            f"{prefix}_{name}",
+                            module,
+                            algo,
+                            next_config,
+                            full_prefix=name,
+                        )[0]
                     )
                     next_config = {}
                 elif name in target_replace_names or any(
@@ -608,9 +757,14 @@ class LycorisNetworkKohya(LycorisNetwork):
                         algo = network_module
                     lora_name = prefix + "." + name
                     lora_name = lora_name.replace(".", "_")
-                    lora = create_single_module(lora_name, module, algo, **next_config)
+                    module_configs = dict(next_config)
+                    reg_dim = _get_reg_dim(name)
+                    if reg_dim is not None:
+                        module_configs['dim'] = reg_dim
+                    lora = create_single_module(lora_name, module, algo, **module_configs)
                     next_config = {}
                     if lora is not None:
+                        lora.original_name = name
                         loras.append(lora)
             return loras
 
@@ -753,6 +907,20 @@ class LycorisNetworkKohya(LycorisNetwork):
                     lora.lora_up2.to(device)
                 if hasattr(lora, 'lora_down2'):
                     lora.lora_down2.to(device)
+
+                #tlora
+                if hasattr(lora, 'q_layer'):
+                    lora.q_layer.to(device)
+                if hasattr(lora, 'p_layer'):
+                    lora.p_layer.to(device)
+                if hasattr(lora, 'lambda_layer'):
+                    lora.lambda_layer.data = lora.lambda_layer.data.to(device)
+                if hasattr(lora, 'base_q'):
+                    lora.base_q = lora.base_q.to(device)
+                if hasattr(lora, 'base_p'):
+                    lora.base_p = lora.base_p.to(device)
+                if hasattr(lora, 'base_lambda'):
+                    lora.base_lambda = lora.base_lambda.to(device)
 
                 #ia3
                 if hasattr(lora, 'weight'):
@@ -950,6 +1118,21 @@ class LycorisNetworkKohya(LycorisNetwork):
         # Regex to find 'te' followed by digits
         te_regex = re.compile(r'lora_te(\d+)_')
 
+        # Build reg_lr lookup: lora_name -> reg_lr_idx
+        reg_lr_lookup = {}  # lora_name -> reg_lr_idx
+        reg_lr_values = {}  # reg_lr_idx -> lr_value
+        if self.reg_lrs:
+            reg_lrs_list = list(self.reg_lrs.items())
+            for i, (_, lr_val) in enumerate(reg_lrs_list):
+                reg_lr_values[i] = lr_val
+            for lora in self.loras:
+                if hasattr(lora, 'original_name'):
+                    for i, (regex_str, reg_lr) in enumerate(reg_lrs_list):
+                        if re.fullmatch(regex_str, lora.original_name):
+                            reg_lr_lookup[lora.lora_name] = i
+                            logger.info(f"Module {lora.original_name} matched regex '{regex_str}' -> LR {reg_lr}")
+                            break
+
         # Iterate through all named parameters of the model
         for name, param in self.named_parameters():
             comp_type = 'unet' # Default to unet
@@ -973,8 +1156,12 @@ class LycorisNetworkKohya(LycorisNetwork):
                             ((comp_type == 'textencoder' and (self.loraplus_text_encoder_lr_ratio is not None or self.loraplus_lr_ratio is not None)) or 
                              (comp_type == 'unet' and (self.loraplus_unet_lr_ratio is not None or self.loraplus_lr_ratio is not None))))
 
+            # Check if parameter belongs to a module with regex-specific LR
+            lora_module_name = name.split('.')[0]
+            reg_lr_idx = reg_lr_lookup.get(lora_module_name)
+
             # Assign the parameter to the correct temporary list
-            group_key = (comp_type, comp_idx, is_ortho_group, is_lora_plus)
+            group_key = (comp_type, comp_idx, is_ortho_group, is_lora_plus, reg_lr_idx)
             grouped_params[group_key].append(param)
 
         num_of_te = len(found_te_ids)
@@ -998,11 +1185,23 @@ class LycorisNetworkKohya(LycorisNetwork):
         # --- Construct Final Parameter Groups ---
         all_param_groups = []
         all_lr_descriptions = []
-        for (comp_type, comp_idx, is_ortho_group, is_lora_plus), params in grouped_params.items():
+        for (comp_type, comp_idx, is_ortho_group, is_lora_plus, reg_lr_idx), params in grouped_params.items():
 
             # Determine Learning Rate for this group
             current_lr = None
-            if comp_type == 'unet':
+            if reg_lr_idx is not None:
+                # Use regex-specific learning rate
+                base_lr = reg_lr_values[reg_lr_idx]
+                if is_lora_plus:
+                    ratio = None
+                    if comp_type == 'unet':
+                        ratio = self.loraplus_unet_lr_ratio or self.loraplus_lr_ratio
+                    elif comp_type == 'textencoder':
+                        ratio = self.loraplus_text_encoder_lr_ratio or self.loraplus_lr_ratio
+                    current_lr = base_lr * ratio if ratio else base_lr
+                else:
+                    current_lr = base_lr
+            elif comp_type == 'unet':
                 if is_lora_plus:
                     current_lr = ((unet_lr if unet_lr is not None else learning_rate) * 
                                   (self.loraplus_unet_lr_ratio if self.loraplus_unet_lr_ratio is not None else self.loraplus_lr_ratio))
@@ -1016,12 +1215,13 @@ class LycorisNetworkKohya(LycorisNetwork):
                     current_lr = text_encoder_lr[comp_idx - 1]
                 
             group_name_prefix = f"{comp_type}{comp_idx if comp_type == 'textencoder' else ''}"
+            reg_lr_suffix = f"_reg{reg_lr_idx}" if reg_lr_idx is not None else ""
             if current_lr is None or current_lr <= 0.0:
                 # We won't train groups that lack a LR or have a lr <= 0.0
-                logger.warning(f"Not training {group_name_prefix} as LR is {str(current_lr)}.")
+                logger.warning(f"Not training {group_name_prefix}{reg_lr_suffix} as LR is {str(current_lr)}.")
                 continue
 
-            lr_description = f"{comp_type}{comp_idx if comp_type == 'textencoder' else ''}{' Ortho' if is_ortho_group else ''}{' plus' if is_lora_plus else ''}"
+            lr_description = f"{comp_type}{comp_idx if comp_type == 'textencoder' else ''}{' Ortho' if is_ortho_group else ''}{' plus' if is_lora_plus else ''}{' reg_lr_' + str(reg_lr_idx) if reg_lr_idx is not None else ''}"
 
             group_dict = {
                 'params': params,
@@ -1031,7 +1231,7 @@ class LycorisNetworkKohya(LycorisNetwork):
                 'lr': torch.tensor(current_lr),
             }
 
-            group_name = f"{group_name_prefix}{'_Ortho' if is_ortho_group else ''}{'_Plus' if is_lora_plus else ''}"
+            group_name = f"{group_name_prefix}{reg_lr_suffix}{'_Ortho' if is_ortho_group else ''}{'_Plus' if is_lora_plus else ''}"
             group_dict['name'] = group_name
             all_param_groups.append(group_dict)
             all_lr_descriptions.append(lr_description)
