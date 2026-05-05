@@ -117,6 +117,7 @@ const defaultConfig: TrainingConfig = {
   cache_text_encoder_outputs: false,
   cache_text_encoder_outputs_to_disk: false,
   no_half_vae: false,
+  vae_reflection_padding: false,
   save_model_as: 'safetensors',
   save_every_n_epochs: 1,
   save_every_n_steps: 0,

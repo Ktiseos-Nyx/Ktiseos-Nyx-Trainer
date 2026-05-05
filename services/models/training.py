@@ -281,6 +281,7 @@ class TrainingConfig(BaseModel):
     fp8_base: bool = Field(False, description="FP8 base model (experimental)")
     vae_batch_size: int = Field(1, ge=1, description="VAE batch size")
     no_half_vae: bool = Field(False, description="Disable half VAE")
+    vae_reflection_padding: bool = Field(False, description="Apply reflection padding to VAE convolutions (for EQ VAEs)")
     cache_latents: bool = Field(True, description="Cache latents")
     cache_latents_to_disk: bool = Field(False, description="Cache latents to disk")
     cache_text_encoder_outputs: bool = Field(False, description="Cache text encoder outputs")

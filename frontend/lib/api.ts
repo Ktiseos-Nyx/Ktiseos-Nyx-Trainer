@@ -677,6 +677,7 @@ export interface TrainingConfig {
   fp8_base: boolean;
   vae_batch_size: number;
   no_half_vae: boolean;
+  vae_reflection_padding: boolean;
   cache_latents: boolean;
   cache_latents_to_disk: boolean;
   cache_text_encoder_outputs: boolean;

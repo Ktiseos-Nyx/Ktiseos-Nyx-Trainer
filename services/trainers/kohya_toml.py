@@ -360,6 +360,7 @@ class KohyaTOMLGenerator:
             "cache_text_encoder_outputs": self.config.cache_text_encoder_outputs,
             "vae_batch_size": self.config.vae_batch_size,
             "no_half_vae": self.config.no_half_vae,
+            "vae_reflection_padding": self.config.vae_reflection_padding,
             "persistent_data_loader_workers": 1 if self.config.persistent_data_loader_workers else 0,
             "fp8_base": self.config.fp8_base,
             "full_fp16": self.config.full_fp16,
