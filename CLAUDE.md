@@ -10,16 +10,15 @@ This file adds Claude Code-specific guidance on top of that foundation.
 
 ## Claude Code Behaviour
 
+### Preset Management Rule
+
+Please keep all training presets out of the Next.js/TypeScript codebase. Instead, manage them exclusively through the JSON files in the presets/ folder. This keeps configuration centralized, simplifies version tracking, and avoids the inconsistencies that come with localStorage or hardcoded values.
+
 ### Comments and Docstrings
 
-Default to writing **no comments**. Only add one when the WHY is non-obvious:
-a hidden constraint, a subtle invariant, or a workaround for a specific bug.
-Code that explains itself through good naming doesn't need a comment.
+Prefer self-documenting code through clear naming. Avoid inline comments unless explaining a non-obvious rationale (edge cases, constraints, or workarounds). 
 
-Add or update docstrings **inline** when writing or modifying a function. Don't
-batch them into a separate pass — this prevents CodeRabbit from flagging missing
-docstrings as a separate concern on the PR. Don't use CodeRabbit's "generate
-docstrings" button; write them directly in the code.
+Write and update docstrings inline during development. Never defer them to a separate pass or rely on CodeRabbit's auto-generation. Keeping docstrings in sync with code changes prevents review friction and ensures documentation is part of the implementation, not an afterthought.
 
 ### Response Style
 
@@ -27,10 +26,14 @@ Use clear, structured guidance. Prefer short, direct answers over long prose.
 When referencing code, include `file_path:line_number` so the user can navigate
 directly to it.
 
-### Security
+### Security & Vulnerability Management
+**Principle:** Security validation is mandatory, not optional. All code must pass security checks before completion.
 
-Run `snyk_code_scan` for any new first-party code in a Snyk-supported language.
-Fix issues before marking work complete, then re-scan to confirm.
+- **Scanning Requirement:** Run `snyk_code_scan` (or equivalent SAST/dependency scanner) on all new first-party code and dependency updates. Snyk is the default tool, but the underlying security workflow applies universally.
+- **Fix → Verify Cycle:** Address critical/high findings before marking work complete. Re-scan to confirm resolution. Document any accepted risks or verified false positives.
+- **Secure Defaults:** Validate/sanitize inputs, enforce least-privilege permissions, never hardcode secrets or credentials, and avoid permissive configurations (e.g., open CORS, debug mode in production).
+- **Dependency Hygiene:** Pin versions in lockfiles, audit third-party packages regularly, and replace unmaintained or flagged dependencies promptly.
+- **AI Generation Guardrails:** Proactively avoid known vulnerable patterns, suggest secure alternatives, and flag any security-sensitive changes (auth, file I/O, network calls, env vars) during code generation.
 
 ---
 
@@ -49,18 +52,16 @@ See `components/training/fields/FormFields.tsx` for examples of correct usage.
 
 ---
 
-## Windows Development
+## Cross-Platform & Environment Conventions
+**Primary dev environment:** Windows 10 | **Target runtime:** Cross-platform (Windows/macOS/Linux)
 
-The primary development machine is **Windows 10**. When writing code:
+All code must remain cross-platform compatible. When writing or modifying files, enforce:
 
-- Use `os.path.join()` or forward slashes — never hardcoded backslashes
-- `asyncio.WindowsProactorEventLoopPolicy` is set in `api/main.py` — do not remove
-- `start_services_local.bat` is the Windows startup script
-- Subprocess env vars `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` are required when
-  spawning Python subprocesses on Windows to avoid `UnicodeEncodeError` on cp1252
-- npm and Node commands must work from Windows CMD or PowerShell, not just bash
-- Path casing matters for webpack on Windows — NTFS is case-insensitive but webpack
-  is not; always use the correct mixed-case path
+- **Path handling:** Use `os.path.join()` or forward slashes (`/`). Never hardcode `\`. Always preserve exact casing in paths (NTFS is case-insensitive, but webpack and Unix tooling are not).
+- **Python event loop:** `api/main.py` configures `asyncio.WindowsProactorEventLoopPolicy`. Do not remove or conditionally override it.
+- **Subprocess encoding:** When spawning Python subprocesses, always inject `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1` into the environment. This prevents Windows `cp1252` errors and is safe across all OSes.
+- **Node/npm CLI:** All commands must execute natively in Windows CMD/PowerShell. Avoid bash-specific syntax, Unix path assumptions, or WSL dependencies.
+- **Local startup:** `start_services_local.bat` is the Windows launcher. Keep it functional, but ensure any shared scripts or configs it calls remain cross-platform safe.
 
 ---
 
