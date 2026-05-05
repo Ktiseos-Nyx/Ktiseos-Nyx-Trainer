@@ -72,7 +72,7 @@ class AdaptiveLossWeightMLP(nn.Module):
         self.noise_scheduler = noise_scheduler
         self.dtype=dtype
 
-        self.use_importance_weights=use_importance_weights,
+        self.use_importance_weights=use_importance_weights
         self.importance_weights = importance_weights.to(device=device, dtype=dtype) if importance_weights is not None else torch.ones(1000, device=device, dtype=dtype)
 
         if self.use_importance_weights:

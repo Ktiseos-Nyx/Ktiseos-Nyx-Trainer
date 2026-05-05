@@ -127,7 +127,7 @@ class OFTModule(torch.nn.Module):
 
         R = self.get_weight()
         W = transfer_ramtensor_to_device(org_module.weight, x.device).to(dtype=torch.float32, non_blocking=True)
-        B = transfer_ramtensor_to_device(org_module.bias, x.device).to(dtype=torch.float32, non_blocking=True)
+        B = transfer_ramtensor_to_device(org_module.bias, x.device).to(dtype=torch.float32, non_blocking=True) if org_module.bias is not None else None
 
         # split W to match R
         results = []
@@ -141,8 +141,8 @@ class OFTModule(torch.nn.Module):
             RW_1 = torch.einsum("k n m, k n p -> k m p", R[i], W_reshaped)
             RW_1 = einops.rearrange(RW_1, "k m p -> (k m) p")
 
-            B1 = B[d1:d2]
-            result = F.linear(x, RW_1.to(org_dtype), B1.to(org_dtype))
+            B1 = B[d1:d2].to(org_dtype) if B is not None else None
+            result = F.linear(x, RW_1.to(org_dtype), B1)
             results.append(result)
 
         result = torch.cat(results, dim=-1)

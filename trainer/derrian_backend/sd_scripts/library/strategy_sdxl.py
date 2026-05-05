@@ -376,6 +376,9 @@ class SdxlTextEncoderOutputsCachingStrategy(TextEncoderOutputsCachingStrategy):
         sdxl_text_encoding_strategy = text_encoding_strategy  # type: SdxlTextEncodingStrategy
         captions = [info.caption for info in infos]
 
+        attn1 = None
+        attn2 = None
+
         if self.is_weighted:
             tokens_list, weights_list = tokenize_strategy.tokenize_with_weights(captions)
             with torch.no_grad():

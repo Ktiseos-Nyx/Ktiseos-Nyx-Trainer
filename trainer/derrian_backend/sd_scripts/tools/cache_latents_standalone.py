@@ -274,7 +274,7 @@ def cache_latents_fast(dataset, vae, accelerator, args):
         leave=True,
     )
 
-    fast_autocast_dtype = torch.float32
+    fast_autocast_dtype = None  # None disables autocast; float32 is invalid for CUDA autocast
     if args.fast_autocast_dtype == "fp16":
         fast_autocast_dtype = torch.float16
     elif args.fast_autocast_dtype == "bf16":

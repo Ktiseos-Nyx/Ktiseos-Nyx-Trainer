@@ -335,7 +335,7 @@ class LuminaNetworkTrainer(train_network.NetworkTrainer):
                 )
                 target[diff_output_pr_indices] = model_pred_prior.to(target.dtype)
 
-        return model_pred, target, timesteps, weighting
+        return model_pred, target, timesteps, weighting, noise
 
     def post_process_loss(self, loss, args, timesteps, noise_scheduler):
         return loss

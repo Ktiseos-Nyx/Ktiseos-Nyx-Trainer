@@ -1446,6 +1446,14 @@ def train(args):
     if args.save_state or args.save_state_on_train_end:
         train_util.save_state_on_train_end(args, accelerator)
 
+    if is_main_process:
+        # Save EDM2 loss weights before releasing accelerator
+        if args.edm2_loss_weighting:
+            loss_weights_ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as, "_edm2_loss_weights")
+            loss_weights_file = os.path.join(args.output_dir, loss_weights_ckpt_name)
+            accelerator.print(f"saving edm2 loss weights: {loss_weights_file}")
+            accelerator.unwrap_model(edm2_model).save_weights(loss_weights_file, edm2_model.dtype, None)
+
     del accelerator  # この後メモリを使うのでこれは消す
 
     if is_main_process:
@@ -1466,12 +1474,6 @@ def train(args):
             ckpt_info,
         )
         logger.info("model saved.")
-
-        if args.edm2_loss_weighting:
-            loss_weights_ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as, "_edm2_loss_weights")
-            loss_weights_file = os.path.join(args.output_dir, loss_weights_ckpt_name)
-            accelerator.print(f"saving edm2 loss weights: {loss_weights_file}")
-            accelerator.unwrap_model(edm2_model).save_weights(loss_weights_file, edm2_model.dtype, None)
 
 
 def setup_parser() -> argparse.ArgumentParser:

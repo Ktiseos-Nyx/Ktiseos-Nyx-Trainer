@@ -592,7 +592,7 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
 
         # differential output preservation is not used for HunyuanImage-2.1 currently
 
-        return model_pred, target, timesteps, weighting
+        return model_pred, target, timesteps, weighting, noise
 
     def post_process_loss(self, loss, args, timesteps, noise_scheduler):
         return loss
