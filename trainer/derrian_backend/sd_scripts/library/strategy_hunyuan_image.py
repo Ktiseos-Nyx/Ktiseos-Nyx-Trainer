@@ -198,7 +198,7 @@ class HunyuanImageLatentsCachingStrategy(LatentsCachingStrategy):
 
     # TODO remove circular dependency for ImageInfo
     def cache_batch_latents(
-        self, vae: hunyuan_image_vae.HunyuanVAE2D, image_infos: List, flip_aug: bool, alpha_mask: bool, random_crop: bool
+        self, vae: hunyuan_image_vae.HunyuanVAE2D, image_infos: List, flip_aug: bool, alpha_mask: bool, random_crop: bool, random_crop_padding_percent: float = 0.05
     ):
         # encode_by_vae = lambda img_tensor: vae.encode(img_tensor).sample()
         def encode_by_vae(img_tensor):
@@ -211,7 +211,7 @@ class HunyuanImageLatentsCachingStrategy(LatentsCachingStrategy):
         vae_dtype = vae.dtype
 
         self._default_cache_batch_latents(
-            encode_by_vae, vae_device, vae_dtype, image_infos, flip_aug, alpha_mask, random_crop, multi_resolution=True
+            encode_by_vae, vae_device, vae_dtype, image_infos, flip_aug, alpha_mask, random_crop, multi_resolution=True, random_crop_padding_percent=random_crop_padding_percent
         )
 
         if not train_util.HIGH_VRAM:

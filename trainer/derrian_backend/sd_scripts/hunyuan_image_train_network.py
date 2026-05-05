@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from PIL import Image
 from accelerate import Accelerator, PartialState
+from library.ramtorch_util import apply_ramtorch_to_module
 
 from library import flux_utils, hunyuan_image_models, hunyuan_image_vae, strategy_base, train_util
 from library.device_utils import clean_memory_on_device, init_ipex
@@ -363,13 +364,18 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
         )
         _, text_encoder_byt5 = hunyuan_image_text_encoder.load_byt5(
             args.byt5, dtype=torch.float16, device=vl_device, disable_mmap=args.disable_mmap_load_safetensors
-        )
+        ) # byt5 is always fp16
 
         vae = hunyuan_image_vae.load_vae(
             args.vae, "cpu", disable_mmap=args.disable_mmap_load_safetensors, chunk_size=args.vae_chunk_size
         )
         vae.to(dtype=torch.float16)  # VAE is always fp16
         vae.eval()
+
+        if args.use_ramtorch and not args.cache_text_encoder_outputs:
+            logger.info("Applying RamTorch to Hunyuan model TEs and vae.")
+            text_encoder_vlm = apply_ramtorch_to_module(text_encoder_vlm, "vlm", accelerator.device, vl_dtype)
+            text_encoder_byt5 = apply_ramtorch_to_module(text_encoder_byt5, "byt5", accelerator.device, torch.float16) # byt5 is always fp16
 
         model_version = hunyuan_image_utils.MODEL_VERSION_2_1
         return model_version, [text_encoder_vlm, text_encoder_byt5], vae, None  # unet will be loaded later
@@ -384,7 +390,7 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
             gc.collect()
 
         loading_dtype = None if args.fp8_scaled else weight_dtype
-        loading_device = "cpu" if self.is_swapping_blocks else accelerator.device
+        loading_device = "cpu" if self.is_swapping_blocks or args.use_ramtorch else accelerator.device
 
         attn_mode = "torch"
         if args.xformers:
@@ -402,6 +408,10 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
             loading_dtype,
             args.fp8_scaled,
         )
+
+        if args.use_ramtorch:
+            logger.info("Applying RamTorch to Hunyuan model dit.")
+            model = apply_ramtorch_to_module(model, "unet/dit", accelerator.device, model.dtype)
 
         if self.is_swapping_blocks:
             # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
@@ -527,10 +537,12 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
         latents,
         batch,
         text_encoder_conds,
+        text_encoder_masks,
         unet: hunyuan_image_models.HYImageDiffusionTransformer,
         network,
         weight_dtype,
         train_unet,
+        fixed_timesteps=None,
         is_train=True,
     ):
         # Sample noise that we'll add to the latents
@@ -538,7 +550,7 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
 
         # get noisy model input and timesteps
         noisy_model_input, _, sigmas = flux_train_utils.get_noisy_model_input_and_timesteps(
-            args, noise_scheduler, latents, noise, accelerator.device, weight_dtype
+            args, noise_scheduler, latents, noise, accelerator.device, weight_dtype, fixed_timesteps=fixed_timesteps, is_train=is_train
         )
         # bfloat16 is too low precision for 0-1000 TODO fix get_noisy_model_input_and_timesteps
         timesteps = (sigmas[:, 0, 0, 0] * 1000).to(torch.int64)
@@ -551,6 +563,9 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
             for t in text_encoder_conds:
                 if t is not None and t.dtype.is_floating_point:
                     t.requires_grad_(True)
+
+        # Set T-LoRA timestep mask before the forward pass
+        self.apply_tlora_mask(timesteps)
 
         # Predict the noise residual
         # ocr_mask is for inference only, so it is not used here
@@ -565,6 +580,9 @@ class HunyuanImageNetworkTrainer(train_network.NetworkTrainer):
             model_pred = unet(
                 noisy_model_input, timesteps, vlm_embed, vlm_mask, byt5_embed, byt5_mask  # , self.rotary_pos_emb_cache
             )
+
+        # Clear T-LoRA mask after the forward pass
+        self.clear_tlora_mask_if_needed()
 
         # apply model prediction type
         model_pred, weighting = flux_train_utils.apply_model_prediction_type(args, model_pred, noisy_model_input, sigmas)

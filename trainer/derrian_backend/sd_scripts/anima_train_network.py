@@ -23,6 +23,7 @@ from library import (
 )
 import train_network
 from library.utils import setup_logging
+from library.ramtorch_util import apply_ramtorch_to_module
 
 setup_logging()
 import logging
@@ -87,6 +88,9 @@ class AnimaNetworkTrainer(train_network.NetworkTrainer):
         qwen3_text_encoder, _ = anima_utils.load_qwen3_text_encoder(args.qwen3, dtype=weight_dtype, device="cpu")
         qwen3_text_encoder.eval()
 
+        if args.use_ramtorch and not args.cache_text_encoder_outputs:
+            qwen3_text_encoder= apply_ramtorch_to_module(qwen3_text_encoder, "qwen3_text_encoder", accelerator.device, weight_dtype)
+
         # Load VAE
         logger.info("Loading Anima VAE...")
         vae = qwen_image_autoencoder_kl.load_vae(
@@ -124,6 +128,10 @@ class AnimaNetworkTrainer(train_network.NetworkTrainer):
         # dit.enable_gradient_checkpointing(cpu_offload=...), we can override to use unsloth.
         # The base trainer only passes cpu_offload, so we store the flag on the model.
         self._use_unsloth_offload_checkpointing = args.unsloth_offload_checkpointing
+
+        if args.use_ramtorch:
+            logger.info("Applying RamTorch to Anima model dit.")
+            model = apply_ramtorch_to_module(model, "unet/dit", accelerator.device, model.dtype)
 
         # Block swap
         self.is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
@@ -259,10 +267,12 @@ class AnimaNetworkTrainer(train_network.NetworkTrainer):
         latents,
         batch,
         text_encoder_conds,
+        text_encoder_masks,
         unet,
         network,
         weight_dtype,
         train_unet,
+        fixed_timesteps=None,
         is_train=True,
     ):
         anima: anima_models.Anima = unet
@@ -274,8 +284,18 @@ class AnimaNetworkTrainer(train_network.NetworkTrainer):
 
         # Get noisy model input and timesteps
         noisy_model_input, timesteps, sigmas = flux_train_utils.get_noisy_model_input_and_timesteps(
-            args, noise_scheduler, latents, noise, accelerator.device, weight_dtype
+            args, 
+            noise_scheduler, 
+            latents, 
+            noise, 
+            accelerator.device, 
+            weight_dtype,
+            fixed_timesteps=fixed_timesteps, 
+            is_train=is_train,
         )
+        # Set T-LoRA timestep mask before timestep scaling (mask expects [0, max_timestep] range)
+        self.apply_tlora_mask(timesteps)
+
         timesteps = timesteps / 1000.0  # scale to [0, 1] range. timesteps is float32
 
         # Gradient checkpointing support
@@ -316,31 +336,39 @@ class AnimaNetworkTrainer(train_network.NetworkTrainer):
             )
         model_pred = model_pred.squeeze(2)  # 5D to 4D, [B, C, 1, H, W] -> [B, C, H, W]
 
+        # Clear T-LoRA mask after the forward pass
+        self.clear_tlora_mask_if_needed()
+
+        # Upcast for grokking
+        latents = latents.to(torch.float64)
+        noise = noise.to(torch.float64)
+
         # Rectified flow target: noise - latents
         target = noise - latents
 
         # Loss weighting
         weighting = anima_train_utils.compute_loss_weighting_for_anima(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
 
-        return model_pred, target, timesteps, weighting
+        return model_pred, target, timesteps, weighting, noise
 
     def process_batch(
-        self,
-        batch,
-        text_encoders,
-        unet,
-        network,
-        vae,
+        self, 
+        batch, 
+        text_encoders, 
+        unet, 
+        network, 
+        vae, 
         noise_scheduler,
-        vae_dtype,
-        weight_dtype,
-        accelerator,
+        vae_dtype, 
+        weight_dtype, 
+        accelerator, 
         args,
-        text_encoding_strategy,
+        text_encoding_strategy, 
         tokenize_strategy,
-        is_train=True,
-        train_text_encoder=True,
+        is_train=True, 
+        train_text_encoder=True, 
         train_unet=True,
+        edm2_model=None,
     ) -> torch.Tensor:
         """Override base process_batch for caption dropout with cached text encoder outputs."""
 
@@ -374,6 +402,7 @@ class AnimaNetworkTrainer(train_network.NetworkTrainer):
             is_train,
             train_text_encoder,
             train_unet,
+            edm2_model,
         )
 
     def post_process_loss(self, loss, args, timesteps, noise_scheduler):
@@ -443,6 +472,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     train_util.verify_command_line_training_args(args)
     args = train_util.read_config_from_file(args, parser)
+
+    # Automatically switch to Anima-specific LoRA module if generic one is provided
+    if args.network_module == "networks.lora":
+        print("Override network module: networks.lora -> networks.lora_anima")
+        args.network_module = "networks.lora_anima"
 
     if args.attn_mode == "sdpa":
         args.attn_mode = "torch"  # backward compatibility

@@ -97,7 +97,7 @@ def main(args):
     ), f"illegal resolution (not 'width,height') / 画像サイズに誤りがあります。'幅,高さ'で指定してください: {args.max_resolution}"
 
     bucket_manager = train_util.BucketManager(
-        args.bucket_no_upscale, max_reso, args.min_bucket_reso, args.max_bucket_reso, args.bucket_reso_steps
+        args.bucket_no_upscale, max_reso, args.min_bucket_reso, args.max_bucket_reso, args.bucket_reso_steps, args.multires_training
     )
     if not args.bucket_no_upscale:
         bucket_manager.make_buckets()
@@ -112,7 +112,7 @@ def main(args):
     def process_batch(is_last):
         for bucket in bucket_manager.buckets:
             if (is_last and len(bucket) > 0) or len(bucket) >= args.batch_size:
-                train_util.cache_batch_latents(vae, True, bucket, args.flip_aug, args.alpha_mask, False)
+                train_util.cache_batch_latents(vae, True, bucket, args.flip_aug, args.alpha_mask, False, random_crop_padding_percent=0.05)
                 bucket.clear()
 
     # 読み込みの高速化のためにDataLoaderを使うオプション
@@ -241,6 +241,11 @@ def setup_parser() -> argparse.ArgumentParser:
         "--bucket_no_upscale",
         action="store_true",
         help="make bucket for each image without upscaling / 画像を拡大せずbucketを作成します",
+    )
+    parser.add_argument(
+        "--multires_training",
+        action="store_true",
+        help="make buckets for all resolutions down to minimum resolution for multires training",
     )
     parser.add_argument(
         "--mixed_precision",

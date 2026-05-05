@@ -10,6 +10,7 @@ init_ipex()
 
 from torch import Tensor
 from accelerate import Accelerator
+from library.ramtorch_util import apply_ramtorch_to_module
 
 
 import train_network
@@ -74,6 +75,10 @@ class LuminaNetworkTrainer(train_network.NetworkTrainer):
                 )
                 model.to(torch.float8_e4m3fn)
 
+        if args.use_ramtorch:
+            logger.info("Applying RamTorch to Lumina model.")
+            model = apply_ramtorch_to_module(model, "unet/dit", accelerator.device, model.dtype)
+
         if args.blocks_to_swap:
             logger.info(f"Lumina 2: Enabling block swap: {args.blocks_to_swap}")
             model.enable_block_swap(args.blocks_to_swap, accelerator.device)
@@ -82,6 +87,9 @@ class LuminaNetworkTrainer(train_network.NetworkTrainer):
         gemma2 = lumina_util.load_gemma2(args.gemma2, weight_dtype, "cpu")
         gemma2.eval()
         ae = lumina_util.load_ae(args.ae, weight_dtype, "cpu")
+
+        if args.use_ramtorch and not args.cache_text_encoder_outputs:
+            gemma2 = apply_ramtorch_to_module(gemma2, "gemma2", accelerator.device, weight_dtype)
 
         return lumina_util.MODEL_VERSION_LUMINA_V2, [gemma2], ae, model
 
@@ -243,17 +251,19 @@ class LuminaNetworkTrainer(train_network.NetworkTrainer):
         latents,
         batch,
         text_encoder_conds: Tuple[Tensor, Tensor, Tensor],  # (hidden_states, input_ids, attention_masks)
+        text_encoder_masks,
         dit: lumina_models.NextDiT,
         network,
         weight_dtype,
         train_unet,
+        fixed_timesteps=None,
         is_train=True,
     ):
         assert isinstance(noise_scheduler, sd3_train_utils.FlowMatchEulerDiscreteScheduler)
         noise = torch.randn_like(latents)
         # get noisy model input and timesteps
         noisy_model_input, timesteps, sigmas = lumina_train_util.get_noisy_model_input_and_timesteps(
-            args, noise_scheduler, latents, noise, accelerator.device, weight_dtype
+            args, noise_scheduler, latents, noise, accelerator.device, weight_dtype, fixed_timesteps=fixed_timesteps, is_train=is_train
         )
 
         # ensure the hidden state will require grad
@@ -262,6 +272,9 @@ class LuminaNetworkTrainer(train_network.NetworkTrainer):
             for t in text_encoder_conds:
                 if t is not None and t.dtype.is_floating_point:
                     t.requires_grad_(True)
+
+        # Set T-LoRA timestep mask before the forward pass
+        self.apply_tlora_mask(timesteps)
 
         # Unpack Gemma2 outputs
         gemma2_hidden_states, input_ids, gemma2_attn_mask = text_encoder_conds
@@ -283,6 +296,9 @@ class LuminaNetworkTrainer(train_network.NetworkTrainer):
             gemma2_attn_mask=gemma2_attn_mask,
             timesteps=timesteps,
         )
+
+        # Clear T-LoRA mask after the forward pass
+        self.clear_tlora_mask_if_needed()
 
         # apply model prediction type
         model_pred, weighting = lumina_train_util.apply_model_prediction_type(args, model_pred, noisy_model_input, sigmas)

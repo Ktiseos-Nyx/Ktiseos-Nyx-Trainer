@@ -44,6 +44,10 @@ def swap_weight_devices_cuda(device: torch.device, layer_to_cpu: nn.Module, laye
 
     modules_to_cpu = {k: v for k, v in layer_to_cpu.named_modules()}
     for module_to_cuda_name, module_to_cuda in layer_to_cuda.named_modules():
+        # SKIP RAMTORCH MODULES
+        if getattr(module_to_cuda, "is_ramtorch", False):
+            continue
+
         if hasattr(module_to_cuda, "weight") and module_to_cuda.weight is not None:
             module_to_cpu = modules_to_cpu.get(module_to_cuda_name, None)
             if module_to_cpu is not None and module_to_cpu.weight.shape == module_to_cuda.weight.shape:
@@ -83,6 +87,10 @@ def swap_weight_devices_no_cuda(device: torch.device, layer_to_cpu: nn.Module, l
 
     weight_swap_jobs: list[Tuple[nn.Module, nn.Module, torch.Tensor, torch.Tensor]] = []
     for module_to_cpu, module_to_cuda in zip(layer_to_cpu.modules(), layer_to_cuda.modules()):
+        # SKIP RAMTORCH MODULES
+        if getattr(module_to_cpu, "is_ramtorch", False) or getattr(module_to_cuda, "is_ramtorch", False):
+            continue
+
         if hasattr(module_to_cpu, "weight") and module_to_cpu.weight is not None:
             weight_swap_jobs.append((module_to_cpu, module_to_cuda, module_to_cpu.weight.data, module_to_cuda.weight.data))
 
@@ -102,6 +110,10 @@ def swap_weight_devices_no_cuda(device: torch.device, layer_to_cpu: nn.Module, l
 
 def weighs_to_device(layer: nn.Module, device: torch.device):
     for module in layer.modules():
+        # SKIP RAMTORCH MODULES
+        if getattr(module, "is_ramtorch", False):
+            continue
+
         if hasattr(module, "weight") and module.weight is not None:
             module.weight.data = module.weight.data.to(device, non_blocking=True)
 

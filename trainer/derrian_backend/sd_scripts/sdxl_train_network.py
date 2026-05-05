@@ -22,6 +22,7 @@ class SdxlNetworkTrainer(train_network.NetworkTrainer):
         super().__init__()
         self.vae_scale_factor = sdxl_model_util.VAE_SCALE_FACTOR
         self.is_sdxl = True
+        self.latent_shift = 0.0
 
     def assert_extra_args(
         self,
@@ -92,6 +93,20 @@ class SdxlNetworkTrainer(train_network.NetworkTrainer):
         else:
             return None
 
+    def get_flow_pixel_counts(self, args, batch, device:torch.device|str):
+        if (
+            getattr(args, "flow_model", False)
+            and args.flow_uniform_shift
+            and args.flow_uniform_static_ratio is None
+        ):
+            target_size = batch.get("target_sizes_hw")
+            if target_size is None:
+                raise ValueError(
+                    "Resolution-dependent Rectified Flow shift requires target size information in the batch."
+                )
+            return (target_size[:, 0] * target_size[:, 1]).to(dtype=torch.float32, device=device)
+        return None
+
     def cache_text_encoder_outputs_if_needed(
         self, args, accelerator: Accelerator, unet, vae, text_encoders, dataset: train_util.DatasetGroup, weight_dtype
     ):
@@ -125,60 +140,6 @@ class SdxlNetworkTrainer(train_network.NetworkTrainer):
             text_encoders[0].to(accelerator.device, dtype=weight_dtype)
             text_encoders[1].to(accelerator.device, dtype=weight_dtype)
 
-    def get_text_cond(self, args, accelerator, batch, tokenizers, text_encoders, weight_dtype):
-        if "text_encoder_outputs1_list" not in batch or batch["text_encoder_outputs1_list"] is None:
-            input_ids1 = batch["input_ids"]
-            input_ids2 = batch["input_ids2"]
-            with torch.enable_grad():
-                # Get the text embedding for conditioning
-                # TODO support weighted captions
-                # if args.weighted_captions:
-                #     encoder_hidden_states = get_weighted_text_embeddings(
-                #         tokenizer,
-                #         text_encoder,
-                #         batch["captions"],
-                #         accelerator.device,
-                #         args.max_token_length // 75 if args.max_token_length else 1,
-                #         clip_skip=args.clip_skip,
-                #     )
-                # else:
-                input_ids1 = input_ids1.to(accelerator.device)
-                input_ids2 = input_ids2.to(accelerator.device)
-                encoder_hidden_states1, encoder_hidden_states2, pool2 = train_util.get_hidden_states_sdxl(
-                    args.max_token_length,
-                    input_ids1,
-                    input_ids2,
-                    tokenizers[0],
-                    tokenizers[1],
-                    text_encoders[0],
-                    text_encoders[1],
-                    None if not args.full_fp16 else weight_dtype,
-                    accelerator=accelerator,
-                )
-        else:
-            encoder_hidden_states1 = batch["text_encoder_outputs1_list"].to(accelerator.device).to(weight_dtype)
-            encoder_hidden_states2 = batch["text_encoder_outputs2_list"].to(accelerator.device).to(weight_dtype)
-            pool2 = batch["text_encoder_pool2_list"].to(accelerator.device).to(weight_dtype)
-
-            # # verify that the text encoder outputs are correct
-            # ehs1, ehs2, p2 = train_util.get_hidden_states_sdxl(
-            #     args.max_token_length,
-            #     batch["input_ids"].to(text_encoders[0].device),
-            #     batch["input_ids2"].to(text_encoders[0].device),
-            #     tokenizers[0],
-            #     tokenizers[1],
-            #     text_encoders[0],
-            #     text_encoders[1],
-            #     None if not args.full_fp16 else weight_dtype,
-            # )
-            # b_size = encoder_hidden_states1.shape[0]
-            # assert ((encoder_hidden_states1.to("cpu") - ehs1.to(dtype=weight_dtype)).abs().max() > 1e-2).sum() <= b_size * 2
-            # assert ((encoder_hidden_states2.to("cpu") - ehs2.to(dtype=weight_dtype)).abs().max() > 1e-2).sum() <= b_size * 2
-            # assert ((pool2.to("cpu") - p2.to(dtype=weight_dtype)).abs().max() > 1e-2).sum() <= b_size * 2
-            # logger.info("text encoder outputs verified")
-
-        return encoder_hidden_states1, encoder_hidden_states2, pool2
-
     def call_unet(
         self,
         args,
@@ -187,6 +148,7 @@ class SdxlNetworkTrainer(train_network.NetworkTrainer):
         noisy_latents,
         timesteps,
         text_conds,
+        text_masks,
         batch,
         weight_dtype,
         indices: Optional[List[int]] = None,
@@ -210,7 +172,7 @@ class SdxlNetworkTrainer(train_network.NetworkTrainer):
             text_embedding = text_embedding[indices]
             vector_embedding = vector_embedding[indices]
 
-        noise_pred = unet(noisy_latents, timesteps, text_embedding, vector_embedding)
+        noise_pred = unet(noisy_latents, timesteps, text_embedding, vector_embedding, encoder_attention_mask=text_masks)
         return noise_pred
 
     def sample_images(self, accelerator, args, epoch, global_step, device, vae, tokenizer, text_encoder, unet):

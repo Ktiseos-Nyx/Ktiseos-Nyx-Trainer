@@ -37,13 +37,11 @@ def to_cpu(x):
     else:
         return x
 
-
 # Unsloth Offloaded Gradient Checkpointing
 # Based on Unsloth Zoo by Daniel Han-Chen & the Unsloth team
 try:
     from deepspeed.runtime.activation_checkpointing.checkpointing import detach_variable
 except ImportError:
-
     def detach_variable(inputs, device=None):
         """Detach tensors from computation graph, optionally moving to a device.
 
@@ -868,12 +866,12 @@ class Block(nn.Module):
         adaln_lora_B_T_3D: Optional[torch.Tensor] = None,
         extra_per_block_pos_emb: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        if extra_per_block_pos_emb is not None:
-            x_B_T_H_W_D = x_B_T_H_W_D + extra_per_block_pos_emb
-
         if use_fp32:
             # Cast to float32 for better numerical stability in residual connections. Each module will cast back to float16 by enclosing autocast context.
             x_B_T_H_W_D = x_B_T_H_W_D.float()
+
+        if extra_per_block_pos_emb is not None:
+            x_B_T_H_W_D = x_B_T_H_W_D + extra_per_block_pos_emb
 
         # Compute AdaLN modulation parameters (in float32 when fp16 to avoid overflow in Linear layers)
         with torch.autocast(device_type=x_B_T_H_W_D.device.type, dtype=torch.float32, enabled=use_fp32):
@@ -987,7 +985,6 @@ class Block(nn.Module):
                         device_inputs = to_device(inputs, device)
                         outputs = func(*device_inputs)
                         return to_cpu(outputs)
-
                     return custom_forward
 
                 return torch_checkpoint(

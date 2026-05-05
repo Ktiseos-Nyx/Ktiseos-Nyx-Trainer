@@ -25,6 +25,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+try:
+    from ramtorch.modules.linear import CPUBouncingLinear
+except ImportError:
+    logger.error("Failed to import ramtorch, please check ramtorch is installed correctly into the venv.")
+    CPUBouncingLinear = type(None)
+
 
 NUM_DOUBLE_BLOCKS = 19
 NUM_SINGLE_BLOCKS = 38
@@ -57,6 +63,11 @@ class LoRAModule(torch.nn.Module):
         super().__init__()
         self.lora_name = lora_name
 
+        # Detect RamTorch modules
+        self.is_ramtorch_org = isinstance(org_module, CPUBouncingLinear)
+        if self.is_ramtorch_org:
+            logger.info(f"RamTorch module detected: {lora_name}")
+
         if org_module.__class__.__name__ == "Conv2d":
             in_dim = org_module.in_channels
             out_dim = org_module.out_channels
@@ -83,7 +94,7 @@ class LoRAModule(torch.nn.Module):
         else:
             # conv2d not supported
             assert sum(split_dims) == out_dim, "sum of split_dims must be equal to out_dim"
-            assert org_module.__class__.__name__ == "Linear", "split_dims is only supported for Linear"
+            assert org_module.__class__.__name__ == "Linear" or org_module.__class__.__name__ == "CPUBouncingLinear", "split_dims is only supported for Linear"
             # print(f"split_dims: {split_dims}")
             self.lora_down = torch.nn.ModuleList(
                 [torch.nn.Linear(in_dim, self.lora_dim, bias=False) for _ in range(len(split_dims))]
@@ -121,6 +132,16 @@ class LoRAModule(torch.nn.Module):
         self.org_forward = self.org_module.forward
         self.org_module.forward = self.forward
 
+        # Setup RamTorch device handling
+        if getattr(self, "is_ramtorch_org", False):
+            # Move LoRA parameters to GPU
+            self.lora_up.to(torch.cuda.current_device())
+            self.lora_down.to(torch.cuda.current_device())
+            self.org_module.cpu()
+            # Keep a reference to the org module so we can access its
+            # weight/bias directly without going through BouncingLinearFn
+            self._org_module_ref = [self.org_module]
+
         del self.org_module
 
     def forward(self, x):
@@ -141,10 +162,13 @@ class LoRAModule(torch.nn.Module):
             # rank dropout
             if self.rank_dropout is not None and self.training:
                 mask = torch.rand((lx.size(0), self.lora_dim), device=lx.device) > self.rank_dropout
-                if len(lx.size()) == 3:
-                    mask = mask.unsqueeze(1)  # for Text Encoder
-                elif len(lx.size()) == 4:
-                    mask = mask.unsqueeze(-1).unsqueeze(-1)  # for Conv2d
+                if isinstance(self.lora_down, torch.nn.Conv2d):
+                    # Conv2d: lora_dim is at dim 1 → [B, dim, 1, 1]
+                    mask = mask.unsqueeze(-1).unsqueeze(-1)
+                else:
+                    # Linear: lora_dim is at last dim → [B, 1, ..., 1, dim]
+                    for _ in range(len(lx.size()) - 2):
+                        mask = mask.unsqueeze(1)
                 lx = lx * mask
 
                 # scaling for rank dropout: treat as if the rank is changed
@@ -816,11 +840,13 @@ class LoRANetwork(torch.nn.Module):
                 if target_replace_modules is None or module.__class__.__name__ in target_replace_modules:
                     if target_replace_modules is None:  # dirty hack for all modules
                         module = root_module  # search all modules
+                    module.is_ramtorch_org = isinstance(module, CPUBouncingLinear)
 
                     for child_name, child_module in module.named_modules():
-                        is_linear = child_module.__class__.__name__ == "Linear"
+                        is_linear = child_module.__class__.__name__ in ["Linear", "CPUBouncingLinear"]
                         is_conv2d = child_module.__class__.__name__ == "Conv2d"
                         is_conv2d_1x1 = is_conv2d and child_module.kernel_size == (1, 1)
+                        child_module.is_ramtorch_org = isinstance(child_module, CPUBouncingLinear)
 
                         if is_linear or is_conv2d:
                             lora_name = prefix + "." + (name + "." if name else "") + child_name
@@ -1192,11 +1218,16 @@ class LoRANetwork(torch.nn.Module):
         logger.info(f"LoRA+ UNet LR Ratio: {self.loraplus_unet_lr_ratio or self.loraplus_lr_ratio}")
         logger.info(f"LoRA+ Text Encoder LR Ratio: {self.loraplus_text_encoder_lr_ratio or self.loraplus_lr_ratio}")
 
-    def prepare_optimizer_params_with_multiple_te_lrs(self, text_encoder_lr, unet_lr, default_lr):
+    def prepare_optimizer_params_with_multiple_te_lrs(self,
+                                                      text_encoder_lr: float, 
+                                                      unet_lr: float, 
+                                                      learning_rate: float, 
+                                                      apply_orthograd: bool, 
+                                                      orthograd_targets: list[str]):
         # make sure text_encoder_lr as list of two elements
         # if float, use the same value for both text encoders
         if text_encoder_lr is None or (isinstance(text_encoder_lr, list) and len(text_encoder_lr) == 0):
-            text_encoder_lr = [default_lr, default_lr]
+            text_encoder_lr = [learning_rate, learning_rate]
         elif isinstance(text_encoder_lr, float) or isinstance(text_encoder_lr, int):
             text_encoder_lr = [float(text_encoder_lr), float(text_encoder_lr)]
         elif len(text_encoder_lr) == 1:
@@ -1319,7 +1350,7 @@ class LoRANetwork(torch.nn.Module):
         if self.unet_loras:
             params, descriptions = assemble_params(
                 self.unet_loras,
-                unet_lr if unet_lr is not None else default_lr,
+                unet_lr if unet_lr is not None else learning_rate,
                 self.loraplus_unet_lr_ratio or self.loraplus_lr_ratio,
             )
             all_params.extend(params)

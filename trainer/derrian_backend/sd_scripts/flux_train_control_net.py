@@ -29,7 +29,7 @@ from library.device_utils import clean_memory_on_device, init_ipex
 
 init_ipex()
 
-from accelerate.utils import set_seed
+
 
 import library.train_util as train_util
 import library.sai_model_spec as sai_model_spec
@@ -89,6 +89,8 @@ def train(args):
         )
         args.gradient_checkpointing = True
 
+    args.blocks_to_swap = utils.getattr_cast(args, "blocks_to_swap", 0)
+
     assert (
         args.blocks_to_swap is None or args.blocks_to_swap == 0
     ) or not args.cpu_offload_checkpointing, (
@@ -97,8 +99,7 @@ def train(args):
 
     cache_latents = args.cache_latents
 
-    if args.seed is not None:
-        set_seed(args.seed)  # 乱数系列を初期化する
+    train_util.args_set_seed(args)
 
     # prepare caching strategy: this must be set before preparing dataset. because dataset may use this strategy for initialization.
     if args.cache_latents:
@@ -285,8 +286,10 @@ def train(args):
 
     # backward compatibility
     if args.blocks_to_swap is None:
-        blocks_to_swap = args.double_blocks_to_swap or 0
-        if args.single_blocks_to_swap is not None:
+        args.double_blocks_to_swap = utils.getattr_cast(args, "double_blocks_to_swap", 0)
+        args.single_blocks_to_swap = utils.getattr_cast(args, "single_blocks_to_swap", 0)
+        blocks_to_swap = args.double_blocks_to_swap
+        if args.single_blocks_to_swap is not None and args.single_blocks_to_swap > 0:
             blocks_to_swap += args.single_blocks_to_swap // 2
         if blocks_to_swap > 0:
             logger.warning(
@@ -693,7 +696,7 @@ def train(args):
 
                 # calculate loss
                 loss = train_util.conditional_loss(
-                    model_pred.float(), target.float(), reduction="none", loss_type=args.loss_type, huber_c=None
+                    model_pred.float(), target.float(), reduction="none", loss_type=args.loss_type, huber_c=None, scale=float(args.loss_scale)
                 )
                 if weighting is not None:
                     loss = loss * weighting

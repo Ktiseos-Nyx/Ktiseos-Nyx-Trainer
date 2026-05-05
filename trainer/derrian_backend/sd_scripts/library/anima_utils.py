@@ -28,7 +28,6 @@ FP8_OPTIMIZATION_TARGET_KEYS = ["blocks", ""]
 # ".embed." excludes Embedding in LLMAdapter
 FP8_OPTIMIZATION_EXCLUDE_KEYS = ["_embedder", "norm", "adaln", "final_layer", ".embed."]
 
-
 def load_anima_model(
     device: Union[str, torch.device],
     dit_path: str,

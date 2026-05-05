@@ -20,9 +20,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 from networks.lora_flux import LoRAModule, LoRAInfModule
 from library import sd3_models
 
+try:
+    from ramtorch.modules.linear import CPUBouncingLinear
+except ImportError:
+    logger.error("Failed to import ramtorch, please check ramtorch is installed correctly into the venv.")
+    CPUBouncingLinear = type(None)
 
 def create_network(
     multiplier: float,
@@ -323,11 +329,13 @@ class LoRANetwork(torch.nn.Module):
                 if target_replace_modules is None or module.__class__.__name__ in target_replace_modules:
                     if target_replace_modules is None:  # dirty hack for all modules
                         module = root_module  # search all modules
+                    module.is_ramtorch_org = isinstance(module, CPUBouncingLinear)
 
                     for child_name, child_module in module.named_modules():
-                        is_linear = child_module.__class__.__name__ == "Linear"
+                        is_linear = child_module.__class__.__name__ in ["Linear", "CPUBouncingLinear"]
                         is_conv2d = child_module.__class__.__name__ == "Conv2d"
                         is_conv2d_1x1 = is_conv2d and child_module.kernel_size == (1, 1)
+                        child_module.is_ramtorch_org = isinstance(child_module, CPUBouncingLinear)
 
                         if is_linear or is_conv2d:
                             lora_name = prefix + "." + (name + "." if name else "") + child_name
@@ -631,11 +639,16 @@ class LoRANetwork(torch.nn.Module):
         logger.info(f"LoRA+ UNet LR Ratio: {self.loraplus_unet_lr_ratio or self.loraplus_lr_ratio}")
         logger.info(f"LoRA+ Text Encoder LR Ratio: {self.loraplus_text_encoder_lr_ratio or self.loraplus_lr_ratio}")
 
-    def prepare_optimizer_params_with_multiple_te_lrs(self, text_encoder_lr, unet_lr, default_lr):
+    def prepare_optimizer_params_with_multiple_te_lrs(self, 
+                                                      text_encoder_lr: float, 
+                                                      unet_lr: float, 
+                                                      learning_rate: float, 
+                                                      apply_orthograd: bool, 
+                                                      orthograd_targets: list[str]):
         # make sure text_encoder_lr as list of three elements
         # if float, use the same value for all three
         if text_encoder_lr is None or (isinstance(text_encoder_lr, list) and len(text_encoder_lr) == 0):
-            text_encoder_lr = [default_lr, default_lr, default_lr]
+            text_encoder_lr = [learning_rate, learning_rate, learning_rate]
         elif isinstance(text_encoder_lr, float) or isinstance(text_encoder_lr, int):
             text_encoder_lr = [float(text_encoder_lr), float(text_encoder_lr), float(text_encoder_lr)]
         elif len(text_encoder_lr) == 1:
@@ -710,7 +723,7 @@ class LoRANetwork(torch.nn.Module):
         if self.unet_loras:
             params, descriptions = assemble_params(
                 self.unet_loras,
-                unet_lr if unet_lr is not None else default_lr,
+                unet_lr if unet_lr is not None else learning_rate,
                 self.loraplus_unet_lr_ratio or self.loraplus_lr_ratio,
             )
             all_params.extend(params)

@@ -17,7 +17,7 @@ from library.device_utils import init_ipex, clean_memory_on_device
 
 init_ipex()
 
-from accelerate.utils import set_seed
+
 from diffusers import DDPMScheduler
 
 import library.train_util as train_util
@@ -52,13 +52,13 @@ logger = logging.getLogger(__name__)
 def train(args):
     train_util.verify_training_args(args)
     train_util.prepare_dataset_args(args, False)
+    train_util.set_torch_cuda_reduced_precision(args)
     deepspeed_utils.prepare_deepspeed_args(args)
     setup_logging(args, reset=True)
 
     cache_latents = args.cache_latents
 
-    if args.seed is not None:
-        set_seed(args.seed)  # 乱数系列を初期化する
+    train_util.args_set_seed(args)
 
     tokenize_strategy = strategy_sd.SdTokenizeStrategy(args.v2, args.max_token_length, args.tokenizer_cache_dir)
     strategy_base.TokenizeStrategy.set_strategy(tokenize_strategy)
@@ -299,9 +299,11 @@ def train(args):
     noise_scheduler = DDPMScheduler(
         beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
     )
-    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
+
     if args.zero_terminal_snr:
         custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
+
+    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
 
     if accelerator.is_main_process:
         init_kwargs = {}
@@ -385,7 +387,7 @@ def train(args):
                     target = noise
 
                 huber_c = train_util.get_huber_threshold_if_needed(args, timesteps, noise_scheduler)
-                loss = train_util.conditional_loss(noise_pred.float(), target.float(), args.loss_type, "none", huber_c)
+                loss = train_util.conditional_loss(noise_pred.float(), target.float(), args.loss_type, "none", huber_c, scale=float(args.loss_scale))
                 if args.masked_loss or ("alpha_masks" in batch and batch["alpha_masks"] is not None):
                     loss = apply_masked_loss(loss, batch)
                 loss = loss.mean([1, 2, 3])

@@ -13,6 +13,7 @@ from tqdm import tqdm
 from transformers import CLIPTokenizer
 from library import model_util, sdxl_model_util, train_util, sdxl_original_unet
 from .utils import setup_logging
+from library.ramtorch_util import apply_ramtorch_to_module
 
 setup_logging()
 import logging
@@ -58,6 +59,15 @@ def load_target_model(args, accelerator, model_version: str, weight_dtype):
 
             clean_memory_on_device(accelerator.device)
         accelerator.wait_for_everyone()
+
+    if args.use_ramtorch:
+        logger.info("Applying RamTorch to SDXL model.")
+        unet = apply_ramtorch_to_module(unet, "unet", accelerator.device, weight_dtype)
+        
+        # No need for ramtorch if caching
+        if not args.cache_text_encoder_outputs:
+            text_encoder1 = apply_ramtorch_to_module(text_encoder1, "clip_l", accelerator.device, weight_dtype)
+            text_encoder2 = apply_ramtorch_to_module(text_encoder2, "clip_g", accelerator.device, weight_dtype)
 
     return load_stable_diffusion_format, text_encoder1, text_encoder2, vae, unet, logit_scale, ckpt_info
 

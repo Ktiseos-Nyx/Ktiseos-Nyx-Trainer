@@ -5,6 +5,7 @@ import math
 import os
 
 import torch
+from torch import nn
 from library.device_utils import init_ipex
 
 init_ipex()
@@ -1310,10 +1311,29 @@ def load_vae(vae_id, dtype):
     return vae
 
 
+def use_reflection_padding(vae):
+    """Switch padded convolutions in a VAE to reflection padding."""
+    updated = 0
+    for module in vae.modules():
+        if isinstance(module, nn.Conv2d):
+            if isinstance(module.padding, tuple):
+                pad_h, pad_w = module.padding
+            else:
+                pad_h = pad_w = module.padding
+            if pad_h > 0 or pad_w > 0:
+                module.padding_mode = "reflect"
+                updated += 1
+    if updated > 0:
+        logger.info(f"enabled reflection padding for {updated} VAE conv layers")
+    else:
+        logger.info("VAE reflection padding requested but no padded convolutions were found")
+    return vae
+
+
 # endregion
 
 
-def make_bucket_resolutions(max_reso, min_size=256, max_size=1024, divisible=64):
+def make_bucket_resolutions(max_reso, min_size=256, max_size=1024, divisible=64, multires_training=False):
     max_width, max_height = max_reso
     max_area = max_width * max_height
 
@@ -1324,18 +1344,19 @@ def make_bucket_resolutions(max_reso, min_size=256, max_size=1024, divisible=64)
 
     width = min_size
     while width <= max_size:
-        height = min(max_size, int((max_area // width) // divisible) * divisible)
-        if height >= min_size:
-            resos.add((width, height))
-            resos.add((height, width))
-
-        # # make additional resos
-        # if width >= height and width - divisible >= min_size:
-        #   resos.add((width - divisible, height))
-        #   resos.add((height, width - divisible))
-        # if height >= width and height - divisible >= min_size:
-        #   resos.add((width, height - divisible))
-        #   resos.add((height - divisible, width))
+        max_h = min(max_size, int((max_area // width) // divisible) * divisible)
+        
+        if not multires_training:
+            height = max_h
+            if height >= min_size:
+                resos.add((width, height))
+                resos.add((height, width))
+        else:
+            height = min_size
+            while height <= max_h:
+                resos.add((width, height))
+                resos.add((height, width))
+                height += divisible
 
         width += divisible
 

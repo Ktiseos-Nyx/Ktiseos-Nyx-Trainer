@@ -29,7 +29,7 @@ from library.device_utils import init_ipex, clean_memory_on_device
 
 init_ipex()
 
-from accelerate.utils import set_seed
+
 from library import deepspeed_utils, flux_train_utils, flux_utils, strategy_base, strategy_flux, sai_model_spec
 from library.sd3_train_utils import FlowMatchEulerDiscreteScheduler
 
@@ -56,6 +56,7 @@ def train(args):
     train_util.verify_training_args(args)
     train_util.prepare_dataset_args(args, True)
     # sdxl_train_util.verify_sdxl_training_args(args)
+    train_util.set_torch_cuda_reduced_precision(args)
     deepspeed_utils.prepare_deepspeed_args(args)
     setup_logging(args, reset=True)
 
@@ -78,6 +79,8 @@ def train(args):
         )
         args.gradient_checkpointing = True
 
+    args.blocks_to_swap = utils.getattr_cast(args, "blocks_to_swap", 0)
+
     assert (
         args.blocks_to_swap is None or args.blocks_to_swap == 0
     ) or not args.cpu_offload_checkpointing, (
@@ -87,8 +90,7 @@ def train(args):
     cache_latents = args.cache_latents
     use_dreambooth_method = args.in_json is None
 
-    if args.seed is not None:
-        set_seed(args.seed)  # 乱数系列を初期化する
+    train_util.args_set_seed(args)
 
     # prepare caching strategy: this must be set before preparing dataset. because dataset may use this strategy for initialization.
     if args.cache_latents:
@@ -283,8 +285,10 @@ def train(args):
 
     # backward compatibility
     if args.blocks_to_swap is None:
-        blocks_to_swap = args.double_blocks_to_swap or 0
-        if args.single_blocks_to_swap is not None:
+        args.double_blocks_to_swap = utils.getattr_cast(args, "double_blocks_to_swap", 0)
+        args.single_blocks_to_swap = utils.getattr_cast(args,"single_blocks_to_swap", 0)
+        blocks_to_swap = args.double_blocks_to_swap
+        if args.single_blocks_to_swap is not None and args.single_blocks_to_swap > 0:
             blocks_to_swap += args.single_blocks_to_swap // 2
         if blocks_to_swap > 0:
             logger.warning(
@@ -668,7 +672,7 @@ def train(args):
 
                 # calculate loss
                 huber_c = train_util.get_huber_threshold_if_needed(args, timesteps, noise_scheduler)
-                loss = train_util.conditional_loss(model_pred.float(), target.float(), args.loss_type, "none", huber_c)
+                loss = train_util.conditional_loss(model_pred.float(), target.float(), args.loss_type, "none", huber_c, scale=float(args.loss_scale))
                 if weighting is not None:
                     loss = loss * weighting
                 if args.masked_loss or ("alpha_masks" in batch and batch["alpha_masks"] is not None):

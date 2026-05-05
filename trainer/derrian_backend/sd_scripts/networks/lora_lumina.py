@@ -21,7 +21,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
+try:
+    from ramtorch.modules.linear import CPUBouncingLinear
+except ImportError:
+    logger.error("Failed to import ramtorch, please check ramtorch is installed correctly into the venv.")
+    CPUBouncingLinear = type(None)
 class LoRAModule(torch.nn.Module):
     """
     replaces forward method of the original Linear, instead of replacing the original Linear module.
@@ -76,7 +80,7 @@ class LoRAModule(torch.nn.Module):
         else:
             # conv2d not supported
             assert sum(split_dims) == out_dim, "sum of split_dims must be equal to out_dim"
-            assert org_module.__class__.__name__ == "Linear", "split_dims is only supported for Linear"
+            assert org_module.__class__.__name__ == "Linear" or org_module.__class__.__name__ == "CPUBouncingLinear", "split_dims is only supported for Linear"
             # print(f"split_dims: {split_dims}")
             self.lora_down = nn.ModuleList(
                 [nn.Linear(in_dim, self.lora_dim, bias=False) for _ in range(len(split_dims))]
@@ -104,6 +108,15 @@ class LoRAModule(torch.nn.Module):
     def apply_to(self):
         self.org_forward = self.org_module.forward
         self.org_module.forward = self.forward
+
+        # Setup RamTorch device handling
+        if getattr(self, "is_ramtorch_org", False):
+            # Move LoRA parameters to GPU
+            self.lora_up.to(torch.cuda.current_device())
+            self.lora_down.to(torch.cuda.current_device())
+            self.org_module.cpu()
+            self._org_module_ref = [self.org_module]
+        
         del self.org_module
 
     def forward(self, x):
@@ -550,9 +563,11 @@ class LoRANetwork(torch.nn.Module):
                 if target_replace_modules is None or module.__class__.__name__ in target_replace_modules:
                     if target_replace_modules is None:  # for handling embedders
                         module = root_module
+                    module.is_ramtorch_org = isinstance(module, CPUBouncingLinear)
 
                     for child_name, child_module in module.named_modules():
-                        is_linear = child_module.__class__.__name__ == "Linear"
+                        is_linear = child_module.__class__.__name__ in ["Linear", "CPUBouncingLinear"]
+                        child_module.is_ramtorch_org = isinstance(child_module, CPUBouncingLinear)
 
                         lora_name = prefix + "." + (name + "." if name else "") + child_name
                         lora_name = lora_name.replace(".", "_")
@@ -866,11 +881,16 @@ class LoRANetwork(torch.nn.Module):
         logger.info(f"LoRA+ UNet LR Ratio: {self.loraplus_unet_lr_ratio or self.loraplus_lr_ratio}")
         logger.info(f"LoRA+ Text Encoder LR Ratio: {self.loraplus_text_encoder_lr_ratio or self.loraplus_lr_ratio}")
 
-    def prepare_optimizer_params_with_multiple_te_lrs(self, text_encoder_lr, unet_lr, default_lr):
+    def prepare_optimizer_params_with_multiple_te_lrs(self,
+                                                      text_encoder_lr: float, 
+                                                      unet_lr: float, 
+                                                      learning_rate: float, 
+                                                      apply_orthograd: bool, 
+                                                      orthograd_targets: list[str]):
         # make sure text_encoder_lr as list of two elements
         # if float, use the same value for both text encoders
         if text_encoder_lr is None or (isinstance(text_encoder_lr, list) and len(text_encoder_lr) == 0):
-            text_encoder_lr = [default_lr, default_lr]
+            text_encoder_lr = [learning_rate, learning_rate]
         elif isinstance(text_encoder_lr, float) or isinstance(text_encoder_lr, int):
             text_encoder_lr = [float(text_encoder_lr), float(text_encoder_lr)]
         elif len(text_encoder_lr) == 1:
@@ -927,7 +947,7 @@ class LoRANetwork(torch.nn.Module):
         if self.unet_loras:
             params, descriptions = assemble_params(
                 self.unet_loras,
-                unet_lr if unet_lr is not None else default_lr,
+                unet_lr if unet_lr is not None else learning_rate,
                 self.loraplus_unet_lr_ratio or self.loraplus_lr_ratio,
             )
             all_params.extend(params)

@@ -24,7 +24,7 @@ from library.device_utils import init_ipex, clean_memory_on_device
 
 init_ipex()
 
-from accelerate.utils import set_seed
+
 from library import (
     deepspeed_utils,
     lumina_train_util,
@@ -58,6 +58,7 @@ def train(args):
     train_util.verify_training_args(args)
     train_util.prepare_dataset_args(args, True)
     # sdxl_train_util.verify_sdxl_training_args(args)
+    train_util.set_torch_cuda_reduced_precision(args)
     deepspeed_utils.prepare_deepspeed_args(args)
     setup_logging(args, reset=True)
 
@@ -87,8 +88,7 @@ def train(args):
     cache_latents = args.cache_latents
     use_dreambooth_method = args.in_json is None
 
-    if args.seed is not None:
-        set_seed(args.seed)  # 乱数系列を初期化する
+    train_util.args_set_seed(args)
 
     # prepare caching strategy: this must be set before preparing dataset. because dataset may use this strategy for initialization.
     if args.cache_latents:
@@ -768,7 +768,7 @@ def train(args):
                     args, 1000 - timesteps, noise_scheduler
                 )
                 loss = train_util.conditional_loss(
-                    model_pred.float(), target.float(), args.loss_type, "none", huber_c
+                    model_pred.float(), target.float(), args.loss_type, "none", huber_c, scale=float(args.loss_scale)
                 )
                 if weighting is not None:
                     loss = loss * weighting

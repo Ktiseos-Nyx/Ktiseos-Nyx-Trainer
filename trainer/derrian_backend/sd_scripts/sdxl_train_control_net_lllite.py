@@ -19,7 +19,7 @@ from library.device_utils import init_ipex, clean_memory_on_device
 init_ipex()
 
 from torch.nn.parallel import DistributedDataParallel as DDP
-from accelerate.utils import set_seed
+
 import accelerate
 from diffusers import DDPMScheduler, ControlNetModel
 from safetensors.torch import load_file
@@ -85,12 +85,11 @@ def train(args):
     cache_latents = args.cache_latents
     use_user_config = args.dataset_config is not None
 
-    if args.seed is None:
-        args.seed = random.randint(0, 2**32)
-    set_seed(args.seed)
+    train_util.args_set_seed(args)
 
     tokenize_strategy = strategy_sdxl.SdxlTokenizeStrategy(args.max_token_length, args.tokenizer_cache_dir)
     strategy_base.TokenizeStrategy.set_strategy(tokenize_strategy)
+    tokenizers = [tokenize_strategy.tokenizer1, tokenize_strategy.tokenizer2]  # will be removed in the future
 
     # prepare caching strategy: this must be set before preparing dataset. because dataset may use this strategy for initialization.
     latents_caching_strategy = strategy_sd.SdSdxlLatentsCachingStrategy(
@@ -367,9 +366,11 @@ def train(args):
     noise_scheduler = DDPMScheduler(
         beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
     )
-    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
+
     if args.zero_terminal_snr:
         custom_train_functions.fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler)
+        
+    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
 
     if accelerator.is_main_process:
         init_kwargs = {}
@@ -444,8 +445,18 @@ def train(args):
                     with torch.no_grad():
                         input_ids1 = input_ids1.to(accelerator.device)
                         input_ids2 = input_ids2.to(accelerator.device)
-                        encoder_hidden_states1, encoder_hidden_states2, pool2 = text_encoding_strategy.encode_tokens(
-                            tokenize_strategy, [text_encoder1, text_encoder2], [input_ids1, input_ids2]
+                        #encoder_hidden_states1, encoder_hidden_states2, pool2 = text_encoding_strategy.encode_tokens(
+                        #    tokenize_strategy, [text_encoder1, text_encoder2], [input_ids1, input_ids2]
+                        encoder_hidden_states1, encoder_hidden_states2, pool2 = train_util.get_hidden_states_sdxl(
+                            args.max_token_length,
+                            args.use_zero_cond_dropout,
+                            input_ids1,
+                            input_ids2,
+                            tokenizers[0],
+                            tokenizers[1],
+                            text_encoder1,
+                            text_encoder2,
+                            None if not args.full_fp16 else weight_dtype,
                         )
                         if args.full_fp16:
                             encoder_hidden_states1 = encoder_hidden_states1.to(weight_dtype)
@@ -484,7 +495,7 @@ def train(args):
                     target = noise
 
                 huber_c = train_util.get_huber_threshold_if_needed(args, timesteps, noise_scheduler)
-                loss = train_util.conditional_loss(noise_pred.float(), target.float(), args.loss_type, "none", huber_c)
+                loss = train_util.conditional_loss(noise_pred.float(), target.float(), args.loss_type, "none", huber_c, scale=float(args.loss_scale))
                 loss = loss.mean([1, 2, 3])
 
                 loss_weights = batch["loss_weights"]  # 各sampleごとのweight
@@ -629,6 +640,12 @@ def setup_parser() -> argparse.ArgumentParser:
         "--no_half_vae",
         action="store_true",
         help="do not use fp16/bf16 VAE in mixed precision (use float VAE) / mixed precisionでも fp16/bf16 VAEを使わずfloat VAEを使う",
+    )
+    parser.add_argument(
+        "--use_zero_cond_dropout",
+        type=bool,
+        default=False,
+        help="For full caption dropout, use zero conditioning instead of empty caption"
     )
     return parser
 

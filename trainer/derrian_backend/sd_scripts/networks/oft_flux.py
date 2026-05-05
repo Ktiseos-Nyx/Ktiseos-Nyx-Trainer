@@ -11,11 +11,18 @@ import torch
 import torch.nn.functional as F
 import re
 from library.utils import setup_logging
+from networks.ramtorch_utils import transfer_ramtensor_to_device
 
 setup_logging()
 import logging
 
 logger = logging.getLogger(__name__)
+
+try:
+    from ramtorch.modules.linear import CPUBouncingLinear
+except ImportError:
+    logger.error("Failed to import ramtorch, please check ramtorch is installed correctly into the venv.")
+    CPUBouncingLinear = type(None)
 
 
 class OFTModule(torch.nn.Module):
@@ -40,6 +47,12 @@ class OFTModule(torch.nn.Module):
         """
         super().__init__()
         self.oft_name = oft_name
+
+        # Detect RamTorch modules
+        self.is_ramtorch_org = isinstance(org_module, CPUBouncingLinear)
+        if self.is_ramtorch_org:
+            logger.info(f"RamTorch module detected: {oft_name}")
+
         self.num_blocks = dim
 
         if type(alpha) == torch.Tensor:
@@ -77,6 +90,12 @@ class OFTModule(torch.nn.Module):
         self.org_forward = self.org_module[0].forward
         self.org_module[0].forward = self.forward
 
+        # Setup RamTorch device handling
+        if getattr(self, "is_ramtorch_org", False):
+            # Move LoRA parameters to GPU
+            self.oft_blocks.to(torch.cuda.current_device())
+            self.org_module.cpu()
+
     def get_weight(self, multiplier=None):
         if multiplier is None:
             multiplier = self.multiplier
@@ -107,8 +126,8 @@ class OFTModule(torch.nn.Module):
         org_dtype = x.dtype
 
         R = self.get_weight()
-        W = org_module.weight.to(torch.float32)
-        B = org_module.bias.to(torch.float32)
+        W = transfer_ramtensor_to_device(org_module.weight, x.device).to(dtype=torch.float32, non_blocking=True)
+        B = transfer_ramtensor_to_device(org_module.bias, x.device).to(dtype=torch.float32, non_blocking=True)
 
         # split W to match R
         results = []
@@ -381,7 +400,12 @@ class OFTNetwork(torch.nn.Module):
         logger.info(f"weights are merged")
 
     # 二つのText Encoderに別々の学習率を設定できるようにするといいかも
-    def prepare_optimizer_params(self, text_encoder_lr, unet_lr, default_lr):
+    def prepare_optimizer_params(self, 
+                                 text_encoder_lr: float, 
+                                 unet_lr: float, 
+                                 learning_rate: float, 
+                                 apply_orthograd: bool, 
+                                 orthograd_targets: list[str]):
         self.requires_grad_(True)
         all_params = []
 

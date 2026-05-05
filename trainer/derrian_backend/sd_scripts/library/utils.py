@@ -518,5 +518,26 @@ class EulerAncestralDiscreteSchedulerGL(EulerAncestralDiscreteScheduler):
 
         return EulerAncestralDiscreteSchedulerOutput(prev_sample=prev_sample, pred_original_sample=pred_original_sample)
 
+def getattr_cast(obj, attr, default=None):
+    val = getattr(obj, attr, default)
+    
+    # If val is None, return the default immediately
+    if val is None:
+        return default
+    
+    # If default is None, we don't have a target type to cast to
+    if default is None:
+        return val
+    
+    # If bool, check if str is "true"
+    if isinstance(default, bool) and isinstance(val, str):
+        return val.lower() == "true"
+    
+    # Cast val to the type of default
+    try:
+        return type(default)(val)
+    except (ValueError, TypeError):
+        # Fallback to default if casting fails (e.g., casting "abc" to int)
+        return default
 
 # endregion

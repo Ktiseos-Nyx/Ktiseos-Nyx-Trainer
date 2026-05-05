@@ -5,7 +5,7 @@ import math
 from multiprocessing import Value
 import os
 
-from accelerate.utils import set_seed
+
 import torch
 from tqdm import tqdm
 
@@ -46,8 +46,7 @@ def cache_to_disk(args: argparse.Namespace) -> None:
 
     use_dreambooth_method = args.in_json is None
 
-    if args.seed is not None:
-        set_seed(args.seed)  # 乱数系列を初期化する
+    train_util.args_set_seed(args)
 
     is_sd = not args.sdxl and not args.flux
     is_sdxl = args.sdxl
@@ -60,8 +59,10 @@ def cache_to_disk(args: argparse.Namespace) -> None:
         is_sdxl or args.weighted_captions is None
     ), "Weighted captions are only supported for SDXL models / 重み付きキャプションはSDXLモデルでのみ有効です"
 
-    set_tokenize_strategy(is_sd, is_sdxl, is_flux, args)
-
+    tokenize_strategy = set_tokenize_strategy(is_sd, is_sdxl, is_flux, args)
+    if is_sdxl:
+        tokenizers = [tokenize_strategy.tokenizer1, tokenize_strategy.tokenizer2]
+        
     # データセットを準備する
     use_user_config = args.dataset_config is not None
     if args.dataset_class is None:
@@ -178,7 +179,52 @@ def cache_to_disk(args: argparse.Namespace) -> None:
     strategy_base.TextEncodingStrategy.set_strategy(text_encoding_strategy)
 
     # cache text encoder outputs
-    train_dataset_group.new_cache_text_encoder_outputs(text_encoders, accelerator)
+    if is_sdxl:
+        ds_for_collator = train_dataset_group if args.max_data_loader_n_workers == 0 else None
+        collator = train_util.collator_class(0, 0, ds_for_collator)
+        n_workers = min(args.max_data_loader_n_workers, os.cpu_count())  # cpu_count or max_data_loader_n_workers
+
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset_group,
+            batch_size=1,
+            shuffle=True,
+            collate_fn=collator,
+            num_workers=n_workers,
+            persistent_workers=args.persistent_data_loader_workers,
+        )
+
+        # acceleratorを使ってモデルを準備する：マルチGPUで使えるようになるはず
+        train_dataloader = accelerator.prepare(train_dataloader)
+
+        # データ取得のためのループ
+        for batch in tqdm(train_dataloader):
+            absolute_paths = batch["absolute_paths"]
+            input_ids1_list = batch["input_ids1_list"]
+            input_ids2_list = batch["input_ids2_list"]
+
+            image_infos = []
+            for absolute_path, input_ids1, input_ids2 in zip(absolute_paths, input_ids1_list, input_ids2_list):
+                image_info = train_util.ImageInfo(absolute_path, 1, "dummy", False, absolute_path)
+                image_info.text_encoder_outputs_npz = os.path.splitext(absolute_path)[0] + train_util.TEXT_ENCODER_OUTPUTS_CACHE_SUFFIX
+                image_info
+
+                if args.skip_existing:
+                    if os.path.exists(image_info.text_encoder_outputs_npz):
+                        logger.warning(f"Skipping {image_info.text_encoder_outputs_npz} because it already exists.")
+                        continue
+                    
+                image_info.input_ids1 = input_ids1
+                image_info.input_ids2 = input_ids2
+                image_infos.append(image_info)
+
+            if len(image_infos) > 0:
+                b_input_ids1 = torch.stack([image_info.input_ids1 for image_info in image_infos])
+                b_input_ids2 = torch.stack([image_info.input_ids2 for image_info in image_infos])
+                train_util.cache_batch_text_encoder_outputs(
+                    image_infos, tokenizers, text_encoders, args.max_token_length, args.use_zero_cond_dropout, True, b_input_ids1, b_input_ids2, weight_dtype
+                )
+    else:
+        train_dataset_group.new_cache_text_encoder_outputs(text_encoders, accelerator)
 
     accelerator.wait_for_everyone()
     accelerator.print(f"Finished caching text encoder outputs to disk.")

@@ -805,13 +805,36 @@ def compute_loss_weighting_for_sd3(weighting_scheme: str, sigmas=None) -> Tensor
 
 # mainly copied from flux_train_utils.get_noisy_model_input_and_timesteps
 def get_noisy_model_input_and_timesteps(
-    args, noise_scheduler, latents: torch.Tensor, noise: torch.Tensor, device, dtype
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    args, noise_scheduler, latents: torch.Tensor, noise: torch.Tensor, device, dtype, fixed_timesteps=None, is_train=True
+) -> Tuple[Tensor, Tensor, Tensor]:
+    """
+    Get noisy model input and timesteps.
+
+    Args:
+        args (argparse.Namespace): Arguments.
+        noise_scheduler (noise_scheduler): Noise scheduler.
+        latents (Tensor): Latents.
+        noise (Tensor): Latent noise.
+        device (torch.device): Device.
+        dtype (torch.dtype): Data type
+
+    Return:
+        Tuple[Tensor, Tensor, Tensor]:
+            noisy model input
+            timesteps
+            sigmas
+    """
     bsz, _, h, w = latents.shape
     assert bsz > 0, "Batch size not large enough"
     num_timesteps = noise_scheduler.config.num_train_timesteps
-    if args.timestep_sampling == "uniform" or args.timestep_sampling == "sigmoid":
-        # Simple random sigma-based noise sampling
+    sigmas = None
+
+    if fixed_timesteps is not None:
+        timesteps = fixed_timesteps
+        sigmas = timesteps / num_timesteps
+        noisy_model_input = sigmas * latents + (1.0 - sigmas) * noise
+    elif args.timestep_sampling == "uniform" or args.timestep_sampling == "sigmoid":
+        # Simple random t-based noise sampling
         if args.timestep_sampling == "sigmoid":
             # https://github.com/XLabs-AI/x-flux/tree/main
             sigmas = torch.sigmoid(args.sigmoid_scale * torch.randn((bsz,), device=device))

@@ -14,6 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 def prepare_scheduler_for_custom_training(noise_scheduler, device):
+    # upgrade scheduler precision for Grokking
+    if hasattr(noise_scheduler, "alphas_cumprod") and noise_scheduler.alphas_cumprod is not None:
+        noise_scheduler.alphas_cumprod = noise_scheduler.alphas_cumprod.to(dtype=torch.float64)
+    
+    if hasattr(noise_scheduler, "betas") and noise_scheduler.betas is not None:
+        noise_scheduler.betas = noise_scheduler.betas.to(dtype=torch.float64)
+        
+    if hasattr(noise_scheduler, "alphas") and noise_scheduler.alphas is not None:
+        noise_scheduler.alphas = noise_scheduler.alphas.to(dtype=torch.float64)
+
     if hasattr(noise_scheduler, "all_snr"):
         return
 
@@ -32,6 +42,9 @@ def fix_noise_scheduler_betas_for_zero_terminal_snr(noise_scheduler):
     logger.info(f"fix noise scheduler betas: https://arxiv.org/abs/2305.08891")
 
     def enforce_zero_terminal_snr(betas):
+        # Cast to float64 for grokking
+        betas = betas.to(dtype=torch.float64)
+
         # Convert betas to alphas_bar_sqrt
         alphas = 1 - betas
         alphas_bar = alphas.cumprod(0)
@@ -69,9 +82,12 @@ def apply_snr_weight(loss: torch.Tensor, timesteps: torch.IntTensor, noise_sched
     snr = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])
     min_snr_gamma = torch.minimum(snr, torch.full_like(snr, gamma))
     if v_prediction:
-        snr_weight = torch.div(min_snr_gamma, snr + 1).float().to(loss.device)
+        snr_weight = torch.div(min_snr_gamma, snr + 1)
     else:
-        snr_weight = torch.div(min_snr_gamma, snr).float().to(loss.device)
+        snr_weight = torch.div(min_snr_gamma, snr)
+
+    snr_weight = snr_weight.to(dtype=loss.dtype, device=loss.device)
+
     loss = loss * snr_weight
     return loss
 

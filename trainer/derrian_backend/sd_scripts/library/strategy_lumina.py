@@ -355,6 +355,7 @@ class LuminaLatentsCachingStrategy(LatentsCachingStrategy):
         flip_aug: bool,
         alpha_mask: bool,
         random_crop: bool,
+        random_crop_padding_percent: float = 0.05,
     ):
         encode_by_vae = lambda img_tensor: model.encode(img_tensor).to("cpu")
         vae_device = model.device
@@ -369,6 +370,7 @@ class LuminaLatentsCachingStrategy(LatentsCachingStrategy):
             alpha_mask,
             random_crop,
             multi_resolution=True,
+            random_crop_padding_percent=random_crop_padding_percent,
         )
 
         if not train_util.HIGH_VRAM:

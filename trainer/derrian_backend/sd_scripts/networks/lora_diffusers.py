@@ -19,6 +19,12 @@ setup_logging()
 import logging
 logger = logging.getLogger(__name__)
 
+try:
+    from ramtorch.modules.linear import CPUBouncingLinear
+except ImportError:
+    logger.error("Failed to import ramtorch, please check ramtorch is installed correctly into the venv.")
+    CPUBouncingLinear = type(None)
+
 def make_unet_conversion_map() -> Dict[str, str]:
     unet_conversion_map_layer = []
 
@@ -124,6 +130,11 @@ class LoRAModule(torch.nn.Module):
         super().__init__()
         self.lora_name = lora_name
 
+        # Detect RamTorch modules
+        self.is_ramtorch_org = isinstance(org_module, CPUBouncingLinear)
+        if self.is_ramtorch_org:
+            logger.info(f"RamTorch module detected: {lora_name}")
+
         if org_module.__class__.__name__ == "Conv2d" or org_module.__class__.__name__ == "LoRACompatibleConv":
             in_dim = org_module.in_channels
             out_dim = org_module.out_channels
@@ -166,6 +177,13 @@ class LoRAModule(torch.nn.Module):
         if self.org_forward is None:
             self.org_forward = self.org_module[0].forward
             self.org_module[0].forward = self.forward
+
+        # Setup RamTorch device handling
+        if getattr(self, "is_ramtorch_org", False):
+            # Move LoRA parameters to GPU
+            self.lora_up.to(torch.cuda.current_device())
+            self.lora_down.to(torch.cuda.current_device())
+            self.org_module.cpu()
 
     # restore org_module's forward method
     def unapply_to(self):
@@ -325,13 +343,15 @@ class LoRANetwork(torch.nn.Module):
             skipped = []
             for name, module in root_module.named_modules():
                 if module.__class__.__name__ in target_replace_modules:
+                    module.is_ramtorch_org = isinstance(module, CPUBouncingLinear)
                     for child_name, child_module in module.named_modules():
                         is_linear = (
-                            child_module.__class__.__name__ == "Linear" or child_module.__class__.__name__ == "LoRACompatibleLinear"
+                            child_module.__class__.__name__ in ["Linear", "LoRACompatibleLinear", "CPUBouncingLinear"]
                         )
                         is_conv2d = (
                             child_module.__class__.__name__ == "Conv2d" or child_module.__class__.__name__ == "LoRACompatibleConv"
                         )
+                        child_module.is_ramtorch_org = isinstance(child_module, CPUBouncingLinear)
 
                         if is_linear or is_conv2d:
                             lora_name = prefix + "." + name + "." + child_name
