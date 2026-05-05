@@ -79,22 +79,24 @@ def save_latents_to_disk(
     Returns:
         None
     """
+    def _to_numpy(t):
+        # numpy doesn't support bfloat16; float16 is fine as-is
+        return (t.float() if t.dtype == torch.bfloat16 else t).cpu().numpy()
+
     kwargs = {}
 
     if os.path.exists(npz_path):
-        # load existing npz and update it
-        npz = np.load(npz_path)
-        for key in npz.files:
-            kwargs[key] = npz[key]
+        with np.load(npz_path) as npz:
+            for key in npz.files:
+                kwargs[key] = npz[key]
 
-    # TODO float() is needed if vae is in bfloat16. Remove it if vae is float16.
-    kwargs["latents" + key_reso_suffix] = latents_tensor.float().cpu().numpy()
+    kwargs["latents" + key_reso_suffix] = _to_numpy(latents_tensor)
     kwargs["original_size" + key_reso_suffix] = np.array(original_size)
     kwargs["crop_ltrb" + key_reso_suffix] = np.array(crop_ltrb)
     if flipped_latents_tensor is not None:
-        kwargs["latents_flipped" + key_reso_suffix] = flipped_latents_tensor.float().cpu().numpy()
+        kwargs["latents_flipped" + key_reso_suffix] = _to_numpy(flipped_latents_tensor)
     if alpha_mask is not None:
-        kwargs["alpha_mask" + key_reso_suffix] = alpha_mask.float().cpu().numpy()
+        kwargs["alpha_mask" + key_reso_suffix] = _to_numpy(alpha_mask)
     np.savez(npz_path, **kwargs)
 
 
