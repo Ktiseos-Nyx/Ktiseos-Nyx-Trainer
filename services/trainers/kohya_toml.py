@@ -363,7 +363,6 @@ class KohyaTOMLGenerator:
             "cache_text_encoder_outputs": self.config.cache_text_encoder_outputs,
             "vae_batch_size": self.config.vae_batch_size,
             "no_half_vae": self.config.no_half_vae,
-            "vae_reflection_padding": self.config.vae_reflection_padding,
             "persistent_data_loader_workers": 1 if self.config.persistent_data_loader_workers else 0,
             "fp8_base": self.config.fp8_base,
             "full_fp16": self.config.full_fp16,
@@ -380,6 +379,9 @@ class KohyaTOMLGenerator:
 
         if self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only:
             args["network_train_unet_only"] = True
+
+        if self.config.vae_reflection_padding:
+            args["vae_reflection_padding"] = True
 
         # ========== NEW FIELDS (Issue #97 Fix) ==========
         # Performance/Memory
