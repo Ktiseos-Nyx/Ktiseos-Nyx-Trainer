@@ -889,7 +889,8 @@ def train(args):
         if not train_util.calculate_val_loss_check(args, global_step, epoch_step, val_dataloader, train_dataloader):
             return None, None, {}
 
-        rng_states = switch_rng_state(int(args.validation_seed) if args.validation_seed else 23, accelerator)
+        _val_seed = args.validation_seed if args.validation_seed is not None else args.seed
+        rng_states = switch_rng_state(int(_val_seed) if _val_seed is not None else 23, accelerator)
 
         timesteps_list = ast.literal_eval(args.validation_timesteps)
 
