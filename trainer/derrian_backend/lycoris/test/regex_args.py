@@ -92,12 +92,13 @@ class LycorisRegexArgsTests(unittest.TestCase):
     def test_exclude_patterns_empty_list_excludes_nothing(self):
         """An empty exclude_patterns list should not exclude anything."""
         try:
-            net = SimpleNet()
+            net_all = SimpleNet()
             lycoris_all = create_lycoris(
-                net, 1, linear_dim=4, linear_alpha=1,
+                net_all, 1, linear_dim=4, linear_alpha=1,
             )
+            net_empty = SimpleNet()
             lycoris_empty_exclude = create_lycoris(
-                net, 1, linear_dim=4, linear_alpha=1,
+                net_empty, 1, linear_dim=4, linear_alpha=1,
                 exclude_patterns=[],
             )
             self.assertEqual(

@@ -206,7 +206,6 @@ def cache_to_disk(args: argparse.Namespace) -> None:
             for absolute_path, input_ids1, input_ids2 in zip(absolute_paths, input_ids1_list, input_ids2_list):
                 image_info = train_util.ImageInfo(absolute_path, 1, "dummy", False, absolute_path)
                 image_info.text_encoder_outputs_npz = os.path.splitext(absolute_path)[0] + train_util.TEXT_ENCODER_OUTPUTS_CACHE_SUFFIX
-                image_info
 
                 if args.skip_existing:
                     if os.path.exists(image_info.text_encoder_outputs_npz):

@@ -176,7 +176,7 @@ def switch_rng_state(val_seed: int, accelerator) -> tuple[torch.ByteTensor, torc
     elif accelerator.device.type == "xpu":
         gpu_rng_state = torch.xpu.get_rng_state()
     elif accelerator.device.type == "mps":
-        gpu_rng_state = torch.cuda.get_rng_state()
+        gpu_rng_state = torch.mps.get_rng_state()
     else:
         gpu_rng_state = None
 
@@ -200,7 +200,7 @@ def restore_rng_state(rng_states: tuple[torch.ByteTensor, torch.ByteTensor | Non
         elif accelerator.device.type == "xpu":
             torch.xpu.set_rng_state(gpu_rng_state)
         elif accelerator.device.type == "mps":
-            torch.cuda.set_rng_state(gpu_rng_state)
+            torch.mps.set_rng_state(gpu_rng_state)
 
 
 def train(args):

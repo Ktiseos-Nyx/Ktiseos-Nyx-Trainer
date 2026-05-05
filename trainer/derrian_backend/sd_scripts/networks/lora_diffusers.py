@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 try:
     from ramtorch.modules.linear import CPUBouncingLinear
 except ImportError:
-    logger.error("Failed to import ramtorch, please check ramtorch is installed correctly into the venv.")
+    logger.debug("ramtorch not available; CPU-bouncing linear disabled.")
     CPUBouncingLinear = type(None)
 
 def make_unet_conversion_map() -> Dict[str, str]:
