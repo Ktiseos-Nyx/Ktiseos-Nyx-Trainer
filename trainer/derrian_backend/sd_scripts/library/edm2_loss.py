@@ -69,7 +69,7 @@ class AdaptiveLossWeightMLP(nn.Module):
         self.a_bar_std = self.alphas_cumprod.std()
         self.logvar_fourier = FourierFeatureExtractor(logvar_channels, dtype=dtype)
         self.logvar_linear = NormalizedLinearLayer(logvar_channels, 1, kernel=[], dtype=dtype) # kernel = []? (not in code given, added matching edm2)
-        self.lambda_weights = lambda_weights.to(device=device, dtype=dtype) if lambda_weights is not None else torch.ones(1000, device=device)
+        self.lambda_weights = lambda_weights.to(device=device, dtype=dtype) if lambda_weights is not None else torch.ones(1000, device=device, dtype=dtype)
         self.noise_scheduler = noise_scheduler
         self.dtype=dtype
 
