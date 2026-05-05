@@ -981,7 +981,7 @@ def train(args):
                     noisy_latents = noisy_latents.to(weight_dtype)
 
                     with accelerator.autocast():
-                        noise_pred = unet(noisy_latents, timesteps, text_embedding, vector_embedding, encoder_attention_mask=masks_reshaped[1])
+                        noise_pred = unet(noisy_latents, timesteps, text_embedding, vector_embedding, encoder_attention_mask=masks_reshaped[1] if len(masks_reshaped) > 1 else None)
 
                     latents = latents.to(torch.float64)
                     noise = noise.to(torch.float64)

@@ -183,7 +183,7 @@ class LoRAModule(torch.nn.Module):
             # Move LoRA parameters to GPU
             self.lora_up.to(torch.cuda.current_device())
             self.lora_down.to(torch.cuda.current_device())
-            self.org_module.cpu()
+            self.org_module[0].cpu()
 
     # restore org_module's forward method
     def unapply_to(self):

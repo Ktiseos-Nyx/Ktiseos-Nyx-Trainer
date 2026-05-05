@@ -85,7 +85,7 @@ class OFTModule(torch.nn.Module):
         if getattr(self, "is_ramtorch_org", False):
             # Move LoRA parameters to GPU
             self.oft_blocks.to(torch.cuda.current_device())
-            self.org_module.cpu()
+            self.org_module[0].cpu()
 
     def get_weight(self, multiplier=None):
         if multiplier is None:

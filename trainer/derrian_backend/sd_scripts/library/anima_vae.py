@@ -496,17 +496,18 @@ class WanVAE_(nn.Module):
         self.decoder = Decoder3d(dim, z_dim, dim_mult, num_res_blocks,
                                  attn_scales, self.temperal_upsample, dropout)
 
-    def forward(self, x):
-        mu, log_var = self.encode(x)
+    def forward(self, x, scale=(0.0, 1.0)):
+        mu, log_var = self.encode(x, scale)
         z = self.reparameterize(mu, log_var)
-        x_recon = self.decode(z)
+        x_recon = self.decode(z, scale)
         return x_recon, mu, log_var
 
-    def encode(self, x, scale):
+    def encode(self, x, scale=(0.0, 1.0)):
         self.clear_cache()
         ## cache
         t = x.shape[2]
-        iter_ = 1 + (t - 1) // 4
+        remaining = max(t - 1, 0)
+        iter_ = 1 + (remaining + 3) // 4
         for i in range(iter_):
             self._enc_conv_idx = [0]
             if i == 0:
@@ -527,9 +528,9 @@ class WanVAE_(nn.Module):
         else:
             mu = (mu - scale[0]) * scale[1]
         self.clear_cache()
-        return mu
+        return mu, log_var
 
-    def decode(self, z, scale):
+    def decode(self, z, scale=(0.0, 1.0)):
         self.clear_cache()
         # z: [b,c,t,h,w]
         if isinstance(scale[0], torch.Tensor):
@@ -560,8 +561,8 @@ class WanVAE_(nn.Module):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def sample(self, imgs, deterministic=False):
-        mu, log_var = self.encode(imgs)
+    def sample(self, imgs, scale=(0.0, 1.0), deterministic=False):
+        mu, log_var = self.encode(imgs, scale)
         if deterministic:
             return mu
         std = torch.exp(0.5 * log_var.clamp(-30.0, 20.0))

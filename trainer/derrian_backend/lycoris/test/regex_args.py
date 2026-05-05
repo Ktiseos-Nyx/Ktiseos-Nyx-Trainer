@@ -37,8 +37,8 @@ def reset_globals():
             "exclude_name": [],
             "exclude_patterns": None,
             "include_patterns": None,
-            "reg_dims": None,
-            "reg_lrs": None,
+            "network_reg_dims": None,
+            "network_reg_lrs": None,
         }
     )
 
