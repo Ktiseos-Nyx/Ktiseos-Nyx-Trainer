@@ -13,6 +13,8 @@
  *   Production:  npm run start (uses this custom server)
  */
 
+process.env.NODE_ENV = process.env.NODE_ENV || 'production';
+
 const { createServer } = require('http');
 const next = require('next');
 
@@ -130,7 +132,7 @@ app.prepare().then(() => {
     res.on('finish', () => {
       if (isSkipped) return;
       const duration = Date.now() - start;
-      const slow = duration > 500 ? ' ⚠️ slow' : '';
+      const slow = duration > 5000 ? ' ⚠️ slow' : '';
       console.log(`${req.method} ${pathname} → ${res.statusCode} (${duration}ms${slow})`);
     });
   };

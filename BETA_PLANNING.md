@@ -829,6 +829,12 @@ The following features were inspired by Civitai's training interface:
 - #349: Upload progress indicator (needs XHR refactor, waiting a few days)
 - Tag Viewer + Bulk tag ops (larger feature work)
 
+**Ease assessments (2026-05-07):**
+- **#349 upload progress** — Easy. Infrastructure already exists (progress state, file status tracking). Two steps: (1) swap remote zip upload from `fetch` to `XMLHttpRequest` for `onprogress` events, (2) add `<Progress>` component to the UI. ~30-40 lines. Deferred, not tonight.
+- **#343 WandB logging UI** — Easy-Medium. Entire data layer exists (Zod schema, types, defaults, validation, API client, backend Pydantic). Only missing: rendered inputs. Add a `LoggingCard` with `log_with` dropdown + conditional WandB fields. One focused session. Pair with LT-1 backend wire-up.
+- **#340 tag viewer + bulk ops** — Medium. Part 1 (tag viewer): new `GET /api/dataset/{name}/tag-summary` endpoint + frontend chip/badge component. Logic is simple (`flatMap` → `reduce` → sort). Part 2 (bulk ops) builds directly on Part 1. Larger than 343 but very well scoped. Good candidate for a web session.
+- **#347 dashboard redesign** — Large. Visual design decisions + missing pages + workflow grouping hierarchy. Needs a dedicated focused session with component work. Not a quick fix — confirmed big lift.
+
 **CT-2 closed as N/A:** `/training` and `/checkpoint-training` are already separate pages — no unified form exists where LoRA fields would need to be hidden.
 
 ---
@@ -998,9 +1004,11 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 ## Section 12 — Security Review Backlog
 
-### 12.1 CWE-23 Path Traversal (Snyk, low urgency)
+### 12.1 CWE-23 Path Traversal (Snyk removed, low urgency, not today)
 
-Snyk flags unsanitised path traversal (CWE-23) across several Python service files. Partially false-positive for a single-user local tool, but worth a proper review pass before any public/multi-user deployment.
+> **2026-05-07 note:** Snyk has been removed from the project (rules were SaaS-calibrated noise for a local tool). Path traversal sanitisation is a *good idea in principle* but is **not imperative right now** — this is a single-user local tool, not a public web app. We could add it for belt-and-suspenders safety, but it's firmly in "yeah we should, but not today" territory. DeepScan is still active on the JS side; Bandit flagged as a future Python candidate if we ever want coverage again.
+
+~~Snyk flags~~ Path traversal (CWE-23) exists across several Python service files. Partially false-positive for a single-user local tool, but worth a sanitisation pass before any public/multi-user deployment.
 
 **Current state:**
 - `api/routes/files.py` — already protected: `is_safe_path()`, `ALLOWED_DIRS`, `is_relative_to()` used before every `open()`. Snyk false-positive here.
@@ -1040,6 +1048,33 @@ Snyk flags command injection (CWE-78) in Python files that pass user-controlled 
 - Consider adding a lint rule or comment convention to flag any future `shell=True` additions at review time
 
 **Effort:** Tiny (audit only, no fixes expected) | **Priority:** Low | **Status:** ⏳ Not started
+
+---
+
+---
+
+## Section 13 — In-App Documentation Cleanup
+
+### 13.1 Integrate upstream docs + remove hand-holding bias
+
+**Priority:** Low (post-in-house-testing)
+**Status:** ⏳ Not started
+
+The in-app `/docs` section needs a proper cleanup pass before beta. Two things to tackle together:
+
+**Source material to pull in:**
+- LyCORIS documentation — copy relevant parameter/network type explanations into the in-app docs
+- sd-scripts documentation — training flags, optimizer notes, scheduler behaviour etc.
+- Strip anything that's already outdated or contradicted by our vendored versions
+
+**Bias/tone cleanup:**
+- Remove hand-holdy warnings that assume the user doesn't know what they're doing (e.g. hardware requirement nags on pages where the user has already made the choice to be there)
+- "Unbiasify" any Claude-written docs that over-explain or hedge excessively
+- Changelog page (`app/changelog/`) exists but is removed from nav — either populate it from git history or delete the route entirely
+
+**Note:** Do not tackle this during active testing phases. Brain goes to FF9 Quina frog-catching, docs rot. Schedule for a dedicated docs sprint.
+
+**Effort:** Medium | **Blocked by:** Stable alpha + in-house testing complete
 
 ---
 

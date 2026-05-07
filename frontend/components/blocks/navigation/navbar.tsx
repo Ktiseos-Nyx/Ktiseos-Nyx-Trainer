@@ -20,7 +20,6 @@ import {
   Download,
   Files,
   Cpu,
-  FileText,
   Upload
 } from "lucide-react"
 import {
@@ -162,15 +161,6 @@ export function Navbar() {
               </NavigationMenuLink>
             </NavigationMenuItem>
 
-            {/* Changelog - Top level */}
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-                <Link href="/changelog" prefetch={false} className={navigationMenuTriggerStyle()}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Changelog
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
 
             {/* Settings - Top level */}
             <NavigationMenuItem>
