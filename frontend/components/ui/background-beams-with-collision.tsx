@@ -129,7 +129,7 @@ const CollisionMechanism = ({
   const [beamKey, setBeamKey] = useState(0);
   const [cycleCollisionDetected, setCycleCollisionDetected] = useState(false);
 
-  // Cache stable rects via ResizeObserver — only the moving beam needs per-tick measurement
+  // Cache stable rects — updated on resize and scroll so beam comparisons stay accurate
   useEffect(() => {
     const updateRects = () => {
       if (containerRef.current) containerRectRef.current = containerRef.current.getBoundingClientRect();
@@ -139,7 +139,13 @@ const CollisionMechanism = ({
     const ro = new ResizeObserver(updateRects);
     if (containerRef.current) ro.observe(containerRef.current);
     if (parentRef.current) ro.observe(parentRef.current);
-    return () => ro.disconnect();
+    window.addEventListener('scroll', updateRects, { passive: true });
+    window.addEventListener('resize', updateRects, { passive: true });
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('scroll', updateRects);
+      window.removeEventListener('resize', updateRects);
+    };
   }, [containerRef, parentRef]);
 
   useEffect(() => {

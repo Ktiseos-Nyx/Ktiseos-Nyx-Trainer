@@ -129,10 +129,11 @@ app.prepare().then(() => {
     const start = Date.now();
 
     // Hook into response finish to log with status code
+    const slowThreshold = Number(process.env.SLOW_REQUEST_THRESHOLD_MS) || 5000;
     res.on('finish', () => {
       if (isSkipped) return;
       const duration = Date.now() - start;
-      const slow = duration > 5000 ? ' ⚠️ slow' : '';
+      const slow = duration > slowThreshold ? ' ⚠️ slow' : '';
       console.log(`${req.method} ${pathname} → ${res.statusCode} (${duration}ms${slow})`);
     });
   };
