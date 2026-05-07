@@ -224,6 +224,11 @@ if exist "frontend\" (
             echo [Frontend] Dependencies missing, running npm install...
             pushd frontend
             npm install --legacy-peer-deps
+            if errorlevel 1 (
+                echo [Frontend] npm install failed. Check your Node.js version and network connection.
+                popd
+                exit /b 1
+            )
             popd
         )
         REM Check if .next build exists (or --rebuild-frontend requested)

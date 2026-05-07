@@ -40,7 +40,6 @@ const SD_ONLY_MODEL_TYPES = new Set<ModelType>(['SD15', 'SDXL']);
 function sanitizeModelFamilyFields(config: Partial<TrainingConfig>): void {
   if (!config.model_type || SD_ONLY_MODEL_TYPES.has(config.model_type)) return;
   delete config.clip_skip;
-  delete config.clip_skip_value;
 }
 
 /**

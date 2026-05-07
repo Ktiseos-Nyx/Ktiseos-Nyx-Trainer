@@ -117,6 +117,8 @@ const CollisionMechanism = ({
   };
 }) => {
   const beamRef = useRef<HTMLDivElement>(null);
+  const containerRectRef = useRef<DOMRect | null>(null);
+  const parentRectRef = useRef<DOMRect | null>(null);
   const [collision, setCollision] = useState<{
     detected: boolean;
     coordinates: { x: number; y: number } | null;
@@ -127,17 +129,36 @@ const CollisionMechanism = ({
   const [beamKey, setBeamKey] = useState(0);
   const [cycleCollisionDetected, setCycleCollisionDetected] = useState(false);
 
+  // Cache stable rects — updated on resize and scroll so beam comparisons stay accurate
+  useEffect(() => {
+    const updateRects = () => {
+      if (containerRef.current) containerRectRef.current = containerRef.current.getBoundingClientRect();
+      if (parentRef.current) parentRectRef.current = parentRef.current.getBoundingClientRect();
+    };
+    updateRects();
+    const ro = new ResizeObserver(updateRects);
+    if (containerRef.current) ro.observe(containerRef.current);
+    if (parentRef.current) ro.observe(parentRef.current);
+    window.addEventListener('scroll', updateRects, { passive: true });
+    window.addEventListener('resize', updateRects, { passive: true });
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('scroll', updateRects);
+      window.removeEventListener('resize', updateRects);
+    };
+  }, [containerRef, parentRef]);
+
   useEffect(() => {
     const checkCollision = () => {
       if (
         beamRef.current &&
-        containerRef.current &&
-        parentRef.current &&
+        containerRectRef.current &&
+        parentRectRef.current &&
         !cycleCollisionDetected
       ) {
         const beamRect = beamRef.current.getBoundingClientRect();
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const parentRect = parentRef.current.getBoundingClientRect();
+        const containerRect = containerRectRef.current;
+        const parentRect = parentRectRef.current;
 
         if (beamRect.bottom >= containerRect.top) {
           const relativeX =
@@ -159,7 +180,7 @@ const CollisionMechanism = ({
     const animationInterval = setInterval(checkCollision, 50);
 
     return () => clearInterval(animationInterval);
-  }, [cycleCollisionDetected, containerRef]);
+  }, [cycleCollisionDetected]);
 
   useEffect(() => {
     if (collision.detected && collision.coordinates) {

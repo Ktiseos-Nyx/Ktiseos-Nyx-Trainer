@@ -10,38 +10,38 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        border: "var(--border)", // <-- Changed!
-        input: "var(--input)", // <-- Changed!
-        ring: "var(--ring)", // <-- Changed!
-        background: "var(--background)", // <-- Changed!
-        foreground: "var(--foreground)", // <-- Changed!
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
         primary: {
-          DEFAULT: "var(--primary)", // <-- Changed!
-          foreground: "var(--primary-foreground)", // <-- Changed!
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
         },
         secondary: {
-          DEFAULT: "var(--secondary)", // <-- Changed!
-          foreground: "var(--secondary-foreground)", // <-- Changed!
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
         },
         destructive: {
-          DEFAULT: "var(--destructive)", // <-- Changed!
-          foreground: "var(--destructive-foreground)", // <-- Changed!
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
         },
         muted: {
-          DEFAULT: "var(--muted)", // <-- Changed!
-          foreground: "var(--muted-foreground)", // <-- Changed!
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
         },
         accent: {
-          DEFAULT: "var(--accent)", // <-- Changed!
-          foreground: "var(--accent-foreground)", // <-- Changed!
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
         },
         popover: {
-          DEFAULT: "var(--popover)", // <-- Changed!
-          foreground: "var(--popover-foreground)", // <-- Changed!
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
         },
         card: {
-          DEFAULT: "var(--card)", // <-- Changed!
-          foreground: "var(--card-foreground)", // <-- Changed!
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
         },
       },
       borderRadius: {

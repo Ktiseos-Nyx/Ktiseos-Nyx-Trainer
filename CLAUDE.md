@@ -27,10 +27,7 @@ When referencing code, include `file_path:line_number` so the user can navigate
 directly to it.
 
 ### Security & Vulnerability Management
-**Principle:** Security validation is mandatory, not optional. All code must pass security checks before completion.
 
-- **Scanning Requirement:** Run `snyk_code_scan` (or equivalent SAST/dependency scanner) on all new first-party code and dependency updates. Snyk is the default tool, but the underlying security workflow applies universally.
-- **Fix → Verify Cycle:** Address critical/high findings before marking work complete. Re-scan to confirm resolution. Document any accepted risks or verified false positives.
 - **Secure Defaults:** Validate/sanitize inputs, enforce least-privilege permissions, never hardcode secrets or credentials, and avoid permissive configurations (e.g., open CORS, debug mode in production).
 - **Dependency Hygiene:** Pin versions in lockfiles, audit third-party packages regularly, and replace unmaintained or flagged dependencies promptly.
 - **AI Generation Guardrails:** Proactively avoid known vulnerable patterns, suggest secure alternatives, and flag any security-sensitive changes (auth, file I/O, network calls, env vars) during code generation.
