@@ -91,7 +91,7 @@ const defaultConfig: TrainingConfig = {
   gradient_accumulation_steps: 1,
   max_grad_norm: 1.0,
   keep_tokens: 0,
-  clip_skip: 2,
+  clip_skip: 1,
   max_token_length: 225,
   caption_dropout_rate: 0.0,
   caption_tag_dropout_rate: 0.0,
