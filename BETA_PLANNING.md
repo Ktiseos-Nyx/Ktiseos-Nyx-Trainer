@@ -486,6 +486,28 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 
 ---
 
+### 5.0.95 Validation Schema / UI Dropdown Single Source of Truth
+
+**Issue PR-0: OptimizerSchema and LRSchedulerSchema drift from UI dropdown**
+- **Severity:** Medium (recurring bug class — caused #369)
+- **Flagged by:** CodeRabbit on PR #370
+- **Problem:** `OptimizerSchema` and `LRSchedulerSchema` in `validation.ts` are separate string arrays from the dropdown options in `OptimizerCard.tsx`. Every time a new optimizer/scheduler is added to the UI, it must be manually added to the schema too — and that drift is exactly what broke CAME/Compass/schedule-free optimizers before PR #370.
+- **Fix:** Export `OPTIMIZER_VALUES` and `LRSCHEDULER_VALUES` as `as const` tuples from `validation.ts`. Build the Zod schemas from those constants. `OptimizerCard.tsx` dropdown keeps its own labels/descriptions but TypeScript can enforce values only come from `OPTIMIZER_VALUES`. Future additions require touching one place.
+- **Status:** ⏳ This week (deferred from PR #370 — GPU was off)
+
+---
+
+### 5.0.96 Legacy Preset Audit — bmaltais Format Migration
+
+**Issue PR-2: ~30 built-in presets still use old nested `config:{}` format with legacy field names**
+- **Severity:** Medium (all old-format presets were silently broken before PR #370)
+- **Background:** Most built-in presets were imported from bmaltais's Kohya SS gradio scripts. They use legacy field names (`optimizer`, `epoch`, `learning_rate`, `batch_size`, `lr_warmup`, `max_resolution`, `dataset_repeats`) nested under a `config:` block — a completely different schema from the current `TrainingConfig`.
+- **Current state:** PR #370 added `normalizeLegacyPresetFields()` so these presets now *load* correctly via the mapping layer. But the files themselves are still in the old format, which is fragile.
+- **Fix:** Audit all presets in `presets/` and convert any still using the old nested format to the flat format used by newer presets (e.g. `lora_SDXL - Illustrious-XL CAME Conservative v1.0.json`). Remove obsolete fields, fix legacy field names, ensure types are correct (strings → numbers where needed).
+- **Status:** ⏳ Not started — low urgency since the mapping layer handles it, but good hygiene before beta
+
+---
+
 ### 5.1 Preset Optimizer Args Contamination
 
 **Issue PR-1: optimizer_args field picks up general training args from community presets**
