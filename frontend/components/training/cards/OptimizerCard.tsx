@@ -109,8 +109,8 @@ export function OptimizerCard({ form, onSave }: OptimizerCardProps) {
           form={form}
           name="optimizer_args"
           label="Optimizer Arguments (Advanced)"
-          description="JSON string of custom optimizer arguments (leave empty unless you know what you're doing)"
-          placeholder='{"betas": [0.9, 0.999]}'
+          description="Space-separated key=value pairs passed to the optimizer. Example for AdaFactor fixed-LR mode: scale_parameter=False relative_step=False warmup_init=False"
+          placeholder="weight_decay=0.1 d0=1e-6"
         />
       </CardContent>
     </Card>
