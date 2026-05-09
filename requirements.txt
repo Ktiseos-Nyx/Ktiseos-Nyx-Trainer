@@ -51,7 +51,7 @@ voluptuous>=0.15.2
 sentencepiece>=0.2.1
 wheel>=0.38.1  # SNYK-PYTHON-WHEEL-3180413 (CVE-2022-40898): path traversal in wheel install
 matplotlib==3.10.1
-ramtorch
+ramtorch==0.2.3
 
 # Image/Data Handling
 Pillow>=10.3.0
@@ -69,7 +69,7 @@ werkzeug>=3.0.3  # SNYK-PYTHON-WERKZEUG-6035177/6808933: transitive via wandb/te
 filelock>=3.16.0  # SNYK-PYTHON-FILELOCK-14458335/14912448: transitive via huggingface-hub
 urllib3>=2.4.0  # SNYK-PYTHON-URLLIB3-14192442/14192443/14896210: transitive via requests
 Markdown>=3.7.0  # SNYK-PYTHON-MARKDOWN-15428352: transitive via tensorboard/wandb
-kornia
+kornia>=0.8.2
 
 
 # Monitoring & Logging
