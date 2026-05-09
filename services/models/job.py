@@ -39,8 +39,13 @@ class JobStatus(BaseModel):
 
     # Optional progress details
     current_step: Optional[str] = Field(None, description="Current operation (e.g., 'Epoch 3/10')")
+    step_num: Optional[int] = None
+    total_steps: Optional[int] = None
     current_epoch: Optional[int] = Field(None, description="Current epoch number")
     total_epochs: Optional[int] = None
+    loss: Optional[float] = None
+    lr: Optional[float] = None
+    eta_seconds: Optional[int] = None
     current_image: Optional[str] = Field(None, description="Currently processing image")
     total_images: Optional[int] = None
 

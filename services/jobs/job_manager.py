@@ -114,10 +114,20 @@ class JobManager:
                         progress = self.log_parser.parse_training_log(log_line)
                         if progress:
                             job.progress = progress.progress_percent
-                            if progress.epoch:
+                            if progress.epoch is not None:
                                 job.current_epoch = progress.epoch
-                            if progress.total_epochs:
+                            if progress.total_epochs is not None:
                                 job.total_epochs = progress.total_epochs
+                            if progress.step is not None:
+                                job.step_num = progress.step
+                            if progress.total_steps is not None:
+                                job.total_steps = progress.total_steps
+                            if progress.loss is not None:
+                                job.loss = progress.loss
+                            if progress.lr is not None:
+                                job.lr = progress.lr
+                            if progress.eta_seconds is not None:
+                                job.eta_seconds = progress.eta_seconds
                             if progress.epoch and progress.total_epochs:
                                 job.current_step = f"Epoch {progress.epoch}/{progress.total_epochs}"
 
@@ -190,8 +200,13 @@ class JobManager:
             status=job.status,
             progress=job.progress,
             current_step=job.current_step,
+            step_num=job.step_num,
+            total_steps=job.total_steps,
             current_epoch=job.current_epoch,
             total_epochs=job.total_epochs,
+            loss=job.loss,
+            lr=job.lr,
+            eta_seconds=job.eta_seconds,
             current_image=job.current_image,
             total_images=job.total_images,
             created_at=job.created_at,

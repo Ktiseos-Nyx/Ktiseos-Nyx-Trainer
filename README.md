@@ -25,14 +25,15 @@ LoRA training system built on Kohya SS with a modern web UI (Next.js + FastAPI).
 
 ---
 
-## ALPHA — April 2026
+## Approaching Beta — May 2026
 
-Active development. Core training is working and verified across multiple LoRA types and model families. Expect rough edges, UI quirks, and the occasional surprise — that's what alpha is for.
+Core training is working and verified. Anima is now confirmed training. Heading into beta stabilization — expect continued polish and the occasional surprise, but the foundations are solid.
 
 ### Current State
 
-- ✅ **End-to-end training** — Verified on VastAI, RunPod, and local 4090. SDXL, Illustrious, Pony, Flux, NoobAI all confirmed working
+- ✅ **End-to-end training** — Verified on VastAI, RunPod, and local GPU. SDXL, Illustrious, Pony, Flux, NoobAI, **Anima** all confirmed working
 - ✅ **40+ community presets** — Real training configs from the community across AdamW8bit, CAME, Prodigy, AdaFactor, Compass, Lion8bit, DoRA, LoHa, LoCon, LyCORIS
+- ✅ **Training monitor** — Live step count, loss, learning rate, and ETA from tqdm output
 - ✅ **Dataset management** — Upload (individual, zip, URL), tag editor, bulk caption operations, WD14/BLIP/GIT auto-tagging
 - ✅ **Training config** — 132+ parameters across 7 tabs, preset system, form persistence across sessions
 - ✅ **Model browser** — Search and download from Civitai directly in the UI
@@ -43,7 +44,6 @@ Active development. Core training is working and verified across multiple LoRA t
 
 ### Known Rough Edges
 
-- 🔧 Training progress display shows 0/0 — log parsing in progress
 - 🔧 Preset list ordering is rough — organization pass coming in beta
 - 🔧 Compass, LPFAdamW, RMSProp optimizers are wired but have no UI dropdown yet
 - 🔧 Rex and CosineAnnealing schedulers vendored but not exposed in UI
@@ -57,20 +57,24 @@ Active development. Core training is working and verified across multiple LoRA t
 > This section lives on `dev` only. When merging to main, fold these into the roadmap and known rough edges below, then delete this block.
 
 **Shipped since last main merge (2026-04-30):**
-- ✅ Next.js 16 upgrade (security bump, PR #355) — removes the "gated on ComfyUI" note below
+- ✅ Next.js 16 upgrade (security bump, PR #355)
 - ✅ PostCSS CVE-2026-41305 patched
 - ✅ Dev-branch provisioning scripts for VastAI and RunPod
 - ✅ HF upload form now pre-fills token from saved settings; owner/repo type persist across navigations
 - ✅ Training log polling fixed (visibility-aware + fixed cadence — no more frozen logs on tab switch)
-- ✅ LoRA resize alpha field removed (it was silently ignored by the backend)
-- ✅ Merge/resize subprocesses now have timeouts (30 min resize, 1 hr merges)
-- ✅ CUDA availability check before passing `--device cuda` to any merge/resize operation
-- ✅ Checkpoint training page now shows SD3.5, Chroma, and Anima model types
+- ✅ LoRA resize alpha field removed (silently ignored by backend)
+- ✅ Merge/resize subprocesses now have timeouts
+- ✅ CUDA availability check before passing `--device cuda` to merge/resize
+- ✅ Checkpoint training page shows SD3.5, Chroma, and Anima model types
 - ✅ `enable_bucket` now respects user config (was hardcoded True)
-- ✅ `network_train_unet_only` no longer passed in checkpoint training mode (invalid arg there)
+- ✅ `network_train_unet_only` no longer passed in checkpoint training mode
+- ✅ **Anima training confirmed working** — optimizer_args TOML type fix, configs tracked
+- ✅ Training monitor now shows live step count, loss, LR, and accurate ETA (tqdm parsing)
+- ✅ Log poller race condition fixed — logs no longer freeze at a mid-run epoch on tab switch
+- ✅ shadcn CLI 3.6.1 → 4.7.0; fast-uri CVE-2026-6322 patched
+- ✅ Anima, SDXL, Illustrious, and Pony preset templates added to `presets/`
 
 **Known rough edges to update:**
-- Remove "Training progress display shows 0/0" if resolved by then
 - WandB logging UI still missing (LT-1 + UI-1, up next)
 
 ---
