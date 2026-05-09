@@ -28,6 +28,79 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { presetsAPI, type TrainingConfig, type PresetMetadata } from '@/lib/api';
 
+const LEGACY_OBSOLETE_FIELDS = new Set([
+  'train_text_encoder', 'xformers', 'mem_eff_attn', 'use_8bit_adam',
+  'create_buckets', 'create_caption', 'full_path', 'use_latent_files',
+  'num_cpu_threads_per_process', 'LoRA_type', 'noise_offset_type',
+  'additional_parameters', 'scale_weight_norms', 'decompose_both',
+  'save_last_n_steps',
+]);
+
+/**
+ * Maps old kohya-ss GUI preset field names to the current TrainingConfig schema.
+ * Only called for presets with a nested 'config' block (old format).
+ */
+function normalizeLegacyPresetFields(cfg: Record<string, unknown>): Partial<TrainingConfig> {
+  const out: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(cfg)) {
+    if (LEGACY_OBSOLETE_FIELDS.has(key)) continue;
+
+    switch (key) {
+      case 'optimizer':
+        // Old field; map to current name, fix common casing variations
+        if (!cfg.optimizer_type) {
+          const normalized = String(value) === 'Adafactor' ? 'AdaFactor' : value;
+          out.optimizer_type = normalized;
+        }
+        break;
+      case 'epoch':
+        if (!cfg.max_train_epochs) {
+          const n = typeof value === 'string' ? parseInt(value, 10) : Number(value);
+          if (!isNaN(n) && n > 0) out.max_train_epochs = n;
+        }
+        break;
+      case 'learning_rate':
+        if (!cfg.unet_lr) {
+          const lr = typeof value === 'string' ? parseFloat(value) : Number(value);
+          if (!isNaN(lr) && lr > 0) { out.unet_lr = lr; out.text_encoder_lr = lr; }
+        }
+        break;
+      case 'batch_size':
+        if (!cfg.train_batch_size) {
+          const n = typeof value === 'string' ? parseInt(value, 10) : Number(value);
+          if (!isNaN(n) && n > 0) out.train_batch_size = n;
+        }
+        break;
+      case 'lr_warmup':
+        if (!cfg.lr_warmup_steps) {
+          const n = typeof value === 'string' ? parseInt(value, 10) : Number(value);
+          if (!isNaN(n)) out.lr_warmup_steps = n;
+        }
+        break;
+      case 'max_resolution': {
+        if (!cfg.resolution) {
+          const res = parseInt(String(value).split(',')[0], 10);
+          if (!isNaN(res) && res >= 64) out.resolution = res;
+        }
+        break;
+      }
+      case 'dataset_repeats':
+        if (!cfg.num_repeats) {
+          const n = typeof value === 'string' ? parseInt(value, 10) : Number(value);
+          if (!isNaN(n) && n > 0) out.num_repeats = n;
+        }
+        break;
+      default:
+        // Pass through current-schema fields, skip empty-string values that would
+        // fail Zod validation on number/enum fields.
+        if (value !== '' && value !== null) out[key] = value;
+    }
+  }
+
+  return out as Partial<TrainingConfig>;
+}
+
 interface CustomPreset {
   id: string;
   name: string;
@@ -198,9 +271,20 @@ export default function PresetManager({
     try {
       const preset = await presetsAPI.get(presetId);
 
-      // Server presets have config at root level (not nested under .config)
-      // Extract metadata fields that aren't part of TrainingConfig
-      const { name, description, notes, base_model, optimizer, is_builtin, created_at, ...config } = preset as any;
+      // Strip metadata fields that aren't part of TrainingConfig.
+      // Also strip legacy top-level 'optimizer' and 'source' which some old presets include.
+      const { name, description, notes, base_model, optimizer, is_builtin, created_at, source, ...rest } = preset as any;
+
+      // Handle two preset formats:
+      // - Flat (new): training params at root level (e.g. optimizer_type, resolution)
+      // - Nested (old / user-saved): training params under a 'config' key with legacy field names
+      let config: Partial<TrainingConfig>;
+      if (rest.config && typeof rest.config === 'object' && !Array.isArray(rest.config)) {
+        const { config: nestedConfig, ...topLevelFields } = rest;
+        config = { ...topLevelFields, ...normalizeLegacyPresetFields(nestedConfig) };
+      } else {
+        config = rest;
+      }
 
       onLoadPreset(config);
       toast.success(`Loaded preset: ${name || presetId}`, {

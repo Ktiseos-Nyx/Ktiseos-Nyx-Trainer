@@ -41,6 +41,12 @@ export const OptimizerSchema = z.enum([
   'Prodigy',
   'AdaFactor',
   'CAME',
+  'Compass',
+  'LPFAdamW',
+  'RMSProp',
+  'AdamWScheduleFree',
+  'SGDScheduleFree',
+  'RAdamScheduleFree',
 ], {
   message: 'Please select a valid optimizer',
 });
@@ -56,6 +62,8 @@ export const LRSchedulerSchema = z.enum([
   'constant',
   'constant_with_warmup',
   'adafactor',
+  'rex',
+  'cosine_annealing',
 ], {
   message: 'Please select a valid learning rate scheduler',
 });
