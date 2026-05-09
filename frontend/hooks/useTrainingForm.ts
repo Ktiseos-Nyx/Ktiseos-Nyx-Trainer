@@ -290,7 +290,8 @@ export function useTrainingForm(options: {
   const formRef = useRef(form);
   formRef.current = form;
 
-  // 1. Hydrate from localStorage ONCE on client mount
+  // 1. Hydrate from localStorage, falling back to server if localStorage is
+  //    empty (adblockers, privacy browsers, and fresh cloud sessions wipe it).
   useEffect(() => {
     if (isHydratedRef.current) return;
 
@@ -298,10 +299,24 @@ export function useTrainingForm(options: {
     if (stored) {
       formRef.current.reset(stored, { keepDefaultValues: false });
       console.log('Hydrated form from localStorage:', stored.project_name);
+      isHydratedRef.current = true;
+      setIsHydrated(true);
+    } else {
+      // localStorage empty — try server-side last saved form state
+      fetch('/api/config/form')
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.success && data.config) {
+            formRef.current.reset(data.config, { keepDefaultValues: false });
+            console.log('Hydrated form from server:', data.config.project_name);
+          }
+        })
+        .catch(() => { /* server may not have a saved form yet — that's fine */ })
+        .finally(() => {
+          isHydratedRef.current = true;
+          setIsHydrated(true);
+        });
     }
-
-    isHydratedRef.current = true;
-    setIsHydrated(true);
   }, []);
 
   // 2. Auto-save: watch form changes → write to localStorage (debounced)
