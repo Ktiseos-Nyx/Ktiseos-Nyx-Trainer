@@ -51,7 +51,7 @@ voluptuous>=0.15.2
 sentencepiece>=0.2.1
 wheel
 matplotlib==3.10.1
-
+ramtorch
 
 # Image/Data Handling
 Pillow>=10.3.0
@@ -62,6 +62,7 @@ pyarrow>=16.1.0
 Jinja2>=3.1.6  # CVE fixes: alerts #60, #61, #63 (sandbox breakouts)
 imagesize>=1.4.1
 setuptools>=78.1.1
+kornia
 
 # Monitoring & Logging
 wandb==0.17.1
