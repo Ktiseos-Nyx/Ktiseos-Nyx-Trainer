@@ -39,6 +39,11 @@ export default function TrainingMonitor() {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const MAX_LOGS = 1000;
 
+  // Updated synchronously during render so effect cleanups always see the
+  // latest value — useEffect deps are stale closures, refs are not.
+  const isTrainingRef = useRef(status.is_training);
+  isTrainingRef.current = status.is_training;
+
   // Auto-scroll logs to bottom
   const scrollToBottom = () => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -180,8 +185,20 @@ export default function TrainingMonitor() {
     logPollerRef.current = poller;
 
     return () => {
-      poller.stop();
-      setConnected(false);
+      if (!isTrainingRef.current) {
+        // The status poller declared training done before the log poller could
+        // drain the final epochs. Let the log poller run — it self-terminates
+        // when the log endpoint returns 'completed' or 'failed'.
+        // Safety net: force-stop after 15s if the completion signal never arrives.
+        setTimeout(() => {
+          poller.stop();
+          setConnected(false);
+        }, 15000);
+      } else {
+        // Job changed or component unmounted — stop immediately.
+        poller.stop();
+        setConnected(false);
+      }
     };
   }, [status.is_training, jobId]);
 
