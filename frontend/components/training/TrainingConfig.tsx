@@ -155,6 +155,9 @@ export default function TrainingConfigNew() {
       const response = await trainingAPI.start(validatedConfig);
       if (response.success) {
         setTrainingJobId(response.job_id || null);
+        // Persist form state server-side so it survives browser sessions
+        // where localStorage is cleared (adblockers, privacy browsers, etc.)
+        configAPI.saveForm(validatedConfig).catch(() => { /* non-critical */ });
         // Store job ID for TrainingMonitor to pick up
         if (response.job_id && typeof window !== 'undefined') {
           localStorage.setItem('current_training_job_id', response.job_id);

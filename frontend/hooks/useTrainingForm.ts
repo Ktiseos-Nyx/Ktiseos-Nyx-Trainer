@@ -10,6 +10,7 @@ import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TrainingConfigSchema } from '@/lib/validation';
+import { configAPI } from '@/lib/api';
 import type { ModelType, TrainingConfig } from '@/lib/api';
 
 const STORAGE_KEY = 'training-config';
@@ -91,7 +92,7 @@ const defaultConfig: TrainingConfig = {
   gradient_accumulation_steps: 1,
   max_grad_norm: 1.0,
   keep_tokens: 0,
-  clip_skip: 2,
+  clip_skip: 1,
   max_token_length: 225,
   caption_dropout_rate: 0.0,
   caption_tag_dropout_rate: 0.0,
@@ -290,7 +291,8 @@ export function useTrainingForm(options: {
   const formRef = useRef(form);
   formRef.current = form;
 
-  // 1. Hydrate from localStorage ONCE on client mount
+  // 1. Hydrate from localStorage, falling back to server if localStorage is
+  //    empty (adblockers, privacy browsers, and fresh cloud sessions wipe it).
   useEffect(() => {
     if (isHydratedRef.current) return;
 
@@ -298,10 +300,23 @@ export function useTrainingForm(options: {
     if (stored) {
       formRef.current.reset(stored, { keepDefaultValues: false });
       console.log('Hydrated form from localStorage:', stored.project_name);
+      isHydratedRef.current = true;
+      setIsHydrated(true);
+    } else {
+      // localStorage empty — try server-side last saved form state
+      configAPI.loadForm()
+        .then((config) => {
+          if (config) {
+            formRef.current.reset(config, { keepDefaultValues: false });
+            console.log('Hydrated form from server:', config.project_name);
+          }
+        })
+        .catch(() => { /* server may not have a saved form yet — that's fine */ })
+        .finally(() => {
+          isHydratedRef.current = true;
+          setIsHydrated(true);
+        });
     }
-
-    isHydratedRef.current = true;
-    setIsHydrated(true);
   }, []);
 
   // 2. Auto-save: watch form changes → write to localStorage (debounced)

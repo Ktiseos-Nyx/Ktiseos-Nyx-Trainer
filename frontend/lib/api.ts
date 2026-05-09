@@ -1011,6 +1011,35 @@ export const configAPI = {
     const response = await fetch(`${API_BASE}/config/defaults`);
     return handleResponse(response);
   },
+
+  /**
+   * Save the training form state as JSON for cross-session recovery.
+   * Persists to config/last_training_form.json on the server so the form
+   * survives browser sessions where localStorage is cleared.
+   *
+   * @param config - Full training form values
+   */
+  saveForm: async (config: TrainingConfig): Promise<void> => {
+    const response = await fetch(`${API_BASE}/config/form`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!response.ok) throw new Error(`saveForm: HTTP ${response.status}`);
+  },
+
+  /**
+   * Load the last saved training form state from the server.
+   * Returns null if no saved state exists yet.
+   *
+   * @returns The saved TrainingConfig, or null if not found
+   */
+  loadForm: async (): Promise<TrainingConfig | null> => {
+    const response = await fetch(`${API_BASE}/config/form`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.success && data.config ? data.config : null;
+  },
 };
 
 // ========== Utilities Operations ==========
