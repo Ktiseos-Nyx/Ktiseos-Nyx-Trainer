@@ -10,6 +10,7 @@ import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TrainingConfigSchema } from '@/lib/validation';
+import { configAPI } from '@/lib/api';
 import type { ModelType, TrainingConfig } from '@/lib/api';
 
 const STORAGE_KEY = 'training-config';
@@ -303,12 +304,11 @@ export function useTrainingForm(options: {
       setIsHydrated(true);
     } else {
       // localStorage empty — try server-side last saved form state
-      fetch('/api/config/form')
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => {
-          if (data?.success && data.config) {
-            formRef.current.reset(data.config, { keepDefaultValues: false });
-            console.log('Hydrated form from server:', data.config.project_name);
+      configAPI.loadForm()
+        .then((config) => {
+          if (config) {
+            formRef.current.reset(config, { keepDefaultValues: false });
+            console.log('Hydrated form from server:', config.project_name);
           }
         })
         .catch(() => { /* server may not have a saved form yet — that's fine */ })
