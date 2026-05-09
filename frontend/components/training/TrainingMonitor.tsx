@@ -161,6 +161,20 @@ export default function TrainingMonitor() {
               progress_percent: data.progress as number,
             },
           }));
+        } else if (data.type === 'step_progress') {
+          setStatus((prev) => ({
+            ...prev,
+            progress: {
+              ...prev.progress,
+              ...(data.step_num !== undefined && { current_step: data.step_num }),
+              ...(data.total_steps !== undefined && { total_steps: data.total_steps }),
+              ...(data.current_epoch !== undefined && { current_epoch: data.current_epoch }),
+              ...(data.total_epochs !== undefined && { total_epochs: data.total_epochs }),
+              ...(data.loss !== undefined && { loss: data.loss }),
+              ...(data.lr !== undefined && { lr: data.lr }),
+              ...(data.eta_seconds !== undefined && { eta_seconds: data.eta_seconds }),
+            },
+          }));
         } else if (data.type === 'status') {
           if (data.status === 'completed') {
             setStatus({ is_training: false });
@@ -214,12 +228,19 @@ export default function TrainingMonitor() {
 
   const getTimeRemaining = () => {
     if (!status.progress) return 'Calculating...';
-    const { current_step, total_steps } = status.progress;
-    if (!current_step || !total_steps) return 'Unknown';
+    const { eta_seconds, current_step, total_steps } = status.progress as any;
 
+    // Use tqdm's parsed ETA if available — it's far more accurate than our estimate
+    if (eta_seconds !== undefined && eta_seconds !== null) {
+      if (eta_seconds < 60) return `~${eta_seconds}s`;
+      const h = Math.floor(eta_seconds / 3600);
+      const m = Math.floor((eta_seconds % 3600) / 60);
+      return h > 0 ? `~${h}h ${m}m` : `~${m}m`;
+    }
+
+    if (!current_step || !total_steps) return 'Unknown';
     const stepsRemaining = total_steps - current_step;
     const estimatedMinutes = Math.ceil(stepsRemaining * 0.1);
-
     if (estimatedMinutes < 60) return `~${estimatedMinutes}m`;
     const hours = Math.floor(estimatedMinutes / 60);
     const minutes = estimatedMinutes % 60;

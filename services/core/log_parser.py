@@ -20,7 +20,8 @@ class TrainingProgress:
     step: Optional[int] = None
     total_steps: Optional[int] = None
     loss: Optional[float] = None
-    lr: Optional[float] = None  # Learning rate
+    lr: Optional[float] = None
+    eta_seconds: Optional[int] = None
     progress_percent: int = 0  # 0-100
 
 
@@ -47,9 +48,15 @@ class LogParser:
 
     # Regex patterns for Kohya training logs
     EPOCH_PATTERN = re.compile(r'epoch[:\s]+(\d+)(?:/(\d+))?', re.I)
-    STEP_PATTERN = re.compile(r'step[:\s]+(\d+)(?:/(\d+))?', re.I)
-    LOSS_PATTERN = re.compile(r'loss[:\s=]+([0-9.]+)', re.I)
-    LR_PATTERN = re.compile(r'lr[:\s=]+([0-9.e-]+)', re.I)
+    # Kohya uses tqdm: "steps:  20%|██ | 100/500 [02:03<08:15, 0.8it/s, avr_loss=0.04]"
+    # The | before the numbers is the separator between the bar and the counts.
+    TQDM_STEP_PATTERN = re.compile(r'\|\s*(\d+)/(\d+)\s*\[')
+    STEP_PATTERN = re.compile(r'step[s]?[:\s]+(\d+)(?:/(\d+))?', re.I)
+    # avr_loss= is Kohya's tqdm key; also handle plain loss: format
+    LOSS_PATTERN = re.compile(r'(?:avr_)?loss[:\s=]+([0-9.]+)', re.I)
+    LR_PATTERN = re.compile(r'\blr[:\s=]+([0-9.e+-]+)', re.I)
+    # ETA from tqdm "[elapsed<remaining]": "<08:15" or "<01:23:45"
+    TQDM_ETA_PATTERN = re.compile(r'<(\d+):(\d+)(?::(\d+))?[,\]\s]')
 
     # WD14 tagger patterns
     TAGGING_IMAGE_PATTERN = re.compile(r'(\d+)/(\d+)', re.I)
@@ -90,15 +97,16 @@ class LogParser:
                 progress.total_epochs = int(epoch_match.group(2))
             found_anything = True
 
-        # Extract step
-        step_match = cls.STEP_PATTERN.search(log_line)
+        # Extract step — try tqdm format first (| 100/500 [), then plain text
+        tqdm_step_match = cls.TQDM_STEP_PATTERN.search(log_line)
+        step_match = tqdm_step_match or cls.STEP_PATTERN.search(log_line)
         if step_match:
             progress.step = int(step_match.group(1))
             if step_match.group(2):
                 progress.total_steps = int(step_match.group(2))
             found_anything = True
 
-        # Extract loss
+        # Extract loss (avr_loss= from tqdm, or loss: from plain lines)
         loss_match = cls.LOSS_PATTERN.search(log_line)
         if loss_match:
             try:
@@ -115,6 +123,15 @@ class LogParser:
                 found_anything = True
             except ValueError:
                 pass
+
+        # Extract ETA from tqdm "<MM:SS" or "<HH:MM:SS"
+        eta_match = cls.TQDM_ETA_PATTERN.search(log_line)
+        if eta_match:
+            parts = [int(x) for x in eta_match.groups() if x is not None]
+            if len(parts) == 2:
+                progress.eta_seconds = parts[0] * 60 + parts[1]
+            elif len(parts) == 3:
+                progress.eta_seconds = parts[0] * 3600 + parts[1] * 60 + parts[2]
 
         # Calculate progress percentage
         if progress.epoch and progress.total_epochs:

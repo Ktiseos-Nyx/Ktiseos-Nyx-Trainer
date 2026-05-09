@@ -269,8 +269,13 @@ class TrainingStatusResponse(BaseModel):
     status: str
     progress: int = 0
     current_step: Optional[str] = None
+    step_num: Optional[int] = None
+    total_steps: Optional[int] = None
     current_epoch: Optional[int] = None
     total_epochs: Optional[int] = None
+    loss: Optional[float] = None
+    lr: Optional[float] = None
+    eta_seconds: Optional[int] = None
     error: Optional[str] = None
 
 
@@ -337,8 +342,13 @@ async def get_training_status(job_id: str):
             status=status.status.value,
             progress=status.progress,
             current_step=status.current_step,
+            step_num=status.step_num,
+            total_steps=status.total_steps,
             current_epoch=status.current_epoch,
             total_epochs=status.total_epochs,
+            loss=status.loss,
+            lr=status.lr,
+            eta_seconds=status.eta_seconds,
             error=status.error,
         )
 
@@ -394,8 +404,15 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
             "total_logs": len(job.logs),
             "status": job.status.value,
             "progress": job.progress,
+            "step_num": job.step_num,
+            "total_steps": job.total_steps,
+            "current_epoch": job.current_epoch,
+            "total_epochs": job.total_epochs,
+            "loss": job.loss,
+            "lr": job.lr,
+            "eta_seconds": job.eta_seconds,
             "error": job.error,
-            "next_since": since + len(logs),  # client sends this as next 'since'
+            "next_since": since + len(logs),
         }
 
     except HTTPException:

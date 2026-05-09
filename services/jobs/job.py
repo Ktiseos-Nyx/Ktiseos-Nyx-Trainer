@@ -30,9 +30,14 @@ class Job:
 
     # Progress tracking
     progress: int = 0  # 0-100
-    current_step: Optional[str] = None
+    current_step: Optional[str] = None  # human-readable label, e.g. "Epoch 1/10"
+    step_num: Optional[int] = None      # numeric step index from tqdm
+    total_steps: Optional[int] = None
     current_epoch: Optional[int] = None
     total_epochs: Optional[int] = None
+    loss: Optional[float] = None
+    lr: Optional[float] = None
+    eta_seconds: Optional[int] = None
     current_image: Optional[str] = None
     total_images: Optional[int] = None
 
