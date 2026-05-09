@@ -23,6 +23,8 @@ export default function HuggingFaceUploadPage() {
   const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [useStoredToken, setUseStoredToken] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +95,25 @@ export default function HuggingFaceUploadPage() {
       }
     } catch (err) {
       setTokenValid(false);
+    }
+  };
+
+  const handleSaveToken = async () => {
+    if (!hfToken.trim()) return;
+    setSavingToken(true);
+    try {
+      const res = await fetch('/api/settings/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ huggingface_token: hfToken }),
+      });
+      if (res.ok) {
+        setUseStoredToken(true);
+        setTokenSaved(true);
+        setTimeout(() => setTokenSaved(false), 3000);
+      }
+    } finally {
+      setSavingToken(false);
     }
   };
 
@@ -227,11 +248,29 @@ export default function HuggingFaceUploadPage() {
                   className="flex-1"
                   placeholder={useStoredToken ? 'Using saved token — type to override' : 'hf_...'}
                 />
-                <Button type="button" onClick={handleValidateToken}>
+                <Button type="button" onClick={handleValidateToken} disabled={!hfToken.trim()}>
                   Validate
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleSaveToken}
+                  disabled={!hfToken.trim() || savingToken}
+                >
+                  {savingToken ? <Loader2 className="w-4 h-4 animate-spin" /> : tokenSaved ? <CheckCircle className="w-4 h-4" /> : 'Save'}
                 </Button>
               </div>
 
+              {tokenSaved && (
+                <p className="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> Token saved — will be remembered next time
+                </p>
+              )}
+              {useStoredToken && !hfToken && (
+                <p className="mt-2 text-xs text-cyan-600 dark:text-cyan-400">
+                  Using saved token from settings
+                </p>
+              )}
               {tokenValid !== null && (
                 <div className={`mt-2 flex items-center gap-2 text-sm ${tokenValid ? 'text-green-600' : 'text-red-600'}`}>
                   {tokenValid ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
