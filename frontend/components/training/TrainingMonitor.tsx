@@ -36,6 +36,7 @@ export default function TrainingMonitor() {
   });
 
   const logPollerRef = useRef<LogPoller | null>(null);
+  const drainTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const MAX_LOGS = 1000;
 
@@ -199,14 +200,19 @@ export default function TrainingMonitor() {
     logPollerRef.current = poller;
 
     return () => {
+      if (drainTimeoutRef.current) {
+        clearTimeout(drainTimeoutRef.current);
+        drainTimeoutRef.current = null;
+      }
+
       if (!isTrainingRef.current) {
         // The status poller declared training done before the log poller could
         // drain the final epochs. Let the log poller run — it self-terminates
         // when the log endpoint returns 'completed' or 'failed'.
         // Safety net: force-stop after 15s if the completion signal never arrives.
-        setTimeout(() => {
+        drainTimeoutRef.current = setTimeout(() => {
           poller.stop();
-          setConnected(false);
+          if (logPollerRef.current === poller) setConnected(false);
         }, 15000);
       } else {
         // Job changed or component unmounted — stop immediately.

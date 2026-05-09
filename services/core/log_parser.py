@@ -132,6 +132,7 @@ class LogParser:
                 progress.eta_seconds = parts[0] * 60 + parts[1]
             elif len(parts) == 3:
                 progress.eta_seconds = parts[0] * 3600 + parts[1] * 60 + parts[2]
+            found_anything = True
 
         # Calculate progress percentage
         if progress.epoch and progress.total_epochs:

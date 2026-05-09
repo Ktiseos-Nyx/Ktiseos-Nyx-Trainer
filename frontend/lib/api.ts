@@ -899,7 +899,15 @@ export const trainingAPI = {
           }
           // Forward step/loss/lr/eta parsed from tqdm so the monitor stats update
           // on every log poll (1s cadence) rather than waiting for the 2s status poll.
-          if (data.step_num !== undefined || data.loss !== undefined || data.eta_seconds !== undefined) {
+          if (
+            data.step_num !== undefined ||
+            data.total_steps !== undefined ||
+            data.current_epoch !== undefined ||
+            data.total_epochs !== undefined ||
+            data.loss !== undefined ||
+            data.lr !== undefined ||
+            data.eta_seconds !== undefined
+          ) {
             onMessage({
               type: 'step_progress',
               step_num: data.step_num,
