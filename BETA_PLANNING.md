@@ -857,8 +857,25 @@ The goal is a healthy, interconnected set of tools running on the same VastAI/Ru
 ### 11.1 ComfyUI Frontend Integration
 
 **Priority:** Beta+ (after core beta bugs closed)  
-**Status:** Template acquired, architecture planned  
-**Source:** v0-generated template (`b_xNk9Kzq6SWm`), to be adapted — not dropped in wholesale  
+**Status:** Template acquired, architecture planned. **Shipping decision: all-in-one.**
+**Source:** v0-generated template, repo at `duskfallcrew/KNX-ComfyUI`, to be adapted — not dropped in wholesale
+
+#### Shipping decision (2026-05-09)
+
+ComfyUI tab ships **bundled in the main app**. No install flag, no optional clone, no separate repo dependency. Reasons:
+
+- Next.js code-splits routes — the ComfyUI bundle costs **zero RAM until someone actually navigates to the tab**
+- The only RAM that matters is the ComfyUI Python backend, which the user controls independently
+- Simpler onboarding: one install, one URL, one app
+- "Throw wide the gates" — don't gate features behind install complexity
+
+**UX for users without ComfyUI:**
+- `/comfyui` tab is always visible in the navbar
+- If the backend isn't reachable, the page shows a friendly skeleton/disconnected state (not an error)
+- Settings page has a "ComfyUI URL" field (default: `http://localhost:8188`) so users who already have ComfyUI running somewhere can point the app at it — no re-install needed
+- Connection status badge on the tab so it's obvious at a glance whether it's live
+
+
 
 #### What the template provides
 
@@ -902,6 +919,13 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 **COMFY-4: Settings integration**
 - Add ComfyUI URL field to existing settings page (`frontend/app/settings/page.tsx`)
 - Read from settings store rather than hardcoding; show connection status badge
+
+**COMFY-6 (long-horizon): Custom node plugin system**
+- Custom node packs map to UI component "plugins" — similar to A1111's extension system
+- Installing a custom node pack (e.g. ControlNet, Impact Pack) surfaces a friendly UI panel for it rather than raw node inputs
+- Foundation already exists: `lib/comfy/types.ts` has full ComfyUI API typing to build node→component mapping on
+- Research: Dataset-Tools already has `lib/comfyui-node-registry.ts` and `lib/comfyui-github-search.ts` — may be the starting point
+- **Do not design this until COMFY-1 through COMFY-4 are shipped and stable**
 
 **COMFY-5 (dream feature): "Test in ComfyUI" post-training shortcut**
 - When a training job completes, show a "Open in ComfyUI" button on `TrainingMonitor`
@@ -972,6 +996,8 @@ These handoffs are URL-based (no shared state stores), keeping the projects loos
 - The Python `dataset_tools/` CLI is a separate tool; ignore it for web integration
 - Dataset Tools' `app/api/fs/route.ts` restricts file access to a configured base folder — on VastAI the default base should be `/workspace`
 - `.thumbcache/` directory generates WebP thumbnails via `sharp` — on VastAI this lives inside the Dataset-Tools repo directory, which is fine
+- **Dataset-Tools already has ComfyUI integration:** `ComfyUIWorkflowViewer.tsx`, `app/api/comfyui-nodes/route.ts`, `lib/comfyui-node-registry.ts`, `lib/comfyui-github-search.ts`. These may be reusable directly in the trainer's ComfyUI tab — check before building from scratch.
+- **UI component goldmine:** glassmorphism components (`glass-notification`, `glass-popover`), glowing effects (`glowing-effect`, `glowingbordercard`), `smooth-cursor`, `vercel-card`, `vercel-tabs`, `kokonutui/ai-loading`. All Next.js 16 + shadcn/ui — direct transplant candidates for the UI unjankification work (Section 14).
 
 ---
 
@@ -991,9 +1017,9 @@ As more tools are integrated, these rules keep things from becoming a mess:
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
 | COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ⏳ Not started |
-| COMFY-2: Copy lib/stores/hooks layer | Integration | Tiny | ⏳ Not started |
-| COMFY-3: UI page + navbar link | Integration | Small | ⏳ Not started |
-| COMFY-4: Settings integration | UX | Tiny | ⏳ Not started |
+| COMFY-2: Copy lib/stores/hooks layer from KNX-ComfyUI | Integration | Tiny | ⏳ Not started |
+| COMFY-3: UI page + navbar link + skeleton disconnected state | Integration | Small | ⏳ Not started |
+| COMFY-4: Settings integration (ComfyUI URL field) | UX | Tiny | ⏳ Not started |
 | COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
 | DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
@@ -1075,6 +1101,100 @@ The in-app `/docs` section needs a proper cleanup pass before beta. Two things t
 **Note:** Do not tackle this during active testing phases. Brain goes to FF9 Quina frog-catching, docs rot. Schedule for a dedicated docs sprint.
 
 **Effort:** Medium | **Blocked by:** Stable alpha + in-house testing complete
+
+---
+
+---
+
+## Section 14 — UI Unjankification: The Gate-Ripping
+
+**Priority:** Beta (parallel to feature work — can start any time)  
+**Status:** Planning phase — 2026-05-09  
+**Codename:** "Throw wide the gates" (yes, this is a Crystal Exarch reference, we're keeping it)
+
+### 14.1 The Problem
+
+The trainer works. Performance is excellent — lighter than Gradio alone by a wide margin. But visually the UI is "Gradio adjacent": dense, muted, flat, functional-first but aesthetically anonymous. This happened because we stopped worrying about the UI once the trainer itself needed fixing. Now the trainer is mostly working. Time.
+
+The goal is NOT a ground-up redesign. The component architecture is good, shadcn/ui is good, the structure is sound. The goal is: make it **feel like a product someone chose to use**, not a tool someone had to use.
+
+### 14.2 What "Gradio Adjacent" Actually Means (and what to fix)
+
+| Current state | Target state |
+|--------------|--------------|
+| Muted blue/gray palette with no identity | A visual identity that's distinctly KNX |
+| Cards look identical regardless of importance | Visual hierarchy — primary workflow stands out |
+| Rainbow icon colors (`text-cyan-400`, `text-pink-400`) with no semantic meaning | Semantic color use — colors mean something |
+| Dense form fields stacked with minimal breathing room | Better spacing, section grouping, visual separation |
+| No "alive" feeling — dashboard is a static grid | At least one live element (active job, recent dataset) |
+| Placeholder text that explains nothing or explains too much | Tight, useful placeholder copy |
+| Error states that look the same as empty states | Distinct states: loading / empty / error / disconnected |
+| Training form is one very long scroll with no orientation | Clear sections, maybe sticky section nav or progress steps |
+
+### 14.3 Specific Areas
+
+**A. Visual identity / color**
+- **Don't build a theme system — port one.** Dataset-Tools (`Ktiseos-Nyx/Dataset-Tools`) already has a complete, polished theme system: `ThemeCustomizer` (floating toolbar), `color-swatch-selector`, `theme-toggle`, `useThemeColor()` hook. Port these directly. See Dataset-Tools issue #196 "UI/UX Theory!" for context.
+- The system uses `data-theme-color` attribute on `documentElement` + CSS variables, with localStorage persistence. 7 accent colors (zinc, red, orange, green, blue, violet, pink). Pairs with `next-themes` for dark/light.
+- After porting: pick which accent color(s) to default to for KNX's visual identity. The site's meteor hero has character — the inner pages should match it.
+- Semantic colors: green = active/running, amber = warning/needs attention, red = error/stopped, blue = info. Don't use them decoratively.
+
+**B. Dashboard (already tracked as UI-2)**
+- Workflow grouping (Dataset → Tag → Train → Upload) instead of 9 undifferentiated tiles
+- Live "active jobs" widget at top
+- All routes actually listed, not just the 9 currently there
+
+**C. Training form**
+- The form is extremely long. Users lose orientation.
+- Options: sticky sidebar with section links, collapsible card sections, a step-indicator at the top
+- Progressive disclosure: hide rarely-used advanced fields behind an "Advanced" expander per card. Most users never touch `lr_power`, `rank_dropout`, `module_dropout` etc.
+- Required fields vs optional fields should look different
+
+**D. Empty/loading/error states**
+- Every page that fetches data (models list, dataset list, files) needs a proper skeleton loader, empty state with a CTA, and error state that tells you what to do
+- Currently most pages go from loading spinner to content with nothing in between
+- Empty states should be friendly: "No datasets yet — upload one to get started" with a button, not just blank space
+
+**E. Feedback and toasts**
+- Toast messages are functional but terse. Slightly warmer copy ("Training started! You can close this tab — it'll keep running." not just "Training started.")
+- Success toasts feel the same as info toasts. Green for success, neutral for info.
+
+**F. The nav**
+- Navbar is functional but dense. On wider screens there's room to show more.
+- Consider: active route highlighting is too subtle currently
+- Ecosystem tools (ComfyUI, Dataset Tools when added) should have a distinct "Ecosystem" group in the nav
+
+### 14.4 What NOT to do
+
+- Don't do a full design system overhaul. Keep shadcn/ui, keep the component structure.
+- Don't add animations for their own sake. Motion only where it aids understanding (loading states, transitions, not decorative spinning).
+- Don't make it look like every other AI tool (dark blue + purple gradient = "I was made in an AI studio"). Avoid that.
+- Don't touch the meteor background bleed on the hero. It's intentional, it has character.
+- Don't redesign and then lose all the accessibility work that's already in place.
+
+### 14.5 Approach
+
+This is iterative, not a big-bang redesign. Work page by page, card by card:
+
+1. **Color/identity** — establish the palette first, apply globally. One session.
+2. **Dashboard** — already scoped as UI-2. Pair with color work.
+3. **Training form** — progressive disclosure + section orientation. Largest single effort.
+4. **Empty/loading/error states** — page by page, can be spread across sessions.
+5. **Copy pass** — placeholder text, toast messages, descriptions. Fast, high-impact.
+6. **Nav polish** — last, once content is stable.
+
+### 14.6 Priority Matrix
+
+| Task | Effort | Impact | Status |
+|------|--------|--------|--------|
+| Port theme system from Dataset-Tools (customizer + swatches + hook) | Small | High | ⏳ Not started |
+| Dashboard redesign (UI-2) | Medium | High | ⏳ Not started |
+| Training form: progressive disclosure | Medium | High | ⏳ Not started |
+| Training form: section nav / orientation | Small | Medium | ⏳ Not started |
+| Empty/loading/error states (all pages) | Medium | High | ⏳ Not started |
+| Toast copy pass | Tiny | Medium | ⏳ Not started |
+| Nav: active states + ecosystem group | Small | Medium | ⏳ Not started |
+| Semantic color pass (icons, badges) | Small | Medium | ⏳ Not started |
 
 ---
 
