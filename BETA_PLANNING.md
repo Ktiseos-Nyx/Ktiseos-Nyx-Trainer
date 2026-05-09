@@ -933,7 +933,7 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 - Requires: COMFY-1 through COMFY-4 complete + ComfyUI actually running on the instance
 
 #### Notes
-- ComfyUI is NOT bundled — the user installs and runs it separately on the same instance. The provisioning scripts (`vastai_setup.sh`, `provision_runpod.sh`) may eventually install it, but that's a separate decision.
+- ComfyUI the **backend** is not bundled — the user installs and runs it separately. The frontend tab is always present; it shows a disconnected skeleton state if the backend isn't reachable. The provisioning scripts (`vastai_setup.sh`, `provision_runpod.sh`) may optionally install it, but that's a separate decision.
 - The template has workflow builders for `inpaint`, `controlnet`, and `adetailer` types referenced in `types.ts` but not yet built in `workflows/`. Those are future scope.
 - Check whether `zustand` is already a dep before adding it — the stores use it.
 

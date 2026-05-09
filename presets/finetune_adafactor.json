@@ -26,7 +26,7 @@
   "lr_power": 1,
 
   "optimizer_type": "AdaFactor",
-  "optimizer_args": "scale_parameter=True relative_step=True warmup_init=True weight_decay=2",
+  "optimizer_args": "scale_parameter=True relative_step=True warmup_init=True",
   "weight_decay": 0.01,
   "gradient_accumulation_steps": 1,
   "max_grad_norm": 1.0,
