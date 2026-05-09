@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the **frontend** subdirectory of the Ktiseos-Nyx-Trainer project. The parent repository is a **web-based LoRA training environment** with a FastAPI backend. This frontend provides a modern Next.js web interface for training LoRA models.
 
-**Architecture**: Next.js 15 (frontend) → FastAPI (backend) → Services (business logic) → Kohya SS (training)
+**Architecture**: Next.js 16 (frontend) → FastAPI (backend) → Services (business logic) → Kohya SS (training)
 
 **For backend/training documentation, see the parent directory's CLAUDE.md.**
 
@@ -51,7 +51,7 @@ npm run lint
 ## Architecture Overview
 
 ### Tech Stack
-- **Framework**: Next.js 15.5.14 (App Router, React 19 stable)
+- **Framework**: Next.js 16.2.4 (App Router, React 19 stable)
 - **Language**: TypeScript 5.4+
 - **Styling**: Tailwind CSS v4 with CSS custom properties for theming
 - **UI Components**: shadcn/ui ecosystem (Radix UI primitives)
@@ -59,9 +59,9 @@ npm run lint
 - **State Management**: React hooks + TanStack Query
 - **WebSockets**: Native WebSocket API for real-time logs
 
-### App Router Structure (Next.js 15)
+### App Router Structure (Next.js 16)
 
-The project uses Next.js 15's App Router with the following convention:
+The project uses Next.js 16's App Router with the following convention:
 - `app/` - All routes and pages
 - `app/layout.tsx` - Root layout with theme provider, navbar, footer
 - `app/page.tsx` - Homepage with animated hero
@@ -354,4 +354,4 @@ The frontend provides:
 3. **Use shadcn/ui components** - Check `SHADCN_COMPONENTS.md` before building custom
 4. **TypeScript everywhere** - No plain JavaScript files
 5. **API client centralization** - All backend calls through `lib/api.ts`
-6. **Security updates** - Next.js 15.5.14 (CVE-2026-27980, 29057, 33671, 33228 patched)
+6. **Security updates** - Next.js 16.2.4 (security bump from 15.x)

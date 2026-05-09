@@ -199,11 +199,13 @@ $RECYCLE.BIN/
 # ----------------------------------------------------------------------------
 *.env
 .env.*
-config.json
 secrets.json
 api_keys.txt
 hf_token.txt
 config/user_settings.json
+
+# Negation for the bundled model configs
+!trainer/derrian_backend/sd_scripts/configs/**/*.json
 
 # AI agent instruction files — public versions tracked, local variants private
 # AGENTS.md, CLAUDE.md, GEMINI.md, QWEN.md are intentionally tracked

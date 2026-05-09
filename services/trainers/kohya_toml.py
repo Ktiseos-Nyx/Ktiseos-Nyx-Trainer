@@ -6,6 +6,7 @@ Generates FLAT toml files compatible with sd-scripts train_network.py variants.
 
 import logging
 import os
+import shlex
 from pathlib import Path
 from typing import Any, Dict
 
@@ -440,7 +441,9 @@ class KohyaTOMLGenerator:
         if self.config.log_prefix:
             args["log_prefix"] = self.config.log_prefix
         if self.config.optimizer_args:
-            args["optimizer_args"] = self.config.optimizer_args
+            # Kohya expects optimizer_args as a list of "key=value" strings in TOML,
+            # not a single space-separated string. shlex.split preserves quoted values.
+            args["optimizer_args"] = shlex.split(self.config.optimizer_args)
 
         # Save/sample intervals - only include when > 0 to avoid ZeroDivisionError
         # (Kohya does `global_step % save_every_n_steps` which crashes on 0)
