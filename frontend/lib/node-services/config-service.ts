@@ -408,16 +408,16 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     output_dir: rpLocal(config.output_dir),
     output_name: config.output_name,
     seed: config.seed,
+    learning_rate: config.unet_lr,
     unet_lr: config.unet_lr,
     text_encoder_lr: config.text_encoder_lr,
     lr_scheduler: config.lr_scheduler,
     lr_scheduler_num_cycles: config.lr_scheduler_number,
-    lr_warmup_ratio: config.lr_warmup_ratio,
-    lr_warmup_steps: config.lr_warmup_steps,
-    lr_power: config.lr_power,
+    // lr_warmup_steps accepts int (steps) or float <1 (ratio) — use ratio when steps not explicitly set
+    lr_warmup_steps: config.lr_warmup_steps > 0 ? config.lr_warmup_steps : config.lr_warmup_ratio,
+    lr_scheduler_power: config.lr_power,
     optimizer_type: config.optimizer_type,
     max_grad_norm: config.max_grad_norm,
-    weight_decay: config.weight_decay,
     max_token_length: config.max_token_length,
     weighted_captions: config.weighted_captions,
     no_token_padding: config.no_token_padding,
@@ -553,9 +553,18 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
   if (config.log_prefix) {
     args.log_prefix = config.log_prefix;
   }
+  // Build optimizer_args array: weight_decay always first, then any user extras.
+  // Kohya expects an array of "key=value" strings for --optimizer_args.
+  const optimizerArgsList: string[] = [`weight_decay=${config.weight_decay ?? 0.01}`];
   if (config.optimizer_args) {
-    args.optimizer_args = config.optimizer_args;
+    // config.optimizer_args is a space-separated string from the UI
+    const extras = String(config.optimizer_args).trim().split(/\s+/).filter(Boolean);
+    // don't duplicate weight_decay if user already specified it
+    for (const extra of extras) {
+      if (!extra.startsWith('weight_decay=')) optimizerArgsList.push(extra);
+    }
   }
+  args.optimizer_args = optimizerArgsList;
 
   // Steps vs Epochs handling
   if (config.max_train_steps && config.max_train_steps > 0) {

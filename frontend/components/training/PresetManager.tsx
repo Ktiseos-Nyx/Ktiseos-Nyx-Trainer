@@ -20,13 +20,41 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { presetsAPI, type TrainingConfig, type PresetMetadata } from '@/lib/api';
+
+const MODEL_TYPE_ORDER = ['SD15', 'SDXL', 'FLUX', 'SD3', 'SD3.5', 'LUMINA', 'Chroma', 'Anima', 'HunyuanImage'];
+
+function groupByModelType<T>(presets: T[], getType: (p: T) => string | undefined, getName: (p: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const preset of presets) {
+    const type = getType(preset) || 'Other';
+    if (!groups.has(type)) groups.set(type, []);
+    groups.get(type)!.push(preset);
+  }
+  for (const items of groups.values()) {
+    items.sort((a, b) => getName(a).localeCompare(getName(b)));
+  }
+  return groups;
+}
+
+function sortedModelTypeKeys(groups: Map<string, unknown[]>): string[] {
+  return [...groups.keys()].sort((a, b) => {
+    const ai = MODEL_TYPE_ORDER.indexOf(a);
+    const bi = MODEL_TYPE_ORDER.indexOf(b);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
 
 const LEGACY_OBSOLETE_FIELDS = new Set([
   'train_text_encoder', 'xformers', 'mem_eff_attn', 'use_8bit_adam',
@@ -385,60 +413,65 @@ export default function PresetManager({
                 <SelectValue placeholder="Choose a preset..." />
               </SelectTrigger>
               <SelectContent>
-                {serverPresets.filter(p => p.is_builtin).length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-purple-400">
-                      Built-in Presets
-                    </div>
-                    {serverPresets.filter(p => p.is_builtin).map((preset) => (
-                      <SelectItem key={preset.id} value={preset.id}>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {preset.model_type}
-                          </Badge>
-                          {preset.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
+                {(() => {
+                  const builtins = serverPresets.filter(p => p.is_builtin);
+                  const userServer = serverPresets.filter(p => !p.is_builtin);
+                  const builtinGroups = groupByModelType(builtins, p => p.model_type, p => p.name);
+                  const userServerGroups = groupByModelType(userServer, p => p.model_type, p => p.name);
+                  const browserGroups = groupByModelType(customPresets, p => p.config.model_type, p => p.name);
 
-                {serverPresets.filter(p => !p.is_builtin).length > 0 && (
-                  <>
+                  return (
+                    <>
+                      {builtins.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-purple-400">Built-in Presets</div>
+                          {sortedModelTypeKeys(builtinGroups).map(type => (
+                            <SelectGroup key={`builtin-${type}`}>
+                              <SelectLabel className="text-xs text-muted-foreground">{type}</SelectLabel>
+                              {builtinGroups.get(type)!.map(preset => (
+                                <SelectItem key={preset.id} value={preset.id}>
+                                  {preset.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ))}
+                        </>
+                      )}
 
-                    <div className="px-2 py-1.5 text-xs font-semibold text-blue-400 mt-2">
-                      Your Server Presets
-                    </div>
-                    {serverPresets.filter(p => !p.is_builtin).map((preset) => (
-                      <SelectItem key={preset.id} value={preset.id}>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {preset.model_type}
-                          </Badge>
-                          {preset.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
+                      {userServer.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-blue-400 mt-2">Your Server Presets</div>
+                          {sortedModelTypeKeys(userServerGroups).map(type => (
+                            <SelectGroup key={`server-${type}`}>
+                              <SelectLabel className="text-xs text-muted-foreground">{type}</SelectLabel>
+                              {userServerGroups.get(type)!.map(preset => (
+                                <SelectItem key={preset.id} value={preset.id}>
+                                  {preset.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ))}
+                        </>
+                      )}
 
-                {customPresets.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-cyan-400 mt-2">
-                      Browser-Only Presets
-                    </div>
-                    {customPresets.map((preset) => (
-                      <SelectItem key={preset.id} value={preset.id}>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {preset.config.model_type}
-                          </Badge>
-                          {preset.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
+                      {customPresets.length > 0 && (
+                        <>
+                          <div className="px-2 py-1.5 text-xs font-semibold text-cyan-400 mt-2">Browser-Only Presets</div>
+                          {sortedModelTypeKeys(browserGroups).map(type => (
+                            <SelectGroup key={`browser-${type}`}>
+                              <SelectLabel className="text-xs text-muted-foreground">{type}</SelectLabel>
+                              {browserGroups.get(type)!.map(preset => (
+                                <SelectItem key={preset.id} value={preset.id}>
+                                  {preset.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </SelectContent>
             </Select>
 
