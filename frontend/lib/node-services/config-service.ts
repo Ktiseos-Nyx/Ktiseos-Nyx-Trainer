@@ -394,7 +394,9 @@ function getNetworkConfig(config: TrainingConfig): any {
 }
 
 /**
- * Map TrainingConfig to Kohya CLI argument keys
+ * Map TrainingConfig to a flat object of Kohya CLI argument keys suitable for
+ * serialisation as config.toml. Keys must match Kohya's argparse names exactly;
+ * unknown keys are silently ignored by Kohya's TOML loader.
  */
 function getTrainingArguments(config: TrainingConfig, projectRoot: string): any {
   // Model paths: HF IDs pass through, local paths resolve against projectRoot
@@ -558,7 +560,7 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
   const optimizerArgsList: string[] = [`weight_decay=${config.weight_decay ?? 0.01}`];
   if (config.optimizer_args) {
     // config.optimizer_args is a space-separated string from the UI
-    const extras = String(config.optimizer_args).trim().split(/\s+/).filter(Boolean);
+    const extras = config.optimizer_args.trim().split(/\s+/).filter(Boolean);
     // don't duplicate weight_decay if user already specified it
     for (const extra of extras) {
       if (!extra.startsWith('weight_decay=')) optimizerArgsList.push(extra);
