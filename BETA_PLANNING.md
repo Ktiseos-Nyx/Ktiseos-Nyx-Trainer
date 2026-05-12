@@ -794,14 +794,25 @@ Fixes needed in priority order:
 2. **tqdm line parser** (UI-5) — surface step count, ETA, it/s in the monitor
 3. **Training monitor reconnect** — if the monitor component dies, user should be able to re-attach to a running job by job ID without refreshing the whole page
 
-### Calculator Enhancement — Optimizer-Aware Time Estimation
-The step calculator currently uses basic Kohya math. Proposal: make it optimizer-aware so it can give rough time estimates based on:
-- Optimizer choice (Adafactor is slower per step than AdamW8bit, Prodigy is variable)
-- Dataset size × repeats × epochs → total steps
-- Batch size effect on step count
+### Calculator Enhancement — Optimizer + LR Aware Step Guidance
+The step calculator currently uses basic Kohya math. Proposal: make it optimizer- and LR-aware so it gives rough but useful guidance on target step counts:
+
+**LR → steps relationship (the big one):**
+- LR and step count are in direct tension: higher LR = more work per step = fewer steps needed to reach convergence
+- The calculator should take LR as an input and adjust recommended steps/epochs accordingly
+- This is more impactful than optimizer choice — LR drives the curve, optimizer affects how cleanly you ride it
+
+**Optimizer adjustment (rough, vibes-based until we have more data):**
+- AdamW8bit: baseline (1.0x)
+- CAME: converges faster and burns in more aggressively — approx 0.6–0.7x steps for equivalent result; small datasets especially vulnerable to overtrain
+- Adafactor (fixed LR): slower per step, more conservative — approx 1.2–1.3x
+- Prodigy/DAdaptation: self-adjusting LR so step count guidance is less applicable
+
+**Other inputs already planned:**
+- Dataset size × repeats × batch size → total steps
 - Resolution effect on VRAM and speed
 
-Not exact science but "rough estimate with caveats" is infinitely more useful than nothing. Would have saved a lot of "is this an all-nighter?" uncertainty today.
+Not exact science — label everything as "rough guide." Even a "CAME + small dataset: consider reducing epochs by 30%" hint would have saved two undertrained LoRAs. Discovered from real training runs May 2026.
 
 ### Hardcoded Presets Migration (section 7.9)
 High priority — confirmed blocks training silently. Migrate all presets from `useTrainingForm.ts` into proper JSON files in `presets/`. This fixes the silent training failure AND the PR-1 optimizer_args contamination in one shot.
