@@ -306,7 +306,7 @@ export default function TrainingMonitor() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {status.progress.current_epoch !== undefined && (
+            {status.progress.current_epoch != null && (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-blue-400 mb-1">
                   <TrendingUp className="w-4 h-4" />
