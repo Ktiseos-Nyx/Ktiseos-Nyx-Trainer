@@ -18,6 +18,11 @@ interface TrainingStatus {
   };
 }
 
+/**
+ * Real-time training monitor that polls job status and streams logs.
+ * Uses HTTP polling instead of WebSockets to survive Caddy proxy disconnects.
+ * Job ID is sourced from the `?job=` query param or localStorage fallback.
+ */
 export default function TrainingMonitor() {
   const [status, setStatus] = useState<TrainingStatus>({ is_training: false });
   const [logs, setLogs] = useState<string[]>([]);
@@ -222,6 +227,7 @@ export default function TrainingMonitor() {
     };
   }, [status.is_training, jobId]);
 
+  /** Returns 0–100 progress percentage, preferring the backend-parsed value over the step-based estimate. */
   const getProgress = () => {
     if (!status.progress) return 0;
     // Use progress_percent from Python backend if available
@@ -232,6 +238,7 @@ export default function TrainingMonitor() {
     return (current_step / total_steps) * 100;
   };
 
+  /** Returns a human-readable ETA string, preferring tqdm's parsed eta_seconds over a rough step-based estimate. */
   const getTimeRemaining = () => {
     if (!status.progress) return 'Calculating...';
     const { eta_seconds, current_step, total_steps } = status.progress as any;
