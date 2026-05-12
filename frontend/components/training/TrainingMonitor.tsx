@@ -225,7 +225,7 @@ export default function TrainingMonitor() {
   const getProgress = () => {
     if (!status.progress) return 0;
     // Use progress_percent from Python backend if available
-    if (status.progress.progress_percent !== undefined) return status.progress.progress_percent;
+    if (status.progress.progress_percent != null) return status.progress.progress_percent;
     // Fallback: calculate from step/total
     const { current_step, total_steps } = status.progress;
     if (!current_step || !total_steps) return 0;
@@ -237,7 +237,7 @@ export default function TrainingMonitor() {
     const { eta_seconds, current_step, total_steps } = status.progress as any;
 
     // Use tqdm's parsed ETA if available — it's far more accurate than our estimate
-    if (eta_seconds !== undefined && eta_seconds !== null) {
+    if (eta_seconds != null) {
       if (eta_seconds < 60) return `~${eta_seconds}s`;
       const h = Math.floor(eta_seconds / 3600);
       const m = Math.floor((eta_seconds % 3600) / 60);
