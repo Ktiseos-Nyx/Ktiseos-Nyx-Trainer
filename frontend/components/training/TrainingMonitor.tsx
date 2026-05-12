@@ -167,13 +167,13 @@ export default function TrainingMonitor() {
             ...prev,
             progress: {
               ...prev.progress,
-              ...(data.step_num !== undefined && { current_step: data.step_num }),
-              ...(data.total_steps !== undefined && { total_steps: data.total_steps }),
-              ...(data.current_epoch !== undefined && { current_epoch: data.current_epoch }),
-              ...(data.total_epochs !== undefined && { total_epochs: data.total_epochs }),
-              ...(data.loss !== undefined && { loss: data.loss }),
-              ...(data.lr !== undefined && { lr: data.lr }),
-              ...(data.eta_seconds !== undefined && { eta_seconds: data.eta_seconds }),
+              ...(data.step_num != null && { current_step: data.step_num }),
+              ...(data.total_steps != null && { total_steps: data.total_steps }),
+              ...(data.current_epoch != null && { current_epoch: data.current_epoch }),
+              ...(data.total_epochs != null && { total_epochs: data.total_epochs }),
+              ...(data.loss != null && { loss: data.loss }),
+              ...(data.lr != null && { lr: data.lr }),
+              ...(data.eta_seconds != null && { eta_seconds: data.eta_seconds }),
             },
           }));
         } else if (data.type === 'status') {
@@ -310,7 +310,7 @@ export default function TrainingMonitor() {
                 </div>
               </div>
             )}
-            {status.progress.lr !== undefined && (
+            {status.progress.lr != null && (
               <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-purple-400 mb-1">
                   <Zap className="w-4 h-4" />
@@ -321,7 +321,7 @@ export default function TrainingMonitor() {
                 </div>
               </div>
             )}
-            {status.progress.loss !== undefined && (
+            {status.progress.loss != null && (
               <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-green-400 mb-1">
                   <Activity className="w-4 h-4" />
