@@ -490,7 +490,7 @@ export const datasetAPI = {
         }
       },
       (status, progress) => {
-        if (progress !== undefined) {
+        if (progress != null) {
           onMessage({ type: 'progress', progress });
         }
         onMessage({ type: 'status', status });
@@ -575,7 +575,7 @@ export const captioningAPI = {
         }
       },
       (status, progress) => {
-        if (progress !== undefined) {
+        if (progress != null) {
           onMessage({ type: 'progress', progress });
         }
         onMessage({ type: 'status', status });
@@ -894,19 +894,19 @@ export const trainingAPI = {
 
         // Report status and progress
         if (data.status) {
-          if (data.progress !== undefined) {
+          if (data.progress != null) {
             onMessage({ type: 'progress', progress: data.progress });
           }
           // Forward step/loss/lr/eta parsed from tqdm so the monitor stats update
           // on every log poll (1s cadence) rather than waiting for the 2s status poll.
           if (
-            data.step_num !== undefined ||
-            data.total_steps !== undefined ||
-            data.current_epoch !== undefined ||
-            data.total_epochs !== undefined ||
-            data.loss !== undefined ||
-            data.lr !== undefined ||
-            data.eta_seconds !== undefined
+            data.step_num != null ||
+            data.total_steps != null ||
+            data.current_epoch != null ||
+            data.total_epochs != null ||
+            data.loss != null ||
+            data.lr != null ||
+            data.eta_seconds != null
           ) {
             onMessage({
               type: 'step_progress',

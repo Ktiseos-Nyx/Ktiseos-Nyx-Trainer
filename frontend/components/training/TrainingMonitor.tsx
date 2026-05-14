@@ -14,10 +14,16 @@ interface TrainingStatus {
     total_epochs?: number;
     loss?: number;
     lr?: number;
-    progress_percent?: number;  // 0-100 from Python backend
+    eta_seconds?: number;
+    progress_percent?: number;
   };
 }
 
+/**
+ * Real-time training monitor that polls job status and streams logs.
+ * Uses HTTP polling instead of WebSockets to survive Caddy proxy disconnects.
+ * Job ID is sourced from the `?job=` query param or localStorage fallback.
+ */
 export default function TrainingMonitor() {
   const [status, setStatus] = useState<TrainingStatus>({ is_training: false });
   const [logs, setLogs] = useState<string[]>([]);
@@ -60,7 +66,7 @@ export default function TrainingMonitor() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleTrainingStart = (event: any) => {
+    const handleTrainingStart = (event: CustomEvent<{ jobId?: string }>) => {
       const newJobId = event.detail?.jobId || localStorage.getItem('current_training_job_id');
       if (newJobId) {
         console.log(`TrainingMonitor: received training-started event for ${newJobId}`);
@@ -154,7 +160,7 @@ export default function TrainingMonitor() {
             const next = [...prev, msg];
             return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
           });
-        } else if (data.type === 'progress' && data.progress !== undefined) {
+        } else if (data.type === 'progress' && data.progress != null) {
           setStatus((prev) => ({
             ...prev,
             progress: {
@@ -167,13 +173,13 @@ export default function TrainingMonitor() {
             ...prev,
             progress: {
               ...prev.progress,
-              ...(data.step_num !== undefined && { current_step: data.step_num }),
-              ...(data.total_steps !== undefined && { total_steps: data.total_steps }),
-              ...(data.current_epoch !== undefined && { current_epoch: data.current_epoch }),
-              ...(data.total_epochs !== undefined && { total_epochs: data.total_epochs }),
-              ...(data.loss !== undefined && { loss: data.loss }),
-              ...(data.lr !== undefined && { lr: data.lr }),
-              ...(data.eta_seconds !== undefined && { eta_seconds: data.eta_seconds }),
+              ...(data.step_num != null && { current_step: data.step_num }),
+              ...(data.total_steps != null && { total_steps: data.total_steps }),
+              ...(data.current_epoch != null && { current_epoch: data.current_epoch }),
+              ...(data.total_epochs != null && { total_epochs: data.total_epochs }),
+              ...(data.loss != null && { loss: data.loss }),
+              ...(data.lr != null && { lr: data.lr }),
+              ...(data.eta_seconds != null && { eta_seconds: data.eta_seconds }),
             },
           }));
         } else if (data.type === 'status') {
@@ -183,7 +189,7 @@ export default function TrainingMonitor() {
             setConnected(false);
             localStorage.removeItem('current_training_job_id');
           } else if (data.status === 'failed') {
-            const errorMsg = (data as any).error || 'Unknown error';
+            const errorMsg = typeof data['error'] === 'string' ? data['error'] : 'Unknown error';
             setStatus({ is_training: false, error: errorMsg });
             setLogs((prev) => [...prev, `--- Training FAILED: ${errorMsg} ---`]);
             setConnected(false);
@@ -222,29 +228,29 @@ export default function TrainingMonitor() {
     };
   }, [status.is_training, jobId]);
 
+  /** Returns 0–100 progress percentage, preferring the backend-parsed value over the step-based estimate. */
   const getProgress = () => {
     if (!status.progress) return 0;
-    // Use progress_percent from Python backend if available
-    if (status.progress.progress_percent !== undefined) return status.progress.progress_percent;
-    // Fallback: calculate from step/total
+    if (status.progress.progress_percent != null) return status.progress.progress_percent;
     const { current_step, total_steps } = status.progress;
-    if (!current_step || !total_steps) return 0;
+    if (current_step == null || total_steps == null || total_steps === 0) return 0;
     return (current_step / total_steps) * 100;
   };
 
+  /** Returns a human-readable ETA string, preferring tqdm's parsed eta_seconds over a rough step-based estimate. */
   const getTimeRemaining = () => {
     if (!status.progress) return 'Calculating...';
-    const { eta_seconds, current_step, total_steps } = status.progress as any;
+    const { eta_seconds, current_step, total_steps } = status.progress;
 
     // Use tqdm's parsed ETA if available — it's far more accurate than our estimate
-    if (eta_seconds !== undefined && eta_seconds !== null) {
+    if (eta_seconds != null) {
       if (eta_seconds < 60) return `~${eta_seconds}s`;
       const h = Math.floor(eta_seconds / 3600);
       const m = Math.floor((eta_seconds % 3600) / 60);
       return h > 0 ? `~${h}h ${m}m` : `~${m}m`;
     }
 
-    if (!current_step || !total_steps) return 'Unknown';
+    if (current_step == null || total_steps == null || total_steps === 0) return 'Unknown';
     const stepsRemaining = total_steps - current_step;
     const estimatedMinutes = Math.ceil(stepsRemaining * 0.1);
     if (estimatedMinutes < 60) return `~${estimatedMinutes}m`;
@@ -299,7 +305,7 @@ export default function TrainingMonitor() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {status.progress.current_epoch !== undefined && (
+            {status.progress.current_epoch != null && (
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-blue-400 mb-1">
                   <TrendingUp className="w-4 h-4" />
@@ -310,7 +316,7 @@ export default function TrainingMonitor() {
                 </div>
               </div>
             )}
-            {status.progress.lr !== undefined && (
+            {status.progress.lr != null && (
               <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-purple-400 mb-1">
                   <Zap className="w-4 h-4" />
@@ -321,7 +327,7 @@ export default function TrainingMonitor() {
                 </div>
               </div>
             )}
-            {status.progress.loss !== undefined && (
+            {status.progress.loss != null && (
               <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-green-400 mb-1">
                   <Activity className="w-4 h-4" />
@@ -352,7 +358,7 @@ export default function TrainingMonitor() {
           </span>
         </div>
 
-        <div className="bg-background  p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
+        <div className="bg-background p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
           {logs.length === 0 ? (
             <div className="text-muted-foreground text-center py-8">
               {status.is_training

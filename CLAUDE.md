@@ -14,6 +14,18 @@ This file adds Claude Code-specific guidance on top of that foundation.
 
 Please keep all training presets out of the Next.js/TypeScript codebase. Instead, manage them exclusively through the JSON files in the presets/ folder. This keeps configuration centralized, simplifies version tracking, and avoids the inconsistencies that come with localStorage or hardcoded values.
 
+### Python Optional → Frontend Guard Rule
+
+Any time a Python field is typed `Optional[X]` (i.e. can be `null` in JSON), the corresponding frontend guards **must** use `!= null` (loose inequality), not `!== undefined`. JSON never produces `undefined` — only `null` — so `!== undefined` always passes on a null value and any method call (`.toFixed()`, `.toExponential()`, etc.) will throw at runtime.
+
+**Checklist when adding or changing an `Optional` field on the Python side:**
+1. Find the `api.ts` transformer that maps it into the frontend object.
+2. Find any render guards in components that check before displaying it.
+3. Find any state-merge guards (e.g. spread patterns) that use it.
+4. Change all three from `!== undefined` → `!= null`.
+
+This was learned from a `lr` / `loss` null crash in `TrainingMonitor.tsx` (PR b8c6c3d).
+
 ### Comments and Docstrings
 
 Prefer self-documenting code through clear naming. Avoid inline comments unless explaining a non-obvious rationale (edge cases, constraints, or workarounds). 
