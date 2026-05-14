@@ -490,7 +490,7 @@ export const datasetAPI = {
         }
       },
       (status, progress) => {
-        if (progress !== undefined) {
+        if (progress != null) {
           onMessage({ type: 'progress', progress });
         }
         onMessage({ type: 'status', status });
@@ -575,7 +575,7 @@ export const captioningAPI = {
         }
       },
       (status, progress) => {
-        if (progress !== undefined) {
+        if (progress != null) {
           onMessage({ type: 'progress', progress });
         }
         onMessage({ type: 'status', status });
@@ -894,7 +894,7 @@ export const trainingAPI = {
 
         // Report status and progress
         if (data.status) {
-          if (data.progress !== undefined) {
+          if (data.progress != null) {
             onMessage({ type: 'progress', progress: data.progress });
           }
           // Forward step/loss/lr/eta parsed from tqdm so the monitor stats update

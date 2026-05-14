@@ -208,7 +208,7 @@ export default function AutoTagPage() {
         if (data.type === 'log' && data.log) {
           const msg = data.log;
           setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
-        } else if (data.type === 'progress' && data.progress !== undefined) {
+        } else if (data.type === 'progress' && data.progress != null) {
           setProgress(data.progress as number);
         } else if (data.type === 'status') {
           if (data.status === 'completed') addLog('✅ Tagging completed!');
@@ -321,7 +321,7 @@ export default function AutoTagPage() {
               if (data.type === 'log' && data.log) {
                 const msg = data.log;
                 setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
-              } else if (data.type === 'progress' && data.progress !== undefined) {
+              } else if (data.type === 'progress' && data.progress != null) {
                 setProgress(data.progress as number);
               }
             },
