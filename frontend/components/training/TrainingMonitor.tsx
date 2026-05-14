@@ -250,7 +250,7 @@ export default function TrainingMonitor() {
       return h > 0 ? `~${h}h ${m}m` : `~${m}m`;
     }
 
-    if (!current_step || !total_steps) return 'Unknown';
+    if (current_step == null || total_steps == null || total_steps === 0) return 'Unknown';
     const stepsRemaining = total_steps - current_step;
     const estimatedMinutes = Math.ceil(stepsRemaining * 0.1);
     if (estimatedMinutes < 60) return `~${estimatedMinutes}m`;
