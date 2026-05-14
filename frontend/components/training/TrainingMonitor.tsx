@@ -14,7 +14,8 @@ interface TrainingStatus {
     total_epochs?: number;
     loss?: number;
     lr?: number;
-    progress_percent?: number;  // 0-100 from Python backend
+    eta_seconds?: number;
+    progress_percent?: number;
   };
 }
 
@@ -65,7 +66,7 @@ export default function TrainingMonitor() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleTrainingStart = (event: any) => {
+    const handleTrainingStart = (event: CustomEvent<{ jobId?: string }>) => {
       const newJobId = event.detail?.jobId || localStorage.getItem('current_training_job_id');
       if (newJobId) {
         console.log(`TrainingMonitor: received training-started event for ${newJobId}`);
@@ -159,7 +160,7 @@ export default function TrainingMonitor() {
             const next = [...prev, msg];
             return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
           });
-        } else if (data.type === 'progress' && data.progress !== undefined) {
+        } else if (data.type === 'progress' && data.progress != null) {
           setStatus((prev) => ({
             ...prev,
             progress: {
@@ -188,7 +189,7 @@ export default function TrainingMonitor() {
             setConnected(false);
             localStorage.removeItem('current_training_job_id');
           } else if (data.status === 'failed') {
-            const errorMsg = (data as any).error || 'Unknown error';
+            const errorMsg = typeof data['error'] === 'string' ? data['error'] : 'Unknown error';
             setStatus({ is_training: false, error: errorMsg });
             setLogs((prev) => [...prev, `--- Training FAILED: ${errorMsg} ---`]);
             setConnected(false);
@@ -230,18 +231,16 @@ export default function TrainingMonitor() {
   /** Returns 0–100 progress percentage, preferring the backend-parsed value over the step-based estimate. */
   const getProgress = () => {
     if (!status.progress) return 0;
-    // Use progress_percent from Python backend if available
     if (status.progress.progress_percent != null) return status.progress.progress_percent;
-    // Fallback: calculate from step/total
     const { current_step, total_steps } = status.progress;
-    if (!current_step || !total_steps) return 0;
+    if (current_step == null || total_steps == null || total_steps === 0) return 0;
     return (current_step / total_steps) * 100;
   };
 
   /** Returns a human-readable ETA string, preferring tqdm's parsed eta_seconds over a rough step-based estimate. */
   const getTimeRemaining = () => {
     if (!status.progress) return 'Calculating...';
-    const { eta_seconds, current_step, total_steps } = status.progress as any;
+    const { eta_seconds, current_step, total_steps } = status.progress;
 
     // Use tqdm's parsed ETA if available — it's far more accurate than our estimate
     if (eta_seconds != null) {
@@ -359,7 +358,7 @@ export default function TrainingMonitor() {
           </span>
         </div>
 
-        <div className="bg-background  p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
+        <div className="bg-background p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
           {logs.length === 0 ? (
             <div className="text-muted-foreground text-center py-8">
               {status.is_training
