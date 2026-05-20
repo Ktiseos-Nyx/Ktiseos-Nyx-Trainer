@@ -349,6 +349,7 @@ export default function DatasetUploader() {
     new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url);
+      xhr.timeout = 600000; // 10 minutes for large uploads
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       };
@@ -365,6 +366,7 @@ export default function DatasetUploader() {
         }
       };
       xhr.onerror = () => reject(new Error('Network error'));
+      xhr.ontimeout = () => reject(new Error('Upload timed out after 10 minutes'));
       xhr.onabort = () => { const e = new Error('Upload cancelled'); e.name = 'AbortError'; reject(e); };
       uploadControllerRef.current = { abort: () => xhr.abort() };
       xhr.send(formData);
