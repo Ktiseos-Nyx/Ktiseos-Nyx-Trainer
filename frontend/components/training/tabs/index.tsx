@@ -17,6 +17,7 @@ import { MemoryCard } from '../cards/MemoryCard';
 import { SavingCard } from '../cards/SavingCard';
 import { CaptionCard } from '../cards/CaptionCard';
 import { AdvancedCard } from '../cards/AdvancedCard';
+import { LoggingCard } from '../cards/LoggingCard';
 
 // ✅ NEW:
 interface TabProps {
@@ -113,6 +114,18 @@ export function SavingTab({ form, onSave }: TabProps) {
   return (
     <div className="space-y-6">
       <SavingCard form={form} onSave={onSave} />
+    </div>
+  );
+}
+
+/**
+ * Logging Tab
+ * TensorBoard and WandB metric logging configuration
+ */
+export function LoggingTab({ form }: TabProps) {
+  return (
+    <div className="space-y-6">
+      <LoggingCard form={form} />
     </div>
   );
 }

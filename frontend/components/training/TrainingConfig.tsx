@@ -20,6 +20,7 @@ import {
   PerformanceTab,
   AdvancedTab,
   SavingTab,
+  LoggingTab,
 } from './tabs';
 
 type ModelItem = { path: string; name: string };
@@ -273,6 +274,7 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="performance">Performance</TabsTrigger>
                     <TabsTrigger value="advanced">Advanced</TabsTrigger>
                     <TabsTrigger value="saving">Saving</TabsTrigger>
+                    <TabsTrigger value="logging">Logging</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="setup"><SetupTab form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} onRefreshModels={refreshModels} isRefreshingModels={isRefreshingModels} /></TabsContent>
@@ -282,6 +284,7 @@ export default function TrainingConfigNew() {
                   <TabsContent value="performance"><PerformanceTab form={form} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="advanced"><AdvancedTab form={form} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="saving"><SavingTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="logging"><LoggingTab form={form} /></TabsContent>
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">
