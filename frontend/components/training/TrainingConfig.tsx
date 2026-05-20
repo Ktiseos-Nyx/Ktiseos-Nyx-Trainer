@@ -266,7 +266,7 @@ export default function TrainingConfigNew() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <Tabs defaultValue="setup" className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-7">
+                  <TabsList className="grid w-full grid-cols-8">
                     <TabsTrigger value="setup">Setup</TabsTrigger>
                     <TabsTrigger value="dataset">Dataset</TabsTrigger>
                     <TabsTrigger value="lora">LoRA</TabsTrigger>
