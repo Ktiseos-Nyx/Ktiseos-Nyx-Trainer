@@ -401,7 +401,7 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
             "success": True,
             "job_id": job_id,
             "logs": formatted_logs,
-            "total_logs": len(job.logs),
+            "total_logs": job.total_lines_written,
             "status": job.status.value,
             "progress": job.progress,
             "step_num": job.step_num,
@@ -412,7 +412,7 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
             "lr": job.lr,
             "eta_seconds": job.eta_seconds,
             "error": job.error,
-            "next_since": since + len(logs),
+            "next_since": job.total_lines_written,
         }
 
     except HTTPException:
