@@ -298,7 +298,18 @@ export default function DatasetUploader() {
     const zipped = zipSync(zipData);
     const zipBlob = new Blob([zipped.buffer as ArrayBuffer], { type: 'application/zip' });
 
+<<<<<<< HEAD
     const result = await handleChunkedZipUpload(zipBlob, `${datasetName}.zip`, datasetName);
+=======
+    const formData = new FormData();
+    formData.append('file', new File([zipBlob], `${datasetName}.zip`, { type: 'application/zip' }));
+    formData.append('dataset_name', datasetName);
+
+    setZipUploadProgress(0);
+    const result = await xhrUpload(`${API_BASE}/dataset/upload-zip`, formData, setZipUploadProgress) as { success: boolean; extracted?: number };
+    setZipUploadProgress(0);
+
+>>>>>>> origin/main
     if (!result.success) {
       throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
     }
@@ -317,6 +328,14 @@ export default function DatasetUploader() {
     if (zipFiles.length === 0) { toast.warning('No ZIP files selected'); return; }
     if (!datasetName.trim()) { toast.warning('Please enter a dataset name'); return; }
 
+<<<<<<< HEAD
+=======
+    if (!datasetName.trim()) {
+      toast.warning('Please enter a dataset name');
+      return;
+    }
+
+>>>>>>> origin/main
     if (datasetExists) {
       if (!confirm(`Dataset "${datasetName}" already exists!\n\nZIP contents will be extracted to the existing dataset. Continue?`)) return;
     }
@@ -325,14 +344,31 @@ export default function DatasetUploader() {
     if (!zipFile || zipFile.size === 0) { toast.error('ZIP file is empty or not loaded yet'); return; }
 
     setUploading(true);
+<<<<<<< HEAD
     try {
       const result = await handleChunkedZipUpload(zipFile, zipFile.name, datasetName);
+=======
+    setZipUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', zipFile);
+      formData.append('dataset_name', datasetName);
+
+      const result = await xhrUpload(`${API_BASE}/dataset/upload-zip`, formData, setZipUploadProgress) as { success: boolean; extracted?: number; errors?: string[] };
+      setZipUploadProgress(0);
+
+>>>>>>> origin/main
       if (result.success) {
         toast.success(`ZIP uploaded! Extracted ${result.extracted} images`, {
           description: result.errors && result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : undefined,
         });
         revokePreviewUrls(files);
         setFiles([]);
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
         try {
           const data = await datasetAPI.list();
           setExistingDatasets((data.datasets || []).map(d => d.name));
@@ -343,6 +379,10 @@ export default function DatasetUploader() {
         throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
       }
     } catch (err) {
+<<<<<<< HEAD
+=======
+      if (err instanceof Error && err.name === 'AbortError') return;
+>>>>>>> origin/main
       toast.error(`ZIP upload failed: ${err}`);
     } finally {
       setUploading(false);
@@ -375,6 +415,34 @@ export default function DatasetUploader() {
     setFiles([]);
     setUploading(false);
   };
+
+  // XHR-based upload with progress tracking
+  const xhrUpload = (url: string, formData: FormData, onProgress: (pct: number) => void): Promise<unknown> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.timeout = 600000; // 10 minutes for large uploads
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText)); } catch { reject(new Error('Invalid JSON response')); }
+        } else {
+          try {
+            const err = JSON.parse(xhr.responseText) as { detail?: string };
+            reject(new Error(err.detail || `Server error (${xhr.status})`));
+          } catch {
+            reject(new Error(`Server error (${xhr.status}): ${xhr.responseText.substring(0, 200)}`));
+          }
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.ontimeout = () => reject(new Error('Upload timed out after 10 minutes'));
+      xhr.onabort = () => { const e = new Error('Upload cancelled'); e.name = 'AbortError'; reject(e); };
+      uploadControllerRef.current = { abort: () => xhr.abort() };
+      xhr.send(formData);
+    });
 
   // ========== URL/ZIP Download Handlers ==========
 
@@ -712,7 +780,11 @@ export default function DatasetUploader() {
                 className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700"
               >
                 <FileArchive className="w-5 h-5" />
+<<<<<<< HEAD
                 {uploading ? 'Uploading...' : `Upload ${zipCount} ZIP`}
+=======
+                {uploading ? 'Extracting...' : `Extract ${zipCount} ZIP`}
+>>>>>>> origin/main
               </Button>
             )}
 
