@@ -55,6 +55,7 @@ class Job:
     error_traceback: Optional[str] = None
 
     def __post_init__(self):
+        """Initialise the log deque with the configured max_logs capacity."""
         self.logs = deque(maxlen=self.max_logs)
 
     def add_log(self, log_line: str):
