@@ -33,6 +33,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'chunk (file), uploadId, and index are required' }, { status: 400 });
     }
 
+    if (chunk.size === 0) {
+      return NextResponse.json({ error: 'Chunk is empty' }, { status: 400 });
+    }
+
     if (chunk.size > MAX_CHUNK_SIZE) {
       return NextResponse.json(
         { error: `Chunk exceeds maximum size of ${MAX_CHUNK_SIZE} bytes` },
