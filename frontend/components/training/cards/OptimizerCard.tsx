@@ -12,6 +12,7 @@ import type { TrainingConfig } from '@/lib/api';
 import { Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
+import { type OptimizerValue } from '@/lib/validation';
 
 interface OptimizerCardProps {
   form: UseFormReturn<TrainingConfig>; // 👈 NO Partial
@@ -66,7 +67,7 @@ export function OptimizerCard({ form, onSave }: OptimizerCardProps) {
             { value: 'AdamWScheduleFree', label: 'AdamW (Schedule-Free)', description: 'AdamW without LR scheduler' },
             { value: 'SGDScheduleFree', label: 'SGD (Schedule-Free)', description: 'SGD without LR scheduler' },
             { value: 'RAdamScheduleFree', label: 'RAdam (Schedule-Free)', description: 'Rectified Adam without LR scheduler' },
-          ]}
+          ] satisfies Array<{ value: OptimizerValue; label: string; description?: string }>}
         />
 
         {/* Weight Decay */}
