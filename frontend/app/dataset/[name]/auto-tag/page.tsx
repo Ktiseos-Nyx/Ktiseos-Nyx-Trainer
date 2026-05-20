@@ -1030,13 +1030,16 @@ export default function AutoTagPage() {
                 </div>
 
                 {/* Advanced Options Toggle */}
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="w-full px-4 py-2 bg-accent hover:bg-accent/80 rounded-lg flex items-center justify-between"
+                  aria-expanded={showAdvanced}
+                  className="w-full justify-between px-4"
                 >
                   <span className="text-sm font-medium">Advanced Options</span>
                   {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+                </Button>
 
                 {showAdvanced && (
                   <div className="space-y-2 pt-2 border-t border-border">
@@ -1078,7 +1081,7 @@ export default function AutoTagPage() {
                   <Button
                     onClick={handleStartTagging}
                     disabled={tagging || !selectedDataset || datasets.length === 0}
-                    className="flex-1"
+                    className="flex-1 gap-2"
                   >
                     <Play className="w-5 h-5" />
                     {tagging ? 'Tagging...' : 'Start'}
@@ -1087,6 +1090,7 @@ export default function AutoTagPage() {
                     <Button
                       onClick={handleStopTagging}
                       variant="destructive"
+                      className="gap-2"
                     >
                       <Square className="w-5 h-5" />
                       Stop
@@ -1173,6 +1177,7 @@ export default function AutoTagPage() {
                     size="icon"
                     onClick={() => setLogs([])}
                     className="mr-2"
+                    aria-label="Clear logs"
                   >
                     <X className="w-4 h-4" />
                   </Button>

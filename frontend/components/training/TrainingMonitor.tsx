@@ -52,18 +52,20 @@ export default function TrainingMonitor() {
   const isTrainingRef = useRef(status.is_training);
   isTrainingRef.current = status.is_training;
 
-  // Auto-scroll only when the user is already near the bottom, deferred via
-  // requestAnimationFrame so it runs outside React's commit phase and avoids
-  // forcing a synchronous layout recalc on every log update.
+  // Auto-scroll only when the user is already near the bottom.
+  // Both the layout reads and scrollIntoView are deferred into rAF so nothing
+  // touches layout synchronously in the useEffect body. The rAF is cancelled
+  // on cleanup to prevent reads/writes against an unmounted container.
   useEffect(() => {
-    const container = logContainerRef.current;
-    if (!container) return;
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    if (scrollHeight - scrollTop - clientHeight < 120) {
-      requestAnimationFrame(() => {
+    const rafId = requestAnimationFrame(() => {
+      const container = logContainerRef.current;
+      if (!container) return;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      if (scrollHeight - scrollTop - clientHeight < 120) {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      });
-    }
+      }
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [logs]);
 
   // Listen for training start event from TrainingConfig (ALWAYS active)
