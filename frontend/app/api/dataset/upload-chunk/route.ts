@@ -12,6 +12,8 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 
+const MAX_CHUNK_SIZE = 12 * 1024 * 1024; // 12 MB — slightly above the 10 MB client default
+
 /**
  * Write one chunk to the upload session's scratch directory.
  *
@@ -29,6 +31,13 @@ export async function POST(request: NextRequest) {
 
     if (!(chunk instanceof File) || typeof uploadId !== 'string' || typeof rawIndex !== 'string') {
       return NextResponse.json({ error: 'chunk (file), uploadId, and index are required' }, { status: 400 });
+    }
+
+    if (chunk.size > MAX_CHUNK_SIZE) {
+      return NextResponse.json(
+        { error: `Chunk exceeds maximum size of ${MAX_CHUNK_SIZE} bytes` },
+        { status: 413 },
+      );
     }
 
     const index = parseInt(rawIndex, 10);

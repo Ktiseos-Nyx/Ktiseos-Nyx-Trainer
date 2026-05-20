@@ -264,19 +264,22 @@ export default function DatasetUploader() {
       }
     }
 
-    const finalRes = await fetch('/api/dataset/upload-chunk-finalize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uploadId, fileName, datasetName: targetDatasetName }),
-    });
-    setZipUploadProgress(0);
+    try {
+      const finalRes = await fetch('/api/dataset/upload-chunk-finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadId, fileName, datasetName: targetDatasetName }),
+      });
 
-    if (!finalRes.ok) {
-      const errData = await finalRes.json().catch(() => ({})) as { detail?: string; error?: string };
-      throw new Error(errData.detail || errData.error || 'Upload finalisation failed');
+      if (!finalRes.ok) {
+        const errData = await finalRes.json().catch(() => ({})) as { detail?: string; error?: string };
+        throw new Error(errData.detail || errData.error || 'Upload finalisation failed');
+      }
+
+      return finalRes.json() as Promise<{ success: boolean; extracted?: number; errors?: string[] }>;
+    } finally {
+      setZipUploadProgress(0);
     }
-
-    return finalRes.json() as Promise<{ success: boolean; extracted?: number; errors?: string[] }>;
   };
 
   // Remote GPU mode: zip images in memory, then send via chunked upload

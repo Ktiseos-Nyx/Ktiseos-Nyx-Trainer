@@ -9,6 +9,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import { createWriteStream } from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -53,13 +54,37 @@ export async function POST(request: NextRequest) {
     const metaRaw = await fs.readFile(path.join(chunkDir, 'meta.json'), 'utf-8');
     const meta = JSON.parse(metaRaw) as SessionMeta;
 
-    // Assemble chunks in order
-    const buffers: Buffer[] = [];
+    // Validate all chunks are present before attempting assembly
     for (let i = 0; i < meta.totalChunks; i++) {
       const chunkPath = path.join(chunkDir, `part_${String(i).padStart(4, '0')}`);
-      buffers.push(await fs.readFile(chunkPath));
+      try {
+        await fs.access(chunkPath);
+      } catch {
+        return NextResponse.json(
+          { error: `Missing chunk ${i} of ${meta.totalChunks} — upload may be incomplete` },
+          { status: 400 },
+        );
+      }
     }
-    const assembled = Buffer.concat(buffers);
+
+    // Stream chunks into a single temp file (avoids loading all chunks into RAM simultaneously)
+    const assembledPath = path.join(chunkDir, 'assembled.zip');
+    await new Promise<void>((resolve, reject) => {
+      const ws = createWriteStream(assembledPath);
+      ws.on('error', reject);
+      ws.on('finish', resolve);
+      (async () => {
+        for (let i = 0; i < meta.totalChunks; i++) {
+          const chunkPath = path.join(chunkDir, `part_${String(i).padStart(4, '0')}`);
+          const data = await fs.readFile(chunkPath);
+          if (!ws.write(data)) await new Promise<void>(r => ws.once('drain', r));
+        }
+        ws.end();
+      })().catch(reject);
+    });
+
+    // Read assembled file once for the FormData body
+    const assembled = await fs.readFile(assembledPath);
 
     // Proxy assembled file to FastAPI for ZIP extraction
     const formData = new FormData();
