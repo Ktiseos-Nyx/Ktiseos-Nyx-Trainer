@@ -277,7 +277,7 @@ class JobManager:
             yield log_line
 
         # Then stream new logs as they arrive
-        last_line = len(job.logs)
+        last_line = job.total_lines_written
         heartbeat_counter = 0
 
         while not job.is_complete:
@@ -294,7 +294,7 @@ class JobManager:
             for log_line in new_logs:
                 yield log_line
 
-            last_line = len(job.logs)
+            last_line = job.total_lines_written
 
         # Send final logs after completion
         final_logs = job.get_logs(last_line)
