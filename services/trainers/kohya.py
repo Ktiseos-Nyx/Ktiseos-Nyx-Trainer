@@ -108,16 +108,7 @@ class KohyaTrainer(BaseTrainer):
 
         # 6. Execute Async Process (The Fix)
         try:
-            # Build env with derrian_backend on PYTHONPATH so custom optimizers
-            # (CAME, Compass, etc.) are importable from the sd_scripts cwd
-            env = python_subprocess_env()
-            derrian_dir = str(self.sd_scripts_dir.parent)  # trainer/derrian_backend
-            custom_sched_dir = str(self.sd_scripts_dir.parent / "custom_scheduler")  # LoraEasyCustomOptimizer
-            existing_pythonpath = env.get("PYTHONPATH", "")
-            # Include both derrian_backend and custom_scheduler on PYTHONPATH
-            # so LoraEasyCustomOptimizer.came.CAME etc. resolve even if editable install failed
-            new_paths = f"{derrian_dir}{os.pathsep}{custom_sched_dir}"
-            env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_paths
+            env = self._build_env()
 
             process = await asyncio.create_subprocess_exec(
                 cmd[0],  # Program (python)
@@ -134,6 +125,20 @@ class KohyaTrainer(BaseTrainer):
         except Exception as e:
             logger.error(f"Failed to launch subprocess: {e}")
             raise e
+
+    def _build_env(self) -> dict:
+        """Build subprocess environment with PYTHONPATH and optional credentials."""
+        env = python_subprocess_env()
+        derrian_dir = str(self.sd_scripts_dir.parent)  # trainer/derrian_backend
+        custom_sched_dir = str(self.sd_scripts_dir.parent / "custom_scheduler")  # LoraEasyCustomOptimizer
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        # Include both derrian_backend and custom_scheduler on PYTHONPATH
+        # so LoraEasyCustomOptimizer.came.CAME etc. resolve even if editable install failed
+        new_paths = f"{derrian_dir}{os.pathsep}{custom_sched_dir}"
+        env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_paths
+        if self.config.wandb_key:
+            env["WANDB_API_KEY"] = self.config.wandb_key
+        return env
 
     async def validate_config(self) -> tuple[bool, list[str]]:
         """

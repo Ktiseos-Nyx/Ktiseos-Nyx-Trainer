@@ -20,6 +20,7 @@ import {
   PerformanceTab,
   AdvancedTab,
   SavingTab,
+  LoggingTab,
 } from './tabs';
 
 type ModelItem = { path: string; name: string };
@@ -265,7 +266,7 @@ export default function TrainingConfigNew() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <Tabs defaultValue="setup" className="space-y-4">
-                  <TabsList className="grid w-full grid-cols-7">
+                  <TabsList className="grid w-full grid-cols-8">
                     <TabsTrigger value="setup">Setup</TabsTrigger>
                     <TabsTrigger value="dataset">Dataset</TabsTrigger>
                     <TabsTrigger value="lora">LoRA</TabsTrigger>
@@ -273,6 +274,7 @@ export default function TrainingConfigNew() {
                     <TabsTrigger value="performance">Performance</TabsTrigger>
                     <TabsTrigger value="advanced">Advanced</TabsTrigger>
                     <TabsTrigger value="saving">Saving</TabsTrigger>
+                    <TabsTrigger value="logging">Logging</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="setup"><SetupTab form={form} models={models} vaes={vaes} textEncoders={textEncoders} onSave={handleCardSave} onRefreshModels={refreshModels} isRefreshingModels={isRefreshingModels} /></TabsContent>
@@ -282,6 +284,7 @@ export default function TrainingConfigNew() {
                   <TabsContent value="performance"><PerformanceTab form={form} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="advanced"><AdvancedTab form={form} onSave={handleCardSave} /></TabsContent>
                   <TabsContent value="saving"><SavingTab form={form} onSave={handleCardSave} /></TabsContent>
+                  <TabsContent value="logging"><LoggingTab form={form} /></TabsContent>
                 </Tabs>
 
                 <div className="mt-6 flex gap-4">
