@@ -26,22 +26,27 @@ class TestGetLogsBeforeEviction:
     """Buffer not yet full — no eviction, simple indexing."""
 
     def test_get_all_from_zero(self):
+        """since=0 returns every line when buffer is not yet full."""
         j = make_job(100, maxlen=200)
         assert j.get_logs(0) == [f"line {i}" for i in range(100)]
 
     def test_get_from_middle(self):
+        """since=50 returns only the second half of 100 lines."""
         j = make_job(100, maxlen=200)
         assert j.get_logs(50) == [f"line {i}" for i in range(50, 100)]
 
     def test_get_at_tip_returns_empty(self):
+        """since equal to total_lines_written returns an empty list."""
         j = make_job(100, maxlen=200)
         assert j.get_logs(100) == []
 
     def test_get_past_tip_returns_empty(self):
+        """since beyond total_lines_written returns an empty list."""
         j = make_job(100, maxlen=200)
         assert j.get_logs(200) == []
 
     def test_total_lines_written_tracks_count(self):
+        """total_lines_written equals the number of lines added."""
         j = make_job(100, maxlen=200)
         assert j.total_lines_written == 100
 
@@ -50,6 +55,7 @@ class TestGetLogsAfterEviction:
     """Buffer full — oldest entries evicted; absolute cursor must still work."""
 
     def test_cursor_at_zero_returns_all_buffered(self):
+        """since=0 with evicted lines returns all 200 buffered entries starting at oldest."""
         # 500 lines into a 200-entry buffer → first 300 evicted
         j = make_job(500, maxlen=200)
         result = j.get_logs(0)
@@ -57,6 +63,7 @@ class TestGetLogsAfterEviction:
         assert result[0] == "line 300"   # oldest still buffered
 
     def test_cursor_behind_oldest_returns_all_buffered(self):
+        """since inside the evicted window falls back to returning all buffered entries."""
         j = make_job(500, maxlen=200)
         # since=299 is still inside the evicted window → return all buffered
         result = j.get_logs(299)
@@ -64,12 +71,14 @@ class TestGetLogsAfterEviction:
         assert result[0] == "line 300"
 
     def test_cursor_at_oldest_returns_all_buffered(self):
+        """since exactly at oldest_absolute returns all buffered entries."""
         j = make_job(500, maxlen=200)
         # since=300 is exactly at oldest_absolute → return all buffered
         result = j.get_logs(300)
         assert len(result) == 200
 
     def test_cursor_inside_buffer(self):
+        """since inside the retained window returns only lines from that point forward."""
         j = make_job(500, maxlen=200)
         # since=400 → oldest_absolute=300, relative=100, should return last 100
         result = j.get_logs(400)
@@ -78,14 +87,17 @@ class TestGetLogsAfterEviction:
         assert result[-1] == "line 499"
 
     def test_cursor_at_tip_returns_empty(self):
+        """since equal to total_lines_written returns empty after eviction."""
         j = make_job(500, maxlen=200)
         assert j.get_logs(500) == []
 
     def test_cursor_past_tip_returns_empty(self):
+        """since beyond total_lines_written returns empty after eviction."""
         j = make_job(500, maxlen=200)
         assert j.get_logs(999) == []
 
     def test_total_lines_written_past_maxlen(self):
+        """total_lines_written keeps counting past the deque maxlen."""
         j = make_job(500, maxlen=200)
         assert j.total_lines_written == 500
         assert len(j.logs) == 200
