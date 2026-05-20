@@ -890,8 +890,8 @@ The goal is a healthy, interconnected set of tools running on the same VastAI/Ru
 ### 11.1 ComfyUI Frontend Integration
 
 **Priority:** Beta+ (after core beta bugs closed)  
-**Status:** Template acquired, architecture planned. **Shipping decision: all-in-one.**
-**Source:** v0-generated template, repo at `duskfallcrew/KNX-ComfyUI`, to be adapted — not dropped in wholesale
+**Status:** Architecture finalised 2026-05-20. **Shipping decision: all-in-one.**
+**Source:** v0-generated template, repo at `duskfallcrew/KNX-ComfyUI`, used as reference — not dropped in wholesale. Code lives in the main trainer repo.
 
 #### Shipping decision (2026-05-09)
 
@@ -908,7 +908,44 @@ ComfyUI tab ships **bundled in the main app**. No install flag, no optional clon
 - Settings page has a "ComfyUI URL" field (default: `http://localhost:8188`) so users who already have ComfyUI running somewhere can point the app at it — no re-install needed
 - Connection status badge on the tab so it's obvious at a glance whether it's live
 
+#### ComfyUI backend: submodule (2026-05-20)
 
+ComfyUI the Python backend ships as a **git submodule** in the trainer repo. It runs co-located on `localhost:8188` — always same machine, no SSH, no remote ComfyUI. Multi-GPU / remote-ComfyUI is explicitly future scope.
+
+Provisioning scripts (`vastai_setup.sh`, `provision_runpod.sh`, `install.bat`) do `git submodule update --init --recursive` to pull it down and start it alongside FastAPI and Next.js. The frontend tab is always present; the disconnected skeleton state covers the case where the user hasn't initialised the submodule yet.
+
+#### Workflow state architecture: B2 (2026-05-20)
+
+We wrap ComfyUI's API — we do not re-implement node logic. Source of truth is always ComfyUI.
+
+**Chosen approach (B2 — workflow-aware template mapping):**
+- Ship known workflow templates: each template = `workflow.json` + `node-map.json` (node type → UI control binding)
+- Templates live in `frontend/comfy/workflows/` — same spirit as `presets/`
+- On connect: load the active template's node map; bind UI controls to node types (not node IDs — IDs shift, types don't)
+- On generate: inject current UI values into the template JSON → `POST /comfy/prompt`
+- On result: poll `/comfy/history` for output images
+
+**Why not full live-graph reading (B1) yet:** B2 is the right starting point. B1 (reading every node dynamically via `/object_info`) is the long-horizon evolution as the node library grows — the architecture doesn't close that door, it just doesn't require it on day one.
+
+**Architecture switcher (ANIMA ↔ SDXL):**
+- Switcher in the UI header swaps which template is loaded — same resizable-panel UI, different workflow JSON + node map underneath
+- ANIMA template is first (reference: `guy90sVerySimpleAndEasyTo_v10.json`, tested and verified 2026-05-19 — AuraFlow model sampling node, UNET/CLIP/VAE separate loaders, KSampler, Adetailer, Ultimate SD Upscale)
+- SDXL template is the second built-in; in progress, not blocking ANIMA shipping
+
+**Extension model:**
+- Community contributions come in two forms: **workflow templates** (new architecture support) and **node packages** (new node type → UI control bindings)
+- Both drop into `frontend/comfy/workflows/` — no app code changes needed to add a new architecture
+- This is the same philosophy as `presets/` and maps to ComfyUI's own custom node ecosystem
+
+**LoRA Manager integration:**
+- The LoRA Manager custom node (`Lora Loader (LoraManager)`) ships with guy90s's workflow and provides a browseable popup UI for LoRA selection
+- Our UI has a **LoRA Manager button** — clicking it opens ComfyUI's LoRA Manager in a new browser tab (A1111-style "open extra networks" pattern)
+- LoRA selection state reads back from live workflow via the proxy — no separate sync needed
+
+**Node presence check:**
+- On connect, `GET /comfy/object_info` returns all loaded node types
+- Soft-check: if a node type required by the active template is missing, surface a friendly warning ("This workflow requires LoRA Manager — install it via ComfyUI Manager")
+- We do NOT auto-install nodes. Users manage their own ComfyUI custom nodes for now.
 
 #### What the template provides
 
@@ -966,9 +1003,10 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 - Requires: COMFY-1 through COMFY-4 complete + ComfyUI actually running on the instance
 
 #### Notes
-- ComfyUI the **backend** is not bundled — the user installs and runs it separately. The frontend tab is always present; it shows a disconnected skeleton state if the backend isn't reachable. The provisioning scripts (`vastai_setup.sh`, `provision_runpod.sh`) may optionally install it, but that's a separate decision.
+- ComfyUI backend ships as a **git submodule**, always co-located, `localhost:8188`. See "ComfyUI backend: submodule" section above.
 - The template has workflow builders for `inpaint`, `controlnet`, and `adetailer` types referenced in `types.ts` but not yet built in `workflows/`. Those are future scope.
 - Check whether `zustand` is already a dep before adding it — the stores use it.
+- **Issue #374 (Reflow Violations)** is a separate track from ComfyUI work — do not conflate. Fix reflow violations in the existing trainer pages independently.
 
 ---
 
