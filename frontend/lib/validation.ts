@@ -24,9 +24,11 @@ export const LoRATypeSchema = z.enum([
 });
 
 /**
- * Optimizer enumeration
+ * Optimizer values — single source of truth.
+ * Both the Zod schema and the UI dropdown derive from this tuple.
+ * Adding an optimizer here is the only change needed.
  */
-export const OptimizerSchema = z.enum([
+export const OPTIMIZER_VALUES = [
   'AdamW',
   'AdamW8bit',
   'Lion',
@@ -47,14 +49,19 @@ export const OptimizerSchema = z.enum([
   'AdamWScheduleFree',
   'SGDScheduleFree',
   'RAdamScheduleFree',
-], {
+] as const;
+
+export type OptimizerValue = typeof OPTIMIZER_VALUES[number];
+
+export const OptimizerSchema = z.enum(OPTIMIZER_VALUES, {
   message: 'Please select a valid optimizer',
 });
 
 /**
- * Learning rate scheduler enumeration
+ * LR scheduler values — single source of truth.
+ * Both the Zod schema and the UI dropdown derive from this tuple.
  */
-export const LRSchedulerSchema = z.enum([
+export const LR_SCHEDULER_VALUES = [
   'linear',
   'cosine',
   'cosine_with_restarts',
@@ -64,7 +71,11 @@ export const LRSchedulerSchema = z.enum([
   'adafactor',
   'rex',
   'cosine_annealing',
-], {
+] as const;
+
+export type LRSchedulerValue = typeof LR_SCHEDULER_VALUES[number];
+
+export const LRSchedulerSchema = z.enum(LR_SCHEDULER_VALUES, {
   message: 'Please select a valid learning rate scheduler',
 });
 

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { NumberFormField, SelectFormField } from '../fields/FormFields';
 import type { TrainingConfig } from '@/lib/api';
 import { TrendingUp } from 'lucide-react';
+import { type LRSchedulerValue } from '@/lib/validation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Save } from 'lucide-react';
@@ -91,7 +92,7 @@ export function LearningRateCard({ form, onSave }: LearningRateCardProps) {
             { value: 'adafactor', label: 'AdaFactor', description: 'Adaptive LR (use with AdaFactor optimizer)' },
             { value: 'rex', label: 'Rex (Warm Restarts)', description: 'Vendored custom scheduler with warm restarts' },
             { value: 'cosine_annealing', label: 'Cosine Annealing (Warm Restarts)', description: 'Vendored cosine annealing with warm restarts' },
-          ]}
+          ] satisfies Array<{ value: LRSchedulerValue; label: string; description?: string }>}
         />
 
         {/* Scheduler-specific settings */}
