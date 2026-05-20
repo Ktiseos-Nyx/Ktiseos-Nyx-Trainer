@@ -181,13 +181,13 @@ export default function TrainingMonitor() {
             ...prev,
             progress: {
               ...prev.progress,
-              ...(data.step_num != null && { current_step: data.step_num }),
-              ...(data.total_steps != null && { total_steps: data.total_steps }),
-              ...(data.current_epoch != null && { current_epoch: data.current_epoch }),
-              ...(data.total_epochs != null && { total_epochs: data.total_epochs }),
-              ...(data.loss != null && { loss: data.loss }),
-              ...(data.lr != null && { lr: data.lr }),
-              ...(data.eta_seconds != null && { eta_seconds: data.eta_seconds }),
+              ...(data.step_num != null && { current_step: data.step_num as number }),
+              ...(data.total_steps != null && { total_steps: data.total_steps as number }),
+              ...(data.current_epoch != null && { current_epoch: data.current_epoch as number }),
+              ...(data.total_epochs != null && { total_epochs: data.total_epochs as number }),
+              ...(data.loss != null && { loss: data.loss as number }),
+              ...(data.lr != null && { lr: data.lr as number }),
+              ...(data.eta_seconds != null && { eta_seconds: data.eta_seconds as number }),
             },
           }));
         } else if (data.type === 'status') {
