@@ -575,9 +575,9 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 | Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
 | LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | ⏳ Not started |
 | Clarify "Full" LoRA type semantics (LT-4) | UX | Small | ⏳ Not started |
-| Silence AbortError console noise (UI-3) | Polish | Small | ⏳ Not started |
+| Silence AbortError console noise (UI-3) | Polish | Small | ✅ Done 2026-05-20 |
 | Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
-| Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny | ⏳ Next session |
+| Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny | ✅ Done (via -u flag in kohya.py:124) |
 | MG-2: Document save_precision naming difference | Code Clarity | Tiny | ✅ Done 2026-04-30 |
 
 ### Nice to Have (Beta+)
@@ -839,6 +839,26 @@ The following features were inspired by Civitai's training interface:
 
 ## 9. Session Notes
 
+### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
+
+**Completed this session:**
+- **PR #375** — Reflow violations (#374): TrainingMonitor auto-scroll fully deferred into rAF with cancelAnimationFrame on cleanup; auto-tag SelectContent → `position="item-aligned"` (removes Floating UI getBoundingClientRect on mousedown); 4 raw `<button>` elements → shadcn `<Button>`; `MAX_LOGS` 1000→500; `aria-label`, `gap-2`, `type="button"` added per CodeRabbit review.
+- **PR #376** — Log stream cutout bug: `Job.logs` is a `deque(maxlen=1000)`. Once full, `get_logs(since)` always returned `[]` because it used a buffer-relative index — `since` reached `maxlen` and `start >= len(logs)` was permanently true. Root cause of the 5-7 minute log cutout on a 4090. Fixed with `total_lines_written` absolute counter; same bug fixed in `stream_logs` WebSocket path. `deque` maxlen raised to 2000. 13 regression tests added.
+- **BETA_PLANNING.md §11.1** — ComfyUI architecture finalised: submodule approach, B2 workflow-template state model, extension system (workflow templates + node packages), LoRA Manager button → new tab, ANIMA ↔ SDXL switcher.
+- **UI-3** confirmed done — AbortError caught and suppressed in both `pollLogs` paths in `api.ts`.
+- **UI-4 PYTHONUNBUFFERED** confirmed done — achieved via `-u` flag in `kohya.py:124`.
+
+**Status check findings:**
+- PR-0 (OptimizerSchema single source of truth) — still genuinely pending. No `OPTIMIZER_VALUES as const` in `validation.ts`.
+- LT-1 + UI-1 (WandB logging UI) — still pending.
+
+**Up next:**
+- Merge PR #375 (reflow) → PR #376 (log stream) onto main
+- LT-1 + UI-1 (#343): WandB key env var + LoggingCard
+- PR-0: Export OPTIMIZER_VALUES/LRSCHEDULER_VALUES as `as const` from validation.ts
+
+---
+
 ### 2026-04-30 — Beta Bug Bash
 
 **Completed this session (commits on `dev`):**
@@ -1006,7 +1026,7 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 - ComfyUI backend ships as a **git submodule**, always co-located, `localhost:8188`. See "ComfyUI backend: submodule" section above.
 - The template has workflow builders for `inpaint`, `controlnet`, and `adetailer` types referenced in `types.ts` but not yet built in `workflows/`. Those are future scope.
 - Check whether `zustand` is already a dep before adding it — the stores use it.
-- **Issue #374 (Reflow Violations)** is a separate track from ComfyUI work — do not conflate. Fix reflow violations in the existing trainer pages independently.
+- **Issue #374 (Reflow Violations)** fixed in PR #375 (2026-05-20). TrainingMonitor auto-scroll moved fully into rAF with cleanup; auto-tag page SelectContent → position="item-aligned"; raw buttons → shadcn Button.
 
 ---
 
