@@ -43,21 +43,29 @@ export default function TrainingMonitor() {
 
   const logPollerRef = useRef<LogPoller | null>(null);
   const drainTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logContainerRef = useRef<HTMLDivElement>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const MAX_LOGS = 1000;
+  const MAX_LOGS = 500;
 
   // Updated synchronously during render so effect cleanups always see the
   // latest value — useEffect deps are stale closures, refs are not.
   const isTrainingRef = useRef(status.is_training);
   isTrainingRef.current = status.is_training;
 
-  // Auto-scroll logs to bottom
-  const scrollToBottom = () => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Auto-scroll only when the user is already near the bottom.
+  // Both the layout reads and scrollIntoView are deferred into rAF so nothing
+  // touches layout synchronously in the useEffect body. The rAF is cancelled
+  // on cleanup to prevent reads/writes against an unmounted container.
   useEffect(() => {
-    scrollToBottom();
+    const rafId = requestAnimationFrame(() => {
+      const container = logContainerRef.current;
+      if (!container) return;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      if (scrollHeight - scrollTop - clientHeight < 120) {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [logs]);
 
   // Listen for training start event from TrainingConfig (ALWAYS active)
@@ -358,7 +366,7 @@ export default function TrainingMonitor() {
           </span>
         </div>
 
-        <div className="bg-background p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
+        <div ref={logContainerRef} className="bg-background p-4 font-mono text-sm text-green-400 h-96 overflow-y-auto">
           {logs.length === 0 ? (
             <div className="text-muted-foreground text-center py-8">
               {status.is_training

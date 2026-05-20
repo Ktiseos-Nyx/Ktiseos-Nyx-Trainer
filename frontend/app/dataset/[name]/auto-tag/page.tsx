@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 
 // Unified model definitions
@@ -410,7 +411,7 @@ export default function AutoTagPage() {
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select dataset..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="item-aligned">
                         {datasets.map(ds => (
                           <SelectItem key={ds.path} value={ds.path}>
                             {ds.name} ({ds.image_count} images)
@@ -428,7 +429,7 @@ export default function AutoTagPage() {
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select model..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="item-aligned">
                       <SelectGroup>
                         <SelectLabel>WD14 Tagger (Anime Tags)</SelectLabel>
                         {AVAILABLE_MODELS.filter(m => m.type === 'wd14').map(model => (
@@ -469,7 +470,7 @@ export default function AutoTagPage() {
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select extension..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="item-aligned">
                       <SelectItem value=".txt">.txt (Kohya standard)</SelectItem>
                       <SelectItem value=".caption">.caption</SelectItem>
                       <SelectItem value=".cap">.cap</SelectItem>
@@ -1029,13 +1030,16 @@ export default function AutoTagPage() {
                 </div>
 
                 {/* Advanced Options Toggle */}
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="w-full px-4 py-2 bg-accent hover:bg-accent/80 rounded-lg flex items-center justify-between"
+                  aria-expanded={showAdvanced}
+                  className="w-full justify-between px-4"
                 >
                   <span className="text-sm font-medium">Advanced Options</span>
                   {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </button>
+                </Button>
 
                 {showAdvanced && (
                   <div className="space-y-2 pt-2 border-t border-border">
@@ -1074,26 +1078,23 @@ export default function AutoTagPage() {
             <Card>
               <CardContent className="pt-6 space-y-4">
                 <div className="flex gap-3">
-                  <button
+                  <Button
                     onClick={handleStartTagging}
                     disabled={tagging || !selectedDataset || datasets.length === 0}
-                    className={`flex-1 px-6 py-3 ${
-                      tagging || !selectedDataset || datasets.length === 0
-                        ? 'bg-muted !text-muted-foreground cursor-not-allowed opacity-60 border-2 border-border'
-                        : 'bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 !text-white shadow-lg'
-                    } rounded-lg font-semibold flex items-center justify-center gap-2`}
+                    className="flex-1 gap-2"
                   >
                     <Play className="w-5 h-5" />
                     {tagging ? 'Tagging...' : 'Start'}
-                  </button>
+                  </Button>
                   {tagging && (
-                    <button
+                    <Button
                       onClick={handleStopTagging}
-                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg font-semibold shadow-lg flex items-center justify-center gap-2"
+                      variant="destructive"
+                      className="gap-2"
                     >
                       <Square className="w-5 h-5" />
                       Stop
-                    </button>
+                    </Button>
                   )}
                 </div>
 
@@ -1157,25 +1158,29 @@ export default function AutoTagPage() {
           <div className="mt-6">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="flex items-center bg-accent/50 hover:bg-accent">
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => setLogsExpanded(v => !v)}
                   aria-expanded={logsExpanded}
                   aria-controls="auto-tag-logs-body"
-                  className="flex-1 px-6 py-4 flex items-center justify-between"
+                  className="flex-1 px-6 py-4 justify-between h-auto"
                 >
                   <div className="flex items-center gap-2 font-semibold">
                     <Terminal className="w-5 h-5" />
                     Process Logs {jobId && <span className="text-xs text-muted-foreground">({jobId})</span>}
                   </div>
                   {logsExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                </button>
+                </Button>
                 {logs.length > 0 && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setLogs([])}
-                    className="p-1 mr-4 hover:bg-accent-foreground/10 rounded"
+                    className="mr-2"
+                    aria-label="Clear logs"
                   >
                     <X className="w-4 h-4" />
-                  </button>
+                  </Button>
                 )}
               </div>
               {logsExpanded && (
