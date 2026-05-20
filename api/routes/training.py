@@ -397,6 +397,11 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
             for line in logs
         ]
 
+        # next_since must reflect the last line actually returned, not the tip —
+        # otherwise a limit-truncated response causes the client to skip buffered lines.
+        oldest_absolute = job.total_lines_written - len(job.logs)
+        next_since = max(since, oldest_absolute) + len(logs)
+
         return {
             "success": True,
             "job_id": job_id,
@@ -412,7 +417,7 @@ async def get_training_logs(job_id: str, since: int = 0, limit: int = 0):
             "lr": job.lr,
             "eta_seconds": job.eta_seconds,
             "error": job.error,
-            "next_since": job.total_lines_written,
+            "next_since": next_since,
         }
 
     except HTTPException:

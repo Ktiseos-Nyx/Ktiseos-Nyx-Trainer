@@ -42,8 +42,8 @@ class Job:
     total_images: Optional[int] = None
 
     # Log buffer (keep last max_logs lines)
-    logs: deque = field(default_factory=lambda: deque(maxlen=2000))
     max_logs: int = 2000
+    logs: deque = field(init=False)
     # Absolute count of lines ever written — survives deque eviction.
     # 'since' cursors from the frontend are absolute offsets into this counter,
     # not relative indices into the deque. This prevents the deque wrap-around
@@ -53,6 +53,9 @@ class Job:
     # Error tracking
     error: Optional[str] = None
     error_traceback: Optional[str] = None
+
+    def __post_init__(self):
+        self.logs = deque(maxlen=self.max_logs)
 
     def add_log(self, log_line: str):
         """Add log line to buffer"""

@@ -13,7 +13,6 @@ from services.models.job import JobType
 def make_job(n_lines: int, maxlen: int = 2000) -> Job:
     """Create a job and write n_lines log entries into it."""
     j = Job(job_id="test", job_type=JobType.TRAINING)
-    j.logs.maxlen  # confirm deque is initialised
     # Override maxlen for testing small cases without 2000-entry loops
     from collections import deque
     j.logs = deque(maxlen=maxlen)
