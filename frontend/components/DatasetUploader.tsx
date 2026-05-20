@@ -18,8 +18,10 @@ import {
 } from 'lucide-react';
 import { zipSync } from 'fflate';
 import { toast } from 'sonner';
-import { datasetAPI, API_BASE } from '@/lib/api';
+import { datasetAPI } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 interface UploadedFile {
   file: File;
@@ -42,7 +44,7 @@ export default function DatasetUploader() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const filesRef = useRef<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
-  const uploadControllerRef = useRef<AbortController | null>(null);
+  const [zipUploadProgress, setZipUploadProgress] = useState(0);
 
   // URL/ZIP Download State
   const [projectName, setProjectName] = useState('');
@@ -208,147 +210,126 @@ export default function DatasetUploader() {
     }
   };
 
-  // Zip and upload as single request (Remote GPU mode)
+  // ========== Chunked ZIP Upload ==========
+
+  const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk
+  const MAX_RETRIES = 3;
+
+  /**
+   * Upload a ZIP file (File or in-memory Blob) in 10 MB chunks via the
+   * upload-chunk-init → upload-chunk × N → upload-chunk-finalize route trio.
+   * Progress is reported as chunk index / totalChunks.
+   * Each chunk is retried up to MAX_RETRIES times with exponential backoff.
+   */
+  const handleChunkedZipUpload = async (
+    zipFile: File | Blob,
+    fileName: string,
+    targetDatasetName: string,
+  ): Promise<{ success: boolean; extracted?: number; errors?: string[] }> => {
+    const uploadId = crypto.randomUUID();
+    const totalChunks = Math.ceil(zipFile.size / CHUNK_SIZE);
+
+    const initRes = await fetch('/api/dataset/upload-chunk-init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploadId, fileName, totalChunks }),
+    });
+    if (!initRes.ok) throw new Error('Failed to initialise chunked upload');
+
+    setZipUploadProgress(0);
+
+    for (let i = 0; i < totalChunks; i++) {
+      let retries = 0;
+      while (retries < MAX_RETRIES) {
+        try {
+          const start = i * CHUNK_SIZE;
+          const chunk = zipFile.slice(start, start + CHUNK_SIZE);
+          const form = new FormData();
+          form.append('chunk', chunk, `part_${i}`);
+          form.append('uploadId', uploadId);
+          form.append('index', String(i));
+          const res = await fetch('/api/dataset/upload-chunk', {
+            method: 'POST',
+            body: form,
+            keepalive: true, // keeps Cloudflared/Caddy tunnel alive during slow chunks
+          });
+          if (!res.ok) throw new Error(`Chunk ${i} rejected by server`);
+          setZipUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
+          break;
+        } catch (err) {
+          retries++;
+          if (retries === MAX_RETRIES) throw new Error(`Chunk ${i} failed after ${MAX_RETRIES} retries: ${err}`);
+          await new Promise(r => setTimeout(r, 1500 * retries));
+        }
+      }
+    }
+
+    const finalRes = await fetch('/api/dataset/upload-chunk-finalize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploadId, fileName, datasetName: targetDatasetName }),
+    });
+    setZipUploadProgress(0);
+
+    if (!finalRes.ok) {
+      const errData = await finalRes.json().catch(() => ({})) as { detail?: string; error?: string };
+      throw new Error(errData.detail || errData.error || 'Upload finalisation failed');
+    }
+
+    return finalRes.json() as Promise<{ success: boolean; extracted?: number; errors?: string[] }>;
+  };
+
+  // Remote GPU mode: zip images in memory, then send via chunked upload
   const handleUploadZipped = async (imageFiles: UploadedFile[]) => {
-    // Mark all as uploading
     setFiles(prev =>
       prev.map(f =>
-        imageFiles.some(img => img.file === f.file)
-          ? { ...f, status: 'uploading' }
-          : f
+        imageFiles.some(img => img.file === f.file) ? { ...f, status: 'uploading' } : f
       )
     );
 
-    // Build zip in memory
     const zipData: { [key: string]: [Uint8Array, { level: 6 }] } = {};
     for (const fileObj of imageFiles) {
       const buf = await fileObj.file.arrayBuffer();
       zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 6 as const }];
     }
-
     const zipped = zipSync(zipData);
     const zipBlob = new Blob([zipped.buffer as ArrayBuffer], { type: 'application/zip' });
 
-    // Upload single zip
-    const formData = new FormData();
-    formData.append('file', new File([zipBlob], `${datasetName}.zip`, { type: 'application/zip' }));
-    formData.append('dataset_name', datasetName);
-
-    const controller = new AbortController();
-    uploadControllerRef.current = controller;
-    const timeoutId = setTimeout(() => controller.abort(), 600000);
-
-    const response = await fetch(`${API_BASE}/dataset/upload-zip`, {
-      method: 'POST',
-      body: formData,
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Upload failed');
-      } else {
-        const text = await response.text();
-        throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`);
-      }
-    }
-
-    const result = await response.json();
-
+    const result = await handleChunkedZipUpload(zipBlob, `${datasetName}.zip`, datasetName);
     if (!result.success) {
       throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
     }
 
-    // Mark all as success
     setFiles(prev =>
       prev.map(f =>
-        imageFiles.some(img => img.file === f.file)
-          ? { ...f, status: 'success', progress: 100 }
-          : f
+        imageFiles.some(img => img.file === f.file) ? { ...f, status: 'success', progress: 100 } : f
       )
     );
   };
 
-  // Upload and extract ZIP
+  // Direct ZIP drop: send via chunked upload
   const handleUploadZip = async () => {
     const zipFiles = files.filter(f => f.file.name.endsWith('.zip'));
 
-    if (zipFiles.length === 0) {
-      toast.warning('No ZIP files selected');
-      return;
-    }
+    if (zipFiles.length === 0) { toast.warning('No ZIP files selected'); return; }
+    if (!datasetName.trim()) { toast.warning('Please enter a dataset name'); return; }
 
-    if (!datasetName.trim()) {
-      toast.warning('Please enter a dataset name');
-      return;
-    }
-
-    // Check if dataset exists and confirm
     if (datasetExists) {
-      if (!confirm(`Dataset "${datasetName}" already exists!\n\nZIP contents will be extracted to the existing dataset. Continue?`)) {
-        return;
-      }
+      if (!confirm(`Dataset "${datasetName}" already exists!\n\nZIP contents will be extracted to the existing dataset. Continue?`)) return;
     }
 
-    // Validate the file exists and has size
     const zipFile = zipFiles[0].file;
-    if (!zipFile || zipFile.size === 0) {
-      toast.error('ZIP file is empty or not loaded yet');
-      return;
-    }
+    if (!zipFile || zipFile.size === 0) { toast.error('ZIP file is empty or not loaded yet'); return; }
 
-    console.log(`📦 Uploading ZIP: ${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(2)} MB)`);
     setUploading(true);
-
     try {
-      const formData = new FormData();
-      formData.append('file', zipFile);
-      formData.append('dataset_name', datasetName);
-
-      console.log('🚀 Sending ZIP to backend...');
-
-      // Add timeout to prevent hanging forever (10 mins for slow networks)
-      const controller = new AbortController();
-      uploadControllerRef.current = controller;
-      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
-
-      const response = await fetch(`${API_BASE}/dataset/upload-zip`, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      console.log(`📥 Response status: ${response.status}`);
-
-      if (!response.ok) {
-        // Check if response is JSON before parsing
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const error = await response.json();
-          throw new Error(error.detail || 'Upload failed');
-        } else {
-          const text = await response.text();
-          throw new Error(`Server error (${response.status}): ${text.substring(0, 200)}`);
-        }
-      }
-
-      const result = await response.json();
-      console.log('📊 Result:', result);
-
+      const result = await handleChunkedZipUpload(zipFile, zipFile.name, datasetName);
       if (result.success) {
-        console.log(`✅ Extracted ${result.extracted} images`);
         toast.success(`ZIP uploaded! Extracted ${result.extracted} images`, {
-          description: result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : undefined,
+          description: result.errors && result.errors.length > 0 ? `Errors: ${result.errors.join(', ')}` : undefined,
         });
         revokePreviewUrls(files);
         setFiles([]);
-
-        // Reload existing datasets list
         try {
           const data = await datasetAPI.list();
           setExistingDatasets((data.datasets || []).map(d => d.name));
@@ -356,15 +337,13 @@ export default function DatasetUploader() {
           console.error('Failed to reload datasets:', err);
         }
       } else {
-        console.error('❌ No files extracted');
         throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
       }
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return;
-      console.error('❌ Upload error:', err);
       toast.error(`ZIP upload failed: ${err}`);
     } finally {
       setUploading(false);
+      setZipUploadProgress(0);
     }
   };
 
@@ -375,14 +354,9 @@ export default function DatasetUploader() {
     });
   }, []);
 
-  // Abort any in-flight upload and revoke blob URLs on unmount.
-  // filesRef.current always holds the latest files list, so blob URLs created
-  // after mount are still revoked even though this effect has an empty dep array.
+  // Revoke blob URLs on unmount — filesRef.current always holds the latest list
   useEffect(() => {
-    return () => {
-      uploadControllerRef.current?.abort();
-      revokePreviewUrls(filesRef.current);
-    };
+    return () => { revokePreviewUrls(filesRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -422,7 +396,7 @@ export default function DatasetUploader() {
     setDownloading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/dataset/download-url`, {
+      const response = await fetch('/api/dataset/download-url', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -620,22 +594,28 @@ export default function DatasetUploader() {
                   {zipCount > 0 && ` · ${zipCount} ZIP`}
                 </h3>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={handleReset}
-                    className="text-sm text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 flex items-center gap-1 font-semibold"
                     title="Force reset - always works even if upload is stuck"
+                    className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 gap-1 h-auto py-0 px-1"
                   >
                     <RefreshCw className="w-3 h-3" />
                     Reset {uploading && '(Force)'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={handleClear}
-                    className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1"
                     disabled={uploading}
+                    className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 gap-1 h-auto py-0 px-1"
                   >
                     <X className="w-3 h-3" />
                     Clear All
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -722,27 +702,40 @@ export default function DatasetUploader() {
           {/* Action Buttons */}
           <div className="flex gap-3">
             {zipCount > 0 && (
-              <button
+              <Button
+                type="button"
                 onClick={handleUploadZip}
                 disabled={uploading || zipCount === 0}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex-1 gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700"
               >
                 <FileArchive className="w-5 h-5" />
-                {uploading ? 'Extracting...' : `Extract ${zipCount} ZIP`}
-              </button>
+                {uploading ? 'Uploading...' : `Upload ${zipCount} ZIP`}
+              </Button>
             )}
 
             {imageCount > 0 && (
-              <button
+              <Button
+                type="button"
                 onClick={handleUpload}
                 disabled={uploading || imageCount === 0}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex-1 gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700"
               >
                 <Upload className="w-5 h-5" />
                 {uploading ? 'Uploading...' : `Upload ${imageCount} Images`}
-              </button>
+              </Button>
             )}
           </div>
+
+          {/* Upload Progress */}
+          {uploading && zipUploadProgress > 0 && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Uploading...</span>
+                <span>{zipUploadProgress}%</span>
+              </div>
+              <Progress value={zipUploadProgress} className="h-2" />
+            </div>
+          )}
 
           {/* Success Message */}
           {successCount === files.length && files.length > 0 && (
@@ -810,14 +803,15 @@ export default function DatasetUploader() {
           </div>
 
           {/* Download Button */}
-          <button
+          <Button
+            type="button"
             onClick={handleUrlDownload}
             disabled={downloading || !projectName.trim() || !datasetUrl.trim()}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700"
           >
             <Download className="w-5 h-5" />
             {downloading ? 'Downloading & Extracting...' : 'Download & Extract Dataset'}
-          </button>
+          </Button>
         </TabsContent>
 
         {/* ========== Create Folder Tab ========== */}
@@ -883,14 +877,15 @@ export default function DatasetUploader() {
           )}
 
           {/* Create Button */}
-          <button
+          <Button
+            type="button"
             onClick={handleCreateFolder}
             disabled={creatingFolder || !folderName.trim()}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700"
           >
             <FolderPlus className="w-5 h-5" />
             {creatingFolder ? 'Creating...' : 'Create Folder'}
-          </button>
+          </Button>
         </TabsContent>
       </Tabs>
     </div>
