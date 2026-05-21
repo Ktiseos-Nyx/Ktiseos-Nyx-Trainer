@@ -557,27 +557,20 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
   if (config.log_prefix) {
     args.log_prefix = config.log_prefix;
   }
-  // Custom optimizers (CAME, Compass, LPFAdamW, RMSProp) receive weight_decay
-  // through optimizer_args, not the top-level field. Standard optimizers
-  // (AdamW, AdamW8bit, Adafactor, etc.) handle weight_decay at the top level
-  // and must NOT receive it via optimizer_args or it gets double-applied.
+  // Pass optimizer_args as a space-separated string (Python model expects Optional[str]).
+  // For custom optimizers (CAME, Compass, etc.), also inject weight_decay from the
+  // UI field if it's not already in the user-provided args.
   const CUSTOM_OPTIMIZERS = ['CAME', 'Compass', 'LPFAdamW', 'RMSProp'];
   const isCustomOptimizer = CUSTOM_OPTIMIZERS.includes(config.optimizer_type);
   const userArgs = config.optimizer_args
     ? config.optimizer_args.trim().split(/\s+/).filter(Boolean)
     : [];
-  if (isCustomOptimizer) {
-    const optimizerArgsList: string[] = [...userArgs];
-    // Inject weight_decay from the UI field only if not already in user args
-    if (config.weight_decay && !optimizerArgsList.some(a => a.startsWith('weight_decay='))) {
-      optimizerArgsList.unshift(`weight_decay=${config.weight_decay}`);
-    }
-    if (optimizerArgsList.length > 0) {
-      args.optimizer_args = optimizerArgsList;
-    }
-  } else if (userArgs.length > 0) {
-    // For standard optimizers, only pass args the user explicitly provided
-    args.optimizer_args = userArgs;
+  const optimizerArgsList: string[] = [...userArgs];
+  if (isCustomOptimizer && config.weight_decay && !optimizerArgsList.some(a => a.startsWith('weight_decay='))) {
+    optimizerArgsList.unshift(`weight_decay=${config.weight_decay}`);
+  }
+  if (optimizerArgsList.length > 0) {
+    args.optimizer_args = optimizerArgsList.join(' ');
   }
 
   // Steps vs Epochs handling
