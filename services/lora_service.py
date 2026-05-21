@@ -141,6 +141,9 @@ class LoRAService:
                 error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
                 raise ProcessError(f"LoRA resize failed: {error_msg}")
 
+            if not output_path.exists():
+                raise ProcessError(f"Resize succeeded but output file not found: {output_path}")
+
             # Get file size
             file_size_mb = output_path.stat().st_size / (1024 * 1024)
 
@@ -357,6 +360,9 @@ class LoRAService:
             if process.returncode != 0:
                 error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
                 raise ProcessError(f"LoRA merge failed: {error_msg}")
+
+            if not output_path.exists():
+                raise ProcessError(f"Merge succeeded but output file not found: {output_path}")
 
             # Get file size
             file_size_mb = output_path.stat().st_size / (1024 * 1024)
