@@ -8,6 +8,25 @@ This file adds Claude Code-specific guidance on top of that foundation.
 
 ---
 
+## Bleeding Edge — Non-Standard Parameters Are Intentional
+
+This project is a **bleeding edge training tool** used by experienced LoRA trainers who know exactly what they're doing. Parameters that look "wrong" by conventional standards are often intentional.
+
+**Do not:**
+- Add artificial min/max/step constraints to training parameter fields (LR, alpha, dim, etc.) based on what "typical" training looks like
+- Reject or warn on LR values, optimizer args, or network settings just because they fall outside common tutorials
+- "Fix" preset values from community experts (Novowels, Jelosus2, etc.) — treat them as authoritative
+- Add validation that enforces conventional wisdom (e.g. TENC LR must be lower than UNet LR — sometimes it isn't)
+
+**Do:**
+- Trust that the user and community preset authors understand the implications
+- Use `step="any"` on numeric training fields so any precision is valid
+- Only validate for hard errors (missing required paths, type mismatches, structurally invalid configs)
+
+If a PR review agent flags a training parameter as "non-standard" or "too high/low" — ignore it. The user operates outside standard ranges by design.
+
+---
+
 ## Claude Code Behaviour
 
 ### Preset Management Rule
