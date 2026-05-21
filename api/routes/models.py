@@ -225,6 +225,12 @@ async def get_popular_models():
                     "filename": "ponyDiffusionV6XL_v6.safetensors",
                     "description": "Anime/cartoon model from Civitai",
                 },
+                {
+                    "name": "NoobAI XL v1.1 (EPS)",
+                    "url": "https://huggingface.co/Laxhar/noobai-XL-1.1/resolve/main/NoobAI-XL-v1.1.safetensors",
+                    "filename": "NoobAI-XL-v1.1.safetensors",
+                    "description": "NoobAI XL v1.1 — Illustrious-based anime model (EPS prediction)",
+                },
             ],
             "sd15": [
                 {
