@@ -86,7 +86,7 @@ else
     # Set cleanup trap before launching any processes so nothing is orphaned
     BACKEND_PID=""
     FRONTEND_PID=""
-    trap "echo '⚠️ Stopping services...'; kill ${BACKEND_PID} ${FRONTEND_PID} 2>/dev/null; exit 0" INT TERM
+    trap 'echo "⚠️ Stopping services..."; kill ${BACKEND_PID} ${FRONTEND_PID} 2>/dev/null; exit 0' INT TERM
 
     echo "🧹 Cleaning up existing processes..."
     lsof -ti:$BACKEND_PORT 2>/dev/null | xargs kill -9 2>/dev/null || true
