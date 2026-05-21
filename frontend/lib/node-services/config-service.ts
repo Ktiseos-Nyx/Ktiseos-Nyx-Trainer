@@ -46,7 +46,7 @@ interface TrainingConfig {
   optimizer_type: string;
   max_grad_norm: number;
   weight_decay: number;
-  optimizer_args?: string[];
+  optimizer_args?: string;
 
   // Network (LoRA) settings
   lora_type: string;

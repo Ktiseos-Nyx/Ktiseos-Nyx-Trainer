@@ -326,7 +326,7 @@ class TrainingConfig(BaseModel):
     scale_v_pred_loss_like_noise_pred: Optional[bool] = Field(None, description="Scale v-pred loss like noise pred")
     v_pred_like_loss: Optional[float] = Field(None, ge=0, description="V-prediction-like loss weight")
     debiased_estimation_loss: Optional[bool] = Field(None, description="Use debiased estimation loss")
-    network_train_unet_only: bool = Field(True, description="Train UNet only")
+    network_train_unet_only: bool = Field(False, description="Train UNet only (overrides text_encoder_lr when True)")
     prior_loss_weight: float = Field(1.0, ge=0, description="Prior loss weight")
 
     # ========== FLUX-SPECIFIC ==========

@@ -534,8 +534,8 @@ export interface TaggingJobConfig {
   removeUnderscore?: boolean;
   /** Place character tags before general tags (--character_tags_first) */
   characterTagsFirst?: boolean;
-  /** Append to existing caption files instead of overwriting (--append_tags) */
-  appendTags?: boolean;
+  /** How to handle existing caption files: 'overwrite' replaces, 'append' merges, 'ignore' skips */
+  overwriteMode?: 'overwrite' | 'append' | 'ignore';
   /** Search for images in subdirectories recursively (--recursive) */
   recursive?: boolean;
   /** Add rating tags as first tag (--use_rating_tags) */
@@ -675,8 +675,10 @@ export async function createTaggingJob(
   if (config.characterTagsFirst) {
     args.push('--character_tags_first');
   }
-  if (config.appendTags) {
+  if (config.overwriteMode === 'append') {
     args.push('--append_tags');
+  } else if (config.overwriteMode === 'ignore') {
+    args.push('--skip_existing');
   }
   if (config.recursive) {
     args.push('--recursive');

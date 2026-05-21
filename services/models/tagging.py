@@ -2,7 +2,7 @@
 Pydantic models for WD14 image tagging.
 """
 
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -110,9 +110,9 @@ class TaggingConfig(BaseModel):
     )
 
     # File handling
-    append_tags: bool = Field(
-        False,
-        description="Append to existing captions instead of overwriting"
+    overwrite_mode: Literal["overwrite", "append", "ignore"] = Field(
+        "overwrite",
+        description="How to handle existing captions: 'overwrite' replaces, 'append' merges, 'ignore' skips"
     )
     recursive: bool = Field(
         False,

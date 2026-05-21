@@ -565,7 +565,17 @@ def main(args):
             image_paths.extend(train_data_dir_path.glob(f"*{ext.upper()}"))
 
     image_paths = sorted(list(set(image_paths)))  # Remove duplicates and sort
-    logger.info(f"found {len(image_paths)} images.")
+
+    # Filter before inference so skip_existing doesn't waste GPU compute
+    if getattr(args, 'skip_existing', False):
+        before = len(image_paths)
+        image_paths = [
+            p for p in image_paths
+            if not os.path.exists(os.path.splitext(p)[0] + args.caption_extension)
+        ]
+        logger.info(f"skip_existing: skipping {before - len(image_paths)} already-captioned images.")
+
+    logger.info(f"found {len(image_paths)} images to process.")
 
     tag_freq = {}
 
@@ -830,6 +840,11 @@ def setup_parser() -> argparse.ArgumentParser:
         "--append_tags",
         action="store_true",
         help="Append captions instead of overwriting / 上書きではなくキャプションを追記する",
+    )
+    parser.add_argument(
+        "--skip_existing",
+        action="store_true",
+        help="Skip images that already have a caption file / すでにキャプションファイルがある画像をスキップする",
     )
     parser.add_argument(
         "--use_rating_tags",
