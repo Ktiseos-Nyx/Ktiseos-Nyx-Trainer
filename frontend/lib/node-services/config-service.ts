@@ -573,11 +573,12 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     args.max_train_steps = config.max_train_steps;
   }
 
-  // Noise Settings
-  if (config.min_snr_gamma_enabled && config.min_snr_gamma) {
+  // Noise Settings — check value directly; _enabled flags are UI-only toggles
+  // and are not set by presets, so gating on them silently drops preset values.
+  if (config.min_snr_gamma != null && config.min_snr_gamma > 0) {
     args.min_snr_gamma = config.min_snr_gamma;
   }
-  if (config.ip_noise_gamma_enabled && config.ip_noise_gamma) {
+  if (config.ip_noise_gamma != null && config.ip_noise_gamma > 0) {
     args.ip_noise_gamma = config.ip_noise_gamma;
     if (config.ip_noise_gamma_random_strength) {
       args.ip_noise_gamma_random_strength = true;
