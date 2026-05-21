@@ -995,7 +995,7 @@ export default function AutoTagPage() {
                       onValueChange={(v) => setOverwriteMode(v as 'overwrite' | 'append' | 'ignore')}
                       disabled={tagging}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger id="overwrite-mode" className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
