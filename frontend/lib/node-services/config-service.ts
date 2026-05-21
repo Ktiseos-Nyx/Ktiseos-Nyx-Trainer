@@ -555,18 +555,28 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
   if (config.log_prefix) {
     args.log_prefix = config.log_prefix;
   }
-  // Build optimizer_args array: weight_decay always first, then any user extras.
-  // Kohya expects an array of "key=value" strings for --optimizer_args.
-  const optimizerArgsList: string[] = [`weight_decay=${config.weight_decay ?? 0.01}`];
-  if (config.optimizer_args) {
-    // config.optimizer_args is a space-separated string from the UI
-    const extras = config.optimizer_args.trim().split(/\s+/).filter(Boolean);
-    // don't duplicate weight_decay if user already specified it
-    for (const extra of extras) {
-      if (!extra.startsWith('weight_decay=')) optimizerArgsList.push(extra);
+  // Custom optimizers (CAME, Compass, LPFAdamW, RMSProp) receive weight_decay
+  // through optimizer_args, not the top-level field. Standard optimizers
+  // (AdamW, AdamW8bit, Adafactor, etc.) handle weight_decay at the top level
+  // and must NOT receive it via optimizer_args or it gets double-applied.
+  const CUSTOM_OPTIMIZERS = ['CAME', 'Compass', 'LPFAdamW', 'RMSProp'];
+  const isCustomOptimizer = CUSTOM_OPTIMIZERS.includes(config.optimizer_type);
+  const userArgs = config.optimizer_args
+    ? config.optimizer_args.trim().split(/\s+/).filter(Boolean)
+    : [];
+  if (isCustomOptimizer) {
+    const optimizerArgsList: string[] = [...userArgs];
+    // Inject weight_decay from the UI field only if not already in user args
+    if (config.weight_decay && !optimizerArgsList.some(a => a.startsWith('weight_decay='))) {
+      optimizerArgsList.unshift(`weight_decay=${config.weight_decay}`);
     }
+    if (optimizerArgsList.length > 0) {
+      args.optimizer_args = optimizerArgsList;
+    }
+  } else if (userArgs.length > 0) {
+    // For standard optimizers, only pass args the user explicitly provided
+    args.optimizer_args = userArgs;
   }
-  args.optimizer_args = optimizerArgsList;
 
   // Steps vs Epochs handling
   if (config.max_train_steps && config.max_train_steps > 0) {
