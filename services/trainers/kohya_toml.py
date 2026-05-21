@@ -449,6 +449,13 @@ class KohyaTOMLGenerator:
             a.startswith('weight_decay=') for a in opt_args
         ):
             opt_args.append(f'weight_decay={self.config.weight_decay}')
+        # CAME + bf16 requires state_storage_dtype=bfloat16 or the optimizer state
+        # precision mismatch causes NaN. Auto-inject when not already set.
+        if self.config.optimizer_type == "CAME" and self.config.mixed_precision == "bf16":
+            if not any(a.startswith('state_storage_dtype=') for a in opt_args):
+                opt_args.append('state_storage_dtype=bfloat16')
+            if not any(a.startswith('state_storage_device=') for a in opt_args):
+                opt_args.append('state_storage_device=cuda')
         if opt_args:
             args["optimizer_args"] = opt_args
 
