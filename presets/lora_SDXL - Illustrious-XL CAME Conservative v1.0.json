@@ -70,8 +70,8 @@
   "bucket_reso_steps": 64,
   "bucket_no_upscale": true,
 
-  "mixed_precision": "fp16",
-  "save_precision": "fp16",
+  "mixed_precision": "bf16",
+  "save_precision": "bf16",
   "full_fp16": false,
   "full_bf16": false,
   "fp8_base": false,
