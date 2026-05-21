@@ -77,7 +77,17 @@ if [ -d "/workspace" ] && command -v supervisorctl &>/dev/null; then
     echo "📊 Logs:     /workspace/logs/supervisor.log"
     echo "=========================================="
 else
-    # Local: kill by port, then start
+    # Local: verify frontend exists before starting anything
+    if [ ! -d "frontend" ]; then
+        echo "❌ frontend/ directory not found — aborting before starting backend"
+        exit 1
+    fi
+
+    # Set cleanup trap before launching any processes so nothing is orphaned
+    BACKEND_PID=""
+    FRONTEND_PID=""
+    trap "echo '⚠️ Stopping services...'; kill ${BACKEND_PID} ${FRONTEND_PID} 2>/dev/null; exit 0" INT TERM
+
     echo "🧹 Cleaning up existing processes..."
     lsof -ti:$BACKEND_PORT 2>/dev/null | xargs kill -9 2>/dev/null || true
     lsof -ti:$FRONTEND_PORT 2>/dev/null | xargs kill -9 2>/dev/null || true
@@ -109,6 +119,5 @@ else
     echo "Press Ctrl+C to stop all services"
     echo "=========================================="
 
-    trap "echo '⚠️ Stopping services...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0" INT TERM
     wait
 fi
