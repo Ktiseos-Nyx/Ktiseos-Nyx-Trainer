@@ -92,7 +92,7 @@ export default function AutoTagPage() {
   const [characterTagExpand, setCharacterTagExpand] = useState(false);
 
   // File handling
-  const [appendTags, setAppendTags] = useState(false);
+  const [overwriteMode, setOverwriteMode] = useState<'overwrite' | 'append' | 'ignore'>('overwrite');
   const [recursive, setRecursive] = useState(false);
 
   // Performance
@@ -295,7 +295,7 @@ export default function AutoTagPage() {
         useRatingTagsAsLastTag: ratingTags === 'last',
         removeUnderscore,
         characterTagExpand,
-        appendTags,
+        overwriteMode,
         recursive,
         batchSize,
         maxWorkers,
@@ -515,7 +515,7 @@ export default function AutoTagPage() {
                       {selectedDatasetInfo.tags_present ? (
                         <>
                           <span className="text-green-400">✓</span>
-                          <span className="text-green-400">Has tags (will {appendTags ? 'append' : 'overwrite'})</span>
+                          <span className="text-green-400">Has tags (will {overwriteMode === 'ignore' ? 'skip' : overwriteMode})</span>
                         </>
                       ) : (
                         <>
@@ -988,18 +988,22 @@ export default function AutoTagPage() {
                       Use ONNX Runtime (faster)
                     </label>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="append"
-                      checked={appendTags}
-                      onChange={(e) => setAppendTags(e.target.checked)}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Existing Caption Handling</label>
+                    <Select
+                      value={overwriteMode}
+                      onValueChange={(v) => setOverwriteMode(v as 'overwrite' | 'append' | 'ignore')}
                       disabled={tagging}
-                      className="w-4 h-4 accent-purple-500"
-                    />
-                    <label htmlFor="append" className="text-sm cursor-pointer">
-                      Append Tags (don't overwrite)
-                    </label>
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="overwrite">Overwrite — replace existing captions</SelectItem>
+                        <SelectItem value="append">Append — merge new tags with existing</SelectItem>
+                        <SelectItem value="ignore">Ignore — skip images that already have captions</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex items-center gap-3">
                     <Input

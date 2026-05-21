@@ -665,6 +665,10 @@ def main(args):
 
             caption_file = os.path.splitext(image_path)[0] + args.caption_extension
 
+            # ignore mode: skip images that already have a caption file
+            if getattr(args, 'skip_existing', False) and os.path.exists(caption_file):
+                continue
+
             tag_text = caption_separator.join(combined_tags)
 
             if args.append_tags:
@@ -830,6 +834,11 @@ def setup_parser() -> argparse.ArgumentParser:
         "--append_tags",
         action="store_true",
         help="Append captions instead of overwriting / 上書きではなくキャプションを追記する",
+    )
+    parser.add_argument(
+        "--skip_existing",
+        action="store_true",
+        help="Skip images that already have a caption file / すでにキャプションファイルがある画像をスキップする",
     )
     parser.add_argument(
         "--use_rating_tags",

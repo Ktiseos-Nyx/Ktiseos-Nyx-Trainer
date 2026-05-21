@@ -436,7 +436,7 @@ class KohyaTOMLGenerator:
             args["sample_prompts"] = str(Path(self.config.sample_prompts).resolve().as_posix())
         if self.config.logging_dir:
             args["logging_dir"] = str(Path(self.config.logging_dir).resolve().as_posix())
-        if self.config.log_with:
+        if self.config.log_with and self.config.log_with != 'none':
             args["log_with"] = self.config.log_with
         if self.config.log_prefix:
             args["log_prefix"] = self.config.log_prefix

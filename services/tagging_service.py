@@ -316,8 +316,10 @@ class TaggingService:
             command.append("--use_rating_tags")
         if config.use_rating_tags_as_last_tag:
             command.append("--use_rating_tags_as_last_tag")
-        if config.append_tags:
+        if config.overwrite_mode == "append":
             command.append("--append_tags")
+        elif config.overwrite_mode == "ignore":
+            command.append("--skip_existing")
         if config.recursive:
             command.append("--recursive")
         if config.frequency_tags:

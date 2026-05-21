@@ -110,9 +110,9 @@ class TaggingConfig(BaseModel):
     )
 
     # File handling
-    append_tags: bool = Field(
-        False,
-        description="Append to existing captions instead of overwriting"
+    overwrite_mode: str = Field(
+        "overwrite",
+        description="How to handle existing captions: 'overwrite' replaces, 'append' merges, 'ignore' skips"
     )
     recursive: bool = Field(
         False,
