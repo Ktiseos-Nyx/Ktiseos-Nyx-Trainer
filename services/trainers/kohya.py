@@ -7,7 +7,6 @@ Implements BaseTrainer for Kohya's sd-scripts training framework.
 import asyncio
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -69,31 +68,24 @@ class KohyaTrainer(BaseTrainer):
         if not is_valid:
             raise ValidationError("; ".join(errors))
 
-        # 3. Generate the TWO Runtime TOMLs
-        dataset_toml_runtime = self.config_dir / f"{self.config.project_name}_dataset.toml"
-        self.toml_generator.generate_dataset_toml(dataset_toml_runtime)
+        # 3. Generate TOMLs directly to config/ (single location, no intermediate copy)
+        config_dir = self.project_root / "config"
+        config_dir.mkdir(exist_ok=True)
 
-        config_toml_runtime = self.config_dir / f"{self.config.project_name}_config.toml"
-        self.toml_generator.generate_config_toml(config_toml_runtime)
+        dataset_toml = config_dir / f"{self.config.project_name}_dataset.toml"
+        config_toml = config_dir / f"{self.config.project_name}_config.toml"
 
-        # 4. Copy to User Config Folder
-        user_config_dir = self.project_root / "config"
-        user_config_dir.mkdir(exist_ok=True)
+        self.toml_generator.generate_dataset_toml(dataset_toml)
+        self.toml_generator.generate_config_toml(config_toml)
 
-        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
-        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
-
-        shutil.copy(dataset_toml_runtime, dataset_toml_user)
-        shutil.copy(config_toml_runtime, config_toml_user)
-
-        # 5. Build Command List
+        # 4. Build Command List
         cmd = [
             sys.executable,
             str(self.get_script_path()),
             "--config_file",
-            str(config_toml_user.resolve()),
+            str(config_toml.resolve()),
             "--dataset_config",
-            str(dataset_toml_user.resolve()),
+            str(dataset_toml.resolve()),
             "--output_dir",
             str(self._resolved_output_dir()),
             "--output_name",
@@ -233,26 +225,19 @@ class KohyaTrainer(BaseTrainer):
         Returns:
             Dict mapping config names to their file paths
         """
-        # Generate runtime TOMLs
-        dataset_toml_runtime = self.config_dir / f"{self.config.project_name}_dataset.toml"
-        self.toml_generator.generate_dataset_toml(dataset_toml_runtime)
+        # Generate TOMLs directly to config/ (single location, no intermediate copy)
+        config_dir = self.project_root / "config"
+        config_dir.mkdir(exist_ok=True)
 
-        config_toml_runtime = self.config_dir / f"{self.config.project_name}_config.toml"
-        self.toml_generator.generate_config_toml(config_toml_runtime)
+        dataset_toml = config_dir / f"{self.config.project_name}_dataset.toml"
+        config_toml = config_dir / f"{self.config.project_name}_config.toml"
 
-        # Copy to user config folder
-        user_config_dir = self.project_root / "config"
-        user_config_dir.mkdir(exist_ok=True)
-
-        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
-        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
-
-        shutil.copy(dataset_toml_runtime, dataset_toml_user)
-        shutil.copy(config_toml_runtime, config_toml_user)
+        self.toml_generator.generate_dataset_toml(dataset_toml)
+        self.toml_generator.generate_config_toml(config_toml)
 
         return {
-            "dataset_config": dataset_toml_user,
-            "training_config": config_toml_user
+            "dataset_config": dataset_toml,
+            "training_config": config_toml
         }
 
     def build_command(self) -> List[str]:
