@@ -73,9 +73,23 @@ Core training is working and verified. Anima is now confirmed training. Heading 
 - ✅ Log poller race condition fixed — logs no longer freeze at a mid-run epoch on tab switch
 - ✅ shadcn CLI 3.6.1 → 4.7.0; fast-uri CVE-2026-6322 patched
 - ✅ Anima, SDXL, Illustrious, and Pony preset templates added to `presets/`
+- ✅ **CAME NaN root cause fixed** — `network_train_unet_only` defaulting `True` created an empty TE parameter group when `text_encoder_lr > 0`; default changed to `False`
+- ✅ Weight decay auto-injected into `optimizer_args` for custom optimizers (CAME, Compass, etc.) — top-level field was silently ignored by the custom optimizer path
+- ✅ Conservative CAME preset corrected — was `fp16` + `conv_dim: 32` (both cause NaN with CAME); fixed to `bf16` + `conv_dim: 0`
+- ✅ Tag viewer — Civitai-inspired chip filter UI on the tag editor page; multi-select tags to filter the image grid, bulk remove/replace from the Actions menu
+- ✅ Stop training button added to the training monitor
+- ✅ WD14 overwrite mode expanded to 3-way toggle: overwrite / append / ignore (was boolean append-only)
+- ✅ Log cursor wrap-around fixed — absolute line counter replaces buffer-relative index; logs no longer stall after the deque wraps
+- ✅ ZIP dataset upload streaming — request body piped directly instead of buffered; fixes ECONNRESET on large uploads (400MB+ confirmed working)
+- ✅ Dataset `tags_present` flag fixed — tag editor page now correctly shows "Has tags" / "No tags" status
+- ✅ LoggingCard Radix fix — `log_with` SelectItem uses `'none'` sentinel instead of empty string (Radix rejects empty values)
+- ✅ TOML generated directly to `config/` — removed intermediate `runtime_store/` copy step
+- ✅ Anima presets updated — `clip_skip: 1`, `keep_tokens: 1` across all Anima configs
+- ✅ NoobAI-XL-v1.1 (EPS) added to model browser
+- ✅ `fetch-restart.sh` — single command for full pull + npm install + build + service restart (use `restart.sh` for quick bounce without rebuild)
 
 **Known rough edges to update:**
-- WandB logging UI still missing (LT-1 + UI-1, up next)
+- WandB key field is wired (backend accepts it), but the `log_with` UI selector needs polish
 
 ---
 
