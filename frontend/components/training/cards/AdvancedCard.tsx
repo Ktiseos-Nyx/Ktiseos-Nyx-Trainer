@@ -25,6 +25,7 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
   const isLumina = modelType === 'LUMINA';
   const isAnima = modelType === 'Anima';
   const isHunyuanImage = modelType === 'HunyuanImage';
+  const isSDXL = modelType === 'SDXL';
   // SD2 check kept for future support - currently no SD2 in ModelType enum
   const isSD2 = (modelType as string) === 'SD2.0' || (modelType as string) === 'SD2.1';
 
@@ -53,12 +54,19 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
           <p className="text-sm font-semibold text-gray-300">SNR & Noise Settings</p>
           <p className="text-xs text-gray-400">Signal-to-noise ratio and noise injection techniques (all models)</p>
 
+          <CheckboxFormField
+            form={form}
+            name="min_snr_gamma_enabled"
+            label="Enable Min SNR Gamma"
+            description="Gate SNR loss weighting — must be on for the value below to take effect"
+          />
+
           <NumberFormField
             form={form}
             name="min_snr_gamma"
             label="Min SNR Gamma"
-            description="Helps convergence. 0 = disabled, typical: 5.0"
-            placeholder="0"
+            description="Typical: 5.0. Only applied when enabled above."
+            placeholder="5.0"
             min={0}
             max={20}
           />
@@ -215,6 +223,21 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
               name="v_parameterization"
               label="V-Parameterization"
               description="For SDXL v-pred or SD 2.x 768px models"
+            />
+          </div>
+        )}
+
+        {/* SDXL Specific */}
+        {isSDXL && (
+          <div className="space-y-3 p-4 border border-orange-500/30 rounded-lg bg-orange-500/5">
+            <p className="text-sm font-semibold text-orange-400">🟠 SDXL Specific Settings</p>
+            <p className="text-xs text-orange-300">Only for SDXL-based models</p>
+
+            <CheckboxFormField
+              form={form}
+              name="disable_cross_attn_mask"
+              label="Disable Cross-Attention Mask"
+              description="Restores pre-May-2026 behaviour — try this if you get NaN loss on SDXL"
             />
           </div>
         )}

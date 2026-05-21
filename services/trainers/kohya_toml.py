@@ -482,7 +482,11 @@ class KohyaTOMLGenerator:
             args["max_train_steps"] = self.config.max_train_steps
 
         # Noise Settings
-        if self.config.min_snr_gamma and self.config.min_snr_gamma > 0:
+        # Gate on _enabled flag (consistent with ip_noise_gamma_enabled below).
+        # The default min_snr_gamma is 5.0 (non-zero), so checking only > 0 would
+        # silently inject min_snr_gamma into every run — including SDXL runs where
+        # no preset author intended it, causing potential NaN from snr division.
+        if self.config.min_snr_gamma_enabled and self.config.min_snr_gamma and self.config.min_snr_gamma > 0:
             args["min_snr_gamma"] = self.config.min_snr_gamma
         if self.config.ip_noise_gamma_enabled:
             args["ip_noise_gamma"] = self.config.ip_noise_gamma

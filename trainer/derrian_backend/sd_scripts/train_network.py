@@ -313,7 +313,12 @@ class NetworkTrainer:
     ):
         # Sample noise, sample a random timestep for each image, and add noise to the latents,
         # with noise offset and/or multires noise if specified
-        encoder_attention_mask_bias = text_encoder_masks[1] #[(1 - t.to(dtype=text_encoder_conds[0].dtype)).unsqueeze(1) * -10000.0 for t in text_encoder_masks]
+        # Use cross-attention mask for SDXL unless explicitly disabled.
+        # The mask is TE2's stitched bool mask [B, seq_len]; passing it through the
+        # custom UNet's expand/sdpa paths can misbehave for batch_size > 1 or with
+        # xformers — set disable_cross_attn_mask=true in the TOML to bypass until fixed.
+        _use_mask = len(text_encoder_masks) > 1 and not getattr(args, 'disable_cross_attn_mask', False)
+        encoder_attention_mask_bias = text_encoder_masks[1] if _use_mask else None
 
         pixel_counts = None
         if hasattr(self, "get_flow_pixel_counts"):
