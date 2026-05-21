@@ -355,7 +355,10 @@ class KohyaTOMLGenerator:
             "save_precision": self.config.save_precision,
             "no_metadata": self.config.no_metadata,
             "save_state": self.config.save_state,
-            "sample_sampler": self.config.sample_sampler,
+            # sample_sampler only relevant when sampling is enabled
+            **({"sample_sampler": self.config.sample_sampler}
+               if (self.config.sample_every_n_epochs or self.config.sample_every_n_steps)
+               else {}),
             "mixed_precision": self.config.mixed_precision,
             "gradient_checkpointing": self.config.gradient_checkpointing,
             "gradient_accumulation_steps": self.config.gradient_accumulation_steps,
@@ -481,7 +484,7 @@ class KohyaTOMLGenerator:
             args["max_train_steps"] = self.config.max_train_steps
 
         # Noise Settings
-        if self.config.min_snr_gamma_enabled:
+        if self.config.min_snr_gamma and self.config.min_snr_gamma > 0:
             args["min_snr_gamma"] = self.config.min_snr_gamma
         if self.config.ip_noise_gamma_enabled:
             args["ip_noise_gamma"] = self.config.ip_noise_gamma
