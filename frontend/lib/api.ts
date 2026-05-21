@@ -355,7 +355,7 @@ export const datasetAPI = {
     useRatingTagsAsLastTag?: boolean;
     removeUnderscore?: boolean;
     characterTagExpand?: boolean;
-    appendTags?: boolean;
+    overwriteMode?: 'overwrite' | 'append' | 'ignore';
     recursive?: boolean;
     batchSize?: number;
     maxWorkers?: number;
@@ -383,7 +383,7 @@ export const datasetAPI = {
         use_rating_tags_as_last_tag: params.useRatingTagsAsLastTag ?? false,
         remove_underscore: params.removeUnderscore ?? true,
         character_tag_expand: params.characterTagExpand ?? false,
-        append_tags: params.appendTags ?? false,
+        overwrite_mode: params.overwriteMode ?? 'overwrite',
         recursive: params.recursive ?? false,
         batch_size: params.batchSize ?? 8,
         max_workers: params.maxWorkers ?? 2,

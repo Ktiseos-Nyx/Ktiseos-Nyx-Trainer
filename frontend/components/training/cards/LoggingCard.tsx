@@ -21,6 +21,7 @@ export function LoggingCard({ form }: LoggingCardProps) {
   const logWith = form.watch('log_with');
   const showTensorboard = logWith === 'tensorboard' || logWith === 'all';
   const showWandB = logWith === 'wandb' || logWith === 'all';
+  // 'none' is the sentinel for "no logging" — avoids the Radix SelectItem empty-string error
 
   return (
     <Card className="border-blue-500/30">
@@ -40,7 +41,7 @@ export function LoggingCard({ form }: LoggingCardProps) {
           label="Log With"
           description="Where to send training metrics (loss, learning rate, etc.)"
           options={[
-            { value: '', label: 'None' },
+            { value: 'none', label: 'None' },
             { value: 'tensorboard', label: 'TensorBoard' },
             { value: 'wandb', label: 'WandB' },
             { value: 'all', label: 'Both' },

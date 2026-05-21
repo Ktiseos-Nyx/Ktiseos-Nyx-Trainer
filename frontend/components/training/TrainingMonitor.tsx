@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { trainingAPI, LogPoller } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { Activity, Clock, Zap, TrendingUp } from 'lucide-react';
 
 interface TrainingStatus {
@@ -288,6 +289,23 @@ export default function TrainingMonitor() {
           }`}>
             {status.is_training ? 'Training' : 'Idle'}
           </span>
+          {status.is_training && jobId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-400 border-red-500/30 bg-red-500/20 hover:bg-red-500/30"
+              onClick={async () => {
+                if (!confirm('Stop training? The current checkpoint will be saved.')) return;
+                try {
+                  await trainingAPI.stop(jobId);
+                } catch (e) {
+                  console.error('Stop request failed:', e);
+                }
+              }}
+            >
+              Stop
+            </Button>
+          )}
         </div>
       </div>
 

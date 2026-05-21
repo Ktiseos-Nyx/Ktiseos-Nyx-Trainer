@@ -31,6 +31,7 @@ export async function GET(_request: NextRequest) {
       path: string;
       image_count: number;
       caption_count: number;
+      tags_present: boolean;
     }> = [];
 
     for (const entry of entries) {
@@ -40,11 +41,13 @@ export async function GET(_request: NextRequest) {
       const files = await fs.readdir(datasetPath);
       const lower = files.map(f => f.toLowerCase());
 
+      const caption_count = lower.filter(f => f.endsWith('.txt')).length;
       datasets.push({
         name: entry.name,
         path: datasetPath,
         image_count: lower.filter(f => IMAGE_EXTENSIONS.some(ext => f.endsWith(ext))).length,
-        caption_count: lower.filter(f => f.endsWith('.txt')).length,
+        caption_count,
+        tags_present: caption_count > 0,
       });
     }
 

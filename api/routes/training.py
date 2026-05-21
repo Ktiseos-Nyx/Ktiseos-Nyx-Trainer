@@ -77,6 +77,18 @@ def validate_training_config_extended(config: TrainingConfig) -> list[Validation
             )
         )
 
+    # "Full" LyCORIS algorithm is native DreamBooth fine-tuning — semantically
+    # belongs in checkpoint mode, not LoRA mode. Warn so users don't get a
+    # surprising config.
+    if config.training_mode == TrainingMode.LORA and getattr(config, 'lora_type', None) == 'Full':
+        errors.append(
+            ValidationError(
+                field="lora_type",
+                message="The 'Full' algorithm is native DreamBooth fine-tuning. Consider using Checkpoint training mode instead, or ensure this is intentional.",
+                severity="warning",
+            )
+        )
+
     # Helpful warnings for common mistakes
     if config.training_mode != TrainingMode.CHECKPOINT and config.network_dim > 128:
         errors.append(
