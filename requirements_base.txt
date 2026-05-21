@@ -65,7 +65,7 @@ setuptools>=78.1.1
 kornia>=0.8.2
 
 # Monitoring & Logging
-wandb==0.17.1
+wandb>=0.18.0  # 0.17.1 uses np.float_ which was removed in NumPy 2.0
 watchdog>=4.0.0
 tensorboard
 pyasn1>=0.6.3  # not directly required; pinned to fix CVE (tensorboard→google-auth→pyasn1-modules/rsa→pyasn1)
