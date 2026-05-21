@@ -128,6 +128,7 @@ interface TrainingConfig {
   v2: boolean;
   v_parameterization: boolean;
   network_train_unet_only: boolean;
+  disable_cross_attn_mask?: boolean;
 
   // Noise settings
   noise_offset: number;
@@ -446,6 +447,7 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     v2: config.v2,
     v_parameterization: config.v_parameterization,
     network_train_unet_only: config.network_train_unet_only,
+    ...(config.disable_cross_attn_mask ? { disable_cross_attn_mask: true } : {}),
     noise_offset: config.noise_offset,
     zero_terminal_snr: config.zero_terminal_snr,
     prior_loss_weight: config.prior_loss_weight,

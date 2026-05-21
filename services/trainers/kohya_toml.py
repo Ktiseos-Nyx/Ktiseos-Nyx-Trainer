@@ -381,6 +381,9 @@ class KohyaTOMLGenerator:
             "prior_loss_weight": self.config.prior_loss_weight,
         }
 
+        if self.config.disable_cross_attn_mask:
+            args["disable_cross_attn_mask"] = True
+
         if self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only:
             args["network_train_unet_only"] = True
 
