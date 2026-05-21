@@ -440,10 +440,17 @@ class KohyaTOMLGenerator:
             args["log_with"] = self.config.log_with
         if self.config.log_prefix:
             args["log_prefix"] = self.config.log_prefix
-        if self.config.optimizer_args:
-            # Kohya expects optimizer_args as a list of "key=value" strings in TOML,
-            # not a single space-separated string. shlex.split preserves quoted values.
-            args["optimizer_args"] = shlex.split(self.config.optimizer_args)
+        # Custom optimizers (CAME, Compass, etc.) receive weight_decay through
+        # optimizer_args, not the top-level field. Inject it automatically so
+        # the Weight Decay UI field works correctly for custom optimizers too.
+        is_custom_optimizer = self.config.optimizer_type in self.CUSTOM_OPTIMIZER_PATHS
+        opt_args = shlex.split(self.config.optimizer_args) if self.config.optimizer_args else []
+        if is_custom_optimizer and self.config.weight_decay and not any(
+            a.startswith('weight_decay=') for a in opt_args
+        ):
+            opt_args.append(f'weight_decay={self.config.weight_decay}')
+        if opt_args:
+            args["optimizer_args"] = opt_args
 
         # Save/sample intervals - only include when > 0 to avoid ZeroDivisionError
         # (Kohya does `global_step % save_every_n_steps` which crashes on 0)
