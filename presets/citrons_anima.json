@@ -22,5 +22,7 @@
   "multires_noise_iterations": 0,
   "timestep_sampling": "sigmoid",
   "sigmoid_scale": 1,
-  "discrete_flow_shift": 1
+  "discrete_flow_shift": 1,
+  "keep_tokens": 1,
+  "clip_skip": 1
 }
