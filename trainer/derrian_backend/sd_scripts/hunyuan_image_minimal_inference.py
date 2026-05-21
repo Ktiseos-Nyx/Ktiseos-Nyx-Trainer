@@ -309,17 +309,7 @@ def load_dit_model(
     # merge LoRA weights
     if args.lycoris:
         if args.lora_weight is not None and len(args.lora_weight) > 0:
-            merge_lora_weights(
-                lora_hunyuan_image,
-                model,
-                args.lora_weight,
-                args.lora_multiplier,
-                args.include_patterns,
-                args.exclude_patterns,
-                device,
-                lycoris=True,
-                save_merged_model=args.save_merged_model,
-            )
+            merge_lora_weights(lora_hunyuan_image, model, args, device)
 
         if args.fp8_scaled:
             # load state dict as-is and optimize to fp8

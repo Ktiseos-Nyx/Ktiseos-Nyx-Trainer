@@ -11,3 +11,7 @@ GEMINI.md
 .claude
 .gemini
 MagicMock
+RamTorch/
+lycoris-ramtorch
+.codex-tmp
+references

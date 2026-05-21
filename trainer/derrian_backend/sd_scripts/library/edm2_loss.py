@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from diffusers import DDPMScheduler
-from typing import Optional
 import os
 import logging
 logger = logging.getLogger(__name__)
@@ -69,11 +68,11 @@ class AdaptiveLossWeightMLP(nn.Module):
         self.a_bar_std = self.alphas_cumprod.std()
         self.logvar_fourier = FourierFeatureExtractor(logvar_channels, dtype=dtype)
         self.logvar_linear = NormalizedLinearLayer(logvar_channels, 1, kernel=[], dtype=dtype) # kernel = []? (not in code given, added matching edm2)
-        self.lambda_weights = lambda_weights.to(device=device, dtype=dtype) if lambda_weights is not None else torch.ones(1000, device=device, dtype=dtype)
+        self.lambda_weights = lambda_weights.to(device=device, dtype=dtype) if lambda_weights is not None else torch.ones(1000, device=device)
         self.noise_scheduler = noise_scheduler
         self.dtype=dtype
 
-        self.use_importance_weights=use_importance_weights
+        self.use_importance_weights=use_importance_weights,
         self.importance_weights = importance_weights.to(device=device, dtype=dtype) if importance_weights is not None else torch.ones(1000, device=device, dtype=dtype)
 
         if self.use_importance_weights:
@@ -147,19 +146,17 @@ class AdaptiveLossWeightMLP(nn.Module):
         info = self.load_state_dict(weights_sd, False)
         return info
     
-def create_weight_MLP(noise_scheduler: DDPMScheduler,
-                    logvar_channels: int = 128,
-                    lambda_weights: Optional[torch.Tensor] = None,
-                    optimizer: torch.optim.Optimizer = torch.optim.AdamW,
+def create_weight_MLP(noise_scheduler: DDPMScheduler, 
+                    logvar_channels: int = 128, 
+                    lambda_weights: torch.tensor = None, 
+                    optimizer: torch.optim.Optimizer = torch.optim.AdamW, 
                     lr: float = 2e-2,
-                    optimizer_args: Optional[dict] = None,
+                    optimizer_args: dict = {'weight_decay': 0, 'betas': (0.9,0.99)},
                     dtype=torch.float32,
                     device='cuda',
                     use_importance_weights: bool = True,
                     importance_weights_max_weight: float = 10.0,
                     importance_weights_min_snr_gamma: float = 1.0):
-    if optimizer_args is None:
-        optimizer_args = {'weight_decay': 0, 'betas': (0.9, 0.99)}
     logger.info("creating weight MLP")
     lossweightMLP = AdaptiveLossWeightMLP(noise_scheduler, logvar_channels, lambda_weights, device, 
                                           dtype=dtype, 
