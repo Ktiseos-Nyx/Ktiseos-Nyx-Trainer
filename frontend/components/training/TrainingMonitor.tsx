@@ -288,6 +288,22 @@ export default function TrainingMonitor() {
           }`}>
             {status.is_training ? 'Training' : 'Idle'}
           </span>
+          {status.is_training && jobId && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm('Stop training? The current checkpoint will be saved.')) return;
+                try {
+                  await fetch(`/api/training/stop/${jobId}`, { method: 'POST' });
+                } catch (e) {
+                  console.error('Stop request failed:', e);
+                }
+              }}
+              className="px-3 py-1 rounded-full text-sm font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors"
+            >
+              Stop
+            </button>
+          )}
         </div>
       </div>
 
