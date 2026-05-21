@@ -7,6 +7,10 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 
+// Large ZIP uploads can take several minutes — prevent the default timeout from
+// killing the request mid-stream.
+export const maxDuration = 300;
+
 /**
  * Determine the base URL for the backend service.
  *
@@ -24,18 +28,39 @@ function backendBase(): string {
 /**
  * Proxies multipart ZIP upload requests to the backend's /api/dataset/upload-zip endpoint and returns the backend response.
  *
+ * Streams the request body directly to FastAPI without buffering it in Node.js
+ * memory — avoids ECONNRESET on large files caused by buffering the entire
+ * multipart body before forwarding.
+ *
  * @param request - Incoming Next.js request containing multipart form data (the uploaded ZIP)
  * @returns A NextResponse containing the backend's JSON response (status mirrors the backend). If the backend returns non-OK, returns a JSON error with the backend status and truncated detail; if a proxy error occurs, returns a JSON error with status 500.
  */
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    const contentType = request.headers.get('content-type');
+    if (!contentType) {
+      return NextResponse.json(
+        { error: 'Missing content-type header — multipart boundary required' },
+        { status: 400 }
+      );
+    }
+
+    const forwardHeaders: Record<string, string> = { 'content-type': contentType };
+    const contentLength = request.headers.get('content-length');
+    if (contentLength) forwardHeaders['content-length'] = contentLength;
+
     const res = await fetch(`${backendBase()}/api/dataset/upload-zip`, {
       method: 'POST',
-      body: formData,
+      // Stream directly — do NOT await request.formData() which buffers the
+      // entire body into memory before forwarding, causing timeouts on large ZIPs.
+      body: request.body,
+      headers: forwardHeaders,
+      // Required by Node.js fetch to allow a streaming request body.
+      // @ts-expect-error duplex is a valid Node.js fetch option not yet in the TypeScript types
+      duplex: 'half',
     });
 
-    const contentType = res.headers.get('content-type') || '';
+    const resContentType = res.headers.get('content-type') || '';
 
     if (!res.ok) {
       const errText = await res.text();
@@ -45,7 +70,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (contentType.includes('application/json')) {
+    if (resContentType.includes('application/json')) {
       return NextResponse.json(await res.json(), { status: res.status });
     }
 

@@ -42,30 +42,47 @@ class Job:
     total_images: Optional[int] = None
 
     # Log buffer (keep last max_logs lines)
-    logs: deque = field(default_factory=lambda: deque(maxlen=1000))
-    max_logs: int = 1000
+    max_logs: int = 2000
+    logs: deque = field(init=False)
+    # Absolute count of lines ever written — survives deque eviction.
+    # 'since' cursors from the frontend are absolute offsets into this counter,
+    # not relative indices into the deque. This prevents the deque wrap-around
+    # bug where get_logs(N) returns [] forever once N == maxlen.
+    total_lines_written: int = 0
 
     # Error tracking
     error: Optional[str] = None
     error_traceback: Optional[str] = None
 
+    def __post_init__(self):
+        """Initialise the log deque with the configured max_logs capacity."""
+        self.logs = deque(maxlen=self.max_logs)
+
     def add_log(self, log_line: str):
         """Add log line to buffer"""
         self.logs.append(log_line)
+        self.total_lines_written += 1
 
-    def get_logs(self, start: int = 0) -> list[str]:
+    def get_logs(self, since: int = 0) -> list[str]:
         """
-        Get logs starting from line number.
+        Get logs since an absolute line number.
 
         Args:
-            start: Line number to start from (0-indexed)
+            since: Absolute line count offset (matches total_lines_written
+                   at the time the caller last received logs). NOT a deque index.
 
         Returns:
-            List of log lines from start onwards
+            List of log lines from since onwards (capped to buffered window).
         """
-        if start >= len(self.logs):
+        # Oldest absolute line number still in the deque
+        oldest_absolute = self.total_lines_written - len(self.logs)
+        if since <= oldest_absolute:
+            # Caller is behind the buffer window — return everything buffered
+            return list(self.logs)
+        relative_start = since - oldest_absolute
+        if relative_start >= len(self.logs):
             return []
-        return list(self.logs)[start:]
+        return list(self.logs)[relative_start:]
 
     @property
     def is_running(self) -> bool:
