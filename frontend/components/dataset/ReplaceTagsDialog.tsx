@@ -53,21 +53,30 @@ export function ReplaceTagsDialog({
         </DialogHeader>
 
         <div className="space-y-3 py-2">
-          {selectedTags.map(tag => (
-            <div key={tag} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <Badge variant="outline" className="justify-center truncate py-2">
-                {tag}
-              </Badge>
-              <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-              <Input
-                placeholder={tag}
-                value={replacements[tag] ?? ''}
-                onChange={e =>
-                  setReplacements(prev => ({ ...prev, [tag]: e.target.value }))
-                }
-              />
-            </div>
-          ))}
+          {selectedTags.map(tag => {
+            const inputId = `replace-${tag.replace(/\s+/g, '-')}`;
+            return (
+              <div key={tag} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <Badge variant="outline" className="justify-center truncate py-2">
+                  {tag}
+                </Badge>
+                <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div>
+                  <label htmlFor={inputId} className="sr-only">
+                    Replace "{tag}" with
+                  </label>
+                  <Input
+                    id={inputId}
+                    placeholder={tag}
+                    value={replacements[tag] ?? ''}
+                    onChange={e =>
+                      setReplacements(prev => ({ ...prev, [tag]: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <DialogFooter>

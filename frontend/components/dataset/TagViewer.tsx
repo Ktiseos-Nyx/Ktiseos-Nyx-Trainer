@@ -95,7 +95,7 @@ export function TagViewer({
     <>
       <Collapsible open={open} onOpenChange={setOpen} className="mb-6 bg-card border border-border rounded-lg shadow-sm">
         <CollapsibleTrigger asChild>
-          <div className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-muted/30 rounded-t-lg select-none">
+          <button type="button" className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 rounded-t-lg select-none text-left">
             <div className="flex items-center gap-3">
               <Tag className="w-5 h-5 text-cyan-500" />
               <span className="text-lg font-semibold">Tag Viewer</span>
@@ -114,7 +114,7 @@ export function TagViewer({
               ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
               : <ChevronDown className="w-4 h-4 text-muted-foreground" />
             }
-          </div>
+          </button>
         </CollapsibleTrigger>
 
         <CollapsibleContent>

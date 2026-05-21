@@ -43,7 +43,9 @@ export async function POST(request: NextRequest) {
       tagReplacement: body.tag_replacement,
       removeUnderscore: body.remove_underscore ?? true,
       characterTagsFirst: body.character_tags_first ?? false,
-      overwriteMode: body.overwrite_mode ?? 'overwrite',
+      overwriteMode: (['overwrite', 'append', 'ignore'] as const).includes(body.overwrite_mode)
+        ? body.overwrite_mode
+        : 'overwrite',
       recursive: body.recursive ?? false,
       useRatingTags: body.use_rating_tags ?? false,
       useRatingTagsAsLastTag: body.use_rating_tags_as_last_tag ?? false,

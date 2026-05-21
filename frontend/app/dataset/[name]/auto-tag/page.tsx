@@ -989,7 +989,7 @@ export default function AutoTagPage() {
                     </label>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium">Existing Caption Handling</label>
+                    <label htmlFor="overwrite-mode" className="text-sm font-medium">Existing Caption Handling</label>
                     <Select
                       value={overwriteMode}
                       onValueChange={(v) => setOverwriteMode(v as 'overwrite' | 'append' | 'ignore')}

@@ -141,7 +141,7 @@ class LoRAService:
                 error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
                 raise ProcessError(f"LoRA resize failed: {error_msg}")
 
-            if not output_path.exists():
+            if not output_path.is_file():
                 raise ProcessError(f"Resize succeeded but output file not found: {output_path}")
 
             # Get file size
