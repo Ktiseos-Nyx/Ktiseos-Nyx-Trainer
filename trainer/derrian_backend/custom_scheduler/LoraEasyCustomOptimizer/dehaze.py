@@ -188,7 +188,8 @@ class Dehaze(Optimizer):
 
                 # Adaptive Muon / Newton Schulz iters
                 if group["adaptive_muon"]:
-                    if grad.ndim > 0:
+                    grad_normed = grad
+                    if grad_normed.ndim > 0:
                         if group["torch_compile"]:
                             grad_normed = zero_power_via_newton_schulz_6_compile(grad_normed)
                         else:

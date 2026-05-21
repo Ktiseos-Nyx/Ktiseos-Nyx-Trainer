@@ -138,7 +138,7 @@ class LaProp(BaseOptimizer):
 
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
-                de_nom = exp_avg_sq
+                de_nom = exp_avg_sq.clone()
                 if group['centered']:
                     exp_mean_avg_beta2 = state['exp_mean_avg_beta2']
 
@@ -161,16 +161,17 @@ class LaProp(BaseOptimizer):
                     if p.dtype in {torch.float16, torch.bfloat16}:
                         max_exp_avg_sq = max_exp_avg_sq.to(torch.float32)
 
-                        if not (group['centered'] and state['step'] <= self.steps_before_using_centered): 
-                            # Maintains the maximum of all (centered) 2nd moment running avg. till now
-                            torch.max(max_exp_avg_sq, de_nom, out=max_exp_avg_sq)
-                            # Use the max. for normalizing running avg. of gradient
-                            de_nom = max_exp_avg_sq
+                    if not (group['centered'] and group['step'] <= self.steps_before_using_centered):
+                        # Maintains the maximum of all (centered) 2nd moment running avg. till now
+                        torch.max(max_exp_avg_sq, de_nom, out=max_exp_avg_sq)
+                        # Use the max. for normalizing running avg. of gradient
+                        de_nom = max_exp_avg_sq
 
                     if p.dtype in {torch.float16, torch.bfloat16}:
                         copy_stochastic_(state["max_exp_avg_sq"], max_exp_avg_sq)
 
-                    de_nom = de_nom.div(bias_correction2).sqrt_().add_(group['eps'])
+                # Normalize denominator regardless of ams_bound
+                de_nom = de_nom.div(bias_correction2).sqrt_().add_(group['eps'])
 
                 exp_avg.mul_(beta1).addcdiv_(grad, de_nom, value=(1.0 - beta1) * group['lr'])
 

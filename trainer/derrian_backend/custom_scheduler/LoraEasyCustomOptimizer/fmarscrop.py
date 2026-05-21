@@ -341,7 +341,7 @@ class FMARSCrop(BaseOptimizer):
 
                     # Perform weight decay
                     if weight_decay != 0 and weight_decouple:
-                        if stable_weight_decay and group['fim_mean_sqrt'] > 0:
+                        if stable_weight_decay and group['fim_mean_sqrt'] is not None and group['fim_mean_sqrt'] > 0:
                             swd_scaling = 1.0 / group['fim_mean_sqrt']
                         else:
                             swd_scaling = 1.0
@@ -1582,7 +1582,7 @@ class FMARSCropV3ExMachina(BaseOptimizer):
 
                     if group['step'] == 1:
                         grad_diff_fim.addcmul_(grad_diff, grad_diff)
-                        diff_fim_base = torch.tensor(1.0)
+                        diff_fim_base = grad_diff_fim.new_tensor(1.0)
                     else:
                         # Get natural gradient (squared ema, obtained sqrt of ema)
                         diff_fim_base = grad_diff_fim.sqrt()

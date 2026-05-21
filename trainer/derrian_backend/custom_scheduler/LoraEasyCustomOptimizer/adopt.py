@@ -345,7 +345,7 @@ class ADOPTMARS(BaseOptimizer):
                 if group['step'] == 1:
                     exp_avg_sq.addcmul_(c_t, c_t.conj())
                 else:
-                    de_nom = exp_avg_sq.sqrt_().add_(curr_eps)
+                    de_nom = exp_avg_sq.sqrt().add_(curr_eps)
                     exp_avg_sq.mul_(beta2).addcmul_(c_t, c_t.conj(), value=1 - beta2)
 
                     normed_grad = grad.div(de_nom)

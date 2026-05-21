@@ -82,7 +82,7 @@ class AdamMini(BaseOptimizer):  # pragma: no cover
 
             group = {
                 'name': name,
-                'params': param,
+                'params': [param],
                 'weight_decay': 0.0 if ('norm' in name or 'ln_f' in name) else weight_decay,
             }
 
