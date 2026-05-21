@@ -446,19 +446,14 @@ class KohyaTOMLGenerator:
         # Custom optimizers (CAME, Compass, etc.) receive weight_decay through
         # optimizer_args, not the top-level field. Inject it automatically so
         # the Weight Decay UI field works correctly for custom optimizers too.
+        # Note: do NOT auto-inject state_storage_dtype/device for CAME — forcing
+        # bf16 state storage causes NaN; CAME's default (fp32 states) is correct.
         is_custom_optimizer = self.config.optimizer_type in self.CUSTOM_OPTIMIZER_PATHS
         opt_args = shlex.split(self.config.optimizer_args) if self.config.optimizer_args else []
         if is_custom_optimizer and self.config.weight_decay and not any(
             a.startswith('weight_decay=') for a in opt_args
         ):
             opt_args.append(f'weight_decay={self.config.weight_decay}')
-        # CAME + bf16 requires state_storage_dtype=bfloat16 or the optimizer state
-        # precision mismatch causes NaN. Auto-inject when not already set.
-        if self.config.optimizer_type == "CAME" and self.config.mixed_precision == "bf16":
-            if not any(a.startswith('state_storage_dtype=') for a in opt_args):
-                opt_args.append('state_storage_dtype=bfloat16')
-            if not any(a.startswith('state_storage_device=') for a in opt_args):
-                opt_args.append('state_storage_device=cuda')
         if opt_args:
             args["optimizer_args"] = opt_args
 
