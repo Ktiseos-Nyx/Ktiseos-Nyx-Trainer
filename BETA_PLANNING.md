@@ -1289,6 +1289,64 @@ This is iterative, not a big-bang redesign. Work page by page, card by card:
 
 ---
 
+## Section 16 — ArcEnCiel Model Browser
+
+**Priority:** Beta+ / "Nice to Have"
+**Status:** Not started
+**Permission:** Confirmed with ArcEnCiel team
+**Source:** https://github.com/Anzhc/ArcEnCiel-Extension-for-WebUI
+**API:** `https://arcenciel.io/api` — public, no authentication required
+
+### What it is
+
+ArcEnCiel (arcenciel.io) is a community model platform hosting LoRAs, checkpoints, VAEs, and embeddings — primarily anime/illustration focused, with strong Illustrious/NoobAI/Pony coverage. Adding it as a second model source gives users an alternative to Civitai, which can be geoblocked or rate-limited.
+
+### API
+
+No API key required. Key endpoints:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/models/search?search=&sort=&page=&limit=&base_model=&type=` | Search models |
+| `GET /api/models/{id}` | Model details + versions |
+| `GET /api/models/{id}/versions/{version_id}/download` | Download URL for a version |
+| `GET /api/models/{id}/gallery` | Preview images |
+
+Response includes model metadata, all versions, activation tags, base model, and direct download URLs. No OAuth, no rate limit enforced in the extension code.
+
+**"Link versions"** = model versions (same LoRA trained on different base models, different training epochs). Not a separate concept — just standard versioning like Civitai.
+
+### Implementation
+
+Same shape as the existing Civitai browser (`/models/browse`). Options:
+
+1. **New route** `/models/arcenciel` — mirrors Civitai browser structure, hits ArcEnCiel API instead. Cleanest separation.
+2. **Second tab** on `/models/browse` — toggle between Civitai and ArcEnCiel. More compact.
+
+Backend barely needs touching — the existing download endpoint already handles arbitrary URLs. Only additions needed:
+- New Next.js API route: `GET /api/arcenciel/models` (proxy to ArcEnCiel API)
+- Frontend page/tab with search, base model filter, model cards, download button
+
+Base model filter values that map to our existing model types: Illustrious, NoobAI, Pony, Flux, SDXL, SD1.5.
+
+### Attribution
+
+Add to `ATTRIBUTIONS.md` when implemented:
+```text
+ArcEnCiel Extension for WebUI by Anzhc
+https://github.com/Anzhc/ArcEnCiel-Extension-for-WebUI
+Used with permission from the ArcEnCiel team.
+```
+
+### Priority matrix
+
+| Item | Effort | Status |
+|------|--------|--------|
+| Next.js API proxy route for ArcEnCiel search | Small | ⏳ Not started |
+| Model browser page/tab (search, filters, cards) | Medium | ⏳ Not started |
+| Download wiring (reuses existing endpoint) | Tiny | ⏳ Not started |
+| ATTRIBUTIONS.md entry | Tiny | ⏳ Not started |
+
 ---
 
 ## Section 15 — Alternative Training Backends
