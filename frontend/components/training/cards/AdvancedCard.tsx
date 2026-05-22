@@ -237,7 +237,7 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
               form={form}
               name="disable_cross_attn_mask"
               label="Disable Cross-Attention Mask"
-              description="Restores pre-May-2026 behaviour — try this if you get NaN loss on SDXL"
+              description="Disables UNet cross-attention mask for SDXL — leave off unless you have a specific reason to disable it"
             />
           </div>
         )}
