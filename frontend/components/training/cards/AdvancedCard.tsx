@@ -227,21 +227,6 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
           </div>
         )}
 
-        {/* SDXL Specific */}
-        {isSDXL && (
-          <div className="space-y-3 p-4 border border-orange-500/30 rounded-lg bg-orange-500/5">
-            <p className="text-sm font-semibold text-orange-400">🟠 SDXL Specific Settings</p>
-            <p className="text-xs text-orange-300">Only for SDXL-based models</p>
-
-            <CheckboxFormField
-              form={form}
-              name="disable_cross_attn_mask"
-              label="Disable Cross-Attention Mask"
-              description="Disables UNet cross-attention mask for SDXL — leave off unless you have a specific reason to disable it"
-            />
-          </div>
-        )}
-
         {/* Flux Specific */}
         {isFlux && (
           <div className="space-y-3 p-4 border border-purple-500/30 rounded-lg bg-purple-500/5">

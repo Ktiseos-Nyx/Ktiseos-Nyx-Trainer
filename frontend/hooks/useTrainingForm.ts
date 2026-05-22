@@ -159,7 +159,6 @@ const defaultConfig: TrainingConfig = {
   v2: false,
   min_snr_gamma_enabled: false,
   ip_noise_gamma_enabled: false,
-  disable_cross_attn_mask: false,
   multinoise: false,
   zero_terminal_snr: false,
   no_metadata: false,

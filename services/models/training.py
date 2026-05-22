@@ -320,9 +320,6 @@ class TrainingConfig(BaseModel):
     log_tracker_config: Optional[str] = Field(None, description="Tracker config (JSON string)")
     wandb_run_name: Optional[str] = Field(None, description="W&B run name")
 
-    # ========== SDXL-SPECIFIC ==========
-    disable_cross_attn_mask: bool = Field(False, description="Disable SDXL cross-attention masking (restores pre-May-2026 behavior)")
-
     # ========== SD 2.x & ADVANCED ==========
     v2: bool = Field(False, description="SD 2.x base model flag")
     v_parameterization: bool = Field(False, description="V-parameterization")

@@ -606,9 +606,6 @@ export interface TrainingConfig {
   v2?: boolean;                    // for Stable Diffusion 2.x
   v_parameterization?: boolean;    // for v-prediction models
 
-  // ========== SDXL FLAGS ==========
-  disable_cross_attn_mask?: boolean; // disable SDXL cross-attention masking (pre-May-2026 behavior)
-
   // ========== DATASET & BASIC TRAINING ==========
   train_data_dir: string;
   output_dir: string;
