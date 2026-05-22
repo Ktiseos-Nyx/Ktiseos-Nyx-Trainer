@@ -40,6 +40,12 @@ export async function GET() {
           filename: 'ponyDiffusionV6XL_v6.safetensors',
           description: 'Anime/cartoon model from Civitai',
         },
+        {
+          name: 'NoobAI XL v1.1 (EPS)',
+          url: 'https://huggingface.co/Laxhar/noobai-XL-1.1/resolve/main/NoobAI-XL-v1.1.safetensors',
+          filename: 'NoobAI-XL-v1.1.safetensors',
+          description: 'NoobAI XL v1.1 — Illustrious-based anime model (EPS prediction)',
+        },
       ],
       sd15: [
         {
@@ -87,10 +93,16 @@ export async function GET() {
       ],
       anima: [
         {
-          name: 'Anima Preview (Diffusion Model)',
-          url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-preview.safetensors',
-          filename: 'anima-preview.safetensors',
-          description: 'Anima diffusion model by Circlestone Labs — Qwen3 + T5 dual encoder architecture',
+          name: 'Anima Base v1.0 (Diffusion Model)',
+          url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-base-v1.0.safetensors',
+          filename: 'anima-base-v1.0.safetensors',
+          description: 'Anima base model v1.0 by Circlestone Labs — Qwen3 + T5 dual encoder architecture',
+        },
+        {
+          name: 'Anima Preview 3 (Diffusion Model)',
+          url: 'https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/diffusion_models/anima-preview3-base.safetensors',
+          filename: 'anima-preview3-base.safetensors',
+          description: 'Anima preview 3 base — replaces the original preview release',
         },
         {
           name: 'Anima Text Encoder (Qwen3 0.6B)',
