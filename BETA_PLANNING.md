@@ -342,6 +342,8 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 
 **Recommended:** Combine #1 (workflow grouping) with a small version of #3 (active jobs widget at top). This is the lowest effort high-impact change - keeps the existing card pattern but groups them semantically and adds one "alive" element.
 
+**Queue compatibility note:** Design the Active Jobs widget to show 1-or-N jobs from day one (a list, not a single slot). The job queue system (Phase 1 Beta, Section 5.1) will slot in as a backend change — the widget won't need to be redesigned. If the widget only handles one job at launch, adding queue support later requires a UI rewrite. The contract is: widget takes `Job[]`, renders each with progress + cancel; today that array has one item, later it has many.
+
 **Components to use** (per `frontend/CLAUDE.md`):
 - `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` from shadcn
 - `Separator` between sections
