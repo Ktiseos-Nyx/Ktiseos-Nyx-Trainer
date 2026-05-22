@@ -1484,4 +1484,96 @@ Chroma is already partially supported via `flux_train.py --model_type chroma` in
 
 ---
 
+---
+
+## Section 17 — Image → Prompt Helper (WD-Tagger + Florence-2)
+
+**Priority:** Beta / Phase 2  
+**Status:** Not started  
+**Depends on:** Nothing — WD-tagger and transformers are already in requirements
+
+A standalone utility that takes a single image and returns two things: booru-style tags from WD-tagger and a natural-language caption from Florence-2. The intent is prompt generation — give the tool a reference image, get usable prompt text back. Distinct from the dataset auto-tagger (batch, writes `.txt` sidecar files); this is interactive, single-image, no file writes.
+
+**Natural fit with Dataset-Tools (§11.2):** once Dataset-Tools is embedded, an "Extract Prompt" button on any image in the browser can deep-link here with the image pre-selected.
+
+---
+
+### 17.1 Backend
+
+**New route:** `POST /api/utilities/image-to-prompt`
+
+Accepts a multipart image upload, runs both models, returns:
+
+```json
+{
+  "tags": ["1girl", "solo", "long_hair", "..."],
+  "tag_scores": {"1girl": 0.98, "solo": 0.96, "...": 0.0},
+  "caption": "A young woman with long silver hair standing in a forest.",
+  "detailed_caption": "..."
+}
+```
+
+**WD-tagger:** reuse `custom/tag_images_by_wd14_tagger.py` logic but as a Python function call, not a subprocess — or expose a thin single-image endpoint that calls the same ONNX model. Model is already cached by the auto-tag workflow so no extra download on first use.
+
+**Florence-2:** `microsoft/florence-2-base` (~232 MB, fast) or `florence-2-large` (~770 MB, better captions). Use the transformers pipeline with task token `<MORE_DETAILED_CAPTION>`. Lazy-load on first request so startup time isn't affected. Cache the loaded model in a module-level variable (same pattern as the existing BLIP captioner in `caption_service.py`).
+
+Available Florence-2 caption tasks (selectable by user or returned together):
+- `<CAPTION>` — one sentence
+- `<DETAILED_CAPTION>` — two to three sentences  
+- `<MORE_DETAILED_CAPTION>` — paragraph
+
+**New service file:** `services/image_prompt_service.py` — keeps the logic out of the route handler and mirrors the pattern in `captioning_service.py`.
+
+---
+
+### 17.2 Frontend
+
+**Location:** new tab or card in `/utilities`, or its own page `/utilities/image-prompt`.
+
+**UI flow:**
+1. Image drop zone (reuse or adapt the one in `DatasetUploader.tsx`)
+2. Optional: confidence threshold slider (same as auto-tag page, default 0.35)
+3. Optional: Florence-2 model size toggle (base vs large)
+4. Submit → spinner → results
+
+**Results panel — two sections side by side:**
+- **Tags (WD-tagger):** tag chips (same style as the tag editor), with a "Copy as comma list" button
+- **Caption (Florence-2):** text display with length selector (short / detailed / more detailed), copy button
+
+**Combine mode (nice to have):** single "Copy as prompt" button that produces `tags..., caption sentence` — useful for trainers who want structured + natural text together.
+
+---
+
+### 17.3 Models and Deps
+
+| Model | Source | Size | Notes |
+|-------|--------|------|-------|
+| WD-tagger | Already in project (onnxruntime-gpu) | ~350 MB | No new dep |
+| Florence-2 base | `microsoft/florence-2-base` via HF hub | ~232 MB | transformers already a dep |
+| Florence-2 large | `microsoft/florence-2-large` via HF hub | ~770 MB | Optional; user chooses |
+
+No new Python packages needed — `transformers`, `Pillow`, `onnxruntime-gpu`, `huggingface-hub` are all already in `requirements_base.txt`.
+
+Florence-2 requires `flash_attn` for best performance but falls back cleanly to standard attention if not installed — don't add it as a hard dep.
+
+---
+
+### 17.4 Implementation Sequence
+
+1. `services/image_prompt_service.py` — WD-tagger single-image wrapper + Florence-2 lazy loader
+2. `api/routes/utilities.py` — add `POST /image-to-prompt` endpoint
+3. Frontend page/tab — drop zone + results panel
+4. Wire confidence threshold and caption length controls
+5. (Later) Dataset-Tools deep-link when §11.2 is in progress
+
+---
+
+### 17.5 Open Questions
+
+- **Model size default:** base is fast enough for interactive use; large adds noticeable latency on CPU fallback. Default to base, let user opt into large.
+- **WD-tagger model variant:** the project currently uses whatever `wd14_tagger_model_dir` is set to in settings. For the prompt helper, auto-select the best available cached model or download `wd-eva02-large-tagger-v3` if nothing is cached.
+- **Florence-2 on VastAI:** model downloads automatically via HF hub — no special VastAI handling needed beyond ensuring `HF_HOME` points somewhere with disk space.
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project
