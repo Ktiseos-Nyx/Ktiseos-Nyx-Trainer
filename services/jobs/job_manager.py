@@ -96,35 +96,45 @@ class JobManager:
                     pass
                 return
 
-            # Read stdout line by line, injecting a heartbeat when Kohya is silent
-            # (e.g. during latent caching, tqdm suppresses output on non-TTY pipes).
+            # Read stdout in chunks so tqdm \r-terminated step lines are delivered
+            # immediately rather than buffered until the epoch-ending \n.
+            # Heartbeat fires when Kohya is completely silent (latent caching, model load).
+            job_logger = logging.getLogger(f"training.{job_id}")
             _HEARTBEAT_INTERVAL = 30  # seconds between "still running" messages
             _last_output = time.monotonic()
+            _partial = ""  # carry-over from a chunk that ended mid-line
             while True:
                 try:
-                    line = await asyncio.wait_for(
-                        job.process.stdout.readline(), timeout=_HEARTBEAT_INTERVAL
+                    chunk = await asyncio.wait_for(
+                        job.process.stdout.read(4096), timeout=_HEARTBEAT_INTERVAL
                     )
                 except asyncio.TimeoutError:
                     elapsed = int(time.monotonic() - _last_output)
-                    job.add_log(f"[no output for {elapsed}s — latent caching or model loading in progress]")
+                    heartbeat = f"[no output for {elapsed}s — latent caching or model loading in progress]"
+                    job.add_log(heartbeat)
+                    job_logger.info("[%s] %s", job_id, heartbeat)
                     continue
 
-                if not line:  # EOF — process closed stdout
+                if not chunk:  # EOF — process closed stdout
+                    if _partial.strip():
+                        job.add_log(_partial.strip())
+                        job_logger.info("[%s] %s", job_id, _partial.strip())
                     break
 
                 _last_output = time.monotonic()
-                # Decode and normalise line endings — Windows emits \r\n and tqdm uses
-                # bare \r for in-place progress rewrites; split on \r so each logical
-                # line is processed independently and no \r artifacts reach the log parser.
-                raw = line.decode('utf-8', errors='replace')
-                for log_line in raw.replace('\r\n', '\n').replace('\r', '\n').split('\n'):
+                # Decode and split on both \r and \n so tqdm in-place rewrites
+                # each become a distinct log entry instead of batching per epoch.
+                raw = _partial + chunk.decode('utf-8', errors='replace')
+                segments = raw.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+                _partial = segments.pop()  # last element may be an incomplete line
+                for log_line in segments:
                     log_line = log_line.strip()
                     if not log_line:
                         continue
 
-                    # Add to log buffer
+                    # Add to job buffer and app log
                     job.add_log(log_line)
+                    job_logger.info("[%s] %s", job_id, log_line)
 
                     # Parse for progress (training-specific)
                     if job.job_type == JobType.TRAINING:
