@@ -16,7 +16,7 @@ import {
   Download,
   AlertTriangle,
 } from 'lucide-react';
-import { zipSync } from 'fflate';
+import { zip } from 'fflate';
 import { toast } from 'sonner';
 import { datasetAPI } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -290,12 +290,16 @@ export default function DatasetUploader() {
       )
     );
 
-    const zipData: { [key: string]: [Uint8Array, { level: 6 }] } = {};
+    // level: 0 = store only — images are already compressed (JPEG/PNG/WEBP),
+    // deflating them wastes CPU with no meaningful size reduction.
+    const zipData: { [key: string]: [Uint8Array, { level: 0 }] } = {};
     for (const fileObj of imageFiles) {
       const buf = await fileObj.file.arrayBuffer();
-      zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 6 as const }];
+      zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 0 }];
     }
-    const zipped = zipSync(zipData);
+    const zipped = await new Promise<Uint8Array>((resolve, reject) =>
+      zip(zipData, (err, data) => (err ? reject(err) : resolve(data)))
+    );
     const zipBlob = new Blob([zipped.buffer as ArrayBuffer], { type: 'application/zip' });
 
     const result = await handleChunkedZipUpload(zipBlob, `${datasetName}.zip`, datasetName);
