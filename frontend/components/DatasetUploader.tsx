@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { zip } from 'fflate';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { datasetAPI } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ export default function DatasetUploader() {
   const filesRef = useRef<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [zipUploadProgress, setZipUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<'zipping' | 'uploading' | null>(null);
 
   // URL/ZIP Download State
   const [projectName, setProjectName] = useState('');
@@ -172,6 +174,7 @@ export default function DatasetUploader() {
       toast.error(`Upload failed: ${err}`);
     } finally {
       setUploading(false);
+      setUploadPhase(null);
     }
   };
 
@@ -292,6 +295,7 @@ export default function DatasetUploader() {
 
     // level: 0 = store only — images are already compressed (JPEG/PNG/WEBP),
     // deflating them wastes CPU with no meaningful size reduction.
+    setUploadPhase('zipping');
     const zipData: { [key: string]: [Uint8Array, { level: 0 }] } = {};
     for (const fileObj of imageFiles) {
       const buf = await fileObj.file.arrayBuffer();
@@ -302,11 +306,13 @@ export default function DatasetUploader() {
     );
     const zipBlob = new Blob([zipped.buffer as ArrayBuffer], { type: 'application/zip' });
 
+    setUploadPhase('uploading');
     const result = await handleChunkedZipUpload(zipBlob, `${datasetName}.zip`, datasetName);
     if (!result.success) {
       throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
     }
 
+    setUploadPhase(null);
     setFiles(prev =>
       prev.map(f =>
         imageFiles.some(img => img.file === f.file) ? { ...f, status: 'success', progress: 100 } : f
@@ -734,13 +740,16 @@ export default function DatasetUploader() {
           </div>
 
           {/* Upload Progress */}
-          {uploading && zipUploadProgress > 0 && (
+          {uploading && uploadPhase !== null && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Uploading...</span>
-                <span>{zipUploadProgress}%</span>
+                <span>{uploadPhase === 'zipping' ? 'Zipping images…' : 'Uploading…'}</span>
+                {uploadPhase === 'uploading' && <span>{zipUploadProgress}%</span>}
               </div>
-              <Progress value={zipUploadProgress} className="h-2" />
+              <Progress
+                value={uploadPhase === 'zipping' ? 15 : zipUploadProgress}
+                className={cn('h-2', uploadPhase === 'zipping' && 'animate-pulse')}
+              />
             </div>
           )}
 
