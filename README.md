@@ -219,6 +219,7 @@ diagnose.bat      # Windows
 - **[Linaqruf](https://github.com/Linaqruf)** — training methods
 - **[LyCORIS Team](https://github.com/67372a/LyCORIS)** — advanced LoRA methods (DoRA, LoKr)
 - **[ArcEnCiel](https://arcenciel.io/)** — support, testing, and open source models
+- **[Civitai](https://civitai.com/)** — inspiration for the tag editor UX
 - **AndroidXXL, Jelosus2** — accessible LoRA training contributions
 
 ---
