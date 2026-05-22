@@ -6,6 +6,7 @@ Manages lifecycle of background jobs (training, tagging, downloads).
 
 import asyncio
 import logging
+import time
 from uuid import uuid4
 from datetime import datetime
 from typing import Optional, AsyncIterator
@@ -95,8 +96,24 @@ class JobManager:
                     pass
                 return
 
-            # Read stdout line by line
-            async for line in job.process.stdout:
+            # Read stdout line by line, injecting a heartbeat when Kohya is silent
+            # (e.g. during latent caching, tqdm suppresses output on non-TTY pipes).
+            _HEARTBEAT_INTERVAL = 30  # seconds between "still running" messages
+            _last_output = time.monotonic()
+            while True:
+                try:
+                    line = await asyncio.wait_for(
+                        job.process.stdout.readline(), timeout=_HEARTBEAT_INTERVAL
+                    )
+                except asyncio.TimeoutError:
+                    elapsed = int(time.monotonic() - _last_output)
+                    job.add_log(f"[no output for {elapsed}s — latent caching or model loading in progress]")
+                    continue
+
+                if not line:  # EOF — process closed stdout
+                    break
+
+                _last_output = time.monotonic()
                 # Decode and normalise line endings — Windows emits \r\n and tqdm uses
                 # bare \r for in-place progress rewrites; split on \r so each logical
                 # line is processed independently and no \r artifacts reach the log parser.
