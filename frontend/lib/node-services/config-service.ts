@@ -128,6 +128,7 @@ interface TrainingConfig {
   v2: boolean;
   v_parameterization: boolean;
   network_train_unet_only: boolean;
+  disable_cross_attn_mask?: boolean;
 
   // Noise settings
   noise_offset: number;
@@ -446,6 +447,7 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     v2: config.v2,
     v_parameterization: config.v_parameterization,
     network_train_unet_only: config.network_train_unet_only,
+    ...(config.disable_cross_attn_mask ? { disable_cross_attn_mask: true } : {}),
     noise_offset: config.noise_offset,
     zero_terminal_snr: config.zero_terminal_snr,
     prior_loss_weight: config.prior_loss_weight,
@@ -555,29 +557,34 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
   if (config.log_prefix) {
     args.log_prefix = config.log_prefix;
   }
-  // Build optimizer_args array: weight_decay always first, then any user extras.
-  // Kohya expects an array of "key=value" strings for --optimizer_args.
-  const optimizerArgsList: string[] = [`weight_decay=${config.weight_decay ?? 0.01}`];
-  if (config.optimizer_args) {
-    // config.optimizer_args is a space-separated string from the UI
-    const extras = config.optimizer_args.trim().split(/\s+/).filter(Boolean);
-    // don't duplicate weight_decay if user already specified it
-    for (const extra of extras) {
-      if (!extra.startsWith('weight_decay=')) optimizerArgsList.push(extra);
-    }
+  // Pass optimizer_args as a space-separated string (Python model expects Optional[str]).
+  // For custom optimizers (CAME, Compass, etc.), also inject weight_decay from the
+  // UI field if it's not already in the user-provided args.
+  const CUSTOM_OPTIMIZERS = ['CAME', 'Compass', 'LPFAdamW', 'RMSProp'];
+  const isCustomOptimizer = CUSTOM_OPTIMIZERS.includes(config.optimizer_type);
+  const userArgs = config.optimizer_args
+    ? config.optimizer_args.trim().split(/\s+/).filter(Boolean)
+    : [];
+  const optimizerArgsList: string[] = [...userArgs];
+  if (isCustomOptimizer && config.weight_decay && !optimizerArgsList.some(a => a.startsWith('weight_decay='))) {
+    optimizerArgsList.unshift(`weight_decay=${config.weight_decay}`);
   }
-  args.optimizer_args = optimizerArgsList;
+  if (optimizerArgsList.length > 0) {
+    args.optimizer_args = optimizerArgsList.join(' ');
+  }
 
   // Steps vs Epochs handling
   if (config.max_train_steps && config.max_train_steps > 0) {
     args.max_train_steps = config.max_train_steps;
   }
 
-  // Noise Settings
-  if (config.min_snr_gamma_enabled && config.min_snr_gamma) {
+  // Noise Settings — gate on _enabled flags (presets that want these features
+  // set both the value AND the _enabled flag, as confirmed by preset audit).
+  // Gating on value alone silently injects the default 5.0 into every run.
+  if (config.min_snr_gamma_enabled && config.min_snr_gamma != null && config.min_snr_gamma > 0) {
     args.min_snr_gamma = config.min_snr_gamma;
   }
-  if (config.ip_noise_gamma_enabled && config.ip_noise_gamma) {
+  if (config.ip_noise_gamma_enabled && config.ip_noise_gamma != null && config.ip_noise_gamma > 0) {
     args.ip_noise_gamma = config.ip_noise_gamma;
     if (config.ip_noise_gamma_random_strength) {
       args.ip_noise_gamma_random_strength = true;

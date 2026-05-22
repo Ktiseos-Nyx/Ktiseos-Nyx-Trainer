@@ -176,7 +176,7 @@ def switch_rng_state(val_seed: int, accelerator) -> tuple[torch.ByteTensor, torc
     elif accelerator.device.type == "xpu":
         gpu_rng_state = torch.xpu.get_rng_state()
     elif accelerator.device.type == "mps":
-        gpu_rng_state = torch.mps.get_rng_state()
+        gpu_rng_state = torch.cuda.get_rng_state()
     else:
         gpu_rng_state = None
 
@@ -200,7 +200,7 @@ def restore_rng_state(rng_states: tuple[torch.ByteTensor, torch.ByteTensor | Non
         elif accelerator.device.type == "xpu":
             torch.xpu.set_rng_state(gpu_rng_state)
         elif accelerator.device.type == "mps":
-            torch.mps.set_rng_state(gpu_rng_state)
+            torch.cuda.set_rng_state(gpu_rng_state)
 
 
 def train(args):
@@ -889,8 +889,7 @@ def train(args):
         if not train_util.calculate_val_loss_check(args, global_step, epoch_step, val_dataloader, train_dataloader):
             return None, None, {}
 
-        _val_seed = args.validation_seed if args.validation_seed is not None else args.seed
-        rng_states = switch_rng_state(int(_val_seed) if _val_seed is not None else 23, accelerator)
+        rng_states = switch_rng_state(int(args.validation_seed) if args.validation_seed else 23, accelerator)
 
         timesteps_list = ast.literal_eval(args.validation_timesteps)
 
@@ -982,7 +981,7 @@ def train(args):
                     noisy_latents = noisy_latents.to(weight_dtype)
 
                     with accelerator.autocast():
-                        noise_pred = unet(noisy_latents, timesteps, text_embedding, vector_embedding, encoder_attention_mask=masks_reshaped[1] if len(masks_reshaped) > 1 else None)
+                        noise_pred = unet(noisy_latents, timesteps, text_embedding, vector_embedding, encoder_attention_mask=masks_reshaped[1])
 
                     latents = latents.to(torch.float64)
                     noise = noise.to(torch.float64)
@@ -1447,14 +1446,6 @@ def train(args):
     if args.save_state or args.save_state_on_train_end:
         train_util.save_state_on_train_end(args, accelerator)
 
-    if is_main_process:
-        # Save EDM2 loss weights before releasing accelerator
-        if args.edm2_loss_weighting:
-            loss_weights_ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as, "_edm2_loss_weights")
-            loss_weights_file = os.path.join(args.output_dir, loss_weights_ckpt_name)
-            accelerator.print(f"saving edm2 loss weights: {loss_weights_file}")
-            accelerator.unwrap_model(edm2_model).save_weights(loss_weights_file, edm2_model.dtype, None)
-
     del accelerator  # この後メモリを使うのでこれは消す
 
     if is_main_process:
@@ -1475,6 +1466,12 @@ def train(args):
             ckpt_info,
         )
         logger.info("model saved.")
+
+        if args.edm2_loss_weighting:
+            loss_weights_ckpt_name = train_util.get_last_ckpt_name(args, "." + args.save_model_as, "_edm2_loss_weights")
+            loss_weights_file = os.path.join(args.output_dir, loss_weights_ckpt_name)
+            accelerator.print(f"saving edm2 loss weights: {loss_weights_file}")
+            accelerator.unwrap_model(edm2_model).save_weights(loss_weights_file, edm2_model.dtype, None)
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -1621,7 +1618,8 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--use_zero_cond_dropout",
-        action="store_true",
+        type=bool,
+        default=False,
         help="For full caption dropout, use zero conditioning instead of empty caption"
     )
 

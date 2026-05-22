@@ -28,7 +28,7 @@ einops==0.8.2
 prodigyopt==1.1.2
 lion-pytorch==0.2.3
 dadaptation==3.2
-pytorch_optimizer==3.1.2 # pinned to derrian's original; init_group abstract method added in 3.6.0
+pytorch_optimizer==3.10.0 # matches sd_scripts/requirements.txt; base.type module exists in 3.10.0
 schedulefree==1.4
 prodigy-plus-schedule-free==1.9.2
 came-pytorch
@@ -65,7 +65,7 @@ setuptools>=78.1.1
 kornia>=0.8.2
 
 # Monitoring & Logging
-wandb==0.17.1
+wandb>=0.18.0,<0.19.0  # 0.17.x uses np.float_ removed in NumPy 2.0; cap at 0.19 to avoid breaking changes
 watchdog>=4.0.0
 tensorboard
 pyasn1>=0.6.3  # not directly required; pinned to fix CVE (tensorboard→google-auth→pyasn1-modules/rsa→pyasn1)

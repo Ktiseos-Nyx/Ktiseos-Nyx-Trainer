@@ -20,10 +20,10 @@ import { TagViewer, BLANK_TAG } from '@/components/dataset/TagViewer';
 
 type CardSize = 'small' | 'medium' | 'large';
 
-const SIZE_CONFIG: Record<CardSize, { gridClasses: string; aspectRatio: number }> = {
-  small:  { gridClasses: 'gap-3 grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', aspectRatio: 1 },
-  medium: { gridClasses: 'gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3', aspectRatio: 4 / 5 },
-  large:  { gridClasses: 'gap-6 grid-cols-1 md:grid-cols-2', aspectRatio: 7 / 9 },
+const SIZE_CONFIG: Record<CardSize, { gridClasses: string; aspectRatio: number; maxTagsH: string }> = {
+  small:  { gridClasses: 'gap-3 grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5', aspectRatio: 1,     maxTagsH: 'max-h-16' },
+  medium: { gridClasses: 'gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3',               aspectRatio: 4 / 5, maxTagsH: 'max-h-24' },
+  large:  { gridClasses: 'gap-6 grid-cols-1 md:grid-cols-2',                               aspectRatio: 7 / 9, maxTagsH: 'max-h-32' },
 };
 
 /**
@@ -254,7 +254,7 @@ export default function DatasetTagsPage() {
                     addOnPaste
                     className="w-full"
                   >
-                    <TagsInputList>
+                    <TagsInputList className={`${SIZE_CONFIG[cardSize].maxTagsH} overflow-y-auto`}>
                       {img.tags.map((tag, index) => (
                         <TagsInputItem
                           key={`${img.image_path}-${tag}-${index}`}

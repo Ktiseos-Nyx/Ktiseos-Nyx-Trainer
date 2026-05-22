@@ -1,28 +1,45 @@
-accelerate==1.6.0
-transformers==4.54.1
-diffusers[torch]==0.32.1
-ftfy==6.3.1
+accelerate~=1.13.0
+transformers~=4.54.1
+diffusers~=0.37.0
+ftfy~=6.3.1
 # albumentations==1.3.0
-opencv-python==4.10.0.84
-einops==0.7.0
+opencv-python~=4.13.0.92
+einops~=0.8.2
 # pytorch-lightning==1.9.0
-bitsandbytes
-lion-pytorch==0.2.3
-schedulefree==1.4
-pytorch_optimizer==3.1.2 # pinned to derrian's original; init_group abstract method added in 3.6.0
-prodigy-plus-schedule-free==1.9.2
-prodigyopt==1.1.2
-tensorboard
-safetensors==0.4.5
+bitsandbytes~=0.49.2
+triton~=3.3.1; platform_system == "Linux"
+triton-windows~=3.3.1.post21; platform_system == "Windows"
+lion-pytorch~=0.2.4
+schedulefree~=1.4.1
+pytorch_optimizer==3.10.0
+prodigy-plus-schedule-free~=2.0.1
+prodigyopt~=1.1.2
+dadaptation~=3.2
+came-pytorch~=0.1.3
+torchastic~=0.1.2
+torch-optimi~=0.3.3
+adv_optm~=2.2.3
+kornia~=0.8.2
+tensorboard~=2.20.0
+safetensors~=0.7.0
+wandb~=0.25.1
 # gradio==3.16.2
 # altair==4.2.2
 # easygui==0.98.3
-toml==0.10.2
-voluptuous==0.15.2
-huggingface-hub==0.34.3
+toml~=0.10.2
+voluptuous~=0.16.0
+huggingface-hub[hf_xet]~=0.36.2
+hf-xet~=1.4.2
+matplotlib~=3.10.8
+scipy~=1.17.1
+RamTorch @ git+https://github.com/67372a/RamTorch
+customized-optimizers @ git+https://github.com/67372a/customized-optimizers
+lycoris-lora @ git+https://github.com/67372a/LyCORIS@dev
+PyWavelets~=1.9.0
 # for Image utils
-imagesize==1.4.1
-numpy
+imagesize~=1.5.0
+numpy~=2.2.6
+urllib3>=2.6.3
 # <=2.0
 # for BLIP captioning
 # requests==2.28.2
@@ -42,8 +59,8 @@ numpy
 # open clip for SDXL
 # open-clip-torch==2.20.0
 # For logging
-rich==14.1.0
+rich~=14.3.3
 # for T5XXL tokenizer (SD3/FLUX)
-sentencepiece==0.2.1
+sentencepiece~=0.2.1
 # for kohya_ss library
 -e .

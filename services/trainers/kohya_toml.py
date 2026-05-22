@@ -355,7 +355,10 @@ class KohyaTOMLGenerator:
             "save_precision": self.config.save_precision,
             "no_metadata": self.config.no_metadata,
             "save_state": self.config.save_state,
-            "sample_sampler": self.config.sample_sampler,
+            # sample_sampler only relevant when sampling is enabled
+            **({"sample_sampler": self.config.sample_sampler}
+               if (self.config.sample_every_n_epochs or self.config.sample_every_n_steps)
+               else {}),
             "mixed_precision": self.config.mixed_precision,
             "gradient_checkpointing": self.config.gradient_checkpointing,
             "gradient_accumulation_steps": self.config.gradient_accumulation_steps,
@@ -377,6 +380,9 @@ class KohyaTOMLGenerator:
             "zero_terminal_snr": self.config.zero_terminal_snr,
             "prior_loss_weight": self.config.prior_loss_weight,
         }
+
+        if self.config.disable_cross_attn_mask:
+            args["disable_cross_attn_mask"] = True
 
         if self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only:
             args["network_train_unet_only"] = True
@@ -443,6 +449,8 @@ class KohyaTOMLGenerator:
         # Custom optimizers (CAME, Compass, etc.) receive weight_decay through
         # optimizer_args, not the top-level field. Inject it automatically so
         # the Weight Decay UI field works correctly for custom optimizers too.
+        # Note: do NOT auto-inject state_storage_dtype/device for CAME — forcing
+        # bf16 state storage causes NaN; CAME's default (fp32 states) is correct.
         is_custom_optimizer = self.config.optimizer_type in self.CUSTOM_OPTIMIZER_PATHS
         opt_args = shlex.split(self.config.optimizer_args) if self.config.optimizer_args else []
         if is_custom_optimizer and self.config.weight_decay and not any(
@@ -474,7 +482,11 @@ class KohyaTOMLGenerator:
             args["max_train_steps"] = self.config.max_train_steps
 
         # Noise Settings
-        if self.config.min_snr_gamma_enabled:
+        # Gate on _enabled flag (consistent with ip_noise_gamma_enabled below).
+        # The default min_snr_gamma is 5.0 (non-zero), so checking only > 0 would
+        # silently inject min_snr_gamma into every run — including SDXL runs where
+        # no preset author intended it, causing potential NaN from snr division.
+        if self.config.min_snr_gamma_enabled and self.config.min_snr_gamma and self.config.min_snr_gamma > 0:
             args["min_snr_gamma"] = self.config.min_snr_gamma
         if self.config.ip_noise_gamma_enabled:
             args["ip_noise_gamma"] = self.config.ip_noise_gamma

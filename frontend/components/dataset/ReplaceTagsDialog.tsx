@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -50,6 +51,9 @@ export function ReplaceTagsDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Replace tags</DialogTitle>
+          <DialogDescription className="sr-only">
+            Enter a replacement value for each selected tag. Leave blank to keep the tag unchanged.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 py-2">

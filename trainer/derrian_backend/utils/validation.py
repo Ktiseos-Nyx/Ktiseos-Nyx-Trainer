@@ -1,10 +1,10 @@
-import json
-import math
-from datetime import datetime
 from pathlib import Path
+import json
 
 from library.train_util import BucketManager
 from PIL import Image
+import math
+from LoraEasyCustomOptimizer import OPTIMIZERS
 
 
 def validate(args: dict) -> tuple[bool, bool, list[str], dict, dict]:
@@ -19,17 +19,61 @@ def validate(args: dict) -> tuple[bool, bool, list[str], dict, dict]:
     dataset_pass, dataset_errors, dataset_data = validate_dataset_args(args["dataset"])
     over_pass = args_pass and dataset_pass
     over_errors = args_errors + dataset_errors
+
+    # Process log prefix mode regardless of initial pass status, but add errors if needed
+    if "log_prefix_mode" in args_data:
+        mode = args_data["log_prefix_mode"]
+        if mode == "output_name":
+            # Check if output_name exists and is not empty (comes from saving_args)
+            if "output_name" in args_data and args_data["output_name"]:
+                args_data["log_prefix"] = args_data["output_name"] + "_"
+            else:
+                # Error only if output_name is expected but missing/empty
+                over_errors.append("Log Prefix Mode is 'Output Name', but 'Output Name' in Saving Args is missing or empty.")
+                over_pass = False # Mark overall validation as failed
+        elif mode == "manual":
+            # Check if log_prefix exists (set by logging UI) and is not empty
+            if "log_prefix" not in args_data or not args_data.get("log_prefix", ""):
+                over_errors.append("Log Prefix Mode is 'Manual', but the 'Manual Prefix' is missing or empty.")
+                over_pass = False # Mark overall validation as failed
+        elif mode == "disabled":
+            if "log_prefix" in args_data:
+                # Clean up if prefix exists but mode is disabled
+                del args_data["log_prefix"]
+        if "log_prefix_mode" in args_data: del args_data["log_prefix_mode"]
+
+    if "run_name_mode" in args_data:
+        mode = args_data["run_name_mode"]
+        if mode == "output_name":
+            if "output_name" in args_data and args_data["output_name"]:
+                args_data["wandb_run_name"] = args_data["output_name"]
+            else:
+                # Error only if output_name is expected but missing/empty
+                over_errors.append("Log Prefix Mode is 'Output Name', but 'Output Name' in Saving Args is missing or empty.")
+                over_pass = False # Mark overall validation as failed
+        elif mode == "manual":
+            if "run_name" not in args_data or not args_data.get("run_name", ""):
+                over_errors.append("Log Prefix Mode is 'Manual', but the 'Manual Run Name' is missing or empty.")
+                over_pass = False # Mark overall validation as failed
+                args_data["wandb_run_name"] = args_data["run_name"]
+        elif mode == "default":
+            if "run_name" in args_data:
+                del args_data["run_name"]
+        if "run_name_mode" in args_data: del args_data["run_name_mode"]
+
+    # Get num_processes from accelerate settings for multi-GPU step calculations
+    accelerate = args.get("accelerate", {})
+    num_processes = accelerate.get("num_processes", 1) if accelerate.get("enabled", False) else 1
+
     tag_data = {}
     if not over_errors:
-        validate_warmup_ratio(args_data, dataset_data)
-        validate_restarts(args_data, dataset_data)
+        validate_warmup_ratio(args_data, dataset_data, num_processes)
+        validate_restarts(args_data, dataset_data, num_processes)
         tag_data = validate_save_tags(dataset_data)
         validate_existing_files(args_data)
         validate_optimizer(args_data)
     sdxl = validate_sdxl(args_data)
-    if not over_pass:
-        return False, sdxl, over_errors, args_data, dataset_data, tag_data
-    return True, sdxl, over_errors, args_data, dataset_data, tag_data
+    return over_pass, sdxl, over_errors, args_data, dataset_data, tag_data
 
 
 def validate_args(args: dict) -> tuple[bool, list[str], dict]:
@@ -39,7 +83,8 @@ def validate_args(args: dict) -> tuple[bool, list[str], dict]:
     output_args = {}
 
     for key, value in args.items():
-        if not value:
+        if (value is None or 
+            (isinstance(value, str) and value.strip() == '')):
             passed_validation = False
             errors.append(f"No data filled in for {key}")
             continue
@@ -73,8 +118,8 @@ def validate_args(args: dict) -> tuple[bool, list[str], dict]:
             if arg == "optimizer_args":
                 vals = []
                 for k, v in val.items():
-                    if v in ["true", "false"]:
-                        v = v.capitalize()
+                    if isinstance(v, str) and v.strip().lower() in ["true", "false"]:
+                        v = v.strip().capitalize()
                     vals.append(f"{k}={v}")
                 val = vals
             if arg == "lr_scheduler_args":
@@ -84,22 +129,31 @@ def validate_args(args: dict) -> tuple[bool, list[str], dict]:
                 passed_validation = False
                 errors.append("Keep Tokens Separator is an empty string")
                 continue
-            if not val:
+            if (val is None or 
+                (isinstance(val, str) and val.strip() == '') or 
+                (isinstance(val, bool) and val == False)):
                 continue
             if isinstance(val, str):
-                if val.lower() == "true":
+                if val.strip().lower() == "true":
                     val = True
-                elif val.lower() == "false":
+                elif val.strip().lower() == "false":
                     continue
             output_args[arg] = val
         if "fa" in value:
             del value["fa"]
 
+    # Anima mode is detected by the presence of the 'qwen3' key (Anima-only arg).
+    # In Anima mode, pretrained_model_name_or_path holds the DiT model path,
+    # and 'qwen3' / 'vae' hold the text encoder and VAE paths respectively.
+    is_anima = "qwen3" in output_args
     file_inputs = [
         {"name": "pretrained_model_name_or_path", "required": True},
-        {"name": "output_dir", "required": True},
+        {"name": "qwen3", "required": is_anima},
+        {"name": "vae", "required": is_anima},
         {"name": "sample_prompts", "required": False},
+        {"name": "output_dir", "required": True},
         {"name": "logging_dir", "required": False},
+        {"name": "t5_tokenizer_path", "required": False},
     ]
 
     for file in file_inputs:
@@ -107,12 +161,35 @@ def validate_args(args: dict) -> tuple[bool, list[str], dict]:
             passed_validation = False
             errors.append(f"{file['name']} is not found")
             continue
-        if file["name"] in output_args and not Path(output_args[file["name"]]).exists():
-            passed_validation = False
-            errors.append(f"{file['name']} input '{output_args[file['name']]}' does not exist")
-            continue
-        elif file["name"] in output_args:
-            output_args[file["name"]] = Path(output_args[file["name"]]).as_posix()
+        
+        # Check if argument is present
+        if file["name"] in output_args:
+            path_obj = Path(output_args[file["name"]])
+            
+            # Special handling for creating directories
+            if file["name"] in ["output_dir", "logging_dir"]:
+                # If it doesn't exist, check if the parent/root is valid before creating
+                if not path_obj.exists():
+                    # Check if the parent path exists (or the path is relative and valid)
+                    if not path_obj.parent.exists():
+                        passed_validation = False
+                        errors.append(f"Parent path for {file['name']} '{path_obj.parent}' does not exist")
+                        continue
+                    
+                    try:
+                        path_obj.mkdir(parents=True, exist_ok=True)
+                    except OSError as e:
+                        passed_validation = False
+                        errors.append(f"Could not create directory for {file['name']}: {e}")
+                        continue
+
+            # Standard validation for other files/paths (must already exist)
+            elif not path_obj.exists():
+                passed_validation = False
+                errors.append(f"{file['name']} input '{output_args[file['name']]}' does not exist")
+                continue
+            
+            output_args[file["name"]] = path_obj.as_posix()
     if "network_module" not in output_args:
         if "guidance_scale" in output_args:
             output_args["network_module"] = "networks.lora_flux"
@@ -131,14 +208,17 @@ def validate_dataset_args(args: dict) -> tuple[bool, list[str], dict]:
     output_args = {"general": {}, "subsets": []}
 
     for key, value in args.items():
-        if not value:
+        if (value is None or 
+                (isinstance(value, str) and value.strip() == '')):
             passed_validation = False
             errors.append(f"No Data filled in for {key}")
             continue
         if key == "subsets":
             continue
         for arg, val in value.items():
-            if not val:
+            if (val is None or 
+                (isinstance(val, str) and val.strip() == '') or 
+                (isinstance(val, bool) and value == False)):
                 continue
             if arg == "max_token_length" and val == 75:
                 continue
@@ -157,7 +237,12 @@ def validate_dataset_args(args: dict) -> tuple[bool, list[str], dict]:
 def validate_subset(args: dict) -> tuple[bool, list[str], dict]:
     passed_validation = True
     errors = []
-    output_args = {key: value for key, value in args.items() if value}
+    output_args = {
+        key: value for key, value in args.items() if not 
+        (value is None or 
+         (isinstance(value, str) and value.strip() == '') or 
+         (isinstance(value, bool) and value == False))
+         }
     name = "subset"
     if "name" in output_args:
         name = output_args["name"]
@@ -167,10 +252,14 @@ def validate_subset(args: dict) -> tuple[bool, list[str], dict]:
         errors.append(f"Image directory path for '{name}' does not exist")
     else:
         output_args["image_dir"] = Path(output_args["image_dir"]).as_posix()
+        
+    if "target_image_dir" in output_args and Path(output_args["target_image_dir"]).exists():
+        output_args["target_image_dir"] = Path(output_args["target_image_dir"]).as_posix()
+
     return passed_validation, errors, output_args
 
 
-def validate_restarts(args: dict, dataset: dict) -> None:
+def validate_restarts(args: dict, dataset: dict, num_processes: int = 1) -> None:
     if "lr_scheduler_num_cycles" not in args:
         return
     if "lr_scheduler_type" not in args:
@@ -182,13 +271,14 @@ def validate_restarts(args: dict, dataset: dict) -> None:
             dataset,
             args["max_train_epochs"],
             args.get("gradient_accumulation_steps", 1),
+            num_processes,
         )
     steps = steps // args["lr_scheduler_num_cycles"]
     args["lr_scheduler_args"].append(f"first_cycle_max_steps={steps}")
-    del args["lr_scheduler_num_cycles"]
+    #del args["lr_scheduler_num_cycles"]
 
 
-def validate_warmup_ratio(args: dict, dataset: dict) -> None:
+def validate_warmup_ratio(args: dict, dataset: dict, num_processes: int = 1) -> None:
     if "warmup_ratio" not in args:
         return
     if "max_train_steps" in args:
@@ -198,14 +288,12 @@ def validate_warmup_ratio(args: dict, dataset: dict) -> None:
             dataset,
             args["max_train_epochs"],
             args.get("gradient_accumulation_steps", 1),
+            num_processes,
         )
     steps = round(steps * args["warmup_ratio"])
     if "lr_scheduler_type" in args:
         args["lr_scheduler_args"].append(f"warmup_steps={steps // args.get('lr_scheduler_num_cycles', 1)}")
     else:
-        print(
-            f"\033[94m {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\033[0m\033[36m  INFO\033[0m  warmup_steps: {steps}"
-        )
         args["lr_warmup_steps"] = steps
     del args["warmup_ratio"]
 
@@ -231,6 +319,8 @@ def validate_sdxl(args: dict) -> bool:
 def validate_save_tags(dataset: dict) -> dict:
     tags = {}
     for subset in dataset["subsets"]:
+        if 'is_val' in subset and subset['is_val']:
+            continue
         subset_dir = Path(subset["image_dir"])
         if not subset_dir.is_dir():
             continue
@@ -244,19 +334,12 @@ def validate_save_tags(dataset: dict) -> dict:
 
 
 def validate_optimizer(args: dict) -> None:
-    config = json.loads(Path("config.json").read_text())
-    match args["optimizer_type"].lower():
-        case "came":
-            if "colab" in config and config["colab"]:
-                args["optimizer_type"] = "came_pytorch.CAME.CAME"
-            else:
-                args["optimizer_type"] = "LoraEasyCustomOptimizer.came.CAME"
-        case "compass":
-            args["optimizer_type"] = "LoraEasyCustomOptimizer.compass.Compass"
-        case "lpfadamw":
-            args["optimizer_type"] = "LoraEasyCustomOptimizer.lpfadamw.LPFAdamW"
-        case "rmsprop":
-            args["optimizer_type"] = "LoraEasyCustomOptimizer.rmsprop.RMSProp"
+    opt_type_lower = args["optimizer_type"].lower()
+
+    if opt_type_lower in OPTIMIZERS:
+        args["optimizer_type"] = f"{OPTIMIZERS[opt_type_lower].__module__}.{OPTIMIZERS[opt_type_lower].__qualname__}"
+        return
+    
 
 
 def get_tags_from_file(file: str, tags: dict) -> None:
@@ -273,6 +356,7 @@ def calculate_steps(
     dataset_args: dict[str, dict | list[dict]],
     num_epochs: int,
     grad_acc_steps: int = 1,
+    num_processes: int = 1,
 ) -> int:
     general_args: dict = dataset_args["general"]
     subsets: list = dataset_args["subsets"]
@@ -289,13 +373,16 @@ def calculate_steps(
             general_args["min_bucket_reso"],
             general_args["max_bucket_reso"],
             general_args["bucket_reso_steps"],
+            general_args.get("multires_training", False),
         )
         if not general_args.get("bucket_no_upscale", False):
             bucketManager.make_buckets()
     else:
-        bucketManager = BucketManager(False, resolution, None, None, None)
+        bucketManager = BucketManager(False, resolution, None, None, None, False)
         bucketManager.set_predefined_resos([resolution])
     for subset in subsets:
+        if 'is_val' in subset and subset['is_val']:
+            continue
         for image in Path(subset["image_dir"]).iterdir():
             if image.suffix not in supported_types:
                 continue
@@ -306,4 +393,4 @@ def calculate_steps(
     steps_before_acc = sum(
         math.ceil(len(bucket) / general_args["batch_size"]) for bucket in bucketManager.buckets
     )
-    return math.ceil(steps_before_acc / grad_acc_steps) * num_epochs
+    return math.ceil(steps_before_acc / grad_acc_steps / num_processes) * num_epochs

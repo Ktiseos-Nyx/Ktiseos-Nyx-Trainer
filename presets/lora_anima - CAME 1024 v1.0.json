@@ -46,7 +46,7 @@
   "module_dropout": 0,
 
   "optimizer_type": "CAME",
-  "optimizer_args": "state_storage_dtype=bfloat16 state_storage_device=cuda",
+  "optimizer_args": "",
   "gradient_accumulation_steps": 1,
   "max_grad_norm": 1,
 

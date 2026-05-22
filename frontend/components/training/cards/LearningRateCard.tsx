@@ -53,7 +53,7 @@ export function LearningRateCard({ form, onSave }: LearningRateCardProps) {
           placeholder="0.0001"
           min={0}
           max={1}
-          step={0.00001}
+          step="any"
         />
 
         {/* Text Encoder Learning Rate */}
@@ -65,7 +65,7 @@ export function LearningRateCard({ form, onSave }: LearningRateCardProps) {
           placeholder="0.00005"
           min={0}
           max={1}
-          step={0.00001}
+          step="any"
         />
 
         {unetLR && teLR && teLR >= unetLR && (

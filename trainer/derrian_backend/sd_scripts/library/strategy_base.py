@@ -266,10 +266,13 @@ class TokenizeStrategy:
                 token_chunks[j, 0] = uncond_chunk
                 token_cross_attention_mask[j, 0] = ones_mask_chunk
 
-                # Subsequent chunks are ignored padding.
-                # They get the same tokens, but their mask remains all zeros.
+                # Subsequent chunks are padding — tokens set to uncond, mask set to
+                # all-True so CLIP attention does not NaN (softmax over all-False mask
+                # produces 0/0). The UNet cross-attention mask will still exclude these
+                # positions via stitch_cross_attention_mask.
                 for i in range(1, num_chunks):
                     token_chunks[j, i] = uncond_chunk
+                    token_cross_attention_mask[j, i] = ones_mask_chunk
 
                 # Skip the rest of the loop for this prompt.
                 continue
@@ -286,12 +289,14 @@ class TokenizeStrategy:
                 # If a split results in an empty chunk, it's an ignored padding chunk.
                 if split_point <= start_index:
                     token_chunks[j, i] = uncond_chunk
-                    continue  # Mask remains all zeros
+                    token_cross_attention_mask[j, i] = ones_mask_chunk  # Prevent CLIP NaN
+                    continue
 
                 chunk = prompt_tokens[start_index + 1: split_point + 1]
                 if len(chunk) == 1 and chunk[0] in comma_token_ids:
                     token_chunks[j, i] = uncond_chunk
-                    continue  # Mask remains all zeros
+                    token_cross_attention_mask[j, i] = ones_mask_chunk  # Prevent CLIP NaN
+                    continue
 
                 bos_tensor = torch.tensor([bos_token_id], device=device)
                 chunk_with_bos = torch.cat([bos_tensor, chunk])

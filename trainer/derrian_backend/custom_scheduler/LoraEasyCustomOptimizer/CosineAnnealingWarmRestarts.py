@@ -1,7 +1,14 @@
+from functools import wraps
 import math
-
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.optimizer import Optimizer
+from functools import wraps
+from weakref import ref
+from torch import Tensor
+from typing import (
+    List,
+)
+
 
 
 # optimizer, cycle multiplier, and gamma are constant so they should be passed in no matter what
@@ -33,6 +40,29 @@ class CosineAnnealingWarmRestarts(LRScheduler):
                 )
             self.setup_optimizer(warmup_steps, first_cycle_max_steps, min_lr)
         self.validate_optimizer()
+        self.base_lrs: List[float] = [
+            group["initial_lr"] for group in optimizer.param_groups
+        ]
+
+        def with_counter(method):
+            if getattr(method, "_with_counter", False):
+                return method
+            instance_ref = ref(method.__self__)
+            func = method.__func__
+            cls = instance_ref().__class__
+            del method
+
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                instance = instance_ref()
+                instance._step_count = getattr(instance, "_step_count", 0) + 1
+                wrapped = func.__get__(instance, cls)
+                return wrapped(*args, **kwargs)
+
+            wrapper._with_counter = True
+            return wrapper
+
+        self.optimizer.step = with_counter(self.optimizer.step)
 
         self._initial_step()
 
@@ -43,6 +73,10 @@ class CosineAnnealingWarmRestarts(LRScheduler):
         min_lr: float,
     ) -> Optimizer:
         for group in self.optimizer.param_groups:
+            lr = group["lr"]
+            if isinstance(lr, Tensor):
+                lr = lr.clone()
+
             if "warmup_steps" not in group:
                 group.setdefault("warmup_steps", warmup_steps)
             if "current_cycle_max_steps" not in group:
@@ -51,8 +85,8 @@ class CosineAnnealingWarmRestarts(LRScheduler):
                 group.setdefault("min_lr", min_lr)
             group.setdefault("current_cycle", 0)
             group.setdefault("current_cycle_step", -1)
-            group.setdefault("initial_lr", group["lr"])
-            group.setdefault("current_max_lr", group["lr"])
+            group.setdefault("initial_lr", lr)
+            group.setdefault("current_max_lr", lr)
 
     def validate_optimizer(self):
         for i, group in enumerate(self.optimizer.param_groups):
