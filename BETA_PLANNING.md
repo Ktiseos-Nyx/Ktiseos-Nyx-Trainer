@@ -1319,7 +1319,7 @@ It also handles full fine-tuning, LyCORIS (lokr etc.), and quantised training (i
 
 `BaseTrainer` (`services/trainers/base.py`) already defines the interface — adding SimpleTuner is a new implementation, not a restructure:
 
-```
+```text
 services/trainers/
   base.py                 ← existing ABC, no changes needed
   kohya.py                ← existing
@@ -1369,7 +1369,7 @@ The multidatabackend concept is richer than Kohya's single `dataset_config` — 
 #### Installation
 
 SimpleTuner is a pip package — install alongside existing deps:
-```
+```text
 requirements.txt: simpletuner[cuda]
 ```
 

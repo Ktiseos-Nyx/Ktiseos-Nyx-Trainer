@@ -91,7 +91,7 @@ The installer:
 2. Creates `.venv/` virtual environment (unless `--no-venv` is passed)
 3. Installs PyTorch with CUDA 12.1 index
 4. Installs Python dependencies from `requirements_windows.txt`
-5. Runs `npm install --legacy-peer-deps` in `frontend/`
+5. Runs `npm install` in `frontend/`
 6. Runs `npm run build` in `frontend/`
 
 **Installer flags:**
@@ -373,7 +373,7 @@ These are set automatically by the installer and start scripts. They are documen
 
 ### Python not found
 
-```
+```text
 'python' is not recognized as an internal or external command
 ```
 
@@ -397,13 +397,14 @@ torch.cuda.is_available()  # returns False
 
 ### npm install fails
 
-```
+```text
 npm ERR! ERESOLVE unable to resolve dependency tree
 ```
 
-The install scripts pass `--legacy-peer-deps` automatically. If running npm manually:
+This error should not occur on Next.js 16 / React 19. If it does, clear the npm cache and retry:
 ```bash
-npm install --legacy-peer-deps
+npm cache clean --force
+npm install
 ```
 
 ### Permission denied (Windows)
