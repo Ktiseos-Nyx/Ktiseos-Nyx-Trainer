@@ -1289,4 +1289,139 @@ This is iterative, not a big-bang redesign. Work page by page, card by card:
 
 ---
 
+---
+
+## Section 15 — Alternative Training Backends
+
+### 15.1 SimpleTuner
+
+**Priority:** Beta+ / "Big Additions" — full form UI required before shipping  
+**Status:** Not started  
+**Source:** https://github.com/bghira/SimpleTuner  
+**Install:** `pip install simpletuner[cuda]` — standard package, no vendoring needed
+
+#### Why SimpleTuner
+
+SimpleTuner supports 33+ model families that Kohya doesn't cover or covers poorly:
+
+| Notable models | Notes |
+|---|---|
+| Flux.1 / Flux.2 | Better LoRA support than Kohya's flux path in some community tests |
+| Chroma | Full support (Kohya does partial via flux_train.py --model_type chroma) |
+| Wan 2.x (video) | Video LoRA — not in Kohya at all |
+| LTXVideo / HunyuanVideo | Video fine-tuning |
+| HiDream, Lumina2, Sana | Modern image architectures |
+| SDXL / SD1.x | Covers the basics too |
+
+It also handles full fine-tuning, LyCORIS (lokr etc.), and quantised training (int8/fp8/nf4) natively.
+
+#### Architecture fit
+
+`BaseTrainer` (`services/trainers/base.py`) already defines the interface — adding SimpleTuner is a new implementation, not a restructure:
+
+```
+services/trainers/
+  base.py                 ← existing ABC, no changes needed
+  kohya.py                ← existing
+  kohya_toml.py           ← existing
+  simpletuner.py          ← NEW: BaseTrainer subclass
+  simpletuner_config.py   ← NEW: generates config.json + multidatabackend.json
+```
+
+Training is invoked via `accelerate launch simpletuner/train.py` (or `simpletuner train`) — same subprocess pattern as Kohya.
+
+#### Config format differences from Kohya
+
+SimpleTuner uses two JSON files instead of one TOML:
+
+1. **`config.json`** — training hyperparams (lr, optimizer, model path, output dir, etc.)
+2. **`multidatabackend.json`** — array of dataset backend objects, each with its own resolution, caption strategy, caching dirs, repeat count, and sampling probability
+
+The multidatabackend concept is richer than Kohya's single `dataset_config` — it allows mixing multiple datasets with different settings and weights in one run. For the initial implementation, we can simplify this to a single local backend.
+
+#### Key config fields to expose in the UI
+
+**Core (must have):**
+- `model_family` — dropdown of supported architectures (maps to ST's `--model_family`)
+- `pretrained_model_name_or_path` — base model path/HF ID
+- `model_type` — `lora` or `full`
+- `lora_rank` / `lora_alpha`
+- `lora_type` — `standard` (PEFT) or `lycoris`
+- `learning_rate`, `optimizer`, `lr_scheduler`, `lr_warmup_steps`
+- `max_train_steps` or `num_train_epochs`
+- `train_batch_size`
+- `mixed_precision`, `base_model_precision` (quantisation)
+- Dataset dir, caption strategy, resolution
+
+**Dataset backend (simplified for v1):**
+- Single local backend only (no AWS/GCS)
+- `instance_data_dir`, `instance_prompt`, `caption_strategy`
+- `resolution`, `repeats`
+
+**Advanced (progressive disclosure):**
+- `gradient_checkpointing`, `gradient_checkpointing_interval`
+- `checkpoint_step_interval`, `checkpoints_total_limit`
+- Validation: `validation_steps`, `validation_prompt`, `validation_resolution`
+- `report_to` (wandb/tensorboard), `tracker_project_name`
+- `lora_format` — `diffusers` or `comfyui`
+- `lycoris_config` (JSON editor, shown only when lora_type=lycoris)
+
+#### Installation
+
+SimpleTuner is a pip package — install alongside existing deps:
+```
+requirements.txt: simpletuner[cuda]
+```
+
+It has different torch/diffusers version requirements than Kohya. May need a separate venv or careful dependency alignment — verify before committing to shared venv. If separate venv is needed, use the same subprocess env-injection pattern (`SIMPLETUNER_VENV` path in settings) that could be added alongside `kohya.py`.
+
+#### Frontend scope
+
+Full dedicated training page at `/training/simpletuner` (or a tab switcher on the existing `/training` page). The Kohya form is not reusable — SimpleTuner has fundamentally different fields (model family selector, multidatabackend concept, quantisation options). A new form is the right call.
+
+The `TrainingConfig` Pydantic model is Kohya-specific. Options:
+- **Recommended:** A separate `SimpleTunerConfig` Pydantic model + new API route `/api/training/simpletuner/start`
+- Alternative: add a `trainer_backend` discriminator to `TrainingConfig` and union the models — more complex, only worth it if we want a single form endpoint
+
+Route in `server.js` `nodeApiPrefixes`: add `/api/training/simpletuner` to the whitelist so it hits Next.js (if we ever migrate) or leave as FastAPI (current pattern).
+
+#### Implementation sequence
+
+1. **ST-1:** `services/trainers/simpletuner.py` + `simpletuner_config.py` — JSON config generation + subprocess invocation. No UI yet. Manual testing via API.
+2. **ST-2:** `services/models/simpletuner_config.py` — Pydantic model for SimpleTuner config. New FastAPI route `/api/training/simpletuner/start`.
+3. **ST-3:** Frontend form — model family selector, core fields, dataset section, progressive disclosure for advanced.
+4. **ST-4:** Preset system — ST presets live in `presets/simpletuner/` to keep them separate from Kohya presets.
+5. **ST-5 (future):** Multi-backend dataset config UI — allow defining multiple dataset backends with different weights.
+
+#### Priority matrix
+
+| Item | Effort | Status |
+|------|--------|--------|
+| ST-1: Backend trainer + config generation | Medium | ⏳ Not started |
+| ST-2: Pydantic model + API route | Small | ⏳ Not started |
+| ST-3: Frontend form (full) | Large | ⏳ Not started |
+| ST-4: Preset system | Small | ⏳ Not started |
+| ST-5: Multi-dataset backend UI | Medium | ⏳ Future |
+
+---
+
+### 15.2 musubi-tuner (Future)
+
+**Priority:** Future / Beta++  
+**Status:** Needs scoping — research first  
+**Source:** https://github.com/kohya-ss/musubi-tuner (same author as kohya-ss)
+
+Kohya's newer tuning framework. Promising but overlap with existing Kohya backend is significant — needs a proper scope session to determine what it unlocks vs. what we already cover. Do not design until SimpleTuner (§15.1) is shipped and stable.
+
+---
+
+### 15.3 Chroma / Flow Training Improvements (Future)
+
+**Priority:** Future  
+**Status:** Not started
+
+Chroma is already partially supported via `flux_train.py --model_type chroma` in the vendored Kohya backend. SimpleTuner (§15.1) adds native Chroma support as a side effect of its broader model family coverage. Evaluate what's still missing after SimpleTuner lands before scoping a dedicated Chroma training path.
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project
