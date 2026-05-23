@@ -991,11 +991,11 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 
 #### Implementation sequence
 
-**COMFY-1: Proxy layer (prerequisite for everything else)**
-- `frontend/server.js` — add `/comfyui` HTTP proxy block (mirror the FastAPI proxy pattern)
-- `frontend/server.js` — add `/ws/comfyui` WebSocket upgrade handler
-- Env var: `COMFYUI_PORT=8188` (add to `start_services_vastai.sh`, `start_services_runpod.sh`, `restart.sh`)
-- `lib/comfy/client.ts` — change default `baseUrl` from `http://localhost:8188` to `/comfyui`
+**COMFY-1: Proxy layer (prerequisite for everything else)** — ✅ Done 2026-05-23 (commit `dfc8a1e`)
+- `frontend/server.js` — `/comfyui/*` HTTP proxy block strips prefix and forwards to ComfyUI
+- `frontend/server.js` — `/comfyui/ws` WebSocket upgrade handler (matches the client's relative `baseUrl + '/ws'` pattern)
+- Env var: `COMFYUI_PORT=8188` honored in `server.js` (still TODO: add explicit export in `start_services_vastai.sh`, `start_services_runpod.sh`, `restart.sh` for documentation)
+- `lib/comfy/client.ts` — change default `baseUrl` from `http://localhost:8188` to `/comfyui` (handled in COMFY-2 when the file lands in the repo)
 
 **COMFY-2: Drop in the library layer**
 - Copy `lib/comfy/` into `frontend/lib/comfy/`
@@ -1024,8 +1024,56 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 - Clicking it navigates to `/comfyui` with the trained LoRA pre-loaded into the LoRA stack
 - Requires: COMFY-1 through COMFY-4 complete + ComfyUI actually running on the instance
 
+**COMFY-7: Auto-install required custom nodes (revised stance, 2026-05-23)**
+
+The earlier "we do NOT auto-install nodes" position was conservative scope-trimming, not a technical decision. Since we ship a custom UI template that *requires* specific nodes to function (LoRA Manager, rgthree, Impact Pack, Ultimate SD Upscale), missing nodes = silently broken feature from the user's perspective. Auto-installing is a correctness requirement, not a power-user convenience.
+
+**Required nodes for the bundled SDXL / ANIMA workflow templates:**
+- `rgthree-comfy` — https://github.com/rgthree/rgthree-comfy (Seed, Fast Groups Bypasser, Image Comparer)
+- `ComfyUI-Lora-Manager` — https://github.com/willmiao/ComfyUI-Lora-Manager (LoRA loader + Save Image)
+- `ComfyUI-Impact-Pack` — https://github.com/ltdrdata/ComfyUI-Impact-Pack (DetailerForEach, SAMLoader, ImpactSimpleDetectorSEGS, SEGSPreview)
+- `ComfyUI-Impact-Subpack` — https://github.com/ltdrdata/ComfyUI-Impact-Subpack (UltralyticsDetectorProvider)
+- `ComfyUI_UltimateSDUpscale` — https://github.com/ssitu/ComfyUI_UltimateSDUpscale (UltimateSDUpscale)
+- `ComfyUI-Manager` — https://github.com/ltdrdata/ComfyUI-Manager (optional but useful so users can add extras themselves)
+
+**Provisioning script approach (preferred):** `vastai_setup.sh` / `provision_runpod.sh` / `install.bat` clone each repo into `ComfyUI/custom_nodes/` and `pip install -r requirements.txt` for each. No ComfyUI Manager dependency, no chicken-and-egg problem, deterministic.
+
+**In-app fallback (later):** On `/comfyui` page load, check `/object_info` for missing node types. If any required node is missing, show a dialog with an "Install missing nodes" button that POSTs to a Next.js API route which runs the equivalent `git clone` server-side. Skip if ComfyUI Manager handles it.
+
+**COMFY-8: ComfyUI backend location — DECIDED 2026-05-23: direct clone everywhere**
+
+`.gitmodules` exists but is empty; `ComfyUI/` directory does not exist. Direct-clone approach chosen over git submodule:
+
+- **All provisioning paths clone ComfyUI consistently** — `vastai_setup.sh`, `provision_runpod.sh`, `install.bat`, `install.sh` each `git clone https://github.com/comfyanonymous/ComfyUI` into the platform-appropriate directory (e.g. `/workspace/ComfyUI` on remote, `./ComfyUI` next to the trainer locally).
+- **No submodule overhead** — no `.gitmodules` config, no `git submodule update --init --recursive` step, no submodule pin to bump.
+- **Graceful degrade if missing** — if a local user runs the trainer without having gone through the installer (or deletes their `ComfyUI/` dir), the `/comfyui` page shows the disconnected skeleton state already planned. App stays functional; ComfyUI tab is just inert.
+- **Same install loop for custom nodes** — the COMFY-7 custom node install routine runs the same way regardless of how ComfyUI got there.
+
+Rejected: git submodule (extra complexity for no real benefit in this use case; we don't need a version pin since ComfyUI's `main` branch is stable enough and breaking changes are rare).
+
+**COMFY-9: `knx-nodes` ComfyUI custom node package**
+
+A small package owned by KNX that ships alongside the bundled workflow templates. Auto-installed by provisioning scripts the same way as third-party nodes. Initial scope is two nodes:
+
+- **`KNXSaveImage`** — saves images with `Software: KNX Ecosystem` PNG metadata so downstream tools (Dataset-Tools, Discord bots, Civitai) tag the source correctly. Written from scratch using ComfyUI core's `SaveImage` pattern (MIT) — no fork. Optionally embeds a structured `knx_metadata` JSON chunk (template name, workflow version, KNX trainer build).
+- **`KNXMetadataReader`** — loads an image and extracts PNG text chunks as ComfyUI `STRING` outputs (positive prompt, negative prompt, seed, model, etc.). Lets users feed an existing image's prompt directly into `CLIPTextEncode` without re-tagging via WD14. Intentionally narrow — read chunks, return strings, no format-scoring heuristics. (Lesson from the vendored sdpr in Dataset-Tools-main: numpy scoring stacks become unmaintainable fast.)
+
+Package layout:
+```
+knx-nodes/
+├── __init__.py          # NODE_CLASS_MAPPINGS + NODE_DISPLAY_NAME_MAPPINGS
+├── knx_save_image.py    # KNXSaveImage
+├── knx_metadata_reader.py  # KNXMetadataReader
+├── requirements.txt
+└── README.md
+```
+
+Lives in its own GitHub repo (`Ktiseos-Nyx/knx-nodes` or similar) so the provisioning loop clones it the same way it clones rgthree/Impact Pack. Growth path: any custom node KNX needs that doesn't exist upstream goes here.
+
+**Future ideas (not blocking):** dataset folder save node, training reference metadata embedder, ArcEnCiel-aware Civitai uploader node.
+
 #### Notes
-- ComfyUI backend ships as a **git submodule**, always co-located, `localhost:8188`. See "ComfyUI backend: submodule" section above.
+- ComfyUI backend is **directly cloned** by all install paths (local + remote), always co-located on `localhost:8188`. See COMFY-8 above for the decision rationale; the "ComfyUI backend: submodule" subsection further up is superseded.
 - The template has workflow builders for `inpaint`, `controlnet`, and `adetailer` types referenced in `types.ts` but not yet built in `workflows/`. Those are future scope.
 - Check whether `zustand` is already a dep before adding it — the stores use it.
 - **Issue #374 (Reflow Violations)** fixed in PR #375 (2026-05-20). TrainingMonitor auto-scroll moved fully into rAF with cleanup; auto-tag page SelectContent → position="item-aligned"; raw buttons → shadcn Button.
@@ -1084,6 +1132,15 @@ These handoffs are URL-based (no shared state stores), keeping the projects loos
 - Ideally the Trainer can deep-link with `?folder=/path/to/dataset` so Dataset Tools opens to the right place
 - Check if Dataset Tools' settings API accepts a folder override via query param, or whether we need to add it
 
+**DT-5: "KNX Ecosystem" source tag (pairs with COMFY-9)**
+
+Today, images generated by the bundled ComfyUI workflows show up as `Automatic1111` in Dataset-Tools' viewer because the LoRA Manager save node writes a `parameters` PNG chunk in A1111 format, and detection at `lib/parseImageMetadata.ts:181` keys off that chunk. Once `KNXSaveImage` (COMFY-9) writes `Software: KNX Ecosystem`, Dataset-Tools needs a matching detection block:
+
+- **Next.js viewer** (`lib/parseImageMetadata.ts`): add `'KNX Ecosystem'` to the `format` union type; add detection block `if (textChunks['Software'] === 'KNX Ecosystem')` before the A1111 check (mirroring the NovelAI pattern at line 172).
+- **Python CLI** (vendored sdpr at `dataset_tools/vendored_sdpr/format/`): add a `KNXFormat` class with `tool = "KNX Ecosystem"` and register it in `image_data_reader.py:PARSER_CLASSES_PNG` ahead of A1111.
+
+Tags both ends of the same ecosystem with one consistent name.
+
 #### Notes
 - Dataset Tools has its own settings system and thumbnail cache — these are self-contained, no conflict with Trainer settings
 - The Python `dataset_tools/` CLI is a separate tool; ignore it for web integration
@@ -1109,12 +1166,16 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
-| COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ⏳ Not started |
+| COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ✅ Done 2026-05-23 |
 | COMFY-2: Copy lib/stores/hooks layer from KNX-ComfyUI | Integration | Tiny | ⏳ Not started |
 | COMFY-3: UI page + navbar link + skeleton disconnected state | Integration | Small | ⏳ Not started |
 | COMFY-4: Settings integration (ComfyUI URL field) | UX | Tiny | ⏳ Not started |
 | COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
+| COMFY-7: Auto-install required custom nodes (provisioning) | Infrastructure | Small | ⏳ Not started |
+| COMFY-8: ComfyUI submodule vs direct clone (decision) | Decision | n/a | ✅ Decided: direct clone everywhere |
+| COMFY-9: knx-nodes package (KNXSaveImage + KNXMetadataReader) | New Repo | Small | ⏳ Not started |
 | DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
+| DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
 | DT-3: Handoff buttons (inspect LoRA, view reference, files) | Feature | Small | ⏳ Not started |
 | DT-4: Deep-link folder awareness | Enhancement | Small | ⏳ Not started |
