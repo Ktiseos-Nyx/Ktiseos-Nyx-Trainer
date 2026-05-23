@@ -51,6 +51,8 @@ const hostname = dev ? '127.0.0.1' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 const defaultBackendPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
 const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackendPort}`;
+const comfyuiPort = process.env.COMFYUI_PORT || '8188';
+const comfyuiUrl = `http://127.0.0.1:${comfyuiPort}`;
 
 // WHATWG URL helper — replaces deprecated url.parse() (DEP0169)
 // Next.js handle() expects { pathname, query } so we build that from URL.
@@ -80,6 +82,7 @@ console.log('🚀 Starting Ktiseos-Nyx-Trainer Custom Server...');
 console.log(`   Environment: ${dev ? 'development' : 'production'}`);
 console.log(`   Frontend: ${hostname}:${port}`);
 console.log(`   Backend: ${backendUrl}`);
+console.log(`   ComfyUI: ${comfyuiUrl} (proxy: /comfyui)`);
 
 app.prepare().then(() => {
   // Create WebSocket + API proxy to FastAPI backend
@@ -113,6 +116,25 @@ app.prepare().then(() => {
     onProxyReq: (proxyReq, req, res) => {
       if (dev && req.url.startsWith('/ws')) {
         console.log(`🔌 Proxying WebSocket: ${req.url}`);
+      }
+    },
+  });
+
+  // Proxy for ComfyUI — strips /comfyui prefix before forwarding
+  const comfyuiProxy = createProxyMiddleware({
+    target: comfyuiUrl,
+    changeOrigin: true,
+    pathRewrite: { '^/comfyui': '' },
+    logLevel: dev ? 'debug' : 'warn',
+
+    onError: (err, req, res) => {
+      console.error('❌ ComfyUI proxy error:', err.message);
+      if (res.writeHead) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'ComfyUI unavailable',
+          message: `ComfyUI is not running on port ${comfyuiPort}. Start ComfyUI or set COMFYUI_PORT.`,
+        }));
       }
     },
   });
@@ -167,6 +189,11 @@ app.prepare().then(() => {
       // Proxy other /api requests to FastAPI (backward compatibility)
       if (pathname.startsWith('/api')) {
         return apiAndWsProxy(req, res);
+      }
+
+      // Proxy /comfyui/* requests to ComfyUI backend
+      if (pathname.startsWith('/comfyui')) {
+        return comfyuiProxy(req, res);
       }
 
       // /ws paths are WebSocket-only — reject plain HTTP requests
@@ -293,6 +320,11 @@ app.prepare().then(() => {
       console.log(`⬆️  WebSocket upgrade (FastAPI proxy): ${pathname}`);
       apiAndWsProxy.upgrade(req, socket, head);
     }
+    // Proxy WebSocket upgrades for /comfyui/ws to ComfyUI
+    else if (pathname.startsWith('/comfyui/ws')) {
+      console.log(`⬆️  WebSocket upgrade (ComfyUI proxy): ${pathname}`);
+      comfyuiProxy.upgrade(req, socket, head);
+    }
     else {
       // Reject other upgrade attempts with a proper HTTP response
       socket.write('HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{"error":"WebSocket upgrade rejected: unsupported path"}');
@@ -317,6 +349,7 @@ app.prepare().then(() => {
     console.log(`🐍 Backend:   ${backendUrl}`);
     console.log(`🔌 WebSocket (Node.js):  /ws/jobs/{id}/logs`);
     console.log(`🔌 WebSocket (FastAPI):  /ws/api/* (proxied)`);
+    console.log(`🎨 ComfyUI proxy:        /comfyui/* → ${comfyuiUrl}`);
     console.log('========================================');
     console.log('');
   });
