@@ -593,7 +593,7 @@ class LocalWindowsInstaller:
             ("ComfyUI-Impact-Subpack",    "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"),
             ("ComfyUI_UltimateSDUpscale", "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"),
             ("ComfyUI-Manager",           "https://github.com/ltdrdata/ComfyUI-Manager"),
-            # TODO: ("comfyui_fearnworksnodes", "<URL unknown — find GitHub repo for cnr_id comfyui_fearnworksnodes>"),
+            ("comfyui_fearnworksnodes",   "https://github.com/fearnworks/ComfyUI_FearnworksNodes"),
         ]
 
         for node_name, node_url in custom_nodes:
