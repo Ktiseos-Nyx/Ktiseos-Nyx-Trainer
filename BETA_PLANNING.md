@@ -997,20 +997,52 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 - Env var: `COMFYUI_PORT=8188` honored in `server.js` (still TODO: add explicit export in `start_services_vastai.sh`, `start_services_runpod.sh`, `restart.sh` for documentation)
 - `lib/comfy/client.ts` — change default `baseUrl` from `http://localhost:8188` to `/comfyui` (handled in COMFY-2 when the file lands in the repo)
 
-**COMFY-2: Drop in the library layer**
-- Copy `lib/comfy/` into `frontend/lib/comfy/`
-- Copy `lib/stores/` into `frontend/lib/stores/` (check for Zustand dep — add to package.json if missing)
-- Copy `hooks/use-generation.ts` into `frontend/hooks/`
+**COMFY-2: Library layer** — ✅ Done 2026-05-23 (commit `5ebd646`)
+- `lib/comfy/types.ts` — full TypeScript types for all ComfyUI API surfaces (workflow, queue, history, system stats, WebSocket message discriminated union)
+- `lib/comfy/client.ts` — `comfyClient` singleton: `submitPrompt`, `interrupt`, `getQueue`, `getHistory` (overloaded), `deleteHistory`, `getObjectInfo`, `getSystemStats`, `getImageUrl`, `ping`, `connectWebSocket` with auto-reconnect
+- `lib/comfy/workflows/txt2img.ts` — `buildTxt2ImgWorkflow()` targeting SDXL / SD 1.5 (CheckpointLoaderSimple chain; see **ANIMA note** below)
+- `lib/comfy/workflows/img2img.ts` — `buildImg2ImgWorkflow()` with LoadImage + VAEEncode
+- `lib/comfy/workflows/index.ts` — barrel re-export
+- `lib/comfy/useComfyConnection.ts` — `useComfyConnection()` hook: manages WS lifecycle, status, progress, queue; client ID from `sessionStorage` (stable per tab); `submitTxt2Img` convenience wrapper
+- `lib/comfy/index.ts` — top-level barrel export
 
-**COMFY-3: UI components**
-- Copy `components/comfy/` into `frontend/components/comfy/`
-- New page: `frontend/app/comfyui/page.tsx` (adapt from template's `app/page.tsx`)
-- Add ComfyUI to navbar under a new "Generate" section (or alongside Tools)
-- Add to `server.js` `nodeApiPrefixes` if any Next.js API routes are needed
+**COMFY-3: UI components** — ✅ Done 2026-05-23 (commit `5ebd646`)
+- `components/comfy/ComfyConnectionStatus.tsx` — pill badge (emerald/yellow/zinc/red) for header
+- `components/comfy/GenerateUI.tsx` — full two-panel resizable UI (Splitter); left: prompts, checkpoint, dimensions, sampler settings, LoRA stack, denoise/VAE/CLIP skip; right: image gallery + progress
+- `app/comfyui/page.tsx` — connection-aware page shell (connecting / disconnected / error / connected states); BorderGlow disconnected card
+- `components/blocks/navigation/navbar.tsx` — added "Generate" top-level nav item → `/comfyui`
 
-**COMFY-4: Settings integration**
-- Add ComfyUI URL field to existing settings page (`frontend/app/settings/page.tsx`)
-- Read from settings store rather than hardcoding; show connection status badge
+**COMFY-4: Settings integration** — ✅ Done 2026-05-23 (commit `5ebd646`)
+- `lib/node-services/settings-service.ts` — `comfyui_url?: string` field; GET returns `comfyui_url: settings.comfyui_url ?? 'http://localhost:8188'`; POST merges update
+- `app/api/settings/user/route.ts` — accepts `comfyui_url` string in POST body
+- `app/settings/page.tsx` — ComfyUI GradientCard section with URL Input before API Keys section; note: changes take effect within 5 s (proxy cache)
+
+**ANIMA workflow vs SDXL — node structure differences**
+
+The bundled SDXL workflow (`guy90sVerySimpleAndEasyTo_v10.json`, adapted from Guy90s) uses a `CheckpointLoaderSimple` chain — a single node loads MODEL + CLIP + VAE. ANIMA uses a completely separate loader pattern:
+
+| Aspect | SDXL / SD 1.5 (`buildTxt2ImgWorkflow`) | ANIMA (`buildAnimaWorkflow` — TODO) |
+|--------|----------------------------------------|--------------------------------------|
+| Model loader | `CheckpointLoaderSimple` (outputs MODEL[0], CLIP[1], VAE[2]) | `UNETLoader` (MODEL only) |
+| CLIP loader | Output [1] of checkpoint | `DualCLIPLoader` (loads two CLIP models for AuraFlow — CLIP-L + T5XXL) |
+| VAE loader | Output [2] of checkpoint | `VAELoader` (separate VAE file) |
+| Sampling | `KSampler` | `KSampler` + `ModelSamplingAuraFlow` (patches the model's sigma schedule for AuraFlow's non-standard distribution) |
+| Detailer | Adetailer via Impact Pack | same |
+| Upscaler | Ultimate SD Upscale | same |
+
+`buildAnimaWorkflow()` needs to live at `lib/comfy/workflows/anima.ts` and wire:
+- Node 1: `UNETLoader` → `model`
+- Node 2: `DualCLIPLoader` → `clip` (clip_name1 = CLIP-L file, clip_name2 = T5XXL file, type = "stable_diffusion" or "flux" depending on AuraFlow version)
+- Node 3: `VAELoader` → `vae`
+- Node 4: `ModelSamplingAuraFlow` (patches Node 1's model output) → patched `model`
+- Nodes 5, 6: `CLIPTextEncode` positive/negative (using Node 2's clip)
+- Node 7: `EmptyLatentImage`
+- Node 8: `KSampler` (uses patched model from Node 4)
+- Node 9: `VAEDecode`
+- Node 10: `SaveImage`
+- LoRA nodes 20+: `LoraLoader` chain injected between UNETLoader and ModelSamplingAuraFlow
+
+The `GenerateUI` architecture switcher (header toggle) will call `buildAnimaWorkflow` vs `buildTxt2ImgWorkflow` depending on user selection — same resizable panel, different builder underneath. This is tracked in the architecture switcher todo below.
 
 **COMFY-6 (long-horizon): Custom node plugin system**
 - Custom node packs map to UI component "plugins" — similar to A1111's extension system
