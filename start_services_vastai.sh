@@ -90,6 +90,17 @@ else
     echo "⚠️  Frontend directory not found - skipping frontend startup"
 fi
 
+# Start ComfyUI (optional — only if cloned by installer)
+COMFYUI_PORT="${COMFYUI_PORT:-8188}"
+if [ -d "ComfyUI" ]; then
+    echo "🎨 Starting ComfyUI on port $COMFYUI_PORT (bind 0.0.0.0)..."
+    python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 &
+    COMFYUI_PID=$!
+    echo "   ComfyUI PID: $COMFYUI_PID"
+else
+    echo "ℹ️  ComfyUI not installed — skipping. Run the installer to add ComfyUI support."
+fi
+
 echo ""
 echo "=========================================="
 echo "✅ Vast.ai/Cloud Services Started!"
@@ -99,6 +110,7 @@ echo "🌐 Access URLs (use Vast.ai port forwarding or public IP):"
 echo "   Frontend: http://0.0.0.0:${FRONTEND_PORT:-13000} (Caddy proxies from :3000)"
 echo "   Backend API: http://0.0.0.0:${BACKEND_PORT:-18000} (Caddy proxies from :8000)"
 echo "   API Docs: http://0.0.0.0:${BACKEND_PORT:-18000}/docs"
+echo "   ComfyUI: http://0.0.0.0:${COMFYUI_PORT} (expose via Vast.ai port forwarding)"
 echo ""
 echo "📊 To monitor services:"
 echo "   ps aux | grep -E 'uvicorn|node'"

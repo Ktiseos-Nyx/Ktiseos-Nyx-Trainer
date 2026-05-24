@@ -260,6 +260,14 @@ if exist "frontend\" (
     )
 )
 
+REM Start ComfyUI (optional - only if installed by installer)
+if exist "ComfyUI\" (
+    echo [ComfyUI] Starting on http://localhost:8188...
+    start "ComfyUI" /MIN %PYTHON_EXE% ComfyUI\main.py --port 8188 --listen 127.0.0.1
+) else (
+    echo [ComfyUI] Not installed - skipping. Run install.bat to add ComfyUI support.
+)
+
 echo.
 echo ==========================================
 echo [SUCCESS] Local Services Started!
@@ -267,6 +275,7 @@ echo ==========================================
 echo.
 echo   Access the UI at: http://localhost:!FRONTEND_PORT!
 echo   API Docs available at: http://localhost:!BACKEND_PORT!/docs
+echo   ComfyUI (if running): http://localhost:8188
 echo.
 echo [INFO] To stop services, close the minimized command windows
 echo        or press Ctrl+C in each one.

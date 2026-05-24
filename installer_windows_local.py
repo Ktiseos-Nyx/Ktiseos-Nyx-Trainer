@@ -532,6 +532,98 @@ class LocalWindowsInstaller:
             print(" ✅ Frontend already built and up to date.")
             return True
 
+    def install_comfyui(self):
+        """
+        Clone ComfyUI and install required custom nodes into {project_root}/ComfyUI/.
+
+        Per the COMFY-8 decision, ComfyUI is cloned directly (not a git submodule).
+        Required custom nodes for the bundled workflow templates are installed too.
+        All failures are non-fatal — the training tool works without ComfyUI.
+        """
+        if not shutil.which("git"):
+            self.logger.warning("git not found — skipping ComfyUI installation.")
+            print("   ⚠️  git not found. Install Git for Windows to enable ComfyUI auto-install.")
+            return False
+
+        comfyui_dir = os.path.join(self.project_root, "ComfyUI")
+        custom_nodes_dir = os.path.join(comfyui_dir, "custom_nodes")
+
+        # Clone or pull ComfyUI
+        if os.path.isdir(os.path.join(comfyui_dir, ".git")):
+            self.logger.info("ComfyUI already cloned, pulling updates...")
+            print("   ComfyUI already cloned — pulling updates...")
+            self.run_command(
+                ["git", "pull", "--ff-only"],
+                "Updating ComfyUI",
+                cwd=comfyui_dir,
+                allow_failure=True,
+            )
+        else:
+            self.logger.info("Cloning ComfyUI into %s", comfyui_dir)
+            success = self.run_command(
+                ["git", "clone", "https://github.com/comfyanonymous/ComfyUI.git", comfyui_dir],
+                "Cloning ComfyUI",
+            )
+            if not success:
+                self.logger.warning("ComfyUI clone failed — skipping custom nodes.")
+                return False
+
+        # Install ComfyUI Python requirements
+        comfyui_req = os.path.join(comfyui_dir, "requirements.txt")
+        if os.path.exists(comfyui_req):
+            install_cmd = self.package_manager["install_cmd"] + ["-r", comfyui_req]
+            self.run_command(install_cmd, "Installing ComfyUI requirements", allow_failure=True)
+
+        # Create model subdirectory structure
+        models_dir = os.path.join(comfyui_dir, "models")
+        for subdir in [
+            "checkpoints", "diffusion_models", "vae", "loras",
+            "text_encoders", "clip", "upscale_models", "controlnet",
+            "embeddings", "hypernetworks",
+        ]:
+            os.makedirs(os.path.join(models_dir, subdir), exist_ok=True)
+        self.logger.info("Model subdirectories created under %s", models_dir)
+
+        # Clone required custom nodes (allow_failure=True so one bad node doesn't stop the rest)
+        os.makedirs(custom_nodes_dir, exist_ok=True)
+        custom_nodes = [
+            ("rgthree-comfy",             "https://github.com/rgthree/rgthree-comfy"),
+            ("ComfyUI-Lora-Manager",      "https://github.com/willmiao/ComfyUI-Lora-Manager"),
+            ("ComfyUI-Impact-Pack",       "https://github.com/ltdrdata/ComfyUI-Impact-Pack"),
+            ("ComfyUI-Impact-Subpack",    "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"),
+            ("ComfyUI_UltimateSDUpscale", "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"),
+            ("ComfyUI-Manager",           "https://github.com/ltdrdata/ComfyUI-Manager"),
+            # TODO: ("comfyui_fearnworksnodes", "<URL unknown — find GitHub repo for cnr_id comfyui_fearnworksnodes>"),
+        ]
+
+        for node_name, node_url in custom_nodes:
+            node_dir = os.path.join(custom_nodes_dir, node_name)
+            if os.path.isdir(os.path.join(node_dir, ".git")):
+                self.run_command(
+                    ["git", "pull", "--ff-only"],
+                    f"Updating {node_name}",
+                    cwd=node_dir,
+                    allow_failure=True,
+                )
+            else:
+                self.run_command(
+                    ["git", "clone", node_url, node_dir],
+                    f"Cloning {node_name}",
+                    allow_failure=True,
+                )
+            node_req = os.path.join(node_dir, "requirements.txt")
+            if os.path.exists(node_req):
+                install_cmd = self.package_manager["install_cmd"] + ["-r", node_req]
+                self.run_command(
+                    install_cmd,
+                    f"Installing {node_name} requirements",
+                    allow_failure=True,
+                )
+
+        self.logger.info("ComfyUI installation complete.")
+        print("   ✅ ComfyUI installation complete.")
+        return True
+
     # ====================================================
 
     def apply_special_fixes_and_installs(self):
@@ -665,6 +757,19 @@ class LocalWindowsInstaller:
             except Exception as fe:
                 self.logger.warning("Unexpected error in frontend build: %s", fe)
                 print(f" ⚠️  Frontend build skipped due to error: {fe}")
+            # ===================================================
+
+            # =============== COMFYUI SETUP ==================
+            # Optional — failures here do NOT abort the installation.
+            try:
+                self.logger.info("Installing ComfyUI (optional — failures are non-fatal)...")
+                print("\n 🎨 [ComfyUI] Installing ComfyUI and required custom nodes...")
+                self.install_comfyui()
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as ce:
+                self.logger.warning("Unexpected error in ComfyUI install: %s", ce)
+                print(f" ⚠️  ComfyUI install skipped due to error: {ce}")
             # ===================================================
 
             end_time = datetime.datetime.now()

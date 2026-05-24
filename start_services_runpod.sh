@@ -74,6 +74,19 @@ fi
 
 sleep 2
 
+# Start ComfyUI (optional — only if cloned by installer)
+COMFYUI_PORT="${COMFYUI_PORT:-8188}"
+if [ -d "ComfyUI" ]; then
+    echo "  Starting ComfyUI on port $COMFYUI_PORT..."
+    python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 2>&1 | tee -a /workspace/logs/comfyui.log &
+    COMFYUI_PID=$!
+    echo "   ComfyUI PID: $COMFYUI_PID"
+else
+    echo "  ComfyUI not installed — skipping."
+fi
+
+sleep 2
+
 # Start frontend
 if [ -d "frontend" ] && command -v node &> /dev/null; then
     if [ -d "frontend/.next" ]; then

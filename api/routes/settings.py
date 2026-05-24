@@ -149,8 +149,8 @@ def get_comfyui_models_path() -> str:
     Resolution order:
       1. COMFYUI_MODELS_PATH environment variable
       2. comfyui_models_path field in user_settings.json
-      3. Fallback: ../../ComfyUI/models relative to cwd
-         (matches the installer's direct-clone placement)
+      3. Fallback: {project_root}/ComfyUI/models
+         (ComfyUI is cloned directly inside the project root by the installer)
 
     Returns an empty string if no configured path exists and the
     fallback directory is also missing — callers must validate.
@@ -165,7 +165,7 @@ def get_comfyui_models_path() -> str:
     if settings_path:
         return settings_path
 
-    fallback = _os.path.abspath(_os.path.join(_os.getcwd(), "..", "..", "ComfyUI", "models"))
+    fallback = _os.path.abspath(_os.path.join(_os.getcwd(), "ComfyUI", "models"))
     return fallback
 
 
