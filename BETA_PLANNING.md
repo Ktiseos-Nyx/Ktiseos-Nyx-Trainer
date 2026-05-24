@@ -1200,13 +1200,15 @@ As more tools are integrated, these rules keep things from becoming a mess:
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
 | COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ✅ Done 2026-05-23 |
-| COMFY-2: Copy lib/stores/hooks layer from KNX-ComfyUI | Integration | Tiny | ⏳ Not started |
-| COMFY-3: UI page + navbar link + skeleton disconnected state | Integration | Small | ⏳ Not started |
-| COMFY-4: Settings integration (ComfyUI URL field) | UX | Tiny | ⏳ Not started |
+| COMFY-2: lib/comfy layer (client, types, connection hook, workflows) | Integration | Tiny | ✅ Done 2026-05-23 |
+| COMFY-3: UI page + navbar + architecture switcher + template injector | Integration | Small | ✅ Done 2026-05-24 |
+| COMFY-4: Settings integration (ComfyUI URL field) | UX | Tiny | ✅ Done 2026-05-23 |
 | COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
 | COMFY-7: Auto-install required custom nodes (provisioning) | Infrastructure | Small | ⏳ Not started |
 | COMFY-8: ComfyUI submodule vs direct clone (decision) | Decision | n/a | ✅ Decided: direct clone everywhere |
 | COMFY-9: knx-nodes package (KNXSaveImage + KNXMetadataReader) | New Repo | Small | ⏳ Not started |
+| COMFY-10: Model picker (useComfyModels + /models API + combobox UI) | UX | Small | ✅ Done 2026-05-24 |
+| COMFY-11: Model download to ComfyUI folder (from HuggingFace/Civitai) | Feature | Medium | ⏳ Not started |
 | DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
 | DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |

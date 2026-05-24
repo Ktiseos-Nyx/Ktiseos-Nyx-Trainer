@@ -93,6 +93,18 @@ async function getObjectInfo(): Promise<ComfyObjectInfo> {
   return request<ComfyObjectInfo>('/object_info');
 }
 
+/**
+ * Fetch the list of model filenames in a ComfyUI model folder.
+ *
+ * Common folder names: `diffusion_models`, `checkpoints`, `text_encoders`,
+ * `clip`, `vae`, `loras`, `upscale_models`, `unet`.
+ *
+ * Returns an empty array if the folder doesn't exist in this ComfyUI install.
+ */
+async function getModelFiles(folder: string): Promise<string[]> {
+  return request<string[]>(`/models/${encodeURIComponent(folder)}`);
+}
+
 /** Fetch system stats (GPU VRAM, OS, Python version). */
 async function getSystemStats(): Promise<ComfySystemStats> {
   return request<ComfySystemStats>('/system_stats');
@@ -219,6 +231,7 @@ export const comfyClient = {
   getHistory,
   deleteHistory,
   getObjectInfo,
+  getModelFiles,
   getSystemStats,
   getImageUrl,
   ping,

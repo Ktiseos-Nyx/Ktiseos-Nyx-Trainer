@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       extra_model_dirs: body.extra_model_dirs,
       extra_vae_dirs: body.extra_vae_dirs,
       comfyui_url: typeof body.comfyui_url === 'string' ? body.comfyui_url : undefined,
+      comfyui_models_path: typeof body.comfyui_models_path === 'string' ? body.comfyui_models_path : undefined,
     });
 
     if (!result.success) {

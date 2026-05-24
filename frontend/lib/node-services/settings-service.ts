@@ -20,6 +20,12 @@ export interface UserSettings {
   extra_vae_dirs?: string[];
   /** Full URL of the ComfyUI backend. Default: http://localhost:8188 */
   comfyui_url?: string;
+  /**
+   * Filesystem path to ComfyUI's models directory.
+   * Used when downloading models with destination="comfyui".
+   * Falls back to ../../ComfyUI/models relative to project root if unset.
+   */
+  comfyui_models_path?: string;
 }
 
 export interface SettingsResponse {
@@ -32,6 +38,7 @@ export interface SettingsResponse {
     extra_model_dirs: string[];
     extra_vae_dirs: string[];
     comfyui_url: string;
+    comfyui_models_path: string;
   };
   message?: string;
   error?: string;
@@ -165,6 +172,7 @@ export class SettingsService {
           extra_model_dirs: settings.extra_model_dirs ?? [],
           extra_vae_dirs: settings.extra_vae_dirs ?? [],
           comfyui_url: settings.comfyui_url ?? 'http://localhost:8188',
+          comfyui_models_path: settings.comfyui_models_path ?? '',
         },
       };
     } catch (error) {
@@ -223,6 +231,10 @@ export class SettingsService {
 
       if (updates.comfyui_url !== undefined) {
         currentSettings.comfyui_url = updates.comfyui_url || undefined;
+      }
+
+      if (updates.comfyui_models_path !== undefined) {
+        currentSettings.comfyui_models_path = updates.comfyui_models_path || undefined;
       }
 
       const saved = await this.saveSettings(currentSettings);

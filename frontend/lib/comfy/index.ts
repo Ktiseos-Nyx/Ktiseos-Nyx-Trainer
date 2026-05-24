@@ -11,6 +11,9 @@ export type { ComfyWsHandle, ComfyWsOptions } from './client';
 export { useComfyConnection } from './useComfyConnection';
 export type { UseComfyConnectionReturn } from './useComfyConnection';
 
+export { useComfyModels } from './useComfyModels';
+export type { ComfyModelLists } from './useComfyModels';
+
 export { buildTxt2ImgWorkflow, buildImg2ImgWorkflow, buildAnimaWorkflow } from './workflows';
 export type { Txt2ImgParams, Img2ImgParams, LoraEntry, AnimaParams } from './workflows';
 

@@ -1242,7 +1242,13 @@ export interface PopularModelsResponse {
 
 export const modelsAPI = {
   // NOTE: Download stays on Python backend (uses huggingface_hub)
-  download: async (url: string, downloadType: 'model' | 'vae' | 'lora', modelType?: string) => {
+  download: async (
+    url: string,
+    downloadType: 'model' | 'vae' | 'lora',
+    modelType?: string,
+    destination: 'training' | 'comfyui' = 'training',
+    comfyuiFolder?: string,
+  ) => {
     const response = await fetch(`${API_BASE}/models/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1250,6 +1256,8 @@ export const modelsAPI = {
         url,
         download_type: downloadType,
         model_type: modelType,
+        destination,
+        comfyui_folder: comfyuiFolder,
       }),
     });
     return handleResponse(response);
