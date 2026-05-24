@@ -102,26 +102,26 @@ class RemoteInstaller:
         return self.package_manager["install_cmd"] + list(args)
 
     def ensure_pytorch_installed(self):
-        """Install PyTorch with CUDA 12.1 (for remote GPU containers)"""
+        """Install PyTorch with CUDA 12.8 (matches current VastAI/RunPod driver)."""
         try:
             import torch  # pyright: ignore[reportMissingImports]
 
             self.logger.info("PyTorch already installed: %s", torch.__version__)
             return
         except ImportError:
-            self.logger.info("PyTorch not found. Installing with CUDA 12.1...")
-            # Use standard CUDA 12.1 (most compatible)
+            self.logger.info("PyTorch not found. Installing with CUDA 12.8...")
             cmd = [
                 self.python_cmd,
                 "-m",
                 "pip",
                 "install",
-                "torch==2.4.0",
-                "torchvision==0.19.0",
+                "torch",
+                "torchvision",
+                "torchaudio",
                 "--index-url",
-                "https://download.pytorch.org/whl/cu121",
+                "https://download.pytorch.org/whl/cu128",
             ]
-            self.run_command(cmd, "Installing PyTorch with CUDA 12.1")
+            self.run_command(cmd, "Installing PyTorch with CUDA 12.8")
 
     def print_banner(self):
         banner_lines = [
@@ -402,10 +402,16 @@ class RemoteInstaller:
                 self.logger.warning("ComfyUI clone failed — skipping custom nodes.")
                 return False
 
-        # Install ComfyUI Python requirements
+        # Install ComfyUI Python requirements.
+        # Pass cu128 index so torch stays pinned to CUDA 12.8 — without this,
+        # pip resolves torch from PyPI and may install a build compiled for a
+        # newer CUDA version than the machine driver supports.
         comfyui_req = os.path.join(comfyui_dir, "requirements.txt")
         if os.path.exists(comfyui_req):
-            install_cmd = self.get_install_command("-r", comfyui_req)
+            install_cmd = self.get_install_command(
+                "-r", comfyui_req,
+                "--extra-index-url", "https://download.pytorch.org/whl/cu128",
+            )
             self.run_command(install_cmd, "Installing ComfyUI requirements", allow_failure=True)
 
         # Create model subdirectory structure
