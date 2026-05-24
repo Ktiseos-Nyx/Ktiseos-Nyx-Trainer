@@ -592,7 +592,6 @@ class LocalWindowsInstaller:
             ("ComfyUI-Impact-Pack",       "https://github.com/ltdrdata/ComfyUI-Impact-Pack"),
             ("ComfyUI-Impact-Subpack",    "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"),
             ("ComfyUI_UltimateSDUpscale", "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"),
-            ("ComfyUI-Manager",           "https://github.com/ltdrdata/ComfyUI-Manager"),
             ("comfyui_fearnworksnodes",   "https://github.com/fearnworks/ComfyUI_FearnworksNodes"),
         ]
 
