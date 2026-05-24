@@ -20,7 +20,8 @@ import {
   Download,
   Files,
   Cpu,
-  Upload
+  Upload,
+  Wand2,
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -94,6 +95,16 @@ export function Navbar() {
                   </ListItem>
                 </ul>
               </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Generate (ComfyUI) - Top level */}
+            <NavigationMenuItem>
+              <NavigationMenuLink asChild>
+                <Link href="/comfyui" prefetch={false} className={navigationMenuTriggerStyle()}>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Generate
+                </Link>
+              </NavigationMenuLink>
             </NavigationMenuItem>
 
             {/* Utilities - Dropdown */}

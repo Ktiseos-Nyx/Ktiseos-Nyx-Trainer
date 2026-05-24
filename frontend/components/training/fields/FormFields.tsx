@@ -137,7 +137,8 @@ export function NumberFormField<T extends FieldValues>({
 }: BaseFieldProps<T> & {
   min?: number;
   max?: number;
-  step?: number;
+  /** Use "any" to allow arbitrary precision (e.g. learning rates). */
+  step?: number | 'any';
 }) {
   return (
     <FormField

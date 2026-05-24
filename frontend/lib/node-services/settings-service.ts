@@ -18,6 +18,8 @@ export interface UserSettings {
   civitai_api_key?: string | null;
   extra_model_dirs?: string[];
   extra_vae_dirs?: string[];
+  /** Full URL of the ComfyUI backend. Default: http://localhost:8188 */
+  comfyui_url?: string;
 }
 
 export interface SettingsResponse {
@@ -29,6 +31,7 @@ export interface SettingsResponse {
     has_civitai_api_key: boolean;
     extra_model_dirs: string[];
     extra_vae_dirs: string[];
+    comfyui_url: string;
   };
   message?: string;
   error?: string;
@@ -161,6 +164,7 @@ export class SettingsService {
           has_civitai_api_key: Boolean(settings.civitai_api_key),
           extra_model_dirs: settings.extra_model_dirs ?? [],
           extra_vae_dirs: settings.extra_vae_dirs ?? [],
+          comfyui_url: settings.comfyui_url ?? 'http://localhost:8188',
         },
       };
     } catch (error) {
@@ -215,6 +219,10 @@ export class SettingsService {
 
       if (updates.extra_vae_dirs !== undefined) {
         currentSettings.extra_vae_dirs = updates.extra_vae_dirs;
+      }
+
+      if (updates.comfyui_url !== undefined) {
+        currentSettings.comfyui_url = updates.comfyui_url || undefined;
       }
 
       const saved = await this.saveSettings(currentSettings);

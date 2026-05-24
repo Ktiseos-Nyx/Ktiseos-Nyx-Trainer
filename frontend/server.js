@@ -16,6 +16,8 @@
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
 const { createServer } = require('http');
+const fs = require('fs');
+const path = require('path');
 const next = require('next');
 
 // Guard: this project requires `node server.js` for WebSocket support.
@@ -52,7 +54,31 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const defaultBackendPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
 const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackendPort}`;
 const comfyuiPort = process.env.COMFYUI_PORT || '8188';
-const comfyuiUrl = `http://127.0.0.1:${comfyuiPort}`;
+const comfyuiUrlDefault = `http://127.0.0.1:${comfyuiPort}`;
+
+// Settings file path — same location as settings-service.ts uses
+const SETTINGS_FILE = path.join(__dirname, '..', 'user_config', 'user_settings.json');
+
+/**
+ * Read the ComfyUI URL from user settings, falling back to the env-var default.
+ * Synchronous so it works inside http-proxy-middleware's router function.
+ * Cached for 5 s to avoid hammering disk on every proxied request.
+ */
+let _comfyuiUrlCache = { url: comfyuiUrlDefault, expiry: 0 };
+function getComfyuiTarget() {
+  const now = Date.now();
+  if (now < _comfyuiUrlCache.expiry) return _comfyuiUrlCache.url;
+  try {
+    const raw = fs.readFileSync(SETTINGS_FILE, 'utf-8');
+    const settings = JSON.parse(raw);
+    const url = settings.comfyui_url || comfyuiUrlDefault;
+    _comfyuiUrlCache = { url, expiry: now + 5000 };
+    return url;
+  } catch {
+    _comfyuiUrlCache = { url: comfyuiUrlDefault, expiry: now + 5000 };
+    return comfyuiUrlDefault;
+  }
+}
 
 // WHATWG URL helper — replaces deprecated url.parse() (DEP0169)
 // Next.js handle() expects { pathname, query } so we build that from URL.
@@ -82,7 +108,7 @@ console.log('🚀 Starting Ktiseos-Nyx-Trainer Custom Server...');
 console.log(`   Environment: ${dev ? 'development' : 'production'}`);
 console.log(`   Frontend: ${hostname}:${port}`);
 console.log(`   Backend: ${backendUrl}`);
-console.log(`   ComfyUI: ${comfyuiUrl} (proxy: /comfyui)`);
+console.log(`   ComfyUI: ${comfyuiUrlDefault} (proxy: /comfyui, overrideable via Settings)`);
 
 app.prepare().then(() => {
   // Create WebSocket + API proxy to FastAPI backend
@@ -120,20 +146,23 @@ app.prepare().then(() => {
     },
   });
 
-  // Proxy for ComfyUI — strips /comfyui prefix before forwarding
+  // Proxy for ComfyUI — strips /comfyui prefix before forwarding.
+  // Target is resolved dynamically from user_settings.json (5 s cache) so
+  // changes made in the Settings page take effect without a server restart.
   const comfyuiProxy = createProxyMiddleware({
-    target: comfyuiUrl,
     changeOrigin: true,
+    router: () => getComfyuiTarget(),
     pathRewrite: { '^/comfyui': '' },
     logLevel: dev ? 'debug' : 'warn',
 
     onError: (err, req, res) => {
+      const target = getComfyuiTarget();
       console.error('❌ ComfyUI proxy error:', err.message);
       if (res.writeHead) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           error: 'ComfyUI unavailable',
-          message: `ComfyUI is not running on port ${comfyuiPort}. Start ComfyUI or set COMFYUI_PORT.`,
+          message: `ComfyUI is not running at ${target}. Start ComfyUI or update the URL in Settings.`,
         }));
       }
     },
@@ -349,7 +378,7 @@ app.prepare().then(() => {
     console.log(`🐍 Backend:   ${backendUrl}`);
     console.log(`🔌 WebSocket (Node.js):  /ws/jobs/{id}/logs`);
     console.log(`🔌 WebSocket (FastAPI):  /ws/api/* (proxied)`);
-    console.log(`🎨 ComfyUI proxy:        /comfyui/* → ${comfyuiUrl}`);
+    console.log(`🎨 ComfyUI proxy:        /comfyui/* → ${getComfyuiTarget()} (dynamic)`);
     console.log('========================================');
     console.log('');
   });

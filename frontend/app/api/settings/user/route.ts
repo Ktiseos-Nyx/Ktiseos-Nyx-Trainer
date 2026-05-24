@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       civitai_api_key: body.civitai_api_key,
       extra_model_dirs: body.extra_model_dirs,
       extra_vae_dirs: body.extra_vae_dirs,
+      comfyui_url: typeof body.comfyui_url === 'string' ? body.comfyui_url : undefined,
     });
 
     if (!result.success) {
