@@ -1209,6 +1209,7 @@ As more tools are integrated, these rules keep things from becoming a mess:
 | COMFY-9: knx-nodes package (KNXSaveImage + KNXMetadataReader) | New Repo | Small | ⏳ Not started |
 | COMFY-10: Model picker (useComfyModels + /models API + combobox UI) | UX | Small | ✅ Done 2026-05-24 |
 | COMFY-11: Model download to ComfyUI folder (from HuggingFace/Civitai) | Feature | Medium | ✅ Done 2026-05-24 |
+| COMFY-12: Auto-download Ultralytics bbox/segm models for Impact-Pack | Infrastructure | Tiny | ⏳ Not started |
 | DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
 | DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
