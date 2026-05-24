@@ -223,7 +223,7 @@ if exist "frontend\" (
         if not exist "frontend\node_modules\next" (
             echo [Frontend] Dependencies missing, running npm install...
             pushd frontend
-            npm install --legacy-peer-deps
+            npm install
             if errorlevel 1 (
                 echo [Frontend] npm install failed. Check your Node.js version and network connection.
                 popd

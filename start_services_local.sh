@@ -210,7 +210,7 @@ if [ -d "frontend" ]; then
         # Auto-install deps if missing
         if [ ! -d "frontend/node_modules/next" ]; then
             echo "[Frontend] Dependencies missing, running npm install..."
-            (cd frontend && npm install --legacy-peer-deps)
+            (cd frontend && npm install)
         fi
         # Auto-build if missing OR stale (source newer than build)
         if [ ! -d "frontend/.next" ]; then

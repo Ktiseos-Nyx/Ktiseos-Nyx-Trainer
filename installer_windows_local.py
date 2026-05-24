@@ -452,7 +452,7 @@ class LocalWindowsInstaller:
             print(" 📦 Installing frontend (Next.js) dependencies...")
             success = self._npm_run(
                 npm_exe, frontend_dir,
-                ["install", "--legacy-peer-deps"],
+                ["install"],
                 "Installing npm packages",
             )
             if not success:
@@ -461,7 +461,7 @@ class LocalWindowsInstaller:
                 print(" ⚠️  Retrying npm install with --force...")
                 success = self._npm_run(
                     npm_exe, frontend_dir,
-                    ["install", "--legacy-peer-deps", "--force"],
+                    ["install", "--force"],
                     "Installing npm packages (force)",
                 )
             return success

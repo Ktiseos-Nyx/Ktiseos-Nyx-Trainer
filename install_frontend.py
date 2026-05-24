@@ -359,19 +359,18 @@ class FrontendInstaller:
             self.logger.error("npm not found after Node.js setup — cannot install deps.")
             return False
 
-        # Try with --legacy-peer-deps first, fall back to --force
-        for extra_flag in ["--legacy-peer-deps", "--legacy-peer-deps --force"]:
-            flags = extra_flag.split()
-            cmd = [npm, "install"] + flags
+        # Try plain install first, fall back to --force for stubborn peer conflicts
+        for extra_flags in [[], ["--force"]]:
+            cmd = [npm, "install"] + extra_flags
             self.logger.info("Running: %s", " ".join(cmd))
             success = self.run_command(
                 cmd,
-                f"npm install {extra_flag}",
+                "npm install" + (" --force" if extra_flags else ""),
                 cwd=self.frontend_dir,
             )
             if success:
                 return True
-            self.logger.warning("npm install %s failed, trying next strategy...", extra_flag)
+            self.logger.warning("npm install%s failed, trying next strategy...", " --force" if extra_flags else "")
 
         self.logger.error("All npm install strategies failed.")
         return False

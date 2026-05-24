@@ -87,7 +87,8 @@ provisioning_start() {
         $PYTHON_CMD -m pip install --upgrade pip -v
         if [ -f "requirements_cloud.txt" ]; then
             $PYTHON_CMD -m pip install --upgrade setuptools wheel -v
-            $PYTHON_CMD -m pip install -r requirements_cloud.txt --no-cache-dir -v
+            # requirements_cloud.txt pins torch to cu128 to avoid CUDA/driver version mismatches
+            $PYTHON_CMD -m pip install -r requirements_cloud.txt --extra-index-url https://download.pytorch.org/whl/cu128 --no-cache-dir -v
         elif [ -f "requirements.txt" ]; then
             echo "⚠️  requirements_cloud.txt not found, using requirements.txt"
             $PYTHON_CMD -m pip install -r requirements.txt --no-cache-dir -v
@@ -151,10 +152,12 @@ cd /workspace/Ktiseos-Nyx-Trainer
 
 BACKEND_PORT="${BACKEND_PORT:-18000}"
 FRONTEND_PORT="${FRONTEND_PORT:-13000}"
+COMFYUI_PORT="${COMFYUI_PORT:-8188}"
 
-echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
+echo "[$(date)] Checking for existing services on ports $BACKEND_PORT, $FRONTEND_PORT and $COMFYUI_PORT..." | tee -a /workspace/logs/supervisor.log
 pkill -f "uvicorn api.main:app" 2>/dev/null || true
 pkill -f "next-server" 2>/dev/null || true
+pkill -f "ComfyUI/main.py" 2>/dev/null || true
 sleep 1
 
 echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/logs/supervisor.log
@@ -162,6 +165,14 @@ python -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee 
 BACKEND_PID=$!
 
 sleep 2
+
+if [ -d "/workspace/Ktiseos-Nyx-Trainer/ComfyUI" ]; then
+    echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..." | tee -a /workspace/logs/supervisor.log
+    python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 2>&1 | tee -a /workspace/logs/comfyui.log &
+    COMFYUI_PID=$!
+else
+    echo "[$(date)] ComfyUI not installed — skipping." | tee -a /workspace/logs/supervisor.log
+fi
 EOL
 
     if [ "$FRONTEND_ENABLED" = "1" ]; then
@@ -176,7 +187,7 @@ EOL
 
     cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
 
-wait $BACKEND_PID ${FRONTEND_PID:+$FRONTEND_PID}
+wait $BACKEND_PID ${FRONTEND_PID:+$FRONTEND_PID} ${COMFYUI_PID:+$COMFYUI_PID}
 EOL
 
     chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
@@ -223,12 +234,14 @@ EOL
     echo "🌐 Access your applications via VastAI portal links:"
     echo "   - Frontend: Next.js UI (port 3000)"
     echo "   - Backend:  FastAPI (port 8000)"
+    echo "   - ComfyUI:  (port 8188)"
     echo ""
     echo "♻️  Auto-restart is enabled!"
     echo ""
     echo "📋 Service logs:"
     echo "   - Backend:    /workspace/logs/backend.log"
     echo "   - Frontend:   /workspace/logs/frontend.log"
+    echo "   - ComfyUI:    /workspace/logs/comfyui.log"
     echo "   - Supervisor: /workspace/logs/supervisor.log"
     echo ""
     echo "🔧 Manual service control:"
