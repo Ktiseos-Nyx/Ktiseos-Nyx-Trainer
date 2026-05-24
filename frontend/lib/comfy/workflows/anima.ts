@@ -1,19 +1,23 @@
 /**
- * ANIMA workflow builder.
+ * ANIMA workflow builder (programmatic fallback).
  *
- * Produces a ComfyUI workflow for AuraFlow / ANIMA-style checkpoints.
+ * Produces a minimal ComfyUI API prompt for ANIMA / AuraFlow checkpoints when
+ * the full bundled template (anima-guy90s-v10.json) cannot be used because
+ * required custom nodes are missing.
  *
- * Unlike the SDXL/SD 1.5 chain (CheckpointLoaderSimple → CLIP → KSampler),
- * ANIMA loads MODEL, CLIP, and VAE separately and patches the model's sigma
- * schedule with ModelSamplingAuraFlow before sampling.
+ * Key differences from the SDXL / SD 1.5 chain:
+ *   - UNETLoader instead of CheckpointLoaderSimple (MODEL only; no CLIP/VAE)
+ *   - Single CLIPLoader (type "cosmos" for ANIMA v10, Qwen text encoder)
+ *   - Separate VAELoader
+ *   - ModelSamplingAuraFlow patches the sigma schedule (shift=5) before KSampler
  *
- * Reference workflow: `guy90sVerySimpleAndEasyTo_v10.json` (tested 2026-05-19)
+ * Reference: guy90sVerySimpleAndEasyTo_v10.json (tested 2026-05-19)
  *
- * Node ID scheme:
- *   1   UNETLoader            (MODEL output)
- *   2   DualCLIPLoader        (CLIP output — loads CLIP-L + T5XXL for AuraFlow)
- *   3   VAELoader             (VAE output)
- *   4   ModelSamplingAuraFlow (patches Node 1 model; outputs patched MODEL)
+ * Node ID scheme (stable, not user-visible):
+ *   1   UNETLoader
+ *   2   CLIPLoader            (single encoder — "cosmos" type for ANIMA v10)
+ *   3   VAELoader
+ *   4   ModelSamplingAuraFlow (shift=5; patches Node 1 model)
  *   5   CLIPTextEncode        (positive — uses Node 2 CLIP)
  *   6   CLIPTextEncode        (negative)
  *   7   EmptyLatentImage
@@ -27,77 +31,79 @@ import type { ComfyWorkflow } from '../types';
 import type { LoraEntry } from './txt2img';
 
 export interface AnimaParams {
-  /** UNET model filename (e.g. "aura_flow_0.2.safetensors"). */
+  /** UNET model filename (e.g. "anima_baseV10.safetensors"). */
   unetName: string;
   /**
-   * First CLIP model filename. For AuraFlow, this is typically CLIP-L.
-   * Must match a file in ComfyUI's `models/clip/` folder.
+   * Text-encoder filename for the CLIPLoader.
+   * ANIMA v10 uses a Qwen encoder (e.g. "qwen_3_06b_base.safetensors").
+   * Must be in ComfyUI's `models/text_encoders/` or `models/clip/` folder.
    */
-  clipName1: string;
+  clipName: string;
   /**
-   * Second CLIP model filename. For AuraFlow, this is T5XXL.
-   * Must match a file in ComfyUI's `models/clip/` folder.
+   * CLIPLoader type string. "cosmos" is correct for ANIMA v10's Qwen encoder.
+   * Default: "cosmos".
    */
-  clipName2: string;
-  /** VAE filename. Must match a file in ComfyUI's `models/vae/` folder. */
+  clipType?: string;
+  /** VAE filename (e.g. "qwen_image_vae.safetensors"). */
   vaeName: string;
-  /**
-   * CLIP type passed to DualCLIPLoader.
-   * "stable_diffusion" works for AuraFlow 0.1/0.2.
-   * May need "flux" for newer AuraFlow variants — check ComfyUI docs.
-   */
-  clipType?: 'stable_diffusion' | 'flux';
   /** Positive prompt text. */
   positivePrompt: string;
   /** Negative prompt text. */
   negativePrompt?: string;
-  /** Image width in pixels. Default 1024. */
+  /** Image width in pixels. Default 832. */
   width?: number;
-  /** Image height in pixels. Default 1024. */
+  /** Image height in pixels. Default 1216. */
   height?: number;
-  /** Number of steps. Default 20. */
+  /** Number of steps. Default 30. */
   steps?: number;
-  /** CFG scale. Default 7. */
+  /** CFG scale. Default 4. */
   cfg?: number;
-  /** Sampler name. Default "euler". */
+  /** Sampler name. Default "dpmpp_2m_sde_gpu". */
   sampler?: string;
-  /** Scheduler name. Default "simple". */
+  /** Scheduler name. Default "sgm_uniform". */
   scheduler?: string;
-  /** Seed. -1 or undefined = randomised by ComfyUI. Default -1. */
+  /** Seed. -1 = randomised by ComfyUI. Default -1. */
   seed?: number;
-  /** Batch size (number of images). Default 1. */
+  /** Batch size. Default 1. */
   batchSize?: number;
   /** Denoise strength. 1.0 = full generation. Default 1.0. */
   denoise?: number;
-  /** LoRA stack injected between UNETLoader and ModelSamplingAuraFlow. */
+  /**
+   * ModelSamplingAuraFlow sigma shift.
+   * Value of 5 matches Guy90s's reference workflow for ANIMA v10.
+   * Default: 5.
+   */
+  auraShift?: number;
+  /** LoRA stack. Applied from first to last. */
   loras?: LoraEntry[];
   /** Output filename prefix. Default "ComfyUI". */
   outputPrefix?: string;
 }
 
 /**
- * Build a ComfyUI workflow for ANIMA / AuraFlow-style checkpoints.
+ * Build a minimal ComfyUI API prompt for ANIMA / AuraFlow checkpoints.
  *
- * Returns a workflow object ready to pass to `comfyClient.submitPrompt()`.
+ * This is the programmatic fallback. The primary path uses the bundled
+ * guy90s workflow template with the full custom node stack.
  */
 export function buildAnimaWorkflow(params: AnimaParams): ComfyWorkflow {
   const {
     unetName,
-    clipName1,
-    clipName2,
+    clipName,
+    clipType = 'cosmos',
     vaeName,
-    clipType = 'stable_diffusion',
     positivePrompt,
     negativePrompt = '',
-    width = 1024,
-    height = 1024,
-    steps = 20,
-    cfg = 7,
-    sampler = 'euler',
-    scheduler = 'simple',
+    width = 832,
+    height = 1216,
+    steps = 30,
+    cfg = 4,
+    sampler = 'dpmpp_2m_sde_gpu',
+    scheduler = 'sgm_uniform',
     seed = -1,
     batchSize = 1,
     denoise = 1.0,
+    auraShift = 5,
     loras = [],
     outputPrefix = 'ComfyUI',
   } = params;
@@ -107,23 +113,16 @@ export function buildAnimaWorkflow(params: AnimaParams): ComfyWorkflow {
   // Node 1: Load UNET model only
   workflow['1'] = {
     class_type: 'UNETLoader',
-    inputs: {
-      unet_name: unetName,
-      weight_dtype: 'default',
-    },
+    inputs: { unet_name: unetName, weight_dtype: 'default' },
   };
 
-  // Node 2: Load dual CLIP (CLIP-L + T5XXL for AuraFlow)
+  // Node 2: Single CLIP text encoder (Qwen/cosmos for ANIMA v10)
   workflow['2'] = {
-    class_type: 'DualCLIPLoader',
-    inputs: {
-      clip_name1: clipName1,
-      clip_name2: clipName2,
-      type: clipType,
-    },
+    class_type: 'CLIPLoader',
+    inputs: { clip_name: clipName, type: clipType },
   };
 
-  // Node 3: Load VAE
+  // Node 3: VAE
   workflow['3'] = {
     class_type: 'VAELoader',
     inputs: { vae_name: vaeName },
@@ -131,7 +130,6 @@ export function buildAnimaWorkflow(params: AnimaParams): ComfyWorkflow {
 
   // LoRA chain: nodes 20, 21, 22, …
   // Injected between UNETLoader and ModelSamplingAuraFlow.
-  // Each LoraLoader takes model + clip from the previous node (or checkpoint).
   let modelRef: [string, number] = ['1', 0];
   let clipRef: [string, number] = ['2', 0];
 
@@ -154,19 +152,14 @@ export function buildAnimaWorkflow(params: AnimaParams): ComfyWorkflow {
   // Node 4: Patch model sigma schedule for AuraFlow's non-standard distribution
   workflow['4'] = {
     class_type: 'ModelSamplingAuraFlow',
-    inputs: {
-      model: modelRef,
-      shift: 1.73, // AuraFlow default shift — matches reference workflow
-    },
+    inputs: { model: modelRef, shift: auraShift },
   };
 
-  // Node 5: Positive CLIP encode
+  // Node 5 / 6: CLIP text encode
   workflow['5'] = {
     class_type: 'CLIPTextEncode',
     inputs: { text: positivePrompt, clip: clipRef },
   };
-
-  // Node 6: Negative CLIP encode
   workflow['6'] = {
     class_type: 'CLIPTextEncode',
     inputs: { text: negativePrompt, clip: clipRef },
@@ -198,19 +191,13 @@ export function buildAnimaWorkflow(params: AnimaParams): ComfyWorkflow {
   // Node 9: VAE decode
   workflow['9'] = {
     class_type: 'VAEDecode',
-    inputs: {
-      samples: ['8', 0],
-      vae: ['3', 0],
-    },
+    inputs: { samples: ['8', 0], vae: ['3', 0] },
   };
 
   // Node 10: Save image
   workflow['10'] = {
     class_type: 'SaveImage',
-    inputs: {
-      images: ['9', 0],
-      filename_prefix: outputPrefix,
-    },
+    inputs: { images: ['9', 0], filename_prefix: outputPrefix },
   };
 
   return workflow;

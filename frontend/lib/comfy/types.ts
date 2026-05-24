@@ -29,8 +29,19 @@ export interface ComfyPromptRequest {
   prompt: ComfyWorkflow;
   /** Client ID registered on the WebSocket connection. */
   client_id: string;
-  /** Optional extra data passed through to the history entry. */
-  extra_data?: Record<string, unknown>;
+  /**
+   * Optional extra data passed through to the history entry.
+   * When `extra_pnginfo.workflow` is provided, ComfyUI embeds the full
+   * workflow graph inside generated PNG metadata — enabling drag-and-drop
+   * reload in the ComfyUI UI.
+   */
+  extra_data?: {
+    extra_pnginfo?: {
+      /** Full workflow graph JSON (the "graph" format, not API format). */
+      workflow?: Record<string, unknown>;
+    };
+    [key: string]: unknown;
+  };
 }
 
 /** Response from POST /prompt. */

@@ -1066,6 +1066,7 @@ The earlier "we do NOT auto-install nodes" position was conservative scope-trimm
 - `ComfyUI-Impact-Pack` — https://github.com/ltdrdata/ComfyUI-Impact-Pack (DetailerForEach, SAMLoader, ImpactSimpleDetectorSEGS, SEGSPreview)
 - `ComfyUI-Impact-Subpack` — https://github.com/ltdrdata/ComfyUI-Impact-Subpack (UltralyticsDetectorProvider)
 - `ComfyUI_UltimateSDUpscale` — https://github.com/ssitu/ComfyUI_UltimateSDUpscale (UltimateSDUpscale)
+- `comfyui_fearnworksnodes` — **KNX SDXL fork only**: `Checkpoint Loader (LoraManager)` node that loads MODEL+CLIP+VAE from a single checkpoint. Required by `sdxl-knx-v1.json`. Not needed for ANIMA template.
 - `ComfyUI-Manager` — https://github.com/ltdrdata/ComfyUI-Manager (optional but useful so users can add extras themselves)
 
 **Provisioning script approach (preferred):** `vastai_setup.sh` / `provision_runpod.sh` / `install.bat` clone each repo into `ComfyUI/custom_nodes/` and `pip install -r requirements.txt` for each. No ComfyUI Manager dependency, no chicken-and-egg problem, deterministic.
