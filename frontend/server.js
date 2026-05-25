@@ -220,8 +220,10 @@ app.prepare().then(() => {
         return apiAndWsProxy(req, res);
       }
 
-      // Proxy /comfyui/* requests to ComfyUI backend
-      if (pathname.startsWith('/comfyui')) {
+      // Proxy /comfyui/* requests to ComfyUI backend.
+      // Must match /comfyui/ (with slash) to avoid catching the /comfyui page
+      // route itself, which Next.js should serve as our GenerateUI.
+      if (pathname.startsWith('/comfyui/')) {
         return comfyuiProxy(req, res);
       }
 
