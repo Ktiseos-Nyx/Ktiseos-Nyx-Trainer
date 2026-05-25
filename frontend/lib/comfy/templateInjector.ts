@@ -202,9 +202,28 @@ const WIDGET_DEFS: Record<string, WidgetDef[]> = {
   // ─── Impact Pack (comfyui-impact-pack) ───────────────────────────────────
   UltralyticsDetectorProvider: [{ name: 'model_name' }],
   SAMLoader: [{ name: 'model_name' }, { name: 'device_mode' }],
-  // DetailerForEach: seed is connectable (in node.inputs). Its remaining widget
-  // inputs (guide_size, steps, cfg, etc.) have defaults in ComfyUI and do NOT
-  // cause 400 errors when absent from the API prompt — no entry needed here.
+  // DetailerForEach: widgets_values (19 entries) mapped from node 74 in sdxl-knx-v1.json.
+  // Indices 17-18 (both false) are unknown optional params in Impact Pack 8.28.2 —
+  // omitted here so ComfyUI uses their defaults.
+  DetailerForEach: [
+    { name: 'guide_size' },
+    { name: 'guide_size_for' },
+    { name: 'max_size' },
+    { name: 'seed', connectable: true },
+    { name: 'control_after_generate', hidden: true },
+    { name: 'steps' },
+    { name: 'cfg' },
+    { name: 'sampler_name' },
+    { name: 'scheduler' },
+    { name: 'denoise' },
+    { name: 'feather' },
+    { name: 'noise_mask' },
+    { name: 'force_inpaint' },
+    { name: 'wildcard' },
+    { name: 'cycle' },
+    { name: 'inpaint_model' },
+    { name: 'noise_mask_feather' },
+  ],
 };
 
 // ─── Core functions ──────────────────────────────────────────────────────────
