@@ -395,6 +395,7 @@ export function GenerateUI({
   const [width, setWidth] = useState(832);
   const [height, setHeight] = useState(1216);
   const [batchSize, setBatchSize] = useState(1);
+  const [queueCount, setQueueCount] = useState(1);
 
   // ── Post-processing toggles (SDXL KNX only)
   const [upscaleEnabled, setUpscaleEnabled] = useState(true);
@@ -470,6 +471,8 @@ export function GenerateUI({
     if (isGenerating || !canGenerate) return;
 
     try {
+      const runs = Math.max(1, Math.min(8, queueCount));
+      for (let i = 0; i < runs; i++) {
       if (templateMode === 'anima') {
         const patch = buildAnimaPatch({
           unetName: unetName.trim(),
@@ -502,9 +505,33 @@ export function GenerateUI({
           extra_data: { extra_pnginfo: { workflow: workflow as unknown as Record<string, unknown> } },
         });
       }
+      } // end queueCount loop
     } catch (err) {
       console.error('Generate failed:', err);
-      const msg = err instanceof Error ? err.message : String(err);
+      const raw = err instanceof Error ? err.message : String(err);
+
+      // Extract readable details from ComfyUI 400 node_errors responses.
+      // Raw message looks like: "ComfyUI /prompt → 400: {\"error\":...,\"node_errors\":{...}}"
+      let msg = raw;
+      try {
+        const jsonStart = raw.indexOf('{');
+        if (jsonStart !== -1) {
+          const body = JSON.parse(raw.slice(jsonStart)) as {
+            node_errors?: Record<string, { errors?: Array<{ details?: string; message?: string }> }>;
+          };
+          if (body.node_errors) {
+            const parts: string[] = [];
+            for (const info of Object.values(body.node_errors)) {
+              for (const e of info.errors ?? []) {
+                if (e.details) parts.push(e.details);
+                else if (e.message) parts.push(e.message);
+              }
+            }
+            if (parts.length > 0) msg = parts.join('\n');
+          }
+        }
+      } catch { /* keep raw message on parse failure */ }
+
       toast.error('Generation failed', { description: msg, duration: 8000 });
     }
   }, [
@@ -512,7 +539,7 @@ export function GenerateUI({
     unetName, clipName, animaVae, checkpointName, sdxlVae,
     positivePrompt, negativePrompt,
     steps, cfg, sampler, scheduler, seed,
-    width, height, batchSize, loraText,
+    width, height, batchSize, queueCount, loraText,
     upscaleEnabled, adetailerEnabled,
     submitPrompt,
   ]);
@@ -763,25 +790,37 @@ export function GenerateUI({
                     <Input type="number" value={batchSize} onChange={e => setBatchSize(Math.max(1, Number(e.target.value)))} min={1} max={8} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Seed</Label>
-                    <div className="flex gap-1">
-                      <Input
-                        type="number"
-                        value={seed}
-                        onChange={e => setSeed(Number(e.target.value))}
-                        className="h-8 text-xs flex-1 font-mono"
-                        placeholder="-1"
-                      />
-                      <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={randomSeed} title="Random seed">
-                        <Shuffle className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => setSeed(-1)} title="Reset (-1)">
-                        <RefreshCw className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    <Label className="text-xs">Queue runs</Label>
+                    <Input
+                      type="number"
+                      value={queueCount}
+                      onChange={e => setQueueCount(Math.max(1, Math.min(8, Number(e.target.value))))}
+                      min={1}
+                      max={8}
+                      className="h-8 text-xs"
+                      title="Submit this many jobs back-to-back (1–8)"
+                    />
                   </div>
                 </div>
-                <FieldHint>Seed -1 lets ComfyUI randomise each run</FieldHint>
+                <div className="space-y-1">
+                  <Label className="text-xs">Seed</Label>
+                  <div className="flex gap-1">
+                    <Input
+                      type="number"
+                      value={seed}
+                      onChange={e => setSeed(Number(e.target.value))}
+                      className="h-8 text-xs flex-1 font-mono"
+                      placeholder="-1"
+                    />
+                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={randomSeed} title="Random seed">
+                      <Shuffle className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => setSeed(-1)} title="Reset (-1)">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <FieldHint>Seed -1 = random each run · Queue runs = submit N jobs back-to-back</FieldHint>
               </div>
 
               <Separator />
