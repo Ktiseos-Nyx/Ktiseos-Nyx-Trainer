@@ -368,6 +368,58 @@ function graphToApiPrompt(graph: WorkflowGraph): ComfyWorkflow {
   return prompt;
 }
 
+/**
+ * Rewire the graph to skip a set of nodes, connecting their downstream nodes
+ * directly to their upstream IMAGE source.
+ *
+ * For each bypassed node that has an IMAGE input:
+ *   - All links that originated from that node's outputs are retargeted to
+ *     the node's own IMAGE input source instead.
+ *   - The bypassed node is then removed from the graph.
+ *
+ * Nodes with no IMAGE input (pure loaders like UpscaleModelLoader,
+ * UltralyticsDetectorProvider, SAMLoader) are simply removed.
+ *
+ * Process nodes in topological order (upstream first) so chained bypasses
+ * resolve correctly — e.g. bypass upscale before adetailer so the adetailer
+ * bypass sees the already-rewired upscale chain.
+ */
+function applyBypass(graph: WorkflowGraph, bypassNodeIds: number[]): WorkflowGraph {
+  if (bypassNodeIds.length === 0) return graph;
+  const g: WorkflowGraph = JSON.parse(JSON.stringify(graph));
+
+  for (const nodeId of bypassNodeIds) {
+    const node = g.nodes.find((n) => n.id === nodeId);
+    if (!node) continue;
+
+    // Find this node's IMAGE input (named 'image' or type IMAGE).
+    const imageInput = node.inputs?.find(
+      (i) => i.name === 'image' || i.name === 'IMAGE',
+    );
+
+    if (imageInput?.link != null) {
+      // Locate the link record to find the upstream source.
+      const inputLink = g.links.find((l) => l[0] === imageInput.link);
+      if (inputLink) {
+        const [, upstreamNodeId, upstreamSlot] = inputLink;
+        // Retarget every link that comes FROM this bypassed node to instead
+        // come from the upstream source.
+        for (const link of g.links) {
+          if (link[1] === nodeId) {
+            link[1] = upstreamNodeId;
+            link[2] = upstreamSlot;
+          }
+        }
+      }
+    }
+
+    // Remove the bypassed node.
+    g.nodes = g.nodes.filter((n) => n.id !== nodeId);
+  }
+
+  return g;
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export interface InjectedTemplate {
@@ -403,8 +455,20 @@ export interface InjectedTemplate {
 export function injectTemplate(
   templateJson: WorkflowGraph,
   patch: WorkflowPatch,
+  options?: {
+    /**
+     * Node IDs to remove from the graph before conversion.
+     * Nodes with an IMAGE input have their downstream connections rewired to
+     * their upstream IMAGE source so the execution chain stays intact.
+     * Pass in topological order (upstream nodes first).
+     */
+    bypassNodeIds?: number[];
+  },
 ): InjectedTemplate {
-  const patched = applyPatch(templateJson, patch);
+  let patched = applyPatch(templateJson, patch);
+  if (options?.bypassNodeIds?.length) {
+    patched = applyBypass(patched, options.bypassNodeIds);
+  }
   const apiPrompt = graphToApiPrompt(patched);
   return { apiPrompt, workflow: patched };
 }

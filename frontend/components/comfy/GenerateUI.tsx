@@ -46,6 +46,8 @@ import {
 import { Splitter, SplitterPanel } from '@/components/ui/splitter';
 import ClickSpark from '@/components/ClickSpark';
 
+import { Switch } from '@/components/ui/switch';
+
 import {
   comfyClient,
   injectTemplate,
@@ -394,6 +396,10 @@ export function GenerateUI({
   const [height, setHeight] = useState(1216);
   const [batchSize, setBatchSize] = useState(1);
 
+  // ── Post-processing toggles (SDXL KNX only)
+  const [upscaleEnabled, setUpscaleEnabled] = useState(true);
+  const [adetailerEnabled, setAdetailerEnabled] = useState(true);
+
   // ── LoRA stack (converted to LoRA Manager text format at submit time)
   const [loras, setLoras] = useState<LoraEntry[]>([]);
 
@@ -480,15 +486,17 @@ export function GenerateUI({
           extra_data: { extra_pnginfo: { workflow: workflow as unknown as Record<string, unknown> } },
         });
       } else {
-        const patch = buildSdxlKnxPatch({
+        const { patch, bypassNodeIds } = buildSdxlKnxPatch({
           checkpointName: checkpointName.trim(),
           vaeName: sdxlVae.trim() || undefined,
           positivePrompt, negativePrompt,
           steps, cfg, sampler, scheduler, seed,
           width, height, batchSize,
           loraText: loraText || undefined,
+          upscaleEnabled,
+          adetailerEnabled,
         });
-        const { apiPrompt, workflow } = injectTemplate(sdxlWorkflow, patch);
+        const { apiPrompt, workflow } = injectTemplate(sdxlWorkflow, patch, { bypassNodeIds });
         await submitPrompt({
           prompt: apiPrompt,
           extra_data: { extra_pnginfo: { workflow: workflow as unknown as Record<string, unknown> } },
@@ -505,6 +513,7 @@ export function GenerateUI({
     positivePrompt, negativePrompt,
     steps, cfg, sampler, scheduler, seed,
     width, height, batchSize, loraText,
+    upscaleEnabled, adetailerEnabled,
     submitPrompt,
   ]);
 
@@ -774,6 +783,29 @@ export function GenerateUI({
                 </div>
                 <FieldHint>Seed -1 lets ComfyUI randomise each run</FieldHint>
               </div>
+
+              <Separator />
+
+              {/* Post-processing toggles (SDXL KNX only) */}
+              {templateMode === 'sdxl-knx' && (
+                <div className="space-y-2">
+                  <SectionLabel>Post-processing</SectionLabel>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs">Upscale</Label>
+                      <FieldHint>UltimateSDUpscale — adds detail at higher res</FieldHint>
+                    </div>
+                    <Switch checked={upscaleEnabled} onCheckedChange={setUpscaleEnabled} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs">Adetailer</Label>
+                      <FieldHint>Face / detail fix via Impact Pack</FieldHint>
+                    </div>
+                    <Switch checked={adetailerEnabled} onCheckedChange={setAdetailerEnabled} />
+                  </div>
+                </div>
+              )}
 
               <Separator />
 

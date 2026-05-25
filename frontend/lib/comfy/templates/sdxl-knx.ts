@@ -62,6 +62,15 @@
 
 import type { WorkflowPatch } from '../templateInjector';
 
+export interface SdxlKnxBuildResult {
+  patch: WorkflowPatch;
+  /**
+   * Node IDs to bypass, in topological order (upstream first).
+   * Pass to injectTemplate as options.bypassNodeIds.
+   */
+  bypassNodeIds: number[];
+}
+
 export interface SdxlKnxTemplateParams {
   /** SDXL checkpoint filename (e.g. "NoobAI/anime/retirementMixNAIXL_v10.safetensors"). */
   checkpointName?: string;
@@ -100,6 +109,10 @@ export interface SdxlKnxTemplateParams {
   adetailerModel?: string;
   /** Output filename prefix. Default "ComfyUI". */
   outputPrefix?: string;
+  /** Enable UltimateSDUpscale post-processing. Default true. */
+  upscaleEnabled?: boolean;
+  /** Enable Adetailer (DetailerForEach + detection nodes). Default true. */
+  adetailerEnabled?: boolean;
 }
 
 /**
@@ -110,7 +123,7 @@ export interface SdxlKnxTemplateParams {
  * all three (KSampler, UltimateSDUpscale, DetailerForEach) so results remain
  * consistent — matching the default behaviour of the original workflow.
  */
-export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): WorkflowPatch {
+export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildResult {
   const patch: WorkflowPatch = {};
 
   // Node 118: Checkpoint Loader (LoraManager)
@@ -220,5 +233,17 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): WorkflowPatch 
     patch['65'] = { ...patch['65'], 0: params.outputPrefix };
   }
 
-  return patch;
+  // Bypass lists — topological order (upstream nodes first) so rewiring chains correctly.
+  // Upscale:   53 (UltimateSDUpscale) before 37 (UpscaleModelLoader, no IMAGE input)
+  // Adetailer: 74 (DetailerForEach) first so its downstream is rewired before
+  //            76/77/78 are removed.
+  const bypassNodeIds: number[] = [];
+  if (params.upscaleEnabled === false) {
+    bypassNodeIds.push(53, 37);
+  }
+  if (params.adetailerEnabled === false) {
+    bypassNodeIds.push(74, 76, 77, 78);
+  }
+
+  return { patch, bypassNodeIds };
 }
