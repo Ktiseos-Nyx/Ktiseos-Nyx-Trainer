@@ -179,7 +179,7 @@ EOL
 
 echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 cd frontend || exit 1
-PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
+PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
 FRONTEND_PID=$!
 EOL
     fi
