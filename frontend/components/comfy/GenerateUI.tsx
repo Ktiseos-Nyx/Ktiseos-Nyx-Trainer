@@ -17,7 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Plus, Trash2, RefreshCw, Square, Shuffle } from 'lucide-react';
+import { Loader2, Plus, Trash2, RefreshCw, Square, Shuffle, ExternalLink } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -771,9 +771,19 @@ export function GenerateUI({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <SectionLabel>LoRAs</SectionLabel>
-                  <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={addLora}>
-                    <Plus className="h-3 w-3" /> Add
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost" size="sm"
+                      className="h-6 gap-1 text-xs"
+                      onClick={() => window.open('/comfyui/', '_blank')}
+                      title="Open LoRA Manager in ComfyUI"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Manager
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={addLora}>
+                      <Plus className="h-3 w-3" /> Add
+                    </Button>
+                  </div>
                 </div>
                 {loras.length === 0 && (
                   <p className="text-xs text-muted-foreground/60">No LoRAs added</p>
@@ -784,7 +794,7 @@ export function GenerateUI({
                   ))}
                 </div>
                 {loras.length > 0 && (
-                  <FieldHint>Injected via LoRA Manager — use the LoRA Manager tab in ComfyUI to browse</FieldHint>
+                  <FieldHint>Type the filename or use Manager → to browse and refresh your LoRA list</FieldHint>
                 )}
               </div>
 
