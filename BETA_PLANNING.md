@@ -877,6 +877,16 @@ After a training run finishes, offer a button to jump straight to testing the ne
   3. Post-save server-side PNG text injection — awkward, fights ComfyUI's flow; would also have to re-implement the A1111 string. Skip.
 - **Conclusion: forked/KNX-inspired save node is the only viable path** — and it's the natural anchor for the broader "fork or build KNX-inspired nodes" direction.
 
+**DIRECTION (Dusk, 2026-05-25) — build our OWN in-app model manager that hooks into LoRA Manager's API, instead of linking out to its UI:**
+- **Why linking out fails:** LoRA Manager's UI serves assets at root-absolute paths (`/loras_static`, `/locales`, `/example_images_static`, WS `/ws/fetch-progress` etc.) that don't survive our `/comfyui/` proxy prefix. AND on VastAI the frontend is tunneled separately from the exposed 8188 port, so we can't derive ComfyUI's public URL from the frontend hostname (`hostname:8188` points at the wrong host). Per-instance URL setting was considered but rejected in favour of this.
+- **The better approach:** LoRA Manager's **API already works through our `/comfyui/` proxy** (`/comfyui/api/lm/...` → ComfyUI `/api/lm/...`). Build our own model-manager page in the trainer that calls those endpoints. Benefits:
+  - Rides the frontend's existing tunnel — no 8188 exposure, no per-instance URL, no asset-path proxying.
+  - Matches our app theme instead of LoRA Manager's separate styling.
+  - **Lets us trigger LoRA Manager indexing / CivitAI metadata fetch from inside our app** — directly solves the "raw checkpoint won't validate until indexed" problem (the NoobAI 400). "Drop a checkpoint → click index → use it" becomes a real flow.
+  - Natural home for the Batch Downloader (BD-1) and the post-training "Test in ComfyUI" button.
+- **Scope:** proper project, ~next few days, part of the broader fork/inspired-nodes direction (NOT tonight). Needs: new page, wire up LoRA Manager API endpoints (list / scan / metadata fetch), and handle their progress WebSockets (`/ws/fetch-progress`, `/ws/download-progress`, `/ws/init-progress` — root-path, likely need proxy handling in server.js).
+- **Interim done tonight:** reverted the `:8188` direct links (navbar + Generate "Manager" button) back to the `/comfyui/` proxy path that actually loaded before. The auto-`:8188` derivation was wrong for VastAI.
+
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
 **Completed this session:**
