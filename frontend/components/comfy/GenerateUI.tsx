@@ -223,6 +223,19 @@ function ModelPicker({
             {m}
           </ComboboxItem>
         ))}
+        {/* Footer: shortcut to LoRA Manager's download UI */}
+        <div className="border-t border-border/40 mt-1 p-1">
+          <a
+            href="/comfyui/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            title="Open ComfyUI — use the LoRA Manager tab to download checkpoints and LoRAs"
+          >
+            <ExternalLink className="h-3 w-3 shrink-0" />
+            Download in LoRA Manager
+          </a>
+        </div>
       </ComboboxContent>
     </Combobox>
   );
