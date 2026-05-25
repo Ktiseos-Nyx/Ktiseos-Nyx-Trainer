@@ -1016,17 +1016,8 @@
             "textSnapshot": "<lora:echo_saber-guy90-Anima-Lorav1:1>,"
           }
         },
-        "<lo<lora:GoblinQnMaddyN00bEPS:1.00>",
-        [
-          {
-            "name": "GoblinQnMaddyN00bEPS",
-            "strength": 1,
-            "active": true,
-            "expanded": false,
-            "clipStrength": 1,
-            "locked": false
-          }
-        ]
+        "",
+        []
       ]
     },
     {

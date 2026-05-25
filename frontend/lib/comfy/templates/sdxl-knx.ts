@@ -206,10 +206,14 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): WorkflowPatch 
     patch['74'] = { ...patch['74'], 8: params.scheduler };
   }
 
-  // Node 64: Lora Loader (LoraManager) — lora text at index 1
-  if (params.loraText !== undefined) {
-    patch['64'] = { ...patch['64'], 1: params.loraText };
-  }
+  // Node 64: Lora Loader (LoraManager)
+  // Always patch both text (index 1) and loras array (index 2) so template
+  // defaults never survive into a live submission.
+  patch['64'] = {
+    ...patch['64'],
+    1: params.loraText ?? '',
+    2: [],
+  };
 
   // Node 65: Save Image (LoraManager)
   if (params.outputPrefix !== undefined) {
