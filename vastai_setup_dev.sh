@@ -167,7 +167,7 @@ sleep 2
 
 if [ -d "/workspace/Ktiseos-Nyx-Trainer/ComfyUI" ]; then
     echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..." | tee -a /workspace/logs/supervisor.log
-    python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 2>&1 | tee -a /workspace/logs/comfyui.log &
+    python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header 2>&1 | tee -a /workspace/logs/comfyui.log &
     COMFYUI_PID=$!
 else
     echo "[$(date)] ComfyUI not installed — skipping." | tee -a /workspace/logs/supervisor.log
