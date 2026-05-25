@@ -1506,7 +1506,7 @@
         "Node name for S&R": "UltralyticsDetectorProvider"
       },
       "widgets_values": [
-        "bbox/face_yolov8m.pt"
+        "bbox/face_yolov8n.pt"
       ]
     },
     {

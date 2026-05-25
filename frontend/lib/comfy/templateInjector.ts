@@ -202,6 +202,18 @@ const WIDGET_DEFS: Record<string, WidgetDef[]> = {
   // ─── Impact Pack (comfyui-impact-pack) ───────────────────────────────────
   UltralyticsDetectorProvider: [{ name: 'model_name' }],
   SAMLoader: [{ name: 'model_name' }, { name: 'device_mode' }],
+  // ImpactSimpleDetectorSEGS: widgets_values (9 entries) mapped from node 76 in sdxl-knx-v1.json.
+  // Index 8 (value 0) is an unknown optional param — omitted so ComfyUI uses its default.
+  ImpactSimpleDetectorSEGS: [
+    { name: 'bbox_threshold' },
+    { name: 'bbox_dilation' },
+    { name: 'crop_factor' },
+    { name: 'drop_size' },
+    { name: 'sub_threshold' },
+    { name: 'sub_dilation' },
+    { name: 'sub_bbox_expansion' },
+    { name: 'sam_mask_hint_threshold' },
+  ],
   // DetailerForEach: widgets_values (19 entries) mapped from node 74 in sdxl-knx-v1.json.
   // Indices 17-18 (both false) are unknown optional params in Impact Pack 8.28.2 —
   // omitted here so ComfyUI uses their defaults.

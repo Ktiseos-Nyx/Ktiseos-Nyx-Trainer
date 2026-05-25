@@ -414,9 +414,17 @@ class RemoteInstaller:
             "checkpoints", "diffusion_models", "vae", "loras",
             "text_encoders", "clip", "upscale_models", "controlnet",
             "embeddings", "hypernetworks",
+            # Impact Pack detection models
+            "sams",
+            os.path.join("ultralytics", "bbox"),
+            os.path.join("ultralytics", "segm"),
         ]:
             os.makedirs(os.path.join(models_dir, subdir), exist_ok=True)
         self.logger.info("Model subdirectories created under %s", models_dir)
+
+        # Download required detection/segmentation models for Impact Pack adetailer nodes.
+        # These are small utility models (~40-375 MB) needed by the sdxl-knx workflow.
+        self._download_comfyui_models(models_dir)
 
         # Clone required custom nodes (allow_failure=True so one bad node doesn't stop the rest)
         os.makedirs(custom_nodes_dir, exist_ok=True)
@@ -456,6 +464,44 @@ class RemoteInstaller:
         self.logger.info("ComfyUI installation complete.")
         print("   ComfyUI installation complete.")
         return True
+
+    def _download_comfyui_models(self, models_dir: str) -> None:
+        """Download required Impact Pack detection/segmentation models.
+
+        These small utility models are needed by the sdxl-knx workflow's
+        adetailer nodes. Downloads are skipped if the file already exists.
+        All failures are non-fatal.
+        """
+        import urllib.request
+
+        models_to_download = [
+            # SAM (Segment Anything) — used by SAMLoader node
+            (
+                "sams/sam_vit_b_01ec64.pth",
+                "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
+                "SAM ViT-B (~375 MB)",
+            ),
+            # Ultralytics face detection bbox model — used by UltralyticsDetectorProvider
+            (
+                os.path.join("ultralytics", "bbox", "face_yolov8n.pt"),
+                "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8n.pt",
+                "face_yolov8n (~6 MB)",
+            ),
+        ]
+
+        for rel_path, url, label in models_to_download:
+            dest = os.path.join(models_dir, rel_path)
+            if os.path.exists(dest):
+                print(f"   ✅ {label} already present, skipping")
+                continue
+            print(f"   ⬇️  Downloading {label}...")
+            try:
+                urllib.request.urlretrieve(url, dest)
+                print(f"   ✅ {label} downloaded")
+                self.logger.info("Downloaded %s to %s", label, dest)
+            except Exception as exc:
+                print(f"   ⚠️  {label} download failed (non-fatal): {exc}")
+                self.logger.warning("Failed to download %s: %s", label, exc)
 
     def apply_special_fixes_and_installs(self):
         self.logger.info("Applying special fixes and performing editable installs...")
