@@ -15,6 +15,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export type ModelType = 'sdxl' | 'sd15' | 'flux' | 'sd3.5' | 'chroma' | 'anima' | 'hunyuanimage' | 'lumina';
 
@@ -51,6 +61,9 @@ export default function ModelsPage() {
   const [models, setModels] = useState<ModelFile[]>([]);
   const [vaes, setVaes] = useState<ModelFile[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // File pending deletion — drives the confirmation AlertDialog (null = closed).
+  const [pendingDelete, setPendingDelete] = useState<ModelFile | null>(null);
 
   // Supported models
   const [popularModels, setPopularModels] = useState<PopularModelsResponse | null>(null);
@@ -115,8 +128,6 @@ export default function ModelsPage() {
   };
 
   const handleDelete = async (file: ModelFile) => {
-    if (!confirm(`Delete ${file.name}?`)) return;
-
     try {
       await modelsAPI.delete(file.type, file.name);
       loadFiles();
@@ -544,7 +555,7 @@ export default function ModelsPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={`Delete ${model.name}`}
-                        onClick={() => handleDelete(model)}
+                        onClick={() => setPendingDelete(model)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -590,7 +601,7 @@ export default function ModelsPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={`Delete ${vae.name}`}
-                        onClick={() => handleDelete(vae)}
+                        onClick={() => setPendingDelete(vae)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -603,6 +614,30 @@ export default function ModelsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation — replaces the native window.confirm() popup */}
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {pendingDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the file from disk. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDelete) handleDelete(pendingDelete);
+                setPendingDelete(null);
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
