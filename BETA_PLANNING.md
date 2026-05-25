@@ -617,15 +617,18 @@ A dedicated **Batch Downloader** page where users paste a list of URLs or magnet
 
 ### UI Design
 
-- Large textarea: paste URLs one per line
-- Global destination dropdown: Models / LoRAs / VAEs / Dataset / Output
-- Per-line destination override (optional, can skip for v1)
+- Large textarea: paste URLs one per line, with **inline hashtag routing per
+  line (A1111 BatchLinks style)**: `#model <url>`, `#lora <url>`, `#vae <url>`,
+  `#dataset <url>`, `#output <url>`
+- Global destination dropdown as the *default* for lines with no hashtag
 - Progress list showing each download's status as it runs
 - aria2c is already installed on VastAI/RunPod instances (required by existing workflow)
 
 ### Inspiration
 
-Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag syntax to route downloads. Our version replaces the hashtag hack with a proper destination dropdown — cleaner UX, same flexibility.
+Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag syntax to route downloads. **Dusk's vision (confirmed 2026-05-25): keep the hashtag syntax as the primary routing UX** (`#model <url>`, `#lora <url>`, etc.) — it's faster for power users pasting mixed lists — with a global dropdown only as the default for un-hashtagged lines. (Earlier draft proposed replacing hashtags with a dropdown; that was wrong — the hashtag flow is the point.)
+
+**Reality check (2026-05-25):** the current `/models` download UI is just a card of links, NOT this paste-and-route batch tool. BD-1 is genuinely not started.
 
 ### Implementation notes
 - Backend: new `POST /api/utilities/batch-download` endpoint that accepts a list of `{url, destination}` objects, spawns aria2c/hf-cli/gdown as appropriate per URL, streams progress back
@@ -840,6 +843,27 @@ The following features were inspired by Civitai's training interface:
 ---
 
 ## 9. Session Notes
+
+### 2026-05-25 — ComfyUI Generate UI polish + doc reconciliation
+
+**Shipped to `dev`:**
+- ComfyUI Generate UI: queue-runs field (1–8), cleaner 400 error parsing (extracts `node_errors[*].details`), navbar "LoRA Manager" link → ComfyUI:8188, removed misplaced model-picker footer link, stripped author/fork attribution from UI strings (belongs in README).
+- `extra_model_paths.yaml` written by installer: `output/`→loras, `pretrained_model/`→checkpoints, `vae/`→vae. Relative `..` paths, works local/VastAI/RunPod.
+- ZIP upload fix: removed `keepalive:true` (Fetch spec caps keepalive bodies at 64 KiB → 10 MB chunks failed with "Failed to fetch"). Chunking itself solves the original 300 MB-into-RAM problem.
+- Models page delete → shadcn AlertDialog (replaced raw `window.confirm()`).
+
+**Findings (sdxl-knx / ComfyUI):**
+- `Checkpoint Loader (LoraManager)` is willmiao's LoRA Manager node, NOT fearnworks (the `cnr_id` in KNX's workflow JSON was wrong). It only validates checkpoints LoRA Manager has **indexed** (with metadata) — raw HF-downloaded `.safetensors` 400 with `value_not_in_list` until indexed via CivitAI hash lookup. Dusk chose to keep the node + index-first rather than swap to `CheckpointLoaderSimple`.
+
+**Doc reconciliation (statuses were stale):**
+- **Section 1 (Tag/Caption) is 100% done** — 1.1 frequency chips, 1.2 bulk remove/replace, 1.3 3-way overwrite (auto-tag Select), 1.4 per-image inline editor. "Per-Image Visual Tag Editor" was just claude-speak for the inline editor already shipped.
+- **WandB (LT-1/UI-1) done** — LoggingCard.tsx.
+- **Merging tool is half-done** — core works (LoRA/ckpt/resize) but MG-5 (SD3 not wired), MG-6 (stdout not logged), MG-7 (no progress on multi-GB merges), MG-8 (no output-exists check) all still open.
+- **BD-1 Batch Downloader not started** — current `/models` UI is just a link card. Vision corrected: keep BatchLinks-style hashtag routing (`#model <url>`), dropdown only as default.
+- Reflow violations (memory): possibly low-RAM, not a confirmed code bug — don't chase until it reproduces.
+
+**New idea — post-training "Test in ComfyUI →" button:**
+After a training run finishes, offer a button to jump straight to testing the new LoRA in ComfyUI. KEY: `extra_model_paths.yaml` already maps `output/`→ComfyUI loras, so the trained LoRA is **already visible** in ComfyUI's picker — no file copy needed. Implement as a deep-link to the Generate page (ideally pre-filling the LoRA), not a copy operation. Small frontend job.
 
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
