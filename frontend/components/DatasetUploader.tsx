@@ -251,10 +251,12 @@ export default function DatasetUploader() {
           form.append('chunk', chunk, `part_${i}`);
           form.append('uploadId', uploadId);
           form.append('index', String(i));
+          // NOTE: do NOT set keepalive:true here — the Fetch spec caps keepalive
+          // request bodies at 64 KiB, so a 10 MB chunk fails with "Failed to fetch"
+          // before it's even sent. Normal fetch handles large bodies fine.
           const res = await fetch('/api/dataset/upload-chunk', {
             method: 'POST',
             body: form,
-            keepalive: true, // keeps Cloudflared/Caddy tunnel alive during slow chunks
           });
           if (!res.ok) throw new Error(`Chunk ${i} rejected by server`);
           setZipUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
