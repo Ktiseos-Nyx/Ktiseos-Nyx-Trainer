@@ -772,13 +772,10 @@ export function GenerateUI({
                 <div className="flex items-center justify-between">
                   <SectionLabel>LoRAs</SectionLabel>
                   <div className="flex gap-1">
-                    <Button
-                      variant="ghost" size="sm"
-                      className="h-6 gap-1 text-xs"
-                      onClick={() => window.open('/comfyui/', '_blank')}
-                      title="Open LoRA Manager in ComfyUI"
-                    >
-                      <ExternalLink className="h-3 w-3" /> Manager
+                    <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" asChild>
+                      <a href="/comfyui/" target="_blank" rel="noopener noreferrer" title="Open LoRA Manager in ComfyUI">
+                        <ExternalLink className="h-3 w-3" /> Manager
+                      </a>
                     </Button>
                     <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={addLora}>
                       <Plus className="h-3 w-3" /> Add
