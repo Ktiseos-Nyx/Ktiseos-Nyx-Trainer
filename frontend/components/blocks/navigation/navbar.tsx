@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import {
   Zap,
@@ -22,6 +23,7 @@ import {
   Cpu,
   Upload,
   Wand2,
+  ExternalLink,
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -37,6 +39,15 @@ import { cn } from "@/lib/utils"
 
 export function Navbar() {
   const { theme, setTheme } = useTheme()
+
+  // ComfyUI (and its LoRA Manager UI) runs on port 8188, served directly by
+  // ComfyUI — not through our app proxy. Derive the URL from the current host
+  // so it works in local dev and wherever the app is accessed. Default is
+  // SSR-safe; the real value is set after mount to avoid a hydration mismatch.
+  const [comfyHref, setComfyHref] = useState("http://localhost:8188")
+  useEffect(() => {
+    setComfyHref(`${window.location.protocol}//${window.location.hostname}:8188`)
+  }, [])
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -148,6 +159,9 @@ export function Navbar() {
                   <ListItem href="/huggingface-upload" title="HuggingFace Upload" icon={<Upload className="w-4 h-4" />}>
                     Upload LoRAs to HuggingFace Hub
                   </ListItem>
+                  <ListItem href={comfyHref} title="LoRA Manager" icon={<ExternalLink className="w-4 h-4" />} external>
+                    Browse & download models in ComfyUI (port 8188)
+                  </ListItem>
                 </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
@@ -204,6 +218,7 @@ const ListItem = ({
   children,
   href,
   icon,
+  external = false,
   ...props
 }: {
   className?: string
@@ -211,27 +226,42 @@ const ListItem = ({
   children: React.ReactNode
   href: string
   icon?: React.ReactNode
+  external?: boolean
 }) => {
+  const itemClassName = cn(
+    "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+    className
+  )
+  const inner = (
+    <>
+      <div className="text-sm font-medium leading-none flex items-center gap-2">
+        {icon}
+        {title}
+      </div>
+      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+        {children}
+      </p>
+    </>
+  )
+
   return (
     <li>
       <NavigationMenuLink asChild>
-        <Link
-          href={href}
-          prefetch={false}
-          className={cn(
-            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-            className
-          )}
-          {...props}
-        >
-          <div className="text-sm font-medium leading-none flex items-center gap-2">
-            {icon}
-            {title}
-          </div>
-          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-            {children}
-          </p>
-        </Link>
+        {external ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={itemClassName}
+            {...props}
+          >
+            {inner}
+          </a>
+        ) : (
+          <Link href={href} prefetch={false} className={itemClassName} {...props}>
+            {inner}
+          </Link>
+        )}
       </NavigationMenuLink>
     </li>
   )

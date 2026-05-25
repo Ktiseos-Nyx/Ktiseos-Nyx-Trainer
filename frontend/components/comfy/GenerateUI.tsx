@@ -223,19 +223,6 @@ function ModelPicker({
             {m}
           </ComboboxItem>
         ))}
-        {/* Footer: shortcut to LoRA Manager's download UI */}
-        <div className="border-t border-border/40 mt-1 p-1">
-          <a
-            href="/comfyui/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-            title="Open ComfyUI — use the LoRA Manager tab to download checkpoints and LoRAs"
-          >
-            <ExternalLink className="h-3 w-3 shrink-0" />
-            Download in LoRA Manager
-          </a>
-        </div>
       </ComboboxContent>
     </Combobox>
   );
@@ -351,7 +338,7 @@ function ArchSwitcher({
               : 'text-muted-foreground hover:text-foreground',
           ].join(' ')}
         >
-          {m === 'anima' ? 'ANIMA' : 'SDXL KNX'}
+          {m === 'anima' ? 'ANIMA' : 'SDXL'}
         </Button>
       ))}
     </div>
@@ -380,6 +367,14 @@ export function GenerateUI({
 
   // ── Model lists from ComfyUI
   const models = useComfyModels();
+
+  // ComfyUI's LoRA Manager UI runs on port 8188, served directly by ComfyUI
+  // (not through our app proxy). Derive from current host; SSR-safe default
+  // is replaced after mount to avoid a hydration mismatch.
+  const [comfyHref, setComfyHref] = useState('http://localhost:8188');
+  useEffect(() => {
+    setComfyHref(`${window.location.protocol}//${window.location.hostname}:8188`);
+  }, []);
 
   // ── Architecture
   const [templateMode, setTemplateMode] = useState<TemplateMode>('anima');
@@ -577,8 +572,8 @@ export function GenerateUI({
                 <ArchSwitcher mode={templateMode} onChange={setTemplateMode} />
                 <FieldHint>
                   {templateMode === 'anima'
-                    ? 'Guy90s ANIMA workflow — AuraFlow + Qwen encoder'
-                    : 'KNX SDXL fork — NoobAI-XL / Illustrious + Adetailer'}
+                    ? 'AuraFlow diffusion + Qwen text encoder'
+                    : 'NoobAI-XL / Illustrious + Adetailer & upscale'}
                 </FieldHint>
               </div>
 
@@ -867,7 +862,7 @@ export function GenerateUI({
                   <SectionLabel>LoRAs</SectionLabel>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" asChild>
-                      <a href="/comfyui/" target="_blank" rel="noopener noreferrer" title="Open LoRA Manager in ComfyUI">
+                      <a href={comfyHref} target="_blank" rel="noopener noreferrer" title="Open LoRA Manager in ComfyUI (port 8188)">
                         <ExternalLink className="h-3 w-3" /> Manager
                       </a>
                     </Button>
