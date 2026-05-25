@@ -1542,12 +1542,11 @@
         }
       ],
       "properties": {
-        "cnr_id": "comfyui_fearnworksnodes",
-        "ver": "0.1.2",
+        "cnr_id": "comfyui-lora-manager",
         "Node name for S&R": "Checkpoint Loader (LoraManager)"
       },
       "widgets_values": [
-        "NoobAI/anime/retirementMixNAIXL_v10.safetensors"
+        "retirementMixNAIXL_v10.safetensors"
       ]
     },
     {
