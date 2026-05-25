@@ -107,6 +107,7 @@ class FrontendInstaller:
 
         try:
             if self.verbose:
+                # Stream output live to console and logger.
                 process = subprocess.Popen(
                     command,
                     stdout=subprocess.PIPE,
@@ -115,28 +116,45 @@ class FrontendInstaller:
                     bufsize=1,
                     cwd=cwd,
                 )
+                output_lines: list[str] = []
                 for line in iter(process.stdout.readline, ""):
                     line = line.rstrip()
                     if line:
                         print(f"   {line}")
                         self.logger.debug("OUTPUT: %s", line)
+                        output_lines.append(line)
                 process.stdout.close()
                 returncode = process.wait()
                 if returncode != 0:
-                    raise subprocess.CalledProcessError(returncode, command)
+                    err = subprocess.CalledProcessError(returncode, command)
+                    err.output = "\n".join(output_lines)
+                    raise err
             else:
+                # Capture silently; on failure the full output is logged below.
                 result = subprocess.run(
-                    command, check=True, capture_output=True, text=True, cwd=cwd
+                    command,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=cwd,
                 )
-                self.logger.debug("stdout: %s", result.stdout[:500] if result.stdout else "")
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("stdout: %s", result.stdout)
 
             self.logger.info("%s successful.", description)
             return True
 
         except subprocess.CalledProcessError as e:
             self.logger.error("%s failed (exit %s).", description, e.returncode)
-            if hasattr(e, "stderr") and e.stderr:
-                self.logger.error("stderr: %s", e.stderr[:500])
+            # Dump full output so build errors are actually readable in the log.
+            full_output = getattr(e, "output", None) or getattr(e, "stdout", None) or ""
+            full_stderr = getattr(e, "stderr", None) or ""
+            if full_output:
+                self.logger.error("--- stdout ---\n%s", full_output)
+            if full_stderr:
+                self.logger.error("--- stderr ---\n%s", full_stderr)
+            if not full_output and not full_stderr:
+                self.logger.error("(no output captured — re-run with --verbose for live output)")
             if not allow_failure:
                 return False
             self.logger.warning("Continuing despite failure (allow_failure=True).")
