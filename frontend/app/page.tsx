@@ -19,6 +19,7 @@ const HeroAnimated = dynamic(() => import('@/components/blocks/hero/hero-animate
 
 export default function Home() {
   return (
+    <>
     <HeroAnimated
       title="Ktiseos Nyx TRAINER"
       subtitle="Model Training Made Beautiful"
@@ -47,5 +48,6 @@ export default function Home() {
       theme="purple-blue"
     />
     <Footer />
+    </>
   );
 }
