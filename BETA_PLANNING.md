@@ -870,11 +870,12 @@ After a training run finishes, offer a button to jump straight to testing the ne
 - Open question (Dusk): can we embed a custom **"software" tag** identifying this trainer into saved images WITHOUT writing our own node?
 - Hoped-for free path: ComfyUI's **`extra_pnginfo`** mechanism. We *already* pass `extra_data.extra_pnginfo.workflow` on submit (see `templateInjector.ts`); a spec-compliant SaveImage iterates ALL keys and embeds each as a PNG text chunk.
 - **VERIFIED (2026-05-25) — does NOT work with the LoraManager node.** Reading willmiao's `py/nodes/save_image.py`, it writes at most two chunks: a `"parameters"` chunk (A1111-style string built internally from the metadata collector) and `"workflow"` from `extra_pnginfo["workflow"]` only. It explicitly ignores every other `extra_pnginfo` key. So a custom `software` tag is node-level, confirming Dusk's instinct.
+- **Key constraint (Dusk, 2026-05-25):** the stock ComfyUI SaveImage is **NOT A1111/Civitai compatible** — it writes the `workflow` chunk but no A1111-style `parameters` string, so Civitai can't auto-read generation params from its output. The LoraManager node's entire value is that `parameters` chunk (`pnginfo.add_text("parameters", metadata)`). So the save node MUST stay A1111/Civitai compatible.
 - **Options to add a software tag:**
-  1. **Fork / KNX-inspired save node** — full control over metadata, keep the CivitAI/thumbnail features. Most aligned with the "inspired nodes" direction.
-  2. **Switch to ComfyUI's stock SaveImage** — it *does* iterate all `extra_pnginfo` keys, so the `software` tag becomes free — BUT loses LoRA Manager's CivitAI info + thumbnail saving. Probably not worth the tradeoff.
-  3. Post-save server-side PNG text injection — awkward, fights ComfyUI's flow.
-- Leaning option 1 (forked/inspired save node) — also the natural anchor for the broader "fork or build KNX-inspired nodes" direction.
+  1. **Fork / KNX-inspired save node (the real path)** — start from the LoraManager save logic (keep the A1111 `parameters` chunk + thumbnails + CivitAI info), add a `software` text chunk (and any other KNX metadata). Only option that keeps Civitai compat AND adds the tag.
+  2. ~~Switch to stock SaveImage~~ — REJECTED: gives a free `extra_pnginfo` tag but loses A1111/Civitai compatibility (no `parameters` chunk). Dealbreaker.
+  3. Post-save server-side PNG text injection — awkward, fights ComfyUI's flow; would also have to re-implement the A1111 string. Skip.
+- **Conclusion: forked/KNX-inspired save node is the only viable path** — and it's the natural anchor for the broader "fork or build KNX-inspired nodes" direction.
 
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
