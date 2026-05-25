@@ -853,7 +853,10 @@ The following features were inspired by Civitai's training interface:
 - Models page delete → shadcn AlertDialog (replaced raw `window.confirm()`).
 
 **Findings (sdxl-knx / ComfyUI):**
-- `Checkpoint Loader (LoraManager)` is willmiao's LoRA Manager node, NOT fearnworks (the `cnr_id` in KNX's workflow JSON was wrong). It only validates checkpoints LoRA Manager has **indexed** (with metadata) — raw HF-downloaded `.safetensors` 400 with `value_not_in_list` until indexed via CivitAI hash lookup. Dusk chose to keep the node + index-first rather than swap to `CheckpointLoaderSimple`.
+- `Checkpoint Loader (LoraManager)` is willmiao's LoRA Manager node, NOT fearnworks (the `cnr_id` in KNX's workflow JSON was wrong). It validates `ckpt_name` against `scanner.get_cached_data()` filtered by `sub_type == "checkpoint"`. A checkpoint not in that cache → `value_not_in_list` / 400 (the "must use retirementMix" bug).
+  - **CORRECTION (verified in source):** `sub_type` is set by **file LOCATION during scan**, not metadata — `_create_default_metadata()` stamps `sub_type="checkpoint"` locally with NO CivitAI lookup. So the gate is "has LoRA Manager *scanned* this file into its cache," NOT "has CivitAI metadata." retirementMix was scanned (→ sidecars + cache entry + validates); NoobAI was dropped in after the last scan (→ no cache entry → fails). ComfyUI restart reloads the stale cache, doesn't rebuild it.
+  - **Real fix:** force a **rescan/refresh inside LoRA Manager** (not a CivitAI fetch, not a ComfyUI restart). Earlier "fetch CivitAI metadata" advice was wrong.
+  - Dusk chose to keep the node (NOT swap to `CheckpointLoaderSimple` — stock SaveImage isn't Civitai-compatible anyway) and to solve the brittleness properly via the in-app model manager direction below.
 
 **Doc reconciliation (statuses were stale):**
 - **Section 1 (Tag/Caption) is 100% done** — 1.1 frequency chips, 1.2 bulk remove/replace, 1.3 3-way overwrite (auto-tag Select), 1.4 per-image inline editor. "Per-Image Visual Tag Editor" was just claude-speak for the inline editor already shipped.
