@@ -155,6 +155,17 @@ app.prepare().then(() => {
     pathRewrite: { '^/comfyui': '' },
     logLevel: dev ? 'debug' : 'warn',
 
+    // ComfyUI validates that Origin matches Host and returns 403 if they differ.
+    // When requests arrive via Cloudflare tunnel the browser Origin is the
+    // public domain (e.g. xxx.trycloudflare.com) while Host becomes localhost
+    // after the proxy rewrites it — causing a guaranteed 403.
+    // Removing Origin/Referer before forwarding bypasses this check safely:
+    // our proxy is the trusted intermediary, not the browser directly.
+    onProxyReq: (proxyReq) => {
+      proxyReq.removeHeader('origin');
+      proxyReq.removeHeader('referer');
+    },
+
     onError: (err, req, res) => {
       const target = getComfyuiTarget();
       console.error('❌ ComfyUI proxy error:', err.message);
