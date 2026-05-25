@@ -348,7 +348,10 @@ function ArchSwitcher({
 type GenerateUIProps = Pick<
   UseComfyConnectionReturn,
   'submitPrompt' | 'interrupt' | 'currentPromptId' | 'currentNode' | 'progress' | 'queueRemaining'
->;
+> & {
+  /** False when ComfyUI is disconnected — disables generate button without unmounting. */
+  isConnected?: boolean;
+};
 
 export function GenerateUI({
   submitPrompt,
@@ -357,6 +360,7 @@ export function GenerateUI({
   currentNode,
   progress,
   queueRemaining,
+  isConnected = true,
 }: GenerateUIProps) {
 
   // ── Model lists from ComfyUI
@@ -813,7 +817,7 @@ export function GenerateUI({
                   Stop generation
                 </Button>
               ) : (
-                <Button className="w-full gap-2" onClick={handleGenerate} disabled={!canGenerate}>
+                <Button className="w-full gap-2" onClick={handleGenerate} disabled={!canGenerate || !isConnected}>
                   Generate
                   {queueRemaining > 0 && (
                     <span className="ml-1 text-xs opacity-70">({queueRemaining} queued)</span>
@@ -821,7 +825,12 @@ export function GenerateUI({
                 </Button>
               )}
             </ClickSpark>
-            {!canGenerate && (
+            {!isConnected && (
+              <p className="mt-1.5 text-center text-xs text-amber-500/80">
+                ComfyUI disconnected — reconnecting…
+              </p>
+            )}
+            {isConnected && !canGenerate && (
               <p className="mt-1.5 text-center text-xs text-muted-foreground/60">
                 {templateMode === 'anima' ? 'Enter a UNET model name to generate' : 'Enter a checkpoint name to generate'}
               </p>

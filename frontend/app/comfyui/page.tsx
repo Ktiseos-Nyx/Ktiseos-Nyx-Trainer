@@ -3,12 +3,15 @@
 /**
  * ComfyUI generate page (COMFY-3).
  *
- * Renders connection-aware states:
- *   disconnected / error → BorderGlow card with setup instructions + retry
- *   connecting           → spinner while WebSocket handshakes
- *   connected            → generate UI (full UI in subsequent tickets)
+ * Connection states:
+ *   Never connected → show DisconnectedState / ConnectingState cards as before.
+ *   Once connected  → keep GenerateUI mounted permanently so prompts and
+ *                     settings survive reconnects. Status changes fire toasts
+ *                     instead of swapping the whole UI out.
  */
 
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Loader2, RefreshCw, Wand2, AlertCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ComfyConnectionStatus } from '@/components/comfy/ComfyConnectionStatus';
@@ -16,7 +19,7 @@ import { GenerateUI } from '@/components/comfy/GenerateUI';
 import { useComfyConnection } from '@/lib/comfy';
 import BorderGlow from '@/components/BorderGlow';
 
-// ─── Disconnected state ───────────────────────────────────────────────────────
+// ─── Pre-connect status cards ─────────────────────────────────────────────────
 
 function DisconnectedState({
   onRetry,
@@ -87,8 +90,6 @@ function DisconnectedState({
   );
 }
 
-// ─── Connecting state ─────────────────────────────────────────────────────────
-
 function ConnectingState() {
   return (
     <div className="flex flex-1 items-center justify-center gap-3 text-muted-foreground">
@@ -98,7 +99,6 @@ function ConnectingState() {
   );
 }
 
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ComfyUIPage() {
@@ -106,6 +106,35 @@ export default function ComfyUIPage() {
     status, connect, queueRemaining,
     submitPrompt, interrupt, currentPromptId, currentNode, progress,
   } = useComfyConnection();
+
+  // Once we've connected at least once, keep GenerateUI mounted forever.
+  const [hasEverConnected, setHasEverConnected] = useState(false);
+  useEffect(() => {
+    if (status === 'connected') setHasEverConnected(true);
+  }, [status]);
+
+  // Toast on status transitions after first connect so the user knows
+  // what's happening without losing their prompts and settings.
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    // Skip the very first render (no previous state to compare).
+    if (prev === null || prev === status) return;
+
+    if (status === 'connected' && prev !== 'connecting') {
+      toast.success('ComfyUI reconnected');
+    } else if (status === 'disconnected' && prev === 'connected') {
+      toast.warning('ComfyUI disconnected', {
+        description: 'Your prompts and settings are preserved. Reconnecting…',
+      });
+    } else if (status === 'error' && prev === 'connected') {
+      toast.error('ComfyUI connection lost', {
+        description: 'Check that ComfyUI is still running.',
+      });
+    }
+  }, [status]);
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
@@ -118,12 +147,9 @@ export default function ComfyUIPage() {
         <ComfyConnectionStatus status={status} queueRemaining={queueRemaining} />
       </div>
 
-      {/* Body */}
-      {status === 'connecting' && <ConnectingState />}
-      {(status === 'disconnected' || status === 'error') && (
-        <DisconnectedState onRetry={connect} isError={status === 'error'} />
-      )}
-      {status === 'connected' && (
+      {/* GenerateUI stays mounted once we've connected so state is preserved.
+          Before first connect, show the normal status cards. */}
+      {hasEverConnected ? (
         <GenerateUI
           submitPrompt={submitPrompt}
           interrupt={interrupt}
@@ -131,7 +157,15 @@ export default function ComfyUIPage() {
           currentNode={currentNode}
           progress={progress}
           queueRemaining={queueRemaining}
+          isConnected={status === 'connected'}
         />
+      ) : (
+        <>
+          {status === 'connecting' && <ConnectingState />}
+          {(status === 'disconnected' || status === 'error') && (
+            <DisconnectedState onRetry={connect} isError={status === 'error'} />
+          )}
+        </>
       )}
     </div>
   );
