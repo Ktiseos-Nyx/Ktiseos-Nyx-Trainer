@@ -17,7 +17,7 @@ This document tracks planned features, known issues, and upgrade priorities for 
 ### 1.1 Tag Viewer with Frequency Counts (NEW FEATURE)
 **Priority:** High
 **Inspiration:** Civitai `TrainingImagesTagViewer` (Apache 2.0)
-**Status:** ✅ Done (2026-05-25) — tags/page.tsx frequency chips (confirm chips show count number)
+**Status:** ✅ Done (2026-05-25) — tags/page.tsx frequency chips with counts (confirmed in UI)
 
 Add a Tag Viewer panel to the dataset page that:
 - Aggregates all tags across all images in a dataset
@@ -558,7 +558,7 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 | Add WandB/Logging UI section (UI-1) | New Feature | Small | ✅ Done — LoggingCard.tsx (confirmed 2026-05-25) |
 | Dashboard redesign with all routes (UI-2) | UX | Medium | 🔵 Design work, deferred |
 | HF upload form persistence (HF-1) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
-| Tag Viewer with frequency counts | New Feature | Medium | ✅ Done — tags/page.tsx frequency chips (2026-05-25; confirm chips show count number) |
+| Tag Viewer with frequency counts | New Feature | Medium | ✅ Done — tags/page.tsx frequency chips with counts (confirmed in UI 2026-05-25) |
 | Bulk tag remove/replace | New Feature | Medium | ✅ Done — tags/page.tsx Actions menu (2026-05-25) |
 | Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small | ✅ Done 2026-04-30 |
 | Add subprocess timeouts to merge operations (MG-3) | Reliability | Small | ✅ Done 2026-04-30 |
