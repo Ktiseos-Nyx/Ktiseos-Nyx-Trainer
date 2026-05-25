@@ -151,7 +151,7 @@ cd /workspace/Ktiseos-Nyx-Trainer
 
 BACKEND_PORT="${BACKEND_PORT:-18000}"
 FRONTEND_PORT="${FRONTEND_PORT:-13000}"
-COMFYUI_PORT="${COMFYUI_PORT:-8188}"
+COMFYUI_PORT="${COMFYUI_PORT:-18188}"
 
 echo "[$(date)] Checking for existing services on ports $BACKEND_PORT, $FRONTEND_PORT and $COMFYUI_PORT..." | tee -a /workspace/logs/supervisor.log
 pkill -f "uvicorn api.main:app" 2>/dev/null || true
