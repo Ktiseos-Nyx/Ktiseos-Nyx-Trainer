@@ -45,7 +45,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (types) params.types = types;
-    if (baseModel) params.baseModel = baseModel;
+    // Civitai's /models API expects `baseModels` (plural) — sending `baseModel`
+    // (singular) makes it silently ignore the filter and return everything.
+    if (baseModel) params.baseModels = baseModel;
     if (!nsfw) params.nsfw = 'false';
 
     // Fetch from Civitai
