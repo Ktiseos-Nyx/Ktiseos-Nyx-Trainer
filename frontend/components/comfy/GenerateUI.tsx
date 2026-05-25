@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, RefreshCw, Square, Shuffle, ExternalLink } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -424,6 +425,9 @@ export function GenerateUI({
           }
         }
         setGeneratedImages(prev => [...newImages, ...prev]);
+        if (newImages.length > 0) {
+          toast.success(`${newImages.length} image${newImages.length !== 1 ? 's' : ''} generated`);
+        }
       }).catch(console.error);
       setIsGenerating(false);
     }
@@ -488,6 +492,8 @@ export function GenerateUI({
       }
     } catch (err) {
       console.error('Generate failed:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Generation failed', { description: msg, duration: 8000 });
     }
   }, [
     isGenerating, canGenerate, templateMode,
