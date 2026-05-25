@@ -368,14 +368,6 @@ export function GenerateUI({
   // ── Model lists from ComfyUI
   const models = useComfyModels();
 
-  // ComfyUI's LoRA Manager UI runs on port 8188, served directly by ComfyUI
-  // (not through our app proxy). Derive from current host; SSR-safe default
-  // is replaced after mount to avoid a hydration mismatch.
-  const [comfyHref, setComfyHref] = useState('http://localhost:8188');
-  useEffect(() => {
-    setComfyHref(`${window.location.protocol}//${window.location.hostname}:8188`);
-  }, []);
-
   // ── Architecture
   const [templateMode, setTemplateMode] = useState<TemplateMode>('anima');
 
@@ -862,7 +854,7 @@ export function GenerateUI({
                   <SectionLabel>LoRAs</SectionLabel>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" asChild>
-                      <a href={comfyHref} target="_blank" rel="noopener noreferrer" title="Open LoRA Manager in ComfyUI (port 8188)">
+                      <a href="/comfyui/" target="_blank" rel="noopener noreferrer" title="Open LoRA Manager in ComfyUI">
                         <ExternalLink className="h-3 w-3" /> Manager
                       </a>
                     </Button>
