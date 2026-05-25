@@ -179,6 +179,23 @@ app.prepare().then(() => {
     },
   });
 
+  // LoRA Manager (a ComfyUI extension) serves its UI pages from root-absolute
+  // paths that do NOT carry our /comfyui prefix — e.g. its /loras page pulls
+  // assets from /loras_static, i18n from /locales, and data from /api/lm.
+  // Without forwarding these to ComfyUI, the /comfyui/loras page 404s its
+  // assets and the SPA fails to render. The comfyuiProxy pathRewrite only
+  // strips a leading /comfyui, so these root paths pass through unchanged.
+  // /api/lm = LoRA Manager's data API; /api/view = ComfyUI's image server
+  // (used for model previews). Both are requested root-absolute by the
+  // LoRA Manager page and must reach ComfyUI, not FastAPI.
+  const COMFYUI_ROOT_PREFIXES = [
+    '/loras', '/checkpoints', '/embeddings', '/recipes',
+    '/loras_static', '/locales', '/example_images_static',
+    '/api/lm', '/api/view',
+  ];
+  const isComfyuiRootPath = (pathname) =>
+    COMFYUI_ROOT_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+
   // Request logging for production — Next.js dev mode logs automatically,
   // but the custom production server is silent without this.
   const logRequest = (req, res) => {
@@ -209,6 +226,16 @@ app.prepare().then(() => {
       // Log requests in production only (dev mode has its own verbose logging)
       if (!dev) logRequest(req, res);
 
+      // ComfyUI + its LoRA Manager extension. Proxy /comfyui/* (our prefixed
+      // calls) AND LoRA Manager's root-absolute UI paths (/loras, /loras_static,
+      // /api/lm, /api/view, …) which its pages request WITHOUT our prefix.
+      // Must run BEFORE the Node/FastAPI /api handling so /api/lm and /api/view
+      // reach ComfyUI instead of 404ing at FastAPI. The comfyuiProxy pathRewrite
+      // only strips a leading /comfyui, so root paths pass through unchanged.
+      if (pathname.startsWith('/comfyui/') || isComfyuiRootPath(pathname)) {
+        return comfyuiProxy(req, res);
+      }
+
       // Handle Node.js API routes (new migration)
       const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/config', '/api/civitai', '/api/utilities', '/api/debug'];
       const nodeApiExact = ['/api/models/popular', '/api/models/list'];
@@ -229,13 +256,6 @@ app.prepare().then(() => {
       // Proxy other /api requests to FastAPI (backward compatibility)
       if (pathname.startsWith('/api')) {
         return apiAndWsProxy(req, res);
-      }
-
-      // Proxy /comfyui/* requests to ComfyUI backend.
-      // Must match /comfyui/ (with slash) to avoid catching the /comfyui page
-      // route itself, which Next.js should serve as our GenerateUI.
-      if (pathname.startsWith('/comfyui/')) {
-        return comfyuiProxy(req, res);
       }
 
       // /ws paths are WebSocket-only — reject plain HTTP requests
@@ -362,8 +382,15 @@ app.prepare().then(() => {
       console.log(`⬆️  WebSocket upgrade (FastAPI proxy): ${pathname}`);
       apiAndWsProxy.upgrade(req, socket, head);
     }
-    // Proxy WebSocket upgrades for /comfyui/ws to ComfyUI
-    else if (pathname.startsWith('/comfyui/ws')) {
+    // Proxy WebSocket upgrades to ComfyUI: /comfyui/ws plus LoRA Manager's
+    // root-absolute progress sockets (fetch/download/init), which its UI opens
+    // without our /comfyui prefix.
+    else if (
+      pathname.startsWith('/comfyui/ws')
+      || pathname === '/ws/fetch-progress'
+      || pathname === '/ws/download-progress'
+      || pathname === '/ws/init-progress'
+    ) {
       console.log(`⬆️  WebSocket upgrade (ComfyUI proxy): ${pathname}`);
       comfyuiProxy.upgrade(req, socket, head);
     }
