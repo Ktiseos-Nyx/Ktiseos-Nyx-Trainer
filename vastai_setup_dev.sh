@@ -87,8 +87,7 @@ provisioning_start() {
         $PYTHON_CMD -m pip install --upgrade pip -v
         if [ -f "requirements_cloud.txt" ]; then
             $PYTHON_CMD -m pip install --upgrade setuptools wheel -v
-            # requirements_cloud.txt pins torch to cu128 to avoid CUDA/driver version mismatches
-            $PYTHON_CMD -m pip install -r requirements_cloud.txt --extra-index-url https://download.pytorch.org/whl/cu128 --no-cache-dir -v
+            $PYTHON_CMD -m pip install -r requirements_cloud.txt --no-cache-dir -v
         elif [ -f "requirements.txt" ]; then
             echo "⚠️  requirements_cloud.txt not found, using requirements.txt"
             $PYTHON_CMD -m pip install -r requirements.txt --no-cache-dir -v

@@ -1,18 +1,13 @@
 # Ktiseos-Nyx-Trainer - CLOUD REQUIREMENTS
 # For cloud GPU deployments (VastAI, RunPod).
 #
-# PyTorch is explicitly pinned to cu128 here because cloud base images
-# (e.g. vastai/pytorch:*, runpod/pytorch:*) may ship a torch build compiled
-# for a newer CUDA version than the driver on the rented machine supports.
-# Pinning cu128 ensures compatibility with CUDA 12.8 drivers.
+# PyTorch is intentionally excluded — provided by the cloud base image.
+# The base image is expected to supply a torch build matching the container's
+# CUDA toolkit. installer.py will reinstall torch with cu121 if it is missing
+# or compiled for an incompatible CUDA version.
 #
 # Install with:
-#   pip install -r requirements_cloud.txt --extra-index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements_cloud.txt
 
---extra-index-url https://download.pytorch.org/whl/cu128
-torch
-torchvision
-torchaudio
-
-# ========== BASE DEPENDENCIES ==========
+# ========== BASE DEPENDENCIES ONLY ==========
 -r requirements_base.txt
