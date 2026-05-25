@@ -554,12 +554,12 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 |---------|----------|--------|--------|
 | Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny | ✅ Done (pre-existing) |
 | Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
-| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ⏳ Next session |
-| Add WandB/Logging UI section (UI-1) | New Feature | Small | ⏳ Next session |
+| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ✅ Done (confirmed 2026-05-25) |
+| Add WandB/Logging UI section (UI-1) | New Feature | Small | ✅ Done — LoggingCard.tsx (confirmed 2026-05-25) |
 | Dashboard redesign with all routes (UI-2) | UX | Medium | 🔵 Design work, deferred |
 | HF upload form persistence (HF-1) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
-| Tag Viewer with frequency counts | New Feature | Medium | ⏳ Not started |
-| Bulk tag remove/replace | New Feature | Medium | ⏳ Not started |
+| Tag Viewer with frequency counts | New Feature | Medium | ✅ Done — tags/page.tsx frequency chips (2026-05-25; confirm chips show count number) |
+| Bulk tag remove/replace | New Feature | Medium | ✅ Done — tags/page.tsx Actions menu (2026-05-25) |
 | Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small | ✅ Done 2026-04-30 |
 | Add subprocess timeouts to merge operations (MG-3) | Reliability | Small | ✅ Done 2026-04-30 |
 | CUDA availability check for merges (MG-4) | Error Handling | Small | ✅ Done 2026-04-30 |
