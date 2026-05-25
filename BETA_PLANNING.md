@@ -17,7 +17,7 @@ This document tracks planned features, known issues, and upgrade priorities for 
 ### 1.1 Tag Viewer with Frequency Counts (NEW FEATURE)
 **Priority:** High
 **Inspiration:** Civitai `TrainingImagesTagViewer` (Apache 2.0)
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — tags/page.tsx frequency chips (confirm chips show count number)
 
 Add a Tag Viewer panel to the dataset page that:
 - Aggregates all tags across all images in a dataset
@@ -40,7 +40,7 @@ Add a Tag Viewer panel to the dataset page that:
 ### 1.2 Bulk Tag Operations (NEW FEATURE)
 **Priority:** High
 **Inspiration:** Civitai `TrainingEditTagsModal` + `TrainingImagesTagViewer` actions menu (Apache 2.0)
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — bulk remove/replace in tags/page.tsx Actions menu
 
 Once the Tag Viewer exists, add bulk actions on selected tags:
 - **Remove tags** - delete selected tags from ALL images in dataset (with confirmation)
@@ -53,7 +53,7 @@ Once the Tag Viewer exists, add bulk actions on selected tags:
 
 ### 1.3 Upgrade Overwrite Mode from Bool to 3-Way
 **Priority:** Medium
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — auto-tag/page.tsx `overwriteMode` Select (ignore/append/overwrite)
 
 Current: `append_tags: bool` (append or overwrite)
 Target: `overwrite_mode: "ignore" | "append" | "overwrite"`
@@ -70,7 +70,7 @@ Target: `overwrite_mode: "ignore" | "append" | "overwrite"`
 
 ### 1.4 Per-Image Visual Tag Editor
 **Priority:** Low (Beta+)
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — per-image inline tag editor (badge chips + add) in tags/page.tsx
 
 Visual tag editing per image: show tags as badge chips with X to remove, textarea to add new tags. Would require the frontend to read/write individual .txt caption files via API.
 
@@ -568,7 +568,7 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 ### Should Have (Beta quality)
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
-| 3-way overwrite mode for tagging | Enhancement | Small | ⏳ Not started |
+| 3-way overwrite mode for tagging | Enhancement | Small | ✅ Done 2026-05-25 |
 | Checkpoint-specific validation (CT-1) | Enhancement | Small | ⏳ Not started |
 | Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium | 🚫 N/A — separate pages, no unified form |
 | Merge progress reporting (MG-7) | UX | Medium | ⏳ Not started |
