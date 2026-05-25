@@ -27,6 +27,19 @@ If a PR review agent flags a training parameter as "non-standard" or "too high/l
 
 ---
 
+## Ask, Don't Assume — Especially for ComfyUI / Workflow Questions
+
+When something about a ComfyUI workflow is unclear (node names, which package a node comes from, how nodes are wired), **ask before making changes**.
+
+- The user can check ComfyUI while it's running and provide node **names** (even if not node IDs)
+- The workflow JSON is human-readable — check it first before guessing
+- Speculative edits followed by reversions waste far more time than one clarifying question
+- Never assume node ownership from JSON metadata alone (`cnr_id` can be wrong/stale)
+
+**The rule:** if confused, ask. One question → correct fix. Guessing → chain of wrong edits → backlog.
+
+---
+
 ## Claude Code Behaviour
 
 ### Preset Management Rule
