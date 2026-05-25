@@ -865,6 +865,12 @@ The following features were inspired by Civitai's training interface:
 **New idea — post-training "Test in ComfyUI →" button:**
 After a training run finishes, offer a button to jump straight to testing the new LoRA in ComfyUI. KEY: `extra_model_paths.yaml` already maps `output/`→ComfyUI loras, so the trained LoRA is **already visible** in ComfyUI's picker — no file copy needed. Implement as a deep-link to the Generate page (ideally pre-filling the LoRA), not a copy operation. Small frontend job.
 
+**Considering — forking / KNX-inspired custom ComfyUI nodes:**
+- Currently the Save Image node in the sdxl-knx workflow is willmiao's **Save Image (LoraManager)** (saves CivitAI info + thumbnails + workflow — genuinely great).
+- Open question (Dusk): can we embed a custom **"software" tag** identifying this trainer into saved images WITHOUT writing our own node?
+- Likely path that avoids a custom node: ComfyUI's **`extra_pnginfo`** mechanism. We *already* pass `extra_data.extra_pnginfo.workflow` on submit (see `templateInjector.ts`); arbitrary extra keys (e.g. `software: "Ktiseos-Nyx-Trainer"`) can ride alongside and a spec-compliant SaveImage embeds each as a PNG text chunk. **NEEDS VERIFY:** whether the LoraManager Save Image node iterates *all* `extra_pnginfo` keys or only `workflow`/`prompt`. If it ignores extra keys → then yes, a forked or KNX-inspired save node is the way to control metadata.
+- Broader: tracking the option to fork or build KNX-inspired nodes for tighter integration if upstream nodes don't expose what we need.
+
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
 **Completed this session:**
