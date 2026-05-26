@@ -1728,4 +1728,23 @@ Florence-2 requires `flash_attn` for best performance but falls back cleanly to 
 
 ---
 
+## Section 18 — Frontend Tooling & Follow-up Backlog
+
+### 18.1 Priority Matrix
+
+| Item | Effort | Impact | Status |
+|------|--------|--------|--------|
+| **Fix Next-16 lint** — `package.json` lint script is `next lint`, but Next 16 removed the `lint` subcommand (misfires, treats `lint` as a directory). `npx eslint` also fails with `minimatch: expand is not a function` (broken dep). Migrate to ESLint flat config (`eslint.config.mjs`) + repair the dep. Gate frontend changes with `npx tsc --noEmit` until fixed. | Small | High | ⏳ Not started |
+| **Frontend unit tests** — no React/Next test runner exists (`tests/` is Python only). Recommend Vitest + React Testing Library (Next 16 / React 19 fit). Would let us unit-test things like the gallery keyboard accessibility instead of relying on manual visual checks. Ties into the existing "smoke tests" intent. | Medium | Medium | ⏳ Not started |
+| **LyCORIS re-sync** — vendored LyCORIS is at 67372a `dev16` (synced 2026-05-05); upstream `dev` HEAD adds 4 newer algos not yet vendored: PiSSA, RaLoRA, GoRA, LoRA². Wholesale re-sync per the methodology, then register in `modules/__init__.py` + `config.py` and (optionally) the frontend LoRA-type dropdown. Nothing is broken without them. See §11.1. | Small | Low | ⏳ Not started |
+| **`train_llm_adapter` wiring (Anima)** — the arg exists in the vendored backend (sd_scripts `lora_anima.py` + LyCORIS) and is documented, but is NOT exposed in the config flow (`api.ts` / `validation.ts` / `config-service.ts` / `kohya_toml.py` / presets / UI). Currently defaults `False` with no way to enable. Mind the Anima (`networks.lora_anima`) vs LyCORIS network_args path difference. | Small | Low | ⏳ Not started |
+| **Preset audit + rename** — review presets for what's actually useful; rename misleading names (e.g. the Illustrious preset labelled "Conservative" that's actually a fast/clean config). Distinct from the format-migration audit (§5.0.96) and optimizer-args contamination (§5.1) — this is a content/naming pass. | Small | Medium | ⏳ Not started |
+
+### 18.2 Notes
+
+- The hand-built `components/effects/*` (and `components/BorderGlow.jsx`) are confirmed duplicates of installed shadcn/registry components (`shiny-button`, `shine-border`, `hover-border-gradient`, `rainbow-button`, `backlight`, `spotlightcard`, …). Retiring them is already tracked as the "Custom → shadcn audit" row in §14.6.
+- Root cause of the duplication (per §14.6): components were built custom early, before knowing what shadcn/the installed registries already provided. Rule going forward: use the installed component; only hand-build when nothing installed/installable fits.
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project
