@@ -19,7 +19,7 @@ Audited 2026-05-26. `components.json` has ~25 registries wired up (@magicui, @ac
 |---|---|---|
 | Glowing CTA | `shiny-button.tsx` (`ShinyButton`) — `cva`+`Slot`+`forwardRef`, real `<button>`, focus ring, `disabled`, configurable gradient. Verified accessible. | `effects/gradient-border-button` (raw `<button>`) |
 | Animated glow/shimmer border | `shine-border.tsx` (`ShineBorder`) — overlay; `shine` keyframe confirmed in `globals.css:106` | `effects/shimmer-border`, `BorderGlow.jsx` |
-| Hover glow on cards | `hover-border-gradient.tsx` (verify API at impl) | `effects/gradient-border-card` |
+| Hover glow on cards | theme-aware Tailwind ring/glow (`hover:`+`focus-visible:`). NOT `hover-border-gradient` — on inspection it's a pill-shaped, hardcoded-black, blue-highlight component unsuited to square image thumbnails. | `effects/gradient-border-card` |
 | Inset surface / texture | shadcn `Card` + theme tokens, or `texture-card.tsx` | — |
 | Noise overlay | `noise-texture.tsx` — already mounted on the page; no change | — |
 
@@ -36,7 +36,7 @@ Other installed options available if preferred: `rainbow-button`, `backlight`, `
 | **Generate button** (hero CTA) | `GenerateUI.tsx:888` | Use the installed **`ShinyButton`** (`components/ui/shiny-button`) for the idle Generate CTA — it's a real accessible `<button>` (focus ring, `disabled`), so we keep the `ClickSpark` wrapper and `disabled`/`queued` states. Tune its gradient to the app palette (purple/pink). The **Stop** (generating) button stays a plain destructive `Button`. |
 | **Generation-active state** | `GenerationProgress` (`:290`) | Wrap the active progress zone in **`ShineBorder`** (`components/ui/shine-border`, purple, slow) so "working" visibly breathes. Keep the existing `Progress` bar inside. Only renders while `isGenerating`. |
 | **Gallery empty state** | `ImageGallery` (`:241`) | Replace the dashed-box placeholder with a soft **`ShineBorder`** (or `backlight`) frame + friendlier copy, so the empty canvas reads as an invitation rather than a placeholder. |
-| **Gallery thumbnails (hover)** | `ImageGallery` (`:256`) | Give the thumbnail `Button`s a hover glow via **`hover-border-gradient`** (`components/ui/`) so browsing results feels tactile. Hover-only; must preserve the keyboard focus/activation already in place. |
+| **Gallery thumbnails (hover)** | `ImageGallery` (`:256`) | Give the thumbnail `Button`s a theme-aware **Tailwind** ring/glow on `hover:` AND `focus-visible:` (keyboard parity) so browsing feels tactile. NOT `hover-border-gradient` (unsuitable — pill/black/blue, not theme-aware). Preserve the keyboard focus/activation already in place. |
 
 ### Calm but contrastive — no glow, structural contrast only
 
