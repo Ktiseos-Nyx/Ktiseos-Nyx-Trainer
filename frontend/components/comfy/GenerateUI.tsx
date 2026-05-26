@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, RefreshCw, Square, Shuffle, ExternalLink } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { ShinyButton } from '@/components/ui/shiny-button';
 import {
   Dialog,
   DialogContent,
@@ -881,12 +882,18 @@ export function GenerateUI({
                   Stop generation
                 </Button>
               ) : (
-                <Button className="w-full gap-2" onClick={handleGenerate} disabled={!canGenerate || !isConnected}>
+                <ShinyButton
+                  onClick={handleGenerate}
+                  disabled={!canGenerate || !isConnected}
+                  gradientFrom="#a855f7"
+                  gradientTo="#ec4899"
+                  style={{ width: '100%' }}
+                >
                   Generate
                   {queueRemaining > 0 && (
                     <span className="ml-1 text-xs opacity-70">({queueRemaining} queued)</span>
                   )}
-                </Button>
+                </ShinyButton>
               )}
             </ClickSpark>
             {!isConnected && (
