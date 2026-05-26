@@ -33,7 +33,6 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -559,7 +558,7 @@ export function GenerateUI({
             <div className="space-y-5 p-4">
 
               {/* Architecture switcher */}
-              <div className="space-y-1">
+              <div className="space-y-1 rounded-lg border border-border/40 bg-muted/30 p-3">
                 <SectionLabel>Workflow</SectionLabel>
                 <ArchSwitcher mode={templateMode} onChange={setTemplateMode} />
                 <FieldHint>
@@ -568,11 +567,8 @@ export function GenerateUI({
                     : 'NoobAI-XL / Illustrious + Adetailer & upscale'}
                 </FieldHint>
               </div>
-
-              <Separator />
-
               {/* Prompts */}
-              <div className="space-y-3">
+              <div className="space-y-3 rounded-lg border border-border/40 bg-muted/30 p-3">
                 <SectionLabel>Prompts</SectionLabel>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Positive</Label>
@@ -593,12 +589,9 @@ export function GenerateUI({
                   />
                 </div>
               </div>
-
-              <Separator />
-
               {/* Model — ANIMA */}
               {templateMode === 'anima' && (
-                <div className="space-y-3">
+                <div className="space-y-3 rounded-lg border border-border/40 bg-muted/30 p-3">
                   <div className="flex items-center justify-between">
                     <SectionLabel>Model — ANIMA</SectionLabel>
                     <Button
@@ -664,7 +657,7 @@ export function GenerateUI({
 
               {/* Model — SDXL KNX */}
               {templateMode === 'sdxl-knx' && (
-                <div className="space-y-3">
+                <div className="space-y-3 rounded-lg border border-border/40 bg-muted/30 p-3">
                   <div className="flex items-center justify-between">
                     <SectionLabel>Model — SDXL</SectionLabel>
                     <Button
@@ -710,11 +703,8 @@ export function GenerateUI({
                   </div>
                 </div>
               )}
-
-              <Separator />
-
               {/* Image size */}
-              <div className="space-y-2">
+              <div className="space-y-2 rounded-lg border border-border/40 bg-muted/30 p-3">
                 <SectionLabel>Size</SectionLabel>
                 <div className="grid grid-cols-3 gap-1">
                   {COMMON_SIZES.map(s => (
@@ -740,11 +730,8 @@ export function GenerateUI({
                   </div>
                 </div>
               </div>
-
-              <Separator />
-
               {/* Sampler */}
-              <div className="space-y-3">
+              <div className="space-y-3 rounded-lg border border-border/40 bg-muted/30 p-3">
                 <SectionLabel>Sampler</SectionLabel>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -822,12 +809,9 @@ export function GenerateUI({
                 </div>
                 <FieldHint>Seed -1 = random each run · Queue runs = submit N jobs back-to-back</FieldHint>
               </div>
-
-              <Separator />
-
               {/* Post-processing toggles (SDXL KNX only) */}
               {templateMode === 'sdxl-knx' && (
-                <div className="space-y-2">
+                <div className="space-y-2 rounded-lg border border-border/40 bg-muted/30 p-3">
                   <SectionLabel>Post-processing</SectionLabel>
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
@@ -845,11 +829,8 @@ export function GenerateUI({
                   </div>
                 </div>
               )}
-
-              <Separator />
-
               {/* LoRA stack */}
-              <div className="space-y-2">
+              <div className="space-y-2 rounded-lg border border-border/40 bg-muted/30 p-3">
                 <div className="flex items-center justify-between">
                   <SectionLabel>LoRAs</SectionLabel>
                   <div className="flex gap-1">
