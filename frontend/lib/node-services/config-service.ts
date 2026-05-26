@@ -410,7 +410,6 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     output_dir: rpLocal(config.output_dir),
     output_name: config.output_name,
     seed: config.seed,
-    learning_rate: config.unet_lr,
     unet_lr: config.unet_lr,
     text_encoder_lr: config.text_encoder_lr,
     lr_scheduler: config.lr_scheduler,

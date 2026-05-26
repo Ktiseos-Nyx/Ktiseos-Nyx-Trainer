@@ -72,7 +72,7 @@ const defaultConfig: TrainingConfig = {
   text_encoder_lr: 0.00001,
   lr_scheduler: 'cosine_with_restarts',
   lr_scheduler_number: 3,
-  lr_warmup_ratio: 0.1,
+  lr_warmup_ratio: 0,
   lr_warmup_steps: 0,
   lr_power: 1.0,
   lora_type: 'LoRA',
