@@ -242,11 +242,15 @@ function ImageGallery({ images }: { images: ComfyOutputFile[] }) {
 
   if (images.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground/50 p-8 text-center">
-        <div className="h-16 w-16 rounded-2xl border-2 border-dashed border-muted-foreground/20 flex items-center justify-center">
-          <span className="text-2xl">🎨</span>
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <div className="relative overflow-hidden rounded-2xl bg-card/40 px-8 py-10">
+          <ShineBorder shineColor={["#a855f7", "#ec4899", "#38bdf8"]} duration={10} borderWidth={1} />
+          <div className="relative flex flex-col items-center gap-3">
+            <span className="text-3xl">🎨</span>
+            <p className="text-sm font-medium text-muted-foreground">Your canvas is ready</p>
+            <p className="text-xs text-muted-foreground/60">Generated images will appear here</p>
+          </div>
         </div>
-        <p className="text-sm">Generated images will appear here</p>
       </div>
     );
   }
