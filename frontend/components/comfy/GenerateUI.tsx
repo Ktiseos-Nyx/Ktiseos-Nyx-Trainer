@@ -22,6 +22,7 @@ import { Loader2, Plus, Trash2, RefreshCw, Square, Shuffle, ExternalLink } from 
 
 import { Button } from '@/components/ui/button';
 import { ShinyButton } from '@/components/ui/shiny-button';
+import { ShineBorder } from '@/components/ui/shine-border';
 import {
   Dialog,
   DialogContent,
@@ -301,7 +302,8 @@ function GenerationProgress({
   if (!isGenerating) return null;
   const pct = progress ? Math.round((progress.value / progress.max) * 100) : 0;
   return (
-    <div className="flex shrink-0 flex-col gap-1.5 border-t border-border/40 px-3 py-2">
+    <div className="relative flex shrink-0 flex-col gap-1.5 overflow-hidden border-t border-border/40 px-3 py-2">
+      <ShineBorder shineColor={["#a855f7", "#ec4899", "#38bdf8"]} duration={8} borderWidth={1} />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Loader2 className="h-3 w-3 animate-spin" />
