@@ -21,10 +21,15 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, RefreshCw, Square, Shuffle, ExternalLink } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -245,28 +250,14 @@ function ImageGallery({ images }: { images: ComfyOutputFile[] }) {
   }
 
   return (
-    <div className="relative h-full">
-      {selected && (
-        <div
-          className="absolute inset-0 z-10 flex items-center justify-center bg-background/90 backdrop-blur-sm"
-          onClick={() => setSelected(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={comfyClient.getImageUrl(selected)}
-            alt="Generated image"
-            className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          />
-        </div>
-      )}
-      <div className="grid h-full auto-rows-max grid-cols-2 gap-2 overflow-auto p-3 lg:grid-cols-3">
+    <>
+      <div className="grid auto-rows-max grid-cols-2 gap-2 overflow-auto p-3 lg:grid-cols-3">
         {images.map((img, i) => (
           <Button
             key={`${img.filename}-${i}`}
-            variant="outline"
+            variant="ghost"
             onClick={() => setSelected(img)}
-            className="aspect-square h-auto overflow-hidden rounded-lg border-border/50 bg-muted p-0 hover:border-primary/50"
+            className="aspect-square h-auto cursor-pointer overflow-hidden rounded-xl border border-border/50 p-0 transition-all hover:border-primary/50 hover:shadow-md"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -278,7 +269,20 @@ function ImageGallery({ images }: { images: ComfyOutputFile[] }) {
           </Button>
         ))}
       </div>
-    </div>
+
+      <Dialog open={!!selected} onOpenChange={open => { if (!open) setSelected(null); }}>
+        <DialogContent className="max-w-4xl border-border/50 bg-background/95 p-2 backdrop-blur-sm">
+          {selected && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={comfyClient.getImageUrl(selected)}
+              alt={selected.filename}
+              className="max-h-[85vh] w-full rounded-md object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -304,12 +308,7 @@ function GenerationProgress({
         </span>
         {progress && <span>{pct}%</span>}
       </div>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-all duration-100"
-          style={{ width: progress ? `${pct}%` : '0%' }}
-        />
-      </div>
+      <Progress value={pct} className="h-1 bg-muted" />
     </div>
   );
 }
@@ -455,12 +454,6 @@ export function GenerateUI({
     setLoras(prev => prev.filter((_, idx) => idx !== i));
   }, []);
 
-  /** Convert LoraEntry[] → LoRA Manager text format for template injection. */
-  const loraText = loras
-    .filter(l => l.name.trim())
-    .map(l => `<lora:${l.name.trim()}:${(l.modelWeight ?? 1).toFixed(2)}>`)
-    .join('');
-
   /** Whether the required model fields for the current mode are filled. */
   const canGenerate = templateMode === 'anima'
     ? Boolean(unetName.trim())
@@ -481,7 +474,7 @@ export function GenerateUI({
           positivePrompt, negativePrompt,
           steps, cfg, sampler, scheduler, seed,
           width, height, batchSize,
-          loraText: loraText || undefined,
+          loras: loras.filter(l => l.name.trim()),
         });
         const { apiPrompt, workflow } = injectTemplate(animaWorkflow, patch);
         await submitPrompt({
@@ -495,7 +488,7 @@ export function GenerateUI({
           positivePrompt, negativePrompt,
           steps, cfg, sampler, scheduler, seed,
           width, height, batchSize,
-          loraText: loraText || undefined,
+          loras: loras.filter(l => l.name.trim()),
           upscaleEnabled,
           adetailerEnabled,
         });
@@ -539,7 +532,7 @@ export function GenerateUI({
     unetName, clipName, animaVae, checkpointName, sdxlVae,
     positivePrompt, negativePrompt,
     steps, cfg, sampler, scheduler, seed,
-    width, height, batchSize, queueCount, loraText,
+    width, height, batchSize, queueCount, loras,
     upscaleEnabled, adetailerEnabled,
     submitPrompt,
   ]);

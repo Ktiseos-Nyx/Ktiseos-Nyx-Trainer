@@ -61,6 +61,7 @@
  */
 
 import type { WorkflowPatch } from '../templateInjector';
+import type { LoraEntry } from '../workflows';
 
 export interface SdxlKnxBuildResult {
   patch: WorkflowPatch;
@@ -97,10 +98,10 @@ export interface SdxlKnxTemplateParams {
   /** Batch size. Default 1. */
   batchSize?: number;
   /**
-   * LoRA text in LoRA Manager format.
-   * E.g. "<lora:my_lora:1.00>". Multiple LoRAs can be chained.
+   * LoRAs to apply. Each entry is loaded via the LoRA Manager node's
+   * structured `loras` widget — the Python backend ignores the `text` field.
    */
-  loraText?: string;
+  loras?: LoraEntry[];
   /** Upscale model filename (e.g. "4x_CountryRoads_377000_G.pth"). */
   upscaleModel?: string;
   /** Upscale factor (e.g. 1.5). Default 1.5. */
@@ -220,12 +221,20 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildRe
   }
 
   // Node 64: Lora Loader (LoraManager)
-  // Always patch both text (index 1) and loras array (index 2) so template
-  // defaults never survive into a live submission.
+  // The Python backend reads the 'loras' widget (index 2) as structured objects.
+  // The 'text' field (index 1) is an AUTOCOMPLETE UI widget — explicitly deleted
+  // by the Python node and NOT used to determine which LoRAs to load.
+  // Format per _collect_widget_entries: { name, active, strength, clipStrength }.
   patch['64'] = {
     ...patch['64'],
-    1: params.loraText ?? '',
-    2: [],
+    2: (params.loras ?? [])
+      .filter(l => l.name.trim())
+      .map(l => ({
+        name: l.name.trim(),
+        active: true,
+        strength: l.modelWeight ?? 1.0,
+        clipStrength: l.clipWeight ?? l.modelWeight ?? 1.0,
+      })),
   };
 
   // Node 65: Save Image (LoraManager)

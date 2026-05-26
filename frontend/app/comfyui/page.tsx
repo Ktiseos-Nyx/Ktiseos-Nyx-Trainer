@@ -18,6 +18,7 @@ import { ComfyConnectionStatus } from '@/components/comfy/ComfyConnectionStatus'
 import { GenerateUI } from '@/components/comfy/GenerateUI';
 import { useComfyConnection } from '@/lib/comfy';
 import BorderGlow from '@/components/BorderGlow';
+import { NoiseTexture } from '@/components/ui/noise-texture';
 
 // ─── Pre-connect status cards ─────────────────────────────────────────────────
 
@@ -137,7 +138,8 @@ export default function ComfyUIPage() {
   }, [status]);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="relative flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+      <NoiseTexture noiseOpacity={0.25} frequency={0.65} />
       {/* Page header */}
       <div className="flex items-center justify-between border-b border-border/40 px-6 py-3 shrink-0">
         <div className="flex items-center gap-3">

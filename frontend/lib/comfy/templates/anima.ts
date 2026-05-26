@@ -43,6 +43,7 @@
  */
 
 import type { WorkflowPatch } from '../templateInjector';
+import type { LoraEntry } from '../workflows';
 
 export interface AnimaTemplateParams {
   /** ANIMA UNET filename (e.g. "anima_baseV10.safetensors"). */
@@ -72,11 +73,10 @@ export interface AnimaTemplateParams {
   /** Batch size. Default 1. */
   batchSize?: number;
   /**
-   * LoRA text in LoRA Manager format.
-   * E.g. "<lora:my_lora:1.00>" — multiple LoRAs can be chained.
-   * Leave empty for no LoRAs.
+   * LoRAs to apply. Each entry is loaded via the LoRA Manager node's
+   * structured `loras` widget — the Python backend ignores the `text` field.
    */
-  loraText?: string;
+  loras?: LoraEntry[];
   /** AuraFlow sigma shift for ModelSamplingAuraFlow. Default 5. */
   auraShift?: number;
   /** Output filename prefix. Default "ComfyUI". */
@@ -153,9 +153,21 @@ export function buildAnimaPatch(params: AnimaTemplateParams): WorkflowPatch {
     patch['39'] = { ...patch['39'], 0: params.auraShift };
   }
 
-  // Node 64: Lora Loader (LoraManager) — patch the text field (index 1)
-  if (params.loraText !== undefined) {
-    patch['64'] = { ...patch['64'], 1: params.loraText };
+  // Node 64: Lora Loader (LoraManager)
+  // Same as SDXL: the Python backend uses the 'loras' widget (index 2),
+  // not the 'text' field (index 1) which is deleted before processing.
+  if (params.loras !== undefined) {
+    patch['64'] = {
+      ...patch['64'],
+      2: params.loras
+        .filter(l => l.name.trim())
+        .map(l => ({
+          name: l.name.trim(),
+          active: true,
+          strength: l.modelWeight ?? 1.0,
+          clipStrength: l.clipWeight ?? l.modelWeight ?? 1.0,
+        })),
+    };
   }
 
   // Node 65: Save Image (LoraManager)
