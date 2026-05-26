@@ -263,7 +263,7 @@ function ImageGallery({ images }: { images: ComfyOutputFile[] }) {
             key={`${img.filename}-${i}`}
             variant="ghost"
             onClick={() => setSelected(img)}
-            className="aspect-square h-auto cursor-pointer overflow-hidden rounded-xl border border-border/50 p-0 transition-all hover:border-primary/50 hover:shadow-md"
+            className="aspect-square h-auto cursor-pointer overflow-hidden rounded-xl border border-border/50 p-0 transition-all hover:border-primary/60 hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.5),0_4px_20px_-2px_hsl(var(--primary)/0.35)] focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_1px_hsl(var(--primary)/0.5),0_4px_20px_-2px_hsl(var(--primary)/0.35)]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
