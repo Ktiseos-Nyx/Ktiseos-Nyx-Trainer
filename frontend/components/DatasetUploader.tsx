@@ -117,17 +117,6 @@ export default function DatasetUploader() {
     multiple: true,
   });
 
-  // Check if Remote GPU Mode is enabled in user settings
-  const isRemoteGPU = (): boolean => {
-    try {
-      const stored = localStorage.getItem('ktiseos-nyx-settings');
-      if (stored) {
-        return JSON.parse(stored).remoteGPU === true;
-      }
-    } catch { /* ignore */ }
-    return false;
-  };
-
   const handleUpload = async () => {
     if (files.length === 0) {
       toast.warning('No files to upload');
@@ -150,14 +139,16 @@ export default function DatasetUploader() {
 
     try {
       const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
-
-      if (isRemoteGPU()) {
-        // Remote GPU Mode: zip all images and send as single request
-        await handleUploadZipped(imageFiles);
-      } else {
-        // Local mode: upload individually with per-file progress
-        await handleBatchUpload(imageFiles);
+      if (imageFiles.length === 0) {
+        toast.warning('No images to upload');
+        return;
       }
+
+      // Always upload images as an in-memory ZIP sent in resumable chunks: works
+      // identically local and through a proxy/tunnel, survives flaky connections,
+      // and avoids the old failure where a large batch went up as a single
+      // multi-hundred-MB request and died with "Failed to fetch".
+      await handleUploadZipped(imageFiles);
 
       toast.success('Upload complete!');
 
@@ -175,41 +166,6 @@ export default function DatasetUploader() {
     } finally {
       setUploading(false);
       setUploadPhase(null);
-    }
-  };
-
-  // Upload all files in a single batch request (avoids per-file round-trip overhead)
-  const handleBatchUpload = async (imageFiles: UploadedFile[]) => {
-    if (imageFiles.length === 0) return;
-
-    const imageFileSet = new Set(imageFiles.map(f => f.file));
-
-    // Mark all as uploading at once
-    setFiles(prev =>
-      prev.map(f =>
-        imageFileSet.has(f.file) ? { ...f, status: 'uploading' } : f
-      )
-    );
-
-    try {
-      await datasetAPI.uploadBatch(imageFiles.map(f => f.file), datasetName);
-
-      setFiles(prev =>
-        prev.map(f =>
-          imageFileSet.has(f.file)
-            ? { ...f, status: 'success', progress: 100 }
-            : f
-        )
-      );
-    } catch (err) {
-      setFiles(prev =>
-        prev.map(f =>
-          imageFileSet.has(f.file)
-            ? { ...f, status: 'error', error: String(err) }
-            : f
-        )
-      );
-      throw err;
     }
   };
 
@@ -287,7 +243,8 @@ export default function DatasetUploader() {
     }
   };
 
-  // Remote GPU mode: zip images in memory, then send via chunked upload
+  // Zip images in memory (store-only), then send via chunked upload.
+  // Used for ALL image uploads — robust locally and through a proxy/tunnel.
   const handleUploadZipped = async (imageFiles: UploadedFile[]) => {
     setFiles(prev =>
       prev.map(f =>

@@ -461,21 +461,6 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // Upload multiple files in one request
-  uploadBatch: async (files: File[], datasetName: string) => {
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('files', file);
-    });
-    formData.append('dataset_name', datasetName);
-
-    const response = await fetch(`${API_BASE}/dataset/upload-batch`, {
-      method: 'POST',
-      body: formData,
-    });
-    return handleResponse(response);
-  },
-
   // HTTP polling for tagging logs (replaces WebSocket which breaks through Caddy)
   pollTaggingLogs: (
     jobId: string,
