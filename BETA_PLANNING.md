@@ -74,6 +74,21 @@ Target: `overwrite_mode: "ignore" | "append" | "overwrite"`
 
 Visual tag editing per image: show tags as badge chips with X to remove, textarea to add new tags. Would require the frontend to read/write individual .txt caption files via API.
 
+### 1.5 Delete Image from Tag Editor (NEW FEATURE)
+**Priority:** Medium (Beta QOL)
+
+Let users delete an image directly from the tag editor (remove a mistakenly-added pic). Three pieces:
+- New `/api/dataset/delete-image` route — takes dataset + image name, uses the existing `validateDatasetPath` guard, deletes the image **and its sibling `.txt` caption**.
+- `datasetAPI.deleteImage(...)` client method.
+- Per-image delete button in the editor behind an AlertDialog confirm (the Models-page pattern, never native `confirm()`), then drop the image from state.
+
+Estimate: ~1–2 hrs, low-to-moderate — path-safety helper and the `name.txt` caption convention already exist, so the risky parts are easy.
+
+### 1.6 Breadcrumbs on Tag Editor / Dataset Sub-Pages
+**Priority:** Low (Beta QOL)
+
+The dataset sub-pages (`/dataset/[name]/tags`, `/auto-tag`, `/tag-processing`) lack a breadcrumb trail (e.g. Home › Dataset › [name] › Tags). Bigger than it looks: requires threading the dataset name + current sub-page context through these routes rather than a single static breadcrumb.
+
 ---
 
 ## 2. Checkpoint Training - Audit Results
