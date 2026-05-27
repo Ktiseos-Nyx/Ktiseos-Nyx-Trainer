@@ -80,6 +80,8 @@ cd Ktiseos-Nyx-Trainer
 
 Both scripts will prompt about creating a virtual environment. Pass `--venv` or `--no-venv` to skip the prompt; `--auto` for fully unattended install.
 
+**ComfyUI** (image generation) installs by default — including on cloud. To skip it, pass `--no-comfyui` (e.g. `install.bat --no-comfyui`, `./install.sh --no-comfyui`, or `python installer.py --no-comfyui` on a remote instance).
+
 **Cloud:** Use the VastAI or RunPod deploy buttons above. Both auto-configure on launch.
 
 > New to RunPod? [Sign up here](https://runpod.io?ref=yx1lcptf) for bonus credits.

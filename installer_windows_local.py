@@ -34,11 +34,12 @@ if sys.platform == "win32":
 class LocalWindowsInstaller:
     """Local Windows Installer for Ktiseos-Nyx-Trainer Backend + Frontend Dependencies"""
 
-    def __init__(self, verbose=False, skip_install=False, force=False):
+    def __init__(self, verbose=False, skip_install=False, force=False, skip_comfyui=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
         self.force = force
+        self.skip_comfyui = skip_comfyui
         self.install_marker = os.path.join(self.project_root, "install_complete.marker")
 
         self.setup_logging()
@@ -867,15 +868,19 @@ class LocalWindowsInstaller:
 
             # =============== COMFYUI SETUP ==================
             # Optional — failures here do NOT abort the installation.
-            try:
-                self.logger.info("Installing ComfyUI (optional — failures are non-fatal)...")
-                print("\n 🎨 [ComfyUI] Installing ComfyUI and required custom nodes...")
-                self.install_comfyui()
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except Exception as ce:
-                self.logger.warning("Unexpected error in ComfyUI install: %s", ce)
-                print(f" ⚠️  ComfyUI install skipped due to error: {ce}")
+            if self.skip_comfyui:
+                self.logger.info("Skipping ComfyUI installation (--no-comfyui).")
+                print("\n 🎨 [ComfyUI] Skipped (--no-comfyui).")
+            else:
+                try:
+                    self.logger.info("Installing ComfyUI (optional — failures are non-fatal)...")
+                    print("\n 🎨 [ComfyUI] Installing ComfyUI and required custom nodes...")
+                    self.install_comfyui()
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception as ce:
+                    self.logger.warning("Unexpected error in ComfyUI install: %s", ce)
+                    print(f" ⚠️  ComfyUI install skipped due to error: {ce}")
             # ===================================================
 
             end_time = datetime.datetime.now()
@@ -953,9 +958,15 @@ Logs: logs/installer_windows_local_TIMESTAMP.log
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     parser.add_argument("--skip-install", action="store_true", help="Skip dependency installation")
     parser.add_argument("--force", "-f", action="store_true", help="Force reinstall even if already installed")
+    parser.add_argument("--no-comfyui", action="store_true", help="Skip ComfyUI installation (installs by default)")
     args = parser.parse_args()
     try:
-        installer = LocalWindowsInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
+        installer = LocalWindowsInstaller(
+            verbose=args.verbose,
+            skip_install=args.skip_install,
+            force=args.force,
+            skip_comfyui=args.no_comfyui,
+        )
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:

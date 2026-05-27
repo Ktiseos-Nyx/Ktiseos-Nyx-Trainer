@@ -31,11 +31,12 @@ def get_python_command():
 class RemoteInstaller:
     """Unified Installer for Ktiseos-Nyx-Trainer Backend Dependencies"""
 
-    def __init__(self, verbose=False, skip_install=False, force=False):
+    def __init__(self, verbose=False, skip_install=False, force=False, skip_comfyui=False):
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
         self.force = force
+        self.skip_comfyui = skip_comfyui
         self.install_marker = os.path.join(self.project_root, "install_complete.marker")
 
         # Setup logging
@@ -703,9 +704,13 @@ class RemoteInstaller:
                 self.logger.warning(warning_msg)
                 print(f"{warning_msg}")
 
-            self.logger.info("Installing ComfyUI (optional — failures are non-fatal)...")
-            print("\n[ComfyUI] Installing ComfyUI and required custom nodes...")
-            self.install_comfyui()
+            if self.skip_comfyui:
+                self.logger.info("Skipping ComfyUI installation (--no-comfyui).")
+                print("\n[ComfyUI] Skipped (--no-comfyui).")
+            else:
+                self.logger.info("Installing ComfyUI (optional — failures are non-fatal)...")
+                print("\n[ComfyUI] Installing ComfyUI and required custom nodes...")
+                self.install_comfyui()
 
             end_time = datetime.datetime.now()
             duration = end_time - start_time
@@ -780,10 +785,21 @@ Logs are automatically saved to logs/app_YYYYMMDD.log for debugging.
         help="Force reinstall even if already installed",
     )
 
+    parser.add_argument(
+        "--no-comfyui",
+        action="store_true",
+        help="Skip ComfyUI installation (ComfyUI installs by default, including on remote/cloud)",
+    )
+
     args = parser.parse_args()
 
     try:
-        installer = RemoteInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
+        installer = RemoteInstaller(
+            verbose=args.verbose,
+            skip_install=args.skip_install,
+            force=args.force,
+            skip_comfyui=args.no_comfyui,
+        )
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
