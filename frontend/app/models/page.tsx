@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Progress } from '@/components/ui/progress';
 
 export type ModelType = 'sdxl' | 'sd15' | 'flux' | 'sd3.5' | 'chroma' | 'anima' | 'hunyuanimage' | 'lumina';
 
@@ -43,6 +44,7 @@ export default function ModelsPage() {
   const [downloadType, setDownloadType] = useState<'model' | 'vae'>('model');
   const [modelType, setModelType] = useState<ModelType>('sdxl');
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadResult, setDownloadResult] = useState<any>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -106,6 +108,7 @@ export default function ModelsPage() {
       setDownloading(true);
       setDownloadError(null);
       setDownloadResult(null);
+      setDownloadProgress(0);
 
       const result = await modelsAPI.download(
         downloadUrl,
@@ -113,6 +116,7 @@ export default function ModelsPage() {
         modelType,
         destination,
         destination === 'comfyui' ? comfyuiFolder : undefined,
+        setDownloadProgress,
       );
 
       setDownloadResult(result);
@@ -230,6 +234,12 @@ export default function ModelsPage() {
                     <p className="text-cyan-300/70 text-xs mt-2">
                       This may take several minutes depending on file size and network speed. Please do not close this page.
                     </p>
+                    <div className="mt-3">
+                      <Progress value={downloadProgress} className="h-2 bg-cyan-950/50" />
+                      <p className="text-cyan-300/80 text-xs mt-1 tabular-nums">
+                        {downloadProgress > 0 ? `${downloadProgress}%` : 'Preparing download…'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1241,15 +1241,21 @@ export interface PopularModelsResponse {
 }
 
 export const modelsAPI = {
-  // NOTE: Download stays on Python backend (uses huggingface_hub)
+  // NOTE: Download stays on Python backend (uses huggingface_hub).
+  // The backend now runs the download as a background job and returns a job_id
+  // immediately; we poll for completion here. This keeps each request short so a
+  // long multi-GB download no longer holds one connection open past the tunnel's
+  // timeout (the old cause of 502s). Returns the final result on completion so
+  // callers keep the same {success, file_path, file_name, size_mb, ...} shape.
   download: async (
     url: string,
     downloadType: 'model' | 'vae' | 'lora',
     modelType?: string,
     destination: 'training' | 'comfyui' = 'training',
     comfyuiFolder?: string,
+    onProgress?: (progress: number) => void,
   ) => {
-    const response = await fetch(`${API_BASE}/models/download`, {
+    const startResp = await fetch(`${API_BASE}/models/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1260,7 +1266,29 @@ export const modelsAPI = {
         comfyui_folder: comfyuiFolder,
       }),
     });
-    return handleResponse(response);
+    const { job_id: jobId } = await handleResponse(startResp);
+
+    const POLL_INTERVAL_MS = 1500;
+    // Poll until the job reaches a terminal state. A 404 (e.g. server restarted,
+    // in-memory job lost) surfaces through handleResponse and breaks the loop.
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      const statusResp = await fetch(`${API_BASE}/models/download/status/${jobId}`);
+      const status = await handleResponse(statusResp);
+
+      if (onProgress && typeof status.progress === 'number') {
+        onProgress(status.progress);
+      }
+
+      if (status.status === 'completed') {
+        onProgress?.(100);
+        return status.result ?? { success: true, message: 'Download complete' };
+      }
+      if (status.status === 'failed' || status.status === 'cancelled') {
+        throw new Error(status.error || status.result?.error || 'Download failed');
+      }
+      // running / pending — keep polling
+    }
   },
 
   // Next.js route handler — scans local + cloud GPU paths for models/VAEs/text_encoders

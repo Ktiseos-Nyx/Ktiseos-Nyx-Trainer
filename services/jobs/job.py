@@ -54,6 +54,10 @@ class Job:
     error: Optional[str] = None
     error_traceback: Optional[str] = None
 
+    # Arbitrary result payload for non-subprocess coroutine jobs (e.g. a download's
+    # final file_path/size/method). Unused by subprocess jobs like training/tagging.
+    result: Optional[dict] = None
+
     def __post_init__(self):
         """Initialise the log deque with the configured max_logs capacity."""
         self.logs = deque(maxlen=self.max_logs)

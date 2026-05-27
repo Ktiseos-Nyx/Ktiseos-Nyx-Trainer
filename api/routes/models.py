@@ -2,17 +2,49 @@
 API routes for model and VAE downloads.
 """
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from services import model_service
+from services.jobs.job_manager import job_manager
+from services.models.job import JobStatus, JobStatusEnum, JobType, JobCreateResponse
 from services.models.model_download import (
     DownloadConfig,
     ModelType,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+async def _run_download_job(config: DownloadConfig, download_type: ModelType, job) -> dict:
+    """
+    Coroutine body for a DOWNLOAD job: run the download and return a JSON-safe
+    dict (enums coerced to their values) for storage on ``job.result``. A failed
+    download keeps ``success=False`` so the job is marked FAILED, not COMPLETED.
+
+    Receives the Job so download progress can be mirrored onto ``job.progress``
+    (monotonic — never moves backwards) for the status-polling client.
+    """
+    def _on_progress(pct: int) -> None:
+        if pct > job.progress:
+            job.progress = pct
+
+    resp = await model_service.download_model_or_vae(config, progress_callback=_on_progress)
+    method = resp.download_method
+    return {
+        "success": resp.success,
+        "message": resp.message,
+        "file_path": resp.file_path,
+        "file_name": resp.file_name,
+        "size_mb": resp.size_mb,
+        "download_method": getattr(method, "value", method),
+        "error": resp.error,
+        "type": getattr(download_type, "value", download_type),
+    }
 
 
 class DownloadRequest(BaseModel):
@@ -27,12 +59,15 @@ class DownloadRequest(BaseModel):
     comfyui_folder: Optional[str] = None
 
 
-@router.post("/download")
+@router.post("/download", response_model=JobCreateResponse)
 async def download_model_or_vae(request: DownloadRequest):
     """
-    Download a model or VAE from HuggingFace or Civitai.
+    Start a model/VAE download from HuggingFace or Civitai.
 
-    Returns download status and file information.
+    Returns immediately with a ``job_id``; the actual download runs in the
+    background. Poll ``GET /models/download/status/{job_id}`` for progress and
+    the final file info. (Synchronous downloads previously held the HTTP request
+    open for the whole transfer and timed out into 502s behind the tunnel.)
     """
     try:
         # Import settings to get API keys
@@ -78,26 +113,37 @@ async def download_model_or_vae(request: DownloadRequest):
             model_type=request.download_type
         )
 
-        # Download using service
-        result = await model_service.download_model_or_vae(config)
-
-        if result.success:
-            return {
-                "success": True,
-                "message": result.message,
-                "file_path": result.file_path,
-                "file_name": result.file_name,
-                "size_mb": result.size_mb,
-                "type": request.download_type,
-                "download_method": result.download_method
-            }
-        else:
-            raise HTTPException(status_code=500, detail=result.error or result.message)
+        # Run the download as a background job and return immediately. Holding the
+        # request open for the whole multi-GB download is what timed out into 502s
+        # behind the cloudflared tunnel; the client polls /download/status/{job_id}.
+        job_id = job_manager.run_coroutine_job(
+            JobType.DOWNLOAD,
+            lambda job: _run_download_job(config, request.download_type, job),
+        )
+        return JobCreateResponse(
+            job_id=job_id,
+            status=JobStatusEnum.RUNNING,
+            message="Download started",
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/download/status/{job_id}", response_model=JobStatus)
+async def get_download_status(job_id: str):
+    """
+    Get the status of a background download job.
+
+    Returns the job's status (running/completed/failed), progress, and — on
+    completion — the ``result`` payload with file_path/file_name/size_mb/method.
+    """
+    status = await job_manager.get_job_status(job_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Download job not found")
+    return status
 
 
 @router.get("/list")

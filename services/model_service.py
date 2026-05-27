@@ -8,13 +8,14 @@ Handles downloading models, VAEs, and LoRAs with multiple fallback methods:
 - requests (Python fallback)
 """
 
+import asyncio
 import os
 import sys
 import shutil
 import subprocess
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 from urllib.parse import urlparse
 import datetime
 import glob
@@ -57,12 +58,21 @@ class ModelService:
         self.vae_dir.mkdir(parents=True, exist_ok=True)
         self.lora_dir.mkdir(parents=True, exist_ok=True)
 
-    async def download_model_or_vae(self, config: DownloadConfig) -> DownloadResponse:
+    async def download_model_or_vae(
+        self,
+        config: DownloadConfig,
+        progress_callback: Optional[Callable[[int], None]] = None,
+    ) -> DownloadResponse:
         """
         Download a model or VAE with automatic fallback chain.
 
         Args:
             config: Download configuration
+            progress_callback: Optional callable invoked with an integer percent
+                (0-99) as the download grows. Best-effort: it relies on a HEAD
+                request for the total size, so when that can't be determined
+                (some gated/xet cases) no progress is reported and the caller
+                should treat progress as indeterminate.
 
         Returns:
             DownloadResponse with download result
@@ -104,12 +114,40 @@ class ModelService:
 
             logger.info(f"Starting download: {validated_url}")
 
-            # Try download methods in order
-            result_path, method = self._download_with_fallback(
-                validated_url,
-                destination_path,
-                config.api_token
-            )
+            # Best-effort progress: fetch total size, then poll the growing file on
+            # disk while the download runs. Decoupled from the download method so it
+            # works for aria2c, hf_hub_download, and requests alike.
+            stop_event: Optional[asyncio.Event] = None
+            watcher_task: Optional[asyncio.Task] = None
+            if progress_callback is not None:
+                total_size = await asyncio.to_thread(
+                    self._get_total_size, validated_url, config.api_token
+                )
+                if total_size:
+                    stop_event = asyncio.Event()
+                    watcher_task = asyncio.create_task(
+                        self._watch_progress(
+                            destination_path, total_size, progress_callback, stop_event
+                        )
+                    )
+
+            # Try download methods in order. The fallback chain runs blocking work
+            # (subprocess.run for aria2c/wget, synchronous hf_hub_download), so it is
+            # offloaded to a worker thread — otherwise it would freeze the asyncio event
+            # loop for the entire multi-GB download and starve every other request
+            # (including health checks), which the gateway reads as a dead origin (502).
+            try:
+                result_path, method = await asyncio.to_thread(
+                    self._download_with_fallback,
+                    validated_url,
+                    destination_path,
+                    config.api_token,
+                )
+            finally:
+                if stop_event is not None:
+                    stop_event.set()
+                if watcher_task is not None:
+                    await watcher_task
 
             if result_path and result_path.exists():
                 file_size_mb = result_path.stat().st_size / (1024 * 1024)
@@ -221,6 +259,86 @@ class ModelService:
                 return f"https://civitai.com/api/download/models/{match.group(1)}"
 
         return url
+
+    def _get_total_size(self, url: str, api_token: Optional[str] = None) -> Optional[int]:
+        """
+        Resolve the total download size via a HEAD request (following redirects).
+
+        Mirrors the auth/url handling of the download methods so gated HF and
+        token-gated Civitai files report a size. Returns None when the size can't
+        be determined — the caller then treats progress as indeterminate.
+        """
+        try:
+            import requests
+
+            headers = {}
+            download_url = url
+            hostname = (urlparse(url).hostname or "")
+            is_hf_host = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
+            if "civitai.com" in hostname and api_token and "hf" not in api_token:
+                download_url = f"{url}?token={api_token}"
+            elif is_hf_host and api_token:
+                headers["Authorization"] = f"Bearer {api_token}"
+            if is_hf_host and "/blob/" in download_url:
+                download_url = download_url.replace("/blob/", "/resolve/", 1)
+
+            response = requests.head(
+                download_url, headers=headers, allow_redirects=True, timeout=15
+            )
+            content_length = response.headers.get("content-length")
+            if content_length and content_length.isdigit():
+                return int(content_length)
+            return None
+        except Exception as e:
+            logger.debug(f"Could not determine total size for progress: {e}")
+            return None
+
+    def _downloaded_bytes(self, destination: Path) -> int:
+        """
+        Bytes written so far for this download.
+
+        Uses the larger of the final destination file and any in-progress
+        ``*.incomplete`` file under ``.cache`` (where hf_hub_download stages
+        before moving). Taking the max — not a sum — avoids double-counting
+        across the move and never counts unrelated pre-existing models in the
+        directory.
+        """
+        sizes: list[int] = []
+        try:
+            if destination.exists():
+                sizes.append(destination.stat().st_size)
+        except OSError:
+            pass
+
+        cache_dir = destination.parent / ".cache"
+        if cache_dir.exists():
+            try:
+                for partial in cache_dir.rglob("*.incomplete"):
+                    try:
+                        sizes.append(partial.stat().st_size)
+                    except OSError:
+                        pass
+            except OSError:
+                pass
+
+        return max(sizes) if sizes else 0
+
+    async def _watch_progress(
+        self,
+        destination: Path,
+        total_size: int,
+        callback: Callable[[int], None],
+        stop_event: asyncio.Event,
+    ) -> None:
+        """Poll the growing file every second and report percent (capped at 99)."""
+        while not stop_event.is_set():
+            downloaded = await asyncio.to_thread(self._downloaded_bytes, destination)
+            if total_size > 0:
+                callback(min(99, int(downloaded * 100 / total_size)))
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=1.0)
+            except asyncio.TimeoutError:
+                pass
 
     def _download_with_fallback(
         self,
