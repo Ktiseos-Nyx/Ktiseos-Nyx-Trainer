@@ -284,6 +284,16 @@ These are new capabilities (not bugs) for how datasets feed a LoRA run.
 - **Priority:** Medium (Beta)
 - Support multiple subfolders within one dataset, each with its **own activation/trigger tag and `num_repeats`**, mapping to Kohya's multi-`subset` dataset config. Touches three layers: the dataset uploader/structure (create + manage subfolders), the TOML generator (emit one `[[datasets.subsets]]` per folder with its `class_tokens`/caption + repeats), and the training UI (per-folder trigger + repeats inputs). Larger than it looks because it changes the dataset → TOML shape, not just one field.
 
+### 4.4 torchao Optional Dependency (vendored optimizers)
+
+**Priority:** Low (decision needed)
+
+The vendored optimizer package (`trainer/derrian_backend/custom_scheduler/LoraEasyCustomOptimizer/low_bit_optim/`) is torchao-based, and `train_util.py`'s optimizer-signature introspection imports that chain — but `torchao` is in **none** of our requirements. Result: a **non-fatal** `WARNING ... determine default orthograd ... No module named 'torchao'` on every run (seen with CAME), after which it falls back to defaults (orthograd off, torchao state-storage auto-config skipped). Harmless for CAME and standard optimizers.
+
+Verified: `orthograd`/`torchao` appear **only** in the vendored backend — nothing in our generators, presets, or frontend forces them. The warning is pure upstream optimizer-package behavior.
+
+**Decision:** add `torchao` (enables the low-bit/torchao optimizers + orthograd auto-detect, silences the warning) vs. leave it out (heavy, torch-version-coupled dep that CAME doesn't need). If added: pin to our torch version and test on Windows + VastAI + RunPod first. This is ours to own — the vendored backend carries **our own patches** (applied ~Mar–May 2026 after pulled upstream updates broke things), so don't wait on upstream.
+
 ---
 
 ## 5. Miscellaneous Bug Fixes for Beta
