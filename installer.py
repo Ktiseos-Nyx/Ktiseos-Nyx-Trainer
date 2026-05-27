@@ -428,7 +428,10 @@ class RemoteInstaller:
 
         # Clone required custom nodes (allow_failure=True so one bad node doesn't stop the rest)
         os.makedirs(custom_nodes_dir, exist_ok=True)
+        # ComfyUI-Manager first: it lets the user reinstall any node that fails
+        # auto-install (like a flaked LoRA Manager) from the ComfyUI UI.
         custom_nodes = [
+            ("ComfyUI-Manager",           "https://github.com/ltdrdata/ComfyUI-Manager"),
             ("rgthree-comfy",             "https://github.com/rgthree/rgthree-comfy"),
             ("ComfyUI-Lora-Manager",      "https://github.com/willmiao/ComfyUI-Lora-Manager"),
             ("ComfyUI-Impact-Pack",       "https://github.com/ltdrdata/ComfyUI-Impact-Pack"),
@@ -437,6 +440,10 @@ class RemoteInstaller:
             ("comfyui_fearnworksnodes",   "https://github.com/fearnworks/ComfyUI_FearnworksNodes"),
         ]
 
+        # Track nodes that don't fully install so we can report them loudly at the
+        # end instead of silently swallowing the failure (how a missing LoRA
+        # Manager slipped by before).
+        failed_nodes = []
         for node_name, node_url in custom_nodes:
             node_dir = os.path.join(custom_nodes_dir, node_name)
             if os.path.isdir(os.path.join(node_dir, ".git")):
@@ -447,19 +454,37 @@ class RemoteInstaller:
                     allow_failure=True,
                 )
             else:
-                self.run_command(
-                    ["git", "clone", node_url, node_dir],
-                    f"Cloning {node_name}",
-                    allow_failure=True,
-                )
+                # Retry the clone — transient git/network failures are the usual
+                # reason a node silently goes missing on a fresh instance.
+                cloned = False
+                for attempt in range(1, 4):
+                    # A partial dir from a failed attempt blocks the retry; clear it.
+                    if os.path.isdir(node_dir):
+                        shutil.rmtree(node_dir, ignore_errors=True)
+                    label = f"Cloning {node_name}" + (f" (retry {attempt - 1})" if attempt > 1 else "")
+                    if self.run_command(["git", "clone", node_url, node_dir], label, allow_failure=True):
+                        cloned = True
+                        break
+                if not cloned:
+                    failed_nodes.append(node_name)
+                    self.logger.warning("Custom node %s failed to clone after retries", node_name)
+                    continue
             node_req = os.path.join(node_dir, "requirements.txt")
             if os.path.exists(node_req):
                 install_cmd = self.get_install_command("-r", node_req)
-                self.run_command(
+                if not self.run_command(
                     install_cmd,
                     f"Installing {node_name} requirements",
                     allow_failure=True,
-                )
+                ):
+                    failed_nodes.append(f"{node_name} (requirements)")
+
+        if failed_nodes:
+            print("   ⚠️  Custom nodes that did NOT fully install: " + ", ".join(failed_nodes))
+            print("       Re-run the installer, or install them in-app via ComfyUI-Manager.")
+            self.logger.warning("Custom nodes not fully installed: %s", ", ".join(failed_nodes))
+        else:
+            self.logger.info("All custom nodes installed successfully.")
 
         # Write extra_model_paths.yaml so ComfyUI can see the trainer's own model
         # folders (output/, pretrained_model/, vae/) without duplicating files.
