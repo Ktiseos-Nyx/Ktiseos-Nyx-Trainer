@@ -47,6 +47,7 @@ pandas
 scipy
 omegaconf
 huggingface-hub>=0.34.3
+hf-xet~=1.4.2  # Xet (fast Rust) download backend for HF. Standalone pkg on purpose: declaring it here does NOT bump huggingface-hub past transformers' <1.0 cap (verified — installs hf-xet only).
 voluptuous>=0.15.2
 sentencepiece>=0.2.1
 wheel
