@@ -272,6 +272,18 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 - **Problem:** `network_module` is a writable field with default `"networks.lora"` but its docstring says "derived from lora_type". The TOML generator always overrides it via `_get_network_config()`. API users who set this field will see it silently ignored.
 - **Fix:** Either remove the field, make it computed/read-only, or actually respect user overrides.
 
+### 4.3 Training Dataset Features (backlog)
+
+These are new capabilities (not bugs) for how datasets feed a LoRA run.
+
+**LT-FEAT-1: Regularization image support**
+- **Priority:** Medium (Beta)
+- Let a run include a **regularization / class-image** set (Kohya `reg_data_dir` style) to curb overfitting and preserve the base model's prior. Needs: a way to point at / upload a reg-image folder, plumb it into the dataset TOML as a separate subset with `is_reg = true` (and its own `num_repeats`), and a UI field on the training config. Confirm exactly how the vendored sd-scripts expects reg subsets before wiring.
+
+**LT-FEAT-2: Multiple folders per dataset (multi-concept / per-folder activation tags)**
+- **Priority:** Medium (Beta)
+- Support multiple subfolders within one dataset, each with its **own activation/trigger tag and `num_repeats`**, mapping to Kohya's multi-`subset` dataset config. Touches three layers: the dataset uploader/structure (create + manage subfolders), the TOML generator (emit one `[[datasets.subsets]]` per folder with its `class_tokens`/caption + repeats), and the training UI (per-folder trigger + repeats inputs). Larger than it looks because it changes the dataset → TOML shape, not just one field.
+
 ---
 
 ## 5. Miscellaneous Bug Fixes for Beta
