@@ -1442,6 +1442,10 @@ The goal is NOT a ground-up redesign. The component architecture is good, shadcn
 - Consider: active route highlighting is too subtle currently
 - Ecosystem tools (ComfyUI, Dataset Tools when added) should have a distinct "Ecosystem" group in the nav
 
+**G. File Manager**
+- **More contrast** — the file list is low-contrast and hard to scan. Needs clearer row separation, stronger hover/selected states, and a visible dir-vs-file distinction (structural contrast, per the page-by-page approach here).
+- **Copy files (feature, do alongside the contrast pass)** — the files API has list/rename/delete/mkdir/read/write/workspace but **no copy**; `rename` only moves. Add a copy capability: a new `/api/files/copy` route reusing the existing files-route path-safety guards (`is_safe_path`/`ALLOWED_DIRS`), plus a UI action. Pairs naturally with the contrast work since both touch FileManager.
+
 ### 14.4 What NOT to do
 
 - Don't do a full design system overhaul. Keep shadcn/ui, keep the component structure.
