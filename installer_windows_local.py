@@ -580,9 +580,16 @@ class LocalWindowsInstaller:
             "checkpoints", "diffusion_models", "vae", "loras",
             "text_encoders", "clip", "upscale_models", "controlnet",
             "embeddings", "hypernetworks",
+            # Impact Pack detection models
+            "sams",
+            os.path.join("ultralytics", "bbox"),
+            os.path.join("ultralytics", "segm"),
         ]:
             os.makedirs(os.path.join(models_dir, subdir), exist_ok=True)
         self.logger.info("Model subdirectories created under %s", models_dir)
+
+        # Download detection/segmentation models + sync the curated KNX repo.
+        self._download_comfyui_models(models_dir)
 
         # Clone required custom nodes (allow_failure=True so one bad node doesn't stop the rest)
         os.makedirs(custom_nodes_dir, exist_ok=True)
@@ -622,6 +629,81 @@ class LocalWindowsInstaller:
         self.logger.info("ComfyUI installation complete.")
         print("   ✅ ComfyUI installation complete.")
         return True
+
+    def _download_comfyui_models(self, models_dir: str) -> None:
+        """Download Impact Pack detection/segmentation models + the KNX repo.
+
+        SAM and the base face detector come from their upstreams (stdlib urllib,
+        no third-party dep); the curated KNX-Trainer-Models repo is synced via
+        _sync_knx_trainer_models. Downloads skip files already present and all
+        failures are non-fatal.
+        """
+        import urllib.request
+
+        models_to_download = [
+            # SAM (Segment Anything) — used by SAMLoader node
+            (
+                os.path.join("sams", "sam_vit_b_01ec64.pth"),
+                "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
+                "SAM ViT-B (~375 MB)",
+            ),
+            # Ultralytics face detection bbox model — used by UltralyticsDetectorProvider
+            (
+                os.path.join("ultralytics", "bbox", "face_yolov8n.pt"),
+                "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8n.pt",
+                "face_yolov8n (~6 MB)",
+            ),
+        ]
+
+        for rel_path, url, label in models_to_download:
+            dest = os.path.join(models_dir, rel_path)
+            if os.path.exists(dest):
+                print(f"   ✅ {label} already present, skipping")
+                continue
+            print(f"   ⬇️  Downloading {label}...")
+            try:
+                urllib.request.urlretrieve(url, dest)
+                print(f"   ✅ {label} downloaded")
+                self.logger.info("Downloaded %s to %s", label, dest)
+            except Exception as exc:
+                print(f"   ⚠️  {label} download failed (non-fatal): {exc}")
+                self.logger.warning("Failed to download %s: %s", label, exc)
+
+        self._sync_knx_trainer_models(models_dir)
+
+    def _sync_knx_trainer_models(self, models_dir: str) -> None:
+        """Sync the curated KNX-Trainer-Models repo into ComfyUI/models.
+
+        The repo's top-level folders (vae, upscale_models, ultralytics/bbox,
+        ultralytics/segm) mirror ComfyUI's model dirs, so the allow_patterns map
+        1:1 onto the right locations. snapshot_download is resumable and skips
+        files already present, so re-running the installer is cheap. Adding a
+        file to the repo makes it appear here on the next install — no code change
+        needed. All failures are non-fatal.
+        """
+        try:
+            from huggingface_hub import snapshot_download
+        except ImportError as exc:
+            print(f"   ⚠️  huggingface_hub unavailable — skipping KNX-Trainer-Models sync: {exc}")
+            self.logger.warning("huggingface_hub unavailable for KNX-Trainer-Models sync: %s", exc)
+            return
+
+        print("   ⬇️  Syncing KNX-Trainer-Models (VAEs, upscalers, detailers)...")
+        try:
+            snapshot_download(
+                repo_id="KtiseosNyx/KNX-Trainer-Models",
+                local_dir=models_dir,
+                allow_patterns=[
+                    "vae/*", "upscale_models/*",
+                    "ultralytics/bbox/*", "ultralytics/segm/*",
+                ],
+                ignore_patterns=["*.rar", "README.md", ".gitattributes"],
+            )
+            print("   ✅ KNX-Trainer-Models synced into ComfyUI/models")
+            self.logger.info("Synced KNX-Trainer-Models into %s", models_dir)
+        except Exception as exc:
+            print(f"   ⚠️  KNX-Trainer-Models sync failed (non-fatal): {exc}")
+            self.logger.warning("Failed to sync KNX-Trainer-Models: %s", exc)
 
     # ====================================================
 

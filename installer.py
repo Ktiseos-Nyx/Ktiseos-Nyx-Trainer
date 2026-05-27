@@ -531,6 +531,42 @@ class RemoteInstaller:
                 print(f"   ⚠️  {label} download failed (non-fatal): {exc}")
                 self.logger.warning("Failed to download %s: %s", label, exc)
 
+        self._sync_knx_trainer_models(models_dir)
+
+    def _sync_knx_trainer_models(self, models_dir: str) -> None:
+        """Sync the curated KNX-Trainer-Models repo into ComfyUI/models.
+
+        The repo's top-level folders (vae, upscale_models, ultralytics/bbox,
+        ultralytics/segm) mirror ComfyUI's model dirs, so the allow_patterns map
+        1:1 onto the right locations. snapshot_download is resumable and skips
+        files already present, so re-running the installer is cheap. Adding a
+        file to the repo makes it appear here on the next install — no code change
+        needed. All failures are non-fatal.
+        """
+        try:
+            from huggingface_hub import snapshot_download
+        except ImportError as exc:
+            print(f"   ⚠️  huggingface_hub unavailable — skipping KNX-Trainer-Models sync: {exc}")
+            self.logger.warning("huggingface_hub unavailable for KNX-Trainer-Models sync: %s", exc)
+            return
+
+        print("   ⬇️  Syncing KNX-Trainer-Models (VAEs, upscalers, detailers)...")
+        try:
+            snapshot_download(
+                repo_id="KtiseosNyx/KNX-Trainer-Models",
+                local_dir=models_dir,
+                allow_patterns=[
+                    "vae/*", "upscale_models/*",
+                    "ultralytics/bbox/*", "ultralytics/segm/*",
+                ],
+                ignore_patterns=["*.rar", "README.md", ".gitattributes"],
+            )
+            print("   ✅ KNX-Trainer-Models synced into ComfyUI/models")
+            self.logger.info("Synced KNX-Trainer-Models into %s", models_dir)
+        except Exception as exc:
+            print(f"   ⚠️  KNX-Trainer-Models sync failed (non-fatal): {exc}")
+            self.logger.warning("Failed to sync KNX-Trainer-Models: %s", exc)
+
     def apply_special_fixes_and_installs(self):
         self.logger.info("Applying special fixes and performing editable installs...")
 
