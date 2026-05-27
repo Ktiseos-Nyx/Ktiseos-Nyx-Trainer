@@ -3,140 +3,109 @@
 'use client';
 
 import Link from 'next/link';
-import { FolderOpen, Settings, Upload, Calculator, Wrench, Download, Zap, BookOpen, Info } from 'lucide-react';
+import {
+  FolderOpen,
+  Settings,
+  Upload,
+  Calculator,
+  Wrench,
+  Download,
+  Zap,
+  BookOpen,
+  Info,
+  type LucideIcon,
+} from 'lucide-react';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
 
-// --- DASHBOARD COMPONENT ---
+type Tool = {
+  href: string;
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  /** The primary entry point — gets a little extra emphasis/glow. */
+  primary?: boolean;
+};
+
+// Ordered to lead with the core workflow (train → data → models) rather than
+// the old alphabetical-ish artifact order.
+const tools: Tool[] = [
+  { href: '/training', icon: Zap, title: 'Training', description: 'Configure and monitor LoRA training', primary: true },
+  { href: '/dataset', icon: Upload, title: 'Dataset', description: 'Upload and prepare training datasets' },
+  { href: '/models', icon: Download, title: 'Models & VAEs', description: 'Download base models and VAEs' },
+  { href: '/files', icon: FolderOpen, title: 'File Manager', description: 'Browse, upload, and manage your files' },
+  { href: '/calculator', icon: Calculator, title: 'Calculator', description: 'Calculate optimal training steps' },
+  { href: '/utilities', icon: Wrench, title: 'Utilities', description: 'Manage and upload trained LoRAs' },
+  { href: '/settings', icon: Settings, title: 'Settings', description: 'Configure app preferences and defaults' },
+  { href: '/docs', icon: BookOpen, title: 'Documentation', description: 'Guides, tutorials, and best practices' },
+  { href: '/about', icon: Info, title: 'About', description: 'Learn about the project and credits' },
+];
+
+/**
+ * Training Dashboard — a launcher grid linking to every tool in the app.
+ *
+ * Cards are real navigation links (anchor-wrapped) for keyboard accessibility,
+ * built on the shared shadcn Card with a single theme accent + a subtle glow on
+ * hover/focus. The primary action (Training) carries a touch more emphasis.
+ */
 export default function Dashboard() {
-  const cardClasses = "bg-card text-card-foreground backdrop-blur-sm border rounded-lg shadow-lg p-6 hover:shadow-xl hover:bg-accent transition-all cursor-pointer group";
-
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-16">
-
         <div className="text-center mb-16">
-            <h1 className="text-5xl font-bold text-foreground mb-4">
-                Training Dashboard
-            </h1>
-            <p className="text-xl text-muted-foreground">
-                Quick access to all your training tools
-            </p>
+          <h1 className="text-5xl font-bold text-foreground mb-4">Training Dashboard</h1>
+          <p className="text-xl text-muted-foreground">Quick access to all your training tools</p>
         </div>
-
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-
-          {/* Example of a refactored card */}
-          <Link href="/models" prefetch={false}>
-            {/* CHANGED: All the hardcoded classes are replaced with our clean helper variable. */}
-            <div className={cardClasses}>
-              <Download className="w-12 h-12 text-cyan-400 mb-4 group-hover:scale-110 transition-transform" />
-              {/* CHANGED: Titles now use the theme's main text color. */}
-              <h2 className="text-xl font-semibold mb-2 text-foreground">Models & VAEs</h2>
-              {/* CHANGED: Paragraphs use the theme's muted text color. */}
-              <p className="text-muted-foreground text-sm">
-                Download base models and VAEs
-              </p>
-            </div>
-          </Link>
-
-          {/* --- Repeat for all other cards --- */}
-
-          <Link href="/files" prefetch={false}>
-            <div className={cardClasses}>
-              <FolderOpen className="w-12 h-12 text-blue-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">File Manager</h2>
-              <p className="text-muted-foreground text-sm">
-                Browse, upload, and manage your files
-              </p>
-            </div>
-          </Link>
-
-          <Link href="/dataset" prefetch={false}>
-            <div className={cardClasses}>
-              <Upload className="w-12 h-12 text-green-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">Dataset</h2>
-              <p className="text-muted-foreground text-sm">
-                Upload and prepare training datasets
-              </p>
-            </div>
-          </Link>
-
-          <Link href="/training" prefetch={false}>
-            <div className={cardClasses}>
-              <Zap className="w-12 h-12 text-purple-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">Training</h2>
-              <p className="text-muted-foreground text-sm">
-                Configure and monitor LoRA training
-              </p>
-            </div>
-          </Link>
-
-          <Link href="/calculator" prefetch={false}>
-            <div className={cardClasses}>
-              <Calculator className="w-12 h-12 text-indigo-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">Calculator</h2>
-              <p className="text-muted-foreground text-sm">
-                Calculate optimal training steps
-              </p>
-            </div>
-          </Link>
-
-          <Link href="/utilities" prefetch={false}>
-            <div className={cardClasses}>
-              <Wrench className="w-12 h-12 text-orange-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">Utilities</h2>
-              <p className="text-muted-foreground text-sm">
-                Manage and upload trained LoRAs
-              </p>
-            </div>
-          </Link>
-
-          <Link href="/settings" prefetch={false}>
-            <div className={cardClasses}>
-              <Settings className="w-12 h-12 text-pink-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">Settings</h2>
-              <p className="text-muted-foreground text-sm">
-                Configure app preferences and defaults
-              </p>
-            </div>
-          </Link>
-
-          <Link href="/docs" prefetch={false}>
-            <div className={cardClasses}>
-              <BookOpen className="w-12 h-12 text-emerald-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">Documentation</h2>
-              <p className="text-muted-foreground text-sm">
-                Guides, tutorials, and best practices
-              </p>
-            </div>
-          </Link>
-
-          <Link href="/about" prefetch={false}>
-            <div className={cardClasses}>
-              <Info className="w-12 h-12 text-rose-400 mb-4 group-hover:scale-110 transition-transform" />
-              <h2 className="text-xl font-semibold mb-2 text-foreground">About</h2>
-              <p className="text-muted-foreground text-sm">
-                Learn about the project and credits
-              </p>
-            </div>
-          </Link>
+          {tools.map(({ href, icon: Icon, title, description, primary }) => (
+            <Link
+              key={href}
+              href={href}
+              prefetch={false}
+              className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Card
+                className={
+                  'h-full gap-3 px-6 transition-all hover:-translate-y-0.5 ' +
+                  (primary
+                    ? 'border-primary/40 bg-primary/5 hover:border-primary/70 hover:shadow-[0_8px_30px_-6px_hsl(var(--primary)/0.40)]'
+                    : 'hover:border-primary/50 hover:shadow-[0_6px_24px_-8px_hsl(var(--primary)/0.25)]')
+                }
+              >
+                <Icon className="w-10 h-10 text-primary transition-transform group-hover:scale-110" />
+                <div className="space-y-1">
+                  <CardTitle>{title}</CardTitle>
+                  <CardDescription>{description}</CardDescription>
+                </div>
+              </Card>
+            </Link>
+          ))}
         </div>
 
-        {/* CHANGED: Quick Start section now also uses card styling for consistency. */}
-        <div className={`mt-16 max-w-4xl mx-auto p-8 ${cardClasses}`}>
-          <h3 className="text-2xl font-bold mb-4 text-foreground">Quick Start</h3>
-          <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-            <li>Download a base model from <strong className="text-cyan-400">Models & VAEs</strong></li>
-            <li>Upload your training images via <strong className="text-green-400">Dataset</strong></li>
-            <li>Auto-tag images with WD14 tagger</li>
-            <li>Configure training parameters in <strong className="text-purple-400">Training</strong></li>
-            <li>Monitor progress in real-time (WebSockets!)</li>
-            <li>Download your trained LoRA model</li>
-          </ol>
-        </div>
+        <Card className="mt-16 max-w-4xl mx-auto">
+          <CardHeader>
+            <CardTitle className="text-2xl">Quick Start</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+              <li>Download a base model from <strong className="text-primary">Models &amp; VAEs</strong></li>
+              <li>Upload your training images via <strong className="text-primary">Dataset</strong></li>
+              <li>Auto-tag images with the WD14 tagger</li>
+              <li>Configure training parameters in <strong className="text-primary">Training</strong></li>
+              <li>Monitor progress in real-time</li>
+              <li>Download your trained LoRA model</li>
+            </ol>
+          </CardContent>
+        </Card>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>Powered by Kohya SD-Scripts • Built with Next.js & FastAPI</p>
+          <p>Powered by Kohya SD-Scripts &bull; Built with Next.js &amp; FastAPI</p>
         </div>
       </div>
     </div>
