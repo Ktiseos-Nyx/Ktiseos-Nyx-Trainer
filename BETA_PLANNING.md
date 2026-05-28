@@ -1298,6 +1298,7 @@ As more tools are integrated, these rules keep things from becoming a mess:
 | COMFY-10: Model picker (useComfyModels + /models API + combobox UI) | UX | Small | ✅ Done 2026-05-24 |
 | COMFY-11: Model download to ComfyUI folder (from HuggingFace/Civitai) | Feature | Medium | ✅ Done 2026-05-24 |
 | COMFY-12: Auto-download Ultralytics bbox/segm models for Impact-Pack | Infrastructure | Tiny | ⏳ Not started |
+| COMFY-13: Gallery image popup — show + copy generation metadata (prompt/seed/sampler/settings) from the lightbox in `GenerateUI.tsx` | Feature | Small | ⏳ Not started |
 | DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
 | DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
@@ -1470,6 +1471,7 @@ This is iterative, not a big-bang redesign. Work page by page, card by card:
 | Task | Effort | Impact | Status |
 |------|--------|--------|--------|
 | Port theme system from Dataset-Tools (customizer + swatches + hook) | Small | High | ⏳ Not started |
+| **Theme-matched button glow:** faint `box-shadow` behind buttons driven by theme CSS vars (`--primary` etc.) on the existing shadcn `Button` — ship alongside expanded color themes. Keep subtle, no neon/flashing. No bare HTML / primitives needed (pure CSS via className). | Tiny | Low | ⏳ Not started |
 | Dashboard redesign (UI-2) | Medium | High | ⏳ Not started |
 | Training form: progressive disclosure | Medium | High | ⏳ Not started |
 | Training form: section nav / orientation | Small | Medium | ⏳ Not started |
