@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { modelsAPI, ModelFile, PopularModel, PopularModelsResponse } from '@/lib/api';
-import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search } from 'lucide-react';
+import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search, Wand2 } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Progress } from '@/components/ui/progress';
 
 export type ModelType = 'sdxl' | 'sd15' | 'flux' | 'sd3.5' | 'chroma' | 'anima' | 'hunyuanimage' | 'lumina';
 
@@ -33,13 +44,28 @@ export default function ModelsPage() {
   const [downloadType, setDownloadType] = useState<'model' | 'vae'>('model');
   const [modelType, setModelType] = useState<ModelType>('sdxl');
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadResult, setDownloadResult] = useState<any>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // Destination: training location or ComfyUI models folder
+  const [destination, setDestination] = useState<'training' | 'comfyui'>('training');
+  const [comfyuiFolder, setComfyuiFolder] = useState<string>('checkpoints');
+
+  /** Auto-map download type + model type to the appropriate ComfyUI subfolder. */
+  const autoComfyFolder = (type: 'model' | 'vae', mt?: ModelType): string => {
+    if (type === 'vae') return 'vae';
+    const separateUnet = ['anima', 'flux', 'chroma', 'hunyuanimage'] as ModelType[];
+    return (mt && separateUnet.includes(mt)) ? 'diffusion_models' : 'checkpoints';
+  };
 
   // File lists
   const [models, setModels] = useState<ModelFile[]>([]);
   const [vaes, setVaes] = useState<ModelFile[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // File pending deletion — drives the confirmation AlertDialog (null = closed).
+  const [pendingDelete, setPendingDelete] = useState<ModelFile | null>(null);
 
   // Supported models
   const [popularModels, setPopularModels] = useState<PopularModelsResponse | null>(null);
@@ -82,8 +108,16 @@ export default function ModelsPage() {
       setDownloading(true);
       setDownloadError(null);
       setDownloadResult(null);
+      setDownloadProgress(0);
 
-      const result = await modelsAPI.download(downloadUrl, downloadType, modelType);
+      const result = await modelsAPI.download(
+        downloadUrl,
+        downloadType,
+        modelType,
+        destination,
+        destination === 'comfyui' ? comfyuiFolder : undefined,
+        setDownloadProgress,
+      );
 
       setDownloadResult(result);
       setDownloadUrl('');
@@ -98,8 +132,6 @@ export default function ModelsPage() {
   };
 
   const handleDelete = async (file: ModelFile) => {
-    if (!confirm(`Delete ${file.name}?`)) return;
-
     try {
       await modelsAPI.delete(file.type, file.name);
       loadFiles();
@@ -113,6 +145,9 @@ export default function ModelsPage() {
     setDownloadType(type);
     if (autoModelType) {
       setModelType(autoModelType);
+      setComfyuiFolder(autoComfyFolder(type, autoModelType));
+    } else {
+      setComfyuiFolder(autoComfyFolder(type));
     }
     setActiveTab('download');
   };
@@ -199,6 +234,12 @@ export default function ModelsPage() {
                     <p className="text-cyan-300/70 text-xs mt-2">
                       This may take several minutes depending on file size and network speed. Please do not close this page.
                     </p>
+                    <div className="mt-3">
+                      <Progress value={downloadProgress} className="h-2 bg-cyan-950/50" />
+                      <p className="text-cyan-300/80 text-xs mt-1 tabular-nums">
+                        {downloadProgress > 0 ? `${downloadProgress}%` : 'Preparing download…'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -263,6 +304,68 @@ export default function ModelsPage() {
                   )}
                 </div>
 
+                {/* Destination */}
+                <div>
+                  <label id="destination-label" className="block text-sm font-medium text-gray-300 mb-2">
+                    Save to
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={destination === 'training' ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="flex-1 gap-2"
+                      onClick={() => setDestination('training')}
+                    >
+                      <HardDrive className="w-4 h-4" />
+                      Training location
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={destination === 'comfyui' ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="flex-1 gap-2"
+                      onClick={() => {
+                        setDestination('comfyui');
+                        setComfyuiFolder(autoComfyFolder(downloadType, modelType as ModelType));
+                      }}
+                    >
+                      <Wand2 className="w-4 h-4" />
+                      ComfyUI location
+                    </Button>
+                  </div>
+                  {destination === 'comfyui' && (
+                    <div className="mt-2 space-y-2">
+                      <label id="comfyui-folder-label" className="block text-xs font-medium text-gray-400">
+                        ComfyUI subfolder
+                      </label>
+                      <Select
+                        value={comfyuiFolder}
+                        onValueChange={setComfyuiFolder}
+                      >
+                        <SelectTrigger className="w-full" aria-labelledby="comfyui-folder-label">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="checkpoints">checkpoints/ — all-in-one (SDXL, SD1.5…)</SelectItem>
+                          <SelectItem value="diffusion_models">diffusion_models/ — UNET only (Flux, ANIMA…)</SelectItem>
+                          <SelectItem value="vae">vae/ — VAE files</SelectItem>
+                          <SelectItem value="loras">loras/ — LoRA files</SelectItem>
+                          <SelectItem value="text_encoders">text_encoders/ — CLIP / text encoders</SelectItem>
+                          <SelectItem value="upscale_models">upscale_models/ — upscale models</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        Auto-selected based on model type. Override if needed.
+                        Configure the ComfyUI models path in{' '}
+                        <Link href="/settings" className="text-cyan-400 hover:text-cyan-300 underline">
+                          Settings → ComfyUI
+                        </Link>.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 {/* URL Input */}
                 <div>
                   <label htmlFor="download-url" className="block text-sm font-medium text-gray-300 mb-2">
@@ -300,6 +403,9 @@ export default function ModelsPage() {
                   <>
                     <Download className="w-5 h-5" />
                     Download {downloadType === 'model' ? 'Model' : 'VAE'}
+                    {destination === 'comfyui' && (
+                      <span className="ml-1 text-xs opacity-75">→ ComfyUI/{comfyuiFolder}/</span>
+                    )}
                   </>
                 )}
               </Button>
@@ -459,7 +565,7 @@ export default function ModelsPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={`Delete ${model.name}`}
-                        onClick={() => handleDelete(model)}
+                        onClick={() => setPendingDelete(model)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -505,7 +611,7 @@ export default function ModelsPage() {
                         variant="ghost"
                         size="icon"
                         aria-label={`Delete ${vae.name}`}
-                        onClick={() => handleDelete(vae)}
+                        onClick={() => setPendingDelete(vae)}
                         className="ml-4 text-red-400 hover:text-red-300"
                       >
                         <Trash2 className="w-5 h-5" />
@@ -518,6 +624,30 @@ export default function ModelsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation — replaces the native window.confirm() popup */}
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {pendingDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the file from disk. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDelete) handleDelete(pendingDelete);
+                setPendingDelete(null);
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

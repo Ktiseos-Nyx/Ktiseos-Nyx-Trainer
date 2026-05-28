@@ -20,7 +20,9 @@ import {
   Download,
   Files,
   Cpu,
-  Upload
+  Upload,
+  Wand2,
+  ExternalLink,
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -96,6 +98,16 @@ export function Navbar() {
               </NavigationMenuContent>
             </NavigationMenuItem>
 
+            {/* Generate (ComfyUI) - Top level */}
+            <NavigationMenuItem>
+              <NavigationMenuLink asChild>
+                <Link href="/comfyui" prefetch={false} className={navigationMenuTriggerStyle()}>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Generate
+                </Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
             {/* Utilities - Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger>
@@ -136,6 +148,9 @@ export function Navbar() {
                   </ListItem>
                   <ListItem href="/huggingface-upload" title="HuggingFace Upload" icon={<Upload className="w-4 h-4" />}>
                     Upload LoRAs to HuggingFace Hub
+                  </ListItem>
+                  <ListItem href="/comfyui/" title="LoRA Manager" icon={<ExternalLink className="w-4 h-4" />} external>
+                    Browse & download models in ComfyUI
                   </ListItem>
                 </ul>
               </NavigationMenuContent>
@@ -193,6 +208,7 @@ const ListItem = ({
   children,
   href,
   icon,
+  external = false,
   ...props
 }: {
   className?: string
@@ -200,27 +216,42 @@ const ListItem = ({
   children: React.ReactNode
   href: string
   icon?: React.ReactNode
+  external?: boolean
 }) => {
+  const itemClassName = cn(
+    "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+    className
+  )
+  const inner = (
+    <>
+      <div className="text-sm font-medium leading-none flex items-center gap-2">
+        {icon}
+        {title}
+      </div>
+      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+        {children}
+      </p>
+    </>
+  )
+
   return (
     <li>
       <NavigationMenuLink asChild>
-        <Link
-          href={href}
-          prefetch={false}
-          className={cn(
-            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-            className
-          )}
-          {...props}
-        >
-          <div className="text-sm font-medium leading-none flex items-center gap-2">
-            {icon}
-            {title}
-          </div>
-          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-            {children}
-          </p>
-        </Link>
+        {external ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={itemClassName}
+            {...props}
+          >
+            {inner}
+          </a>
+        ) : (
+          <Link href={href} prefetch={false} className={itemClassName} {...props}>
+            {inner}
+          </Link>
+        )}
       </NavigationMenuLink>
     </li>
   )

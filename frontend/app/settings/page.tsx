@@ -3,7 +3,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff, Plus, Trash2, FolderOpen } from 'lucide-react'
+import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff, Plus, Trash2, FolderOpen, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { GradientCard } from '@/components/effects'
 import Breadcrumbs from '@/components/Breadcrumbs'
@@ -34,6 +34,10 @@ export default function SettingsPage() {
   const [showSD2Params, setShowSD2Params] = useState(false)
   const [showPerformanceTuning, setShowPerformanceTuning] = useState(false)
   const [showExperimentalFeatures, setShowExperimentalFeatures] = useState(false)
+
+  // ComfyUI
+  const [comfyuiUrl, setComfyuiUrl] = useState('http://localhost:8188')
+  const [comfyuiModelsPath, setComfyuiModelsPath] = useState('')
 
   // Upload Optimization
   const [remoteGPU, setRemoteGPU] = useState(false)
@@ -111,6 +115,8 @@ export default function SettingsPage() {
           setHasCivitaiApiKey(data.settings.has_civitai_api_key)
           setExtraModelDirs(data.settings.extra_model_dirs ?? [])
           setExtraVaeDirs(data.settings.extra_vae_dirs ?? [])
+          setComfyuiUrl(data.settings.comfyui_url ?? 'http://localhost:8188')
+          setComfyuiModelsPath(data.settings.comfyui_models_path ?? '')
         }
       }
     } catch (error) {
@@ -133,6 +139,8 @@ export default function SettingsPage() {
       // Always persist extra dirs (even empty arrays clear the list)
       payload.extra_model_dirs = extraModelDirs
       payload.extra_vae_dirs = extraVaeDirs
+      payload.comfyui_url = comfyuiUrl.trim() || 'http://localhost:8188'
+      payload.comfyui_models_path = comfyuiModelsPath.trim()
 
       const response = await fetch(`${API_BASE}/settings/user`, {
         method: 'POST',
@@ -282,6 +290,45 @@ export default function SettingsPage() {
             </div>
           </div>
         </GradientCard> */}
+
+        {/* ComfyUI */}
+        <GradientCard variant="dusk" intensity="subtle" className="mb-6">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Wand2 className="w-5 h-5 text-muted-foreground" />
+              <h2 className="text-2xl font-bold text-foreground">ComfyUI</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">ComfyUI URL</label>
+                <Input
+                  type="url"
+                  value={comfyuiUrl}
+                  onChange={(e) => setComfyuiUrl(e.target.value)}
+                  placeholder="http://localhost:8188"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Where ComfyUI is running. Changes take effect within 5 s — no restart needed.
+                  Default: <code className="font-mono">http://localhost:8188</code>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">ComfyUI models folder</label>
+                <Input
+                  type="text"
+                  value={comfyuiModelsPath}
+                  onChange={(e) => setComfyuiModelsPath(e.target.value)}
+                  placeholder="/path/to/ComfyUI/models"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Filesystem path to ComfyUI&apos;s <code className="font-mono">models/</code> directory.
+                  Used when downloading models to ComfyUI. Leave blank to auto-detect
+                  (works when ComfyUI is installed by the trainer setup script).
+                </p>
+              </div>
+            </div>
+          </div>
+        </GradientCard>
 
         {/* API Keys */}
         <GradientCard variant="ocean" intensity="subtle" className="mb-6">

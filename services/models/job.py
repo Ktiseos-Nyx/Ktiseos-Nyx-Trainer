@@ -58,6 +58,10 @@ class JobStatus(BaseModel):
     error: Optional[str] = Field(None, description="Error message if failed")
     error_traceback: Optional[str] = Field(None, description="Full traceback for debugging")
 
+    # Result payload for coroutine jobs (e.g. a completed download's file info).
+    # None for subprocess jobs like training/tagging.
+    result: Optional[dict] = Field(None, description="Result payload for non-subprocess jobs (e.g. download file info)")
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {

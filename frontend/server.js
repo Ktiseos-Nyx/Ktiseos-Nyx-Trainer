@@ -16,6 +16,8 @@
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 
 const { createServer } = require('http');
+const fs = require('fs');
+const path = require('path');
 const next = require('next');
 
 // Guard: this project requires `node server.js` for WebSocket support.
@@ -51,6 +53,32 @@ const hostname = dev ? '127.0.0.1' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 const defaultBackendPort = dev ? '8000' : (process.env.BACKEND_PORT || '18000');
 const backendUrl = process.env.BACKEND_URL || `http://127.0.0.1:${defaultBackendPort}`;
+const comfyuiPort = process.env.COMFYUI_PORT || '8188';
+const comfyuiUrlDefault = `http://127.0.0.1:${comfyuiPort}`;
+
+// Settings file path — same location as settings-service.ts uses
+const SETTINGS_FILE = path.join(__dirname, '..', 'user_config', 'user_settings.json');
+
+/**
+ * Read the ComfyUI URL from user settings, falling back to the env-var default.
+ * Synchronous so it works inside http-proxy-middleware's router function.
+ * Cached for 5 s to avoid hammering disk on every proxied request.
+ */
+let _comfyuiUrlCache = { url: comfyuiUrlDefault, expiry: 0 };
+function getComfyuiTarget() {
+  const now = Date.now();
+  if (now < _comfyuiUrlCache.expiry) return _comfyuiUrlCache.url;
+  try {
+    const raw = fs.readFileSync(SETTINGS_FILE, 'utf-8');
+    const settings = JSON.parse(raw);
+    const url = settings.comfyui_url || comfyuiUrlDefault;
+    _comfyuiUrlCache = { url, expiry: now + 5000 };
+    return url;
+  } catch {
+    _comfyuiUrlCache = { url: comfyuiUrlDefault, expiry: now + 5000 };
+    return comfyuiUrlDefault;
+  }
+}
 
 // WHATWG URL helper — replaces deprecated url.parse() (DEP0169)
 // Next.js handle() expects { pathname, query } so we build that from URL.
@@ -80,6 +108,7 @@ console.log('🚀 Starting Ktiseos-Nyx-Trainer Custom Server...');
 console.log(`   Environment: ${dev ? 'development' : 'production'}`);
 console.log(`   Frontend: ${hostname}:${port}`);
 console.log(`   Backend: ${backendUrl}`);
+console.log(`   ComfyUI: ${comfyuiUrlDefault} (proxy: /comfyui, overrideable via Settings)`);
 
 app.prepare().then(() => {
   // Create WebSocket + API proxy to FastAPI backend
@@ -117,6 +146,56 @@ app.prepare().then(() => {
     },
   });
 
+  // Proxy for ComfyUI — strips /comfyui prefix before forwarding.
+  // Target is resolved dynamically from user_settings.json (5 s cache) so
+  // changes made in the Settings page take effect without a server restart.
+  const comfyuiProxy = createProxyMiddleware({
+    changeOrigin: true,
+    router: () => getComfyuiTarget(),
+    pathRewrite: { '^/comfyui': '' },
+    logLevel: dev ? 'debug' : 'warn',
+
+    // ComfyUI validates that Origin matches Host and returns 403 if they differ.
+    // When requests arrive via Cloudflare tunnel the browser Origin is the
+    // public domain (e.g. xxx.trycloudflare.com) while Host becomes localhost
+    // after the proxy rewrites it — causing a guaranteed 403.
+    // Removing Origin/Referer before forwarding bypasses this check safely:
+    // our proxy is the trusted intermediary, not the browser directly.
+    onProxyReq: (proxyReq) => {
+      proxyReq.removeHeader('origin');
+      proxyReq.removeHeader('referer');
+    },
+
+    onError: (err, req, res) => {
+      const target = getComfyuiTarget();
+      console.error('❌ ComfyUI proxy error:', err.message);
+      if (res.writeHead) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'ComfyUI unavailable',
+          message: `ComfyUI is not running at ${target}. Start ComfyUI or update the URL in Settings.`,
+        }));
+      }
+    },
+  });
+
+  // LoRA Manager (a ComfyUI extension) serves its UI pages from root-absolute
+  // paths that do NOT carry our /comfyui prefix — e.g. its /loras page pulls
+  // assets from /loras_static, i18n from /locales, and data from /api/lm.
+  // Without forwarding these to ComfyUI, the /comfyui/loras page 404s its
+  // assets and the SPA fails to render. The comfyuiProxy pathRewrite only
+  // strips a leading /comfyui, so these root paths pass through unchanged.
+  // /api/lm = LoRA Manager's data API; /api/view = ComfyUI's image server
+  // (used for model previews). Both are requested root-absolute by the
+  // LoRA Manager page and must reach ComfyUI, not FastAPI.
+  const COMFYUI_ROOT_PREFIXES = [
+    '/loras', '/checkpoints', '/embeddings', '/recipes',
+    '/loras_static', '/locales', '/example_images_static',
+    '/api/lm', '/api/view',
+  ];
+  const isComfyuiRootPath = (pathname) =>
+    COMFYUI_ROOT_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'));
+
   // Request logging for production — Next.js dev mode logs automatically,
   // but the custom production server is silent without this.
   const logRequest = (req, res) => {
@@ -146,6 +225,16 @@ app.prepare().then(() => {
 
       // Log requests in production only (dev mode has its own verbose logging)
       if (!dev) logRequest(req, res);
+
+      // ComfyUI + its LoRA Manager extension. Proxy /comfyui/* (our prefixed
+      // calls) AND LoRA Manager's root-absolute UI paths (/loras, /loras_static,
+      // /api/lm, /api/view, …) which its pages request WITHOUT our prefix.
+      // Must run BEFORE the Node/FastAPI /api handling so /api/lm and /api/view
+      // reach ComfyUI instead of 404ing at FastAPI. The comfyuiProxy pathRewrite
+      // only strips a leading /comfyui, so root paths pass through unchanged.
+      if (pathname === '/comfyui' || pathname.startsWith('/comfyui/') || isComfyuiRootPath(pathname)) {
+        return comfyuiProxy(req, res);
+      }
 
       // Handle Node.js API routes (new migration)
       const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/config', '/api/civitai', '/api/utilities', '/api/debug'];
@@ -293,6 +382,18 @@ app.prepare().then(() => {
       console.log(`⬆️  WebSocket upgrade (FastAPI proxy): ${pathname}`);
       apiAndWsProxy.upgrade(req, socket, head);
     }
+    // Proxy WebSocket upgrades to ComfyUI: /comfyui/ws plus LoRA Manager's
+    // root-absolute progress sockets (fetch/download/init), which its UI opens
+    // without our /comfyui prefix.
+    else if (
+      pathname.startsWith('/comfyui/ws')
+      || pathname === '/ws/fetch-progress'
+      || pathname === '/ws/download-progress'
+      || pathname === '/ws/init-progress'
+    ) {
+      console.log(`⬆️  WebSocket upgrade (ComfyUI proxy): ${pathname}`);
+      comfyuiProxy.upgrade(req, socket, head);
+    }
     else {
       // Reject other upgrade attempts with a proper HTTP response
       socket.write('HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{"error":"WebSocket upgrade rejected: unsupported path"}');
@@ -317,6 +418,7 @@ app.prepare().then(() => {
     console.log(`🐍 Backend:   ${backendUrl}`);
     console.log(`🔌 WebSocket (Node.js):  /ws/jobs/{id}/logs`);
     console.log(`🔌 WebSocket (FastAPI):  /ws/api/* (proxied)`);
+    console.log(`🎨 ComfyUI proxy:        /comfyui/* → ${getComfyuiTarget()} (dynamic)`);
     console.log('========================================');
     console.log('');
   });

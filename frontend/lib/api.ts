@@ -461,21 +461,6 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
-  // Upload multiple files in one request
-  uploadBatch: async (files: File[], datasetName: string) => {
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('files', file);
-    });
-    formData.append('dataset_name', datasetName);
-
-    const response = await fetch(`${API_BASE}/dataset/upload-batch`, {
-      method: 'POST',
-      body: formData,
-    });
-    return handleResponse(response);
-  },
-
   // HTTP polling for tagging logs (replaces WebSocket which breaks through Caddy)
   pollTaggingLogs: (
     jobId: string,
@@ -605,9 +590,6 @@ export interface TrainingConfig {
   // ========== SD 1.5 / SD2 FLAGS ==========
   v2?: boolean;                    // for Stable Diffusion 2.x
   v_parameterization?: boolean;    // for v-prediction models
-
-  // ========== SDXL FLAGS ==========
-  disable_cross_attn_mask?: boolean; // disable SDXL cross-attention masking (pre-May-2026 behavior)
 
   // ========== DATASET & BASIC TRAINING ==========
   train_data_dir: string;
@@ -1244,18 +1226,54 @@ export interface PopularModelsResponse {
 }
 
 export const modelsAPI = {
-  // NOTE: Download stays on Python backend (uses huggingface_hub)
-  download: async (url: string, downloadType: 'model' | 'vae' | 'lora', modelType?: string) => {
-    const response = await fetch(`${API_BASE}/models/download`, {
+  // NOTE: Download stays on Python backend (uses huggingface_hub).
+  // The backend now runs the download as a background job and returns a job_id
+  // immediately; we poll for completion here. This keeps each request short so a
+  // long multi-GB download no longer holds one connection open past the tunnel's
+  // timeout (the old cause of 502s). Returns the final result on completion so
+  // callers keep the same {success, file_path, file_name, size_mb, ...} shape.
+  download: async (
+    url: string,
+    downloadType: 'model' | 'vae' | 'lora',
+    modelType?: string,
+    destination: 'training' | 'comfyui' = 'training',
+    comfyuiFolder?: string,
+    onProgress?: (progress: number) => void,
+  ) => {
+    const startResp = await fetch(`${API_BASE}/models/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url,
         download_type: downloadType,
         model_type: modelType,
+        destination,
+        comfyui_folder: comfyuiFolder,
       }),
     });
-    return handleResponse(response);
+    const { job_id: jobId } = await handleResponse(startResp);
+
+    const POLL_INTERVAL_MS = 1500;
+    // Poll until the job reaches a terminal state. A 404 (e.g. server restarted,
+    // in-memory job lost) surfaces through handleResponse and breaks the loop.
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      const statusResp = await fetch(`${API_BASE}/models/download/status/${jobId}`);
+      const status = await handleResponse(statusResp);
+
+      if (onProgress && typeof status.progress === 'number') {
+        onProgress(status.progress);
+      }
+
+      if (status.status === 'completed') {
+        onProgress?.(100);
+        return status.result ?? { success: true, message: 'Download complete' };
+      }
+      if (status.status === 'failed' || status.status === 'cancelled') {
+        throw new Error(status.error || status.result?.error || 'Download failed');
+      }
+      // running / pending — keep polling
+    }
   },
 
   // Next.js route handler — scans local + cloud GPU paths for models/VAEs/text_encoders

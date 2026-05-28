@@ -6,9 +6,10 @@ Manages lifecycle of background jobs (training, tagging, downloads).
 
 import asyncio
 import logging
+import time
 from uuid import uuid4
 from datetime import datetime
-from typing import Optional, AsyncIterator
+from typing import Optional, AsyncIterator, Awaitable, Callable
 
 from services.models.job import JobType, JobStatus, JobStatusEnum
 from services.core.log_parser import LogParser
@@ -32,6 +33,9 @@ class JobManager:
     def __init__(self):
         self.store = JobStore()
         self.log_parser = LogParser()
+        # Retain references to fire-and-forget coroutine job tasks so they aren't
+        # garbage-collected mid-run (RUF006); discarded automatically on completion.
+        self._background_tasks: set[asyncio.Task] = set()
 
     def create_job(
         self,
@@ -70,6 +74,92 @@ class JobManager:
         logger.info(f"Created {job_type} job: {job_id}")
         return job_id
 
+    def run_coroutine_job(
+        self,
+        job_type: JobType,
+        coro_factory: Callable[[Job], Awaitable],
+    ) -> str:
+        """
+        Create a job that runs a Python-native awaitable in the background.
+
+        Unlike create_job (which monitors a subprocess's stdout), this runs an
+        arbitrary coroutine — used for downloads and similar work that isn't a
+        spawned process. The job returns immediately with an id; the coroutine
+        executes in the background so the originating HTTP request is never held
+        open for the full operation (which is what was timing out into 502s).
+
+        Args:
+            job_type: Type of job (e.g. JobType.DOWNLOAD)
+            coro_factory: Called with the created Job and must return an awaitable.
+                Receiving the Job lets the coroutine report progress (job.progress).
+                If the awaitable returns a dict it is stored on job.result; a dict
+                with ``success=False`` marks the job FAILED.
+
+        Returns:
+            job_id: Unique identifier for this job
+        """
+        job_id = f"job-{uuid4().hex[:8]}"
+
+        job = Job(
+            job_id=job_id,
+            job_type=job_type,
+            status=JobStatusEnum.RUNNING,
+            process=None,
+            started_at=datetime.now()
+        )
+
+        self.store.add(job)
+        task = asyncio.create_task(self._run_coroutine_job(job_id, coro_factory))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+        logger.info(f"Created {job_type} job (coroutine): {job_id}")
+        return job_id
+
+    async def _run_coroutine_job(
+        self,
+        job_id: str,
+        coro_factory: Callable[[Job], Awaitable],
+    ):
+        """
+        Await a coroutine job and record its outcome on the Job.
+
+        Stores a dict return value on ``job.result``. A result dict with
+        ``success=False`` is treated as a failure (its ``error``/``message`` is
+        surfaced), so a download that fails its fallback chain reports FAILED
+        rather than a misleading COMPLETED.
+        """
+        job = self.store.get(job_id)
+        if not job:
+            return
+
+        try:
+            result = await coro_factory(job)
+
+            if isinstance(result, dict):
+                job.result = result
+                if result.get("success") is False:
+                    job.status = JobStatusEnum.FAILED
+                    job.error = result.get("error") or result.get("message") or "Operation failed"
+                    return
+
+            job.status = JobStatusEnum.COMPLETED
+            job.progress = 100
+            logger.info(f"Coroutine job {job_id} completed")
+
+        except asyncio.CancelledError:
+            job.status = JobStatusEnum.CANCELLED
+            logger.info(f"Coroutine job {job_id} was cancelled")
+            raise
+
+        except Exception as e:
+            job.status = JobStatusEnum.FAILED
+            job.error = str(e)
+            logger.exception(f"Coroutine job {job_id} failed: {e}")
+
+        finally:
+            job.completed_at = datetime.now()
+
     async def _monitor_job(self, job_id: str):
         """
         Monitor job subprocess and collect logs.
@@ -95,19 +185,45 @@ class JobManager:
                     pass
                 return
 
-            # Read stdout line by line
-            async for line in job.process.stdout:
-                # Decode and normalise line endings — Windows emits \r\n and tqdm uses
-                # bare \r for in-place progress rewrites; split on \r so each logical
-                # line is processed independently and no \r artifacts reach the log parser.
-                raw = line.decode('utf-8', errors='replace')
-                for log_line in raw.replace('\r\n', '\n').replace('\r', '\n').split('\n'):
+            # Read stdout in chunks so tqdm \r-terminated step lines are delivered
+            # immediately rather than buffered until the epoch-ending \n.
+            # Heartbeat fires when Kohya is completely silent (latent caching, model load).
+            job_logger = logging.getLogger(f"training.{job_id}")
+            _HEARTBEAT_INTERVAL = 30  # seconds between "still running" messages
+            _last_output = time.monotonic()
+            _partial = ""  # carry-over from a chunk that ended mid-line
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(
+                        job.process.stdout.read(4096), timeout=_HEARTBEAT_INTERVAL
+                    )
+                except asyncio.TimeoutError:
+                    elapsed = int(time.monotonic() - _last_output)
+                    heartbeat = f"[no output for {elapsed}s — latent caching or model loading in progress]"
+                    job.add_log(heartbeat)
+                    job_logger.info("[%s] %s", job_id, heartbeat)
+                    continue
+
+                if not chunk:  # EOF — process closed stdout
+                    if _partial.strip():
+                        job.add_log(_partial.strip())
+                        job_logger.info("[%s] %s", job_id, _partial.strip())
+                    break
+
+                _last_output = time.monotonic()
+                # Decode and split on both \r and \n so tqdm in-place rewrites
+                # each become a distinct log entry instead of batching per epoch.
+                raw = _partial + chunk.decode('utf-8', errors='replace')
+                segments = raw.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+                _partial = segments.pop()  # last element may be an incomplete line
+                for log_line in segments:
                     log_line = log_line.strip()
                     if not log_line:
                         continue
 
-                    # Add to log buffer
+                    # Add to job buffer and app log
                     job.add_log(log_line)
+                    job_logger.info("[%s] %s", job_id, log_line)
 
                     # Parse for progress (training-specific)
                     if job.job_type == JobType.TRAINING:
@@ -213,7 +329,8 @@ class JobManager:
             started_at=job.started_at,
             completed_at=job.completed_at,
             error=job.error,
-            error_traceback=job.error_traceback
+            error_traceback=job.error_traceback,
+            result=job.result
         )
 
     async def stop_job(self, job_id: str) -> bool:

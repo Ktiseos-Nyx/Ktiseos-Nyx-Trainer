@@ -48,7 +48,7 @@ export function GradientBorderButton({
       {/* Inner dark background */}
       <span
         className={cn(
-          'absolute inset-[1px] bg-slate-900 rounded-[9px] transition-opacity duration-500',
+          'absolute inset-[1px] bg-card rounded-[9px] transition-opacity duration-500',
           !disabled && 'group-hover:opacity-70'
         )}
       />

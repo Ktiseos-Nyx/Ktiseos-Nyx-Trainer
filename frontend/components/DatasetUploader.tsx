@@ -16,8 +16,9 @@ import {
   Download,
   AlertTriangle,
 } from 'lucide-react';
-import { zipSync } from 'fflate';
+import { zip } from 'fflate';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { datasetAPI } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,7 @@ export default function DatasetUploader() {
   const filesRef = useRef<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [zipUploadProgress, setZipUploadProgress] = useState(0);
+  const [uploadPhase, setUploadPhase] = useState<'zipping' | 'uploading' | null>(null);
 
   // URL/ZIP Download State
   const [projectName, setProjectName] = useState('');
@@ -115,17 +117,6 @@ export default function DatasetUploader() {
     multiple: true,
   });
 
-  // Check if Remote GPU Mode is enabled in user settings
-  const isRemoteGPU = (): boolean => {
-    try {
-      const stored = localStorage.getItem('ktiseos-nyx-settings');
-      if (stored) {
-        return JSON.parse(stored).remoteGPU === true;
-      }
-    } catch { /* ignore */ }
-    return false;
-  };
-
   const handleUpload = async () => {
     if (files.length === 0) {
       toast.warning('No files to upload');
@@ -148,14 +139,16 @@ export default function DatasetUploader() {
 
     try {
       const imageFiles = files.filter(f => f.file.type.startsWith('image/'));
-
-      if (isRemoteGPU()) {
-        // Remote GPU Mode: zip all images and send as single request
-        await handleUploadZipped(imageFiles);
-      } else {
-        // Local mode: upload individually with per-file progress
-        await handleBatchUpload(imageFiles);
+      if (imageFiles.length === 0) {
+        toast.warning('No images to upload');
+        return;
       }
+
+      // Always upload images as an in-memory ZIP sent in resumable chunks: works
+      // identically local and through a proxy/tunnel, survives flaky connections,
+      // and avoids the old failure where a large batch went up as a single
+      // multi-hundred-MB request and died with "Failed to fetch".
+      await handleUploadZipped(imageFiles);
 
       toast.success('Upload complete!');
 
@@ -172,41 +165,7 @@ export default function DatasetUploader() {
       toast.error(`Upload failed: ${err}`);
     } finally {
       setUploading(false);
-    }
-  };
-
-  // Upload all files in a single batch request (avoids per-file round-trip overhead)
-  const handleBatchUpload = async (imageFiles: UploadedFile[]) => {
-    if (imageFiles.length === 0) return;
-
-    const imageFileSet = new Set(imageFiles.map(f => f.file));
-
-    // Mark all as uploading at once
-    setFiles(prev =>
-      prev.map(f =>
-        imageFileSet.has(f.file) ? { ...f, status: 'uploading' } : f
-      )
-    );
-
-    try {
-      await datasetAPI.uploadBatch(imageFiles.map(f => f.file), datasetName);
-
-      setFiles(prev =>
-        prev.map(f =>
-          imageFileSet.has(f.file)
-            ? { ...f, status: 'success', progress: 100 }
-            : f
-        )
-      );
-    } catch (err) {
-      setFiles(prev =>
-        prev.map(f =>
-          imageFileSet.has(f.file)
-            ? { ...f, status: 'error', error: String(err) }
-            : f
-        )
-      );
-      throw err;
+      setUploadPhase(null);
     }
   };
 
@@ -248,10 +207,12 @@ export default function DatasetUploader() {
           form.append('chunk', chunk, `part_${i}`);
           form.append('uploadId', uploadId);
           form.append('index', String(i));
+          // NOTE: do NOT set keepalive:true here — the Fetch spec caps keepalive
+          // request bodies at 64 KiB, so a 10 MB chunk fails with "Failed to fetch"
+          // before it's even sent. Normal fetch handles large bodies fine.
           const res = await fetch('/api/dataset/upload-chunk', {
             method: 'POST',
             body: form,
-            keepalive: true, // keeps Cloudflared/Caddy tunnel alive during slow chunks
           });
           if (!res.ok) throw new Error(`Chunk ${i} rejected by server`);
           setZipUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
@@ -282,7 +243,8 @@ export default function DatasetUploader() {
     }
   };
 
-  // Remote GPU mode: zip images in memory, then send via chunked upload
+  // Zip images in memory (store-only), then send via chunked upload.
+  // Used for ALL image uploads — robust locally and through a proxy/tunnel.
   const handleUploadZipped = async (imageFiles: UploadedFile[]) => {
     setFiles(prev =>
       prev.map(f =>
@@ -290,19 +252,26 @@ export default function DatasetUploader() {
       )
     );
 
-    const zipData: { [key: string]: [Uint8Array, { level: 6 }] } = {};
+    // level: 0 = store only — images are already compressed (JPEG/PNG/WEBP),
+    // deflating them wastes CPU with no meaningful size reduction.
+    setUploadPhase('zipping');
+    const zipData: { [key: string]: [Uint8Array, { level: 0 }] } = {};
     for (const fileObj of imageFiles) {
       const buf = await fileObj.file.arrayBuffer();
-      zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 6 as const }];
+      zipData[fileObj.file.name] = [new Uint8Array(buf), { level: 0 }];
     }
-    const zipped = zipSync(zipData);
+    const zipped = await new Promise<Uint8Array>((resolve, reject) =>
+      zip(zipData, (err, data) => (err ? reject(err) : resolve(data)))
+    );
     const zipBlob = new Blob([zipped.buffer as ArrayBuffer], { type: 'application/zip' });
 
+    setUploadPhase('uploading');
     const result = await handleChunkedZipUpload(zipBlob, `${datasetName}.zip`, datasetName);
     if (!result.success) {
       throw new Error(`No files extracted from ZIP (got ${result.extracted || 0} files)`);
     }
 
+    setUploadPhase(null);
     setFiles(prev =>
       prev.map(f =>
         imageFiles.some(img => img.file === f.file) ? { ...f, status: 'success', progress: 100 } : f
@@ -730,13 +699,16 @@ export default function DatasetUploader() {
           </div>
 
           {/* Upload Progress */}
-          {uploading && zipUploadProgress > 0 && (
+          {uploading && uploadPhase !== null && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Uploading...</span>
-                <span>{zipUploadProgress}%</span>
+                <span>{uploadPhase === 'zipping' ? 'Zipping images…' : 'Uploading…'}</span>
+                {uploadPhase === 'uploading' && <span>{zipUploadProgress}%</span>}
               </div>
-              <Progress value={zipUploadProgress} className="h-2" />
+              <Progress
+                value={uploadPhase === 'zipping' ? 15 : zipUploadProgress}
+                className={cn('h-2', uploadPhase === 'zipping' && 'animate-pulse')}
+              />
             </div>
           )}
 

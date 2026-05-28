@@ -36,9 +36,9 @@ export function GradientBorderCard({
         background: gradients[gradient],
       }}
     >
-      {/* Inner dark background */}
+      {/* Inner background — uses theme card color so it respects light/dark mode */}
       <div
-        className="absolute inset-[2px] bg-slate-900 rounded-[7px] transition-opacity duration-500 group-hover:opacity-70"
+        className="absolute inset-[2px] bg-card rounded-[7px] transition-opacity duration-500 group-hover:opacity-70"
       />
 
       {/* Glow effect on hover */}

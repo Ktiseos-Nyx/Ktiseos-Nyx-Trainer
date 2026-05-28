@@ -17,7 +17,7 @@ This document tracks planned features, known issues, and upgrade priorities for 
 ### 1.1 Tag Viewer with Frequency Counts (NEW FEATURE)
 **Priority:** High
 **Inspiration:** Civitai `TrainingImagesTagViewer` (Apache 2.0)
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — tags/page.tsx frequency chips with counts (confirmed in UI)
 
 Add a Tag Viewer panel to the dataset page that:
 - Aggregates all tags across all images in a dataset
@@ -40,7 +40,7 @@ Add a Tag Viewer panel to the dataset page that:
 ### 1.2 Bulk Tag Operations (NEW FEATURE)
 **Priority:** High
 **Inspiration:** Civitai `TrainingEditTagsModal` + `TrainingImagesTagViewer` actions menu (Apache 2.0)
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — bulk remove/replace in tags/page.tsx Actions menu
 
 Once the Tag Viewer exists, add bulk actions on selected tags:
 - **Remove tags** - delete selected tags from ALL images in dataset (with confirmation)
@@ -53,7 +53,7 @@ Once the Tag Viewer exists, add bulk actions on selected tags:
 
 ### 1.3 Upgrade Overwrite Mode from Bool to 3-Way
 **Priority:** Medium
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — auto-tag/page.tsx `overwriteMode` Select (ignore/append/overwrite)
 
 Current: `append_tags: bool` (append or overwrite)
 Target: `overwrite_mode: "ignore" | "append" | "overwrite"`
@@ -70,9 +70,24 @@ Target: `overwrite_mode: "ignore" | "append" | "overwrite"`
 
 ### 1.4 Per-Image Visual Tag Editor
 **Priority:** Low (Beta+)
-**Status:** Not started
+**Status:** ✅ Done (2026-05-25) — per-image inline tag editor (badge chips + add) in tags/page.tsx
 
 Visual tag editing per image: show tags as badge chips with X to remove, textarea to add new tags. Would require the frontend to read/write individual .txt caption files via API.
+
+### 1.5 Delete Image from Tag Editor (NEW FEATURE)
+**Priority:** Medium (Beta QOL)
+
+Let users delete an image directly from the tag editor (remove a mistakenly-added pic). Three pieces:
+- New `/api/dataset/delete-image` route — takes dataset + image name, uses the existing `validateDatasetPath` guard, deletes the image **and its sibling `.txt` caption**.
+- `datasetAPI.deleteImage(...)` client method.
+- Per-image delete button in the editor behind an AlertDialog confirm (the Models-page pattern, never native `confirm()`), then drop the image from state.
+
+Estimate: ~1–2 hrs, low-to-moderate — path-safety helper and the `name.txt` caption convention already exist, so the risky parts are easy.
+
+### 1.6 Breadcrumbs on Tag Editor / Dataset Sub-Pages
+**Priority:** Low (Beta QOL)
+
+The dataset sub-pages (`/dataset/[name]/tags`, `/auto-tag`, `/tag-processing`) lack a breadcrumb trail (e.g. Home › Dataset › [name] › Tags). Bigger than it looks: requires threading the dataset name + current sub-page context through these routes rather than a single static breadcrumb.
 
 ---
 
@@ -203,6 +218,18 @@ Both LoRA and Checkpoint merging are implemented:
 - **Problem:** Reads file size without verifying output file actually exists
 - **Fix:** Add `output_path.exists()` check before stat()
 
+**Issue MG-9: LoRA → Checkpoint merging (bake LoRA into base model)** *(feature request — 2026-05-28)*
+- **Severity:** Feature request (backlog)
+- **Problem:** No path to bake a LoRA's weights directly into a base checkpoint and save a standalone merged model. Current "LoRA merge" combines LoRAs; "Checkpoint merge" is a checkpoint↔checkpoint weighted merge. Kohya's `networks/merge_lora.py` / `sdxl_merge_lora.py` can apply a LoRA onto the base model and save a full checkpoint.
+- **Fix:** Expose a "merge LoRA into checkpoint" mode (LoRA + base ckpt → merged ckpt) in the API + UI. Dusk has implementation context to add when this is picked up.
+
+**Issue MG-10: Block-weight (LBW-style) control for LoRA merge** *(feature request — 2026-05-28)*
+- **Severity:** Feature request (backlog)
+- **Problem:** No per-block (layer block weight) control when merging LoRAs — only a single global model/clip strength. Block weighting tunes individual UNet blocks (IN/MID/OUT) for finer style vs. likeness control.
+- **Fix:** Add per-block weight inputs to the LoRA merge flow. Dusk has implementation context to add later.
+
+> **Note (2026-05-28):** the merge-tool fixes in commit `80144fd` (paths, `size_formatted`, dirs) are **not yet verified** — needs a fetch-restart + manual run before MG items are re-audited as done.
+
 ---
 
 ## 4. LoRA Training - Audit Results
@@ -256,6 +283,28 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 - **Location:** `services/models/training.py:197-199`
 - **Problem:** `network_module` is a writable field with default `"networks.lora"` but its docstring says "derived from lora_type". The TOML generator always overrides it via `_get_network_config()`. API users who set this field will see it silently ignored.
 - **Fix:** Either remove the field, make it computed/read-only, or actually respect user overrides.
+
+### 4.3 Training Dataset Features (backlog)
+
+These are new capabilities (not bugs) for how datasets feed a LoRA run.
+
+**LT-FEAT-1: Regularization image support**
+- **Priority:** Medium (Beta)
+- Let a run include a **regularization / class-image** set (Kohya `reg_data_dir` style) to curb overfitting and preserve the base model's prior. Needs: a way to point at / upload a reg-image folder, plumb it into the dataset TOML as a separate subset with `is_reg = true` (and its own `num_repeats`), and a UI field on the training config. Confirm exactly how the vendored sd-scripts expects reg subsets before wiring.
+
+**LT-FEAT-2: Multiple folders per dataset (multi-concept / per-folder activation tags)**
+- **Priority:** Medium (Beta)
+- Support multiple subfolders within one dataset, each with its **own activation/trigger tag and `num_repeats`**, mapping to Kohya's multi-`subset` dataset config. Touches three layers: the dataset uploader/structure (create + manage subfolders), the TOML generator (emit one `[[datasets.subsets]]` per folder with its `class_tokens`/caption + repeats), and the training UI (per-folder trigger + repeats inputs). Larger than it looks because it changes the dataset → TOML shape, not just one field.
+
+### 4.4 torchao Optional Dependency (vendored optimizers)
+
+**Priority:** Low (decision needed)
+
+The vendored optimizer package (`trainer/derrian_backend/custom_scheduler/LoraEasyCustomOptimizer/low_bit_optim/`) is torchao-based, and `train_util.py`'s optimizer-signature introspection imports that chain — but `torchao` is in **none** of our requirements. Result: a **non-fatal** `WARNING ... determine default orthograd ... No module named 'torchao'` on every run (seen with CAME), after which it falls back to defaults (orthograd off, torchao state-storage auto-config skipped). Harmless for CAME and standard optimizers.
+
+Verified: `orthograd`/`torchao` appear **only** in the vendored backend — nothing in our generators, presets, or frontend forces them. The warning is pure upstream optimizer-package behavior.
+
+**Decision:** add `torchao` (enables the low-bit/torchao optimizers + orthograd auto-detect, silences the warning) vs. leave it out (heavy, torch-version-coupled dep that CAME doesn't need). If added: pin to our torch version and test on Windows + VastAI + RunPod first. This is ours to own — the vendored backend carries **our own patches** (applied ~Mar–May 2026 after pulled upstream updates broke things), so don't wait on upstream.
 
 ---
 
@@ -341,6 +390,8 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
    - Less reliant on the dashboard for discoverability since the sidebar always shows everything
 
 **Recommended:** Combine #1 (workflow grouping) with a small version of #3 (active jobs widget at top). This is the lowest effort high-impact change - keeps the existing card pattern but groups them semantically and adds one "alive" element.
+
+**Queue compatibility note:** Design the Active Jobs widget to show 1-or-N jobs from day one (a list, not a single slot). The job queue system (Phase 1 Beta, Section 5.1) will slot in as a backend change — the widget won't need to be redesigned. If the widget only handles one job at launch, adding queue support later requires a UI rewrite. The contract is: widget takes `Job[]`, renders each with progress + cancel; today that array has one item, later it has many.
 
 **Components to use** (per `frontend/CLAUDE.md`):
 - `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` from shadcn
@@ -552,12 +603,12 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 |---------|----------|--------|--------|
 | Fix Anima checkpoint script mapping (CT-4) | Bug Fix | Tiny | ✅ Done (pre-existing) |
 | Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
-| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ⏳ Next session |
-| Add WandB/Logging UI section (UI-1) | New Feature | Small | ⏳ Next session |
+| Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ✅ Done (confirmed 2026-05-25) |
+| Add WandB/Logging UI section (UI-1) | New Feature | Small | ✅ Done — LoggingCard.tsx (confirmed 2026-05-25) |
 | Dashboard redesign with all routes (UI-2) | UX | Medium | 🔵 Design work, deferred |
 | HF upload form persistence (HF-1) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
-| Tag Viewer with frequency counts | New Feature | Medium | ⏳ Not started |
-| Bulk tag remove/replace | New Feature | Medium | ⏳ Not started |
+| Tag Viewer with frequency counts | New Feature | Medium | ✅ Done — tags/page.tsx frequency chips with counts (confirmed in UI 2026-05-25) |
+| Bulk tag remove/replace | New Feature | Medium | ✅ Done — tags/page.tsx Actions menu (2026-05-25) |
 | Fix alpha parameter UX in LoRA resize (MG-1) | Bug Fix | Small | ✅ Done 2026-04-30 |
 | Add subprocess timeouts to merge operations (MG-3) | Reliability | Small | ✅ Done 2026-04-30 |
 | CUDA availability check for merges (MG-4) | Error Handling | Small | ✅ Done 2026-04-30 |
@@ -566,7 +617,7 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 ### Should Have (Beta quality)
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
-| 3-way overwrite mode for tagging | Enhancement | Small | ⏳ Not started |
+| 3-way overwrite mode for tagging | Enhancement | Small | ✅ Done 2026-05-25 |
 | Checkpoint-specific validation (CT-1) | Enhancement | Small | ⏳ Not started |
 | Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium | 🚫 N/A — separate pages, no unified form |
 | Merge progress reporting (MG-7) | UX | Medium | ⏳ Not started |
@@ -615,15 +666,18 @@ A dedicated **Batch Downloader** page where users paste a list of URLs or magnet
 
 ### UI Design
 
-- Large textarea: paste URLs one per line
-- Global destination dropdown: Models / LoRAs / VAEs / Dataset / Output
-- Per-line destination override (optional, can skip for v1)
+- Large textarea: paste URLs one per line, with **inline hashtag routing per
+  line (A1111 BatchLinks style)**: `#model <url>`, `#lora <url>`, `#vae <url>`,
+  `#dataset <url>`, `#output <url>`
+- Global destination dropdown as the *default* for lines with no hashtag
 - Progress list showing each download's status as it runs
 - aria2c is already installed on VastAI/RunPod instances (required by existing workflow)
 
 ### Inspiration
 
-Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag syntax to route downloads. Our version replaces the hashtag hack with a proper destination dropdown — cleaner UX, same flexibility.
+Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag syntax to route downloads. **Dusk's vision (confirmed 2026-05-25): keep the hashtag syntax as the primary routing UX** (`#model <url>`, `#lora <url>`, etc.) — it's faster for power users pasting mixed lists — with a global dropdown only as the default for un-hashtagged lines. (Earlier draft proposed replacing hashtags with a dropdown; that was wrong — the hashtag flow is the point.)
+
+**Reality check (2026-05-25):** the current `/models` download UI is just a card of links, NOT this paste-and-route batch tool. BD-1 is genuinely not started.
 
 ### Implementation notes
 - Backend: new `POST /api/utilities/batch-download` endpoint that accepts a list of `{url, destination}` objects, spawns aria2c/hf-cli/gdown as appropriate per URL, streams progress back
@@ -839,6 +893,54 @@ The following features were inspired by Civitai's training interface:
 
 ## 9. Session Notes
 
+### 2026-05-25 — ComfyUI Generate UI polish + doc reconciliation
+
+**Shipped to `dev`:**
+- ComfyUI Generate UI: queue-runs field (1–8), cleaner 400 error parsing (extracts `node_errors[*].details`), navbar "LoRA Manager" link → ComfyUI:8188, removed misplaced model-picker footer link, stripped author/fork attribution from UI strings (belongs in README).
+- `extra_model_paths.yaml` written by installer: `output/`→loras, `pretrained_model/`→checkpoints, `vae/`→vae. Relative `..` paths, works local/VastAI/RunPod.
+- ZIP upload fix: removed `keepalive:true` (Fetch spec caps keepalive bodies at 64 KiB → 10 MB chunks failed with "Failed to fetch"). Chunking itself solves the original 300 MB-into-RAM problem.
+- Models page delete → shadcn AlertDialog (replaced raw `window.confirm()`).
+
+**Findings (sdxl-knx / ComfyUI):**
+- `Checkpoint Loader (LoraManager)` is willmiao's LoRA Manager node, NOT fearnworks (the `cnr_id` in KNX's workflow JSON was wrong). It validates `ckpt_name` against `scanner.get_cached_data()` filtered by `sub_type == "checkpoint"`. A checkpoint not in that cache → `value_not_in_list` / 400 (the "must use retirementMix" bug).
+  - **CORRECTION (verified in source):** `sub_type` is set by **file LOCATION during scan**, not metadata — `_create_default_metadata()` stamps `sub_type="checkpoint"` locally with NO CivitAI lookup. So the gate is "has LoRA Manager *scanned* this file into its cache," NOT "has CivitAI metadata." retirementMix was scanned (→ sidecars + cache entry + validates); NoobAI was dropped in after the last scan (→ no cache entry → fails). ComfyUI restart reloads the stale cache, doesn't rebuild it.
+  - **Real fix:** force a **rescan/refresh inside LoRA Manager** (not a CivitAI fetch, not a ComfyUI restart). Earlier "fetch CivitAI metadata" advice was wrong.
+  - Dusk chose to keep the node (NOT swap to `CheckpointLoaderSimple` — stock SaveImage isn't Civitai-compatible anyway) and to solve the brittleness properly via the in-app model manager direction below.
+
+**Doc reconciliation (statuses were stale):**
+- **Section 1 (Tag/Caption) is 100% done** — 1.1 frequency chips, 1.2 bulk remove/replace, 1.3 3-way overwrite (auto-tag Select), 1.4 per-image inline editor. "Per-Image Visual Tag Editor" was just claude-speak for the inline editor already shipped.
+- **WandB (LT-1/UI-1) done** — LoggingCard.tsx.
+- **Merging tool is half-done** — core works (LoRA/ckpt/resize) but MG-5 (SD3 not wired), MG-6 (stdout not logged), MG-7 (no progress on multi-GB merges), MG-8 (no output-exists check) all still open.
+- **BD-1 Batch Downloader not started** — current `/models` UI is just a link card. Vision corrected: keep BatchLinks-style hashtag routing (`#model <url>`), dropdown only as default.
+- Reflow violations (memory): possibly low-RAM, not a confirmed code bug — don't chase until it reproduces.
+
+**New idea — post-training "Test in ComfyUI →" button:**
+After a training run finishes, offer a button to jump straight to testing the new LoRA in ComfyUI. KEY: `extra_model_paths.yaml` already maps `output/`→ComfyUI loras, so the trained LoRA is **already visible** in ComfyUI's picker — no file copy needed. Implement as a deep-link to the Generate page (ideally pre-filling the LoRA), not a copy operation. Small frontend job.
+
+**Considering — forking / KNX-inspired custom ComfyUI nodes:**
+- Currently the Save Image node in the sdxl-knx workflow is willmiao's **Save Image (LoraManager)** (saves CivitAI info + thumbnails + workflow — genuinely great).
+- Open question (Dusk): can we embed a custom **"software" tag** identifying this trainer into saved images WITHOUT writing our own node?
+- Hoped-for free path: ComfyUI's **`extra_pnginfo`** mechanism. We *already* pass `extra_data.extra_pnginfo.workflow` on submit (see `templateInjector.ts`); a spec-compliant SaveImage iterates ALL keys and embeds each as a PNG text chunk.
+- **VERIFIED (2026-05-25) — does NOT work with the LoraManager node.** Reading willmiao's `py/nodes/save_image.py`, it writes at most two chunks: a `"parameters"` chunk (A1111-style string built internally from the metadata collector) and `"workflow"` from `extra_pnginfo["workflow"]` only. It explicitly ignores every other `extra_pnginfo` key. So a custom `software` tag is node-level, confirming Dusk's instinct.
+- **Key constraint (Dusk, 2026-05-25):** the stock ComfyUI SaveImage is **NOT A1111/Civitai compatible** — it writes the `workflow` chunk but no A1111-style `parameters` string, so Civitai can't auto-read generation params from its output. The LoraManager node's entire value is that `parameters` chunk (`pnginfo.add_text("parameters", metadata)`). So the save node MUST stay A1111/Civitai compatible.
+- **Options to add a software tag:**
+  1. **Fork / KNX-inspired save node (the real path)** — start from the LoraManager save logic (keep the A1111 `parameters` chunk + thumbnails + CivitAI info), add a `software` text chunk (and any other KNX metadata). Only option that keeps Civitai compat AND adds the tag.
+  2. ~~Switch to stock SaveImage~~ — REJECTED: gives a free `extra_pnginfo` tag but loses A1111/Civitai compatibility (no `parameters` chunk). Dealbreaker.
+  3. Post-save server-side PNG text injection — awkward, fights ComfyUI's flow; would also have to re-implement the A1111 string. Skip.
+- **Conclusion: forked/KNX-inspired save node is the only viable path** — and it's the natural anchor for the broader "fork or build KNX-inspired nodes" direction.
+
+**DIRECTION (Dusk, 2026-05-25) — build our OWN in-app model manager that hooks into LoRA Manager's API, instead of linking out to its UI:**
+- **Why linking out fails:** LoRA Manager's UI serves assets at root-absolute paths (`/loras_static`, `/locales`, `/example_images_static`, WS `/ws/fetch-progress` etc.) that don't survive our `/comfyui/` proxy prefix. AND on VastAI the frontend is tunneled separately from the exposed 8188 port, so we can't derive ComfyUI's public URL from the frontend hostname (`hostname:8188` points at the wrong host). Per-instance URL setting was considered but rejected in favour of this.
+- **The better approach:** LoRA Manager's **API already works through our `/comfyui/` proxy** (`/comfyui/api/lm/...` → ComfyUI `/api/lm/...`). Build our own model-manager page in the trainer that calls those endpoints. Benefits:
+  - Rides the frontend's existing tunnel — no 8188 exposure, no per-instance URL, no asset-path proxying.
+  - Matches our app theme instead of LoRA Manager's separate styling.
+  - **Lets us trigger LoRA Manager indexing / CivitAI metadata fetch from inside our app** — directly solves the "raw checkpoint won't validate until indexed" problem (the NoobAI 400). "Drop a checkpoint → click index → use it" becomes a real flow.
+  - Natural home for the Batch Downloader (BD-1) and the post-training "Test in ComfyUI" button.
+- **Scope:** proper project, ~next few days, part of the broader fork/inspired-nodes direction (NOT tonight). Needs: new page, wire up LoRA Manager API endpoints (list / scan / metadata fetch), and handle their progress WebSockets (`/ws/fetch-progress`, `/ws/download-progress`, `/ws/init-progress` — root-path, likely need proxy handling in server.js).
+- **REFINED SCOPE (Dusk, 2026-05-25):** do NOT clone the whole LoRA Manager (no separate tab, no stats dashboards, none of "all that shit"). Instead **fold lightweight model management into the existing Civitai downloader page** (`/models/browse` / `models/page.tsx`). Keep it to what's useful: browse local models, trigger indexing/metadata, download. The Civitai downloader is the natural anchor — already a model-acquisition surface.
+- **Add ArcEnCiel as a source** (see Section 16 — ArcEnCiel Model Browser) at some stage, alongside Civitai in that same downloader surface. Multi-source model browse/download in one place.
+- **LoRA Manager UI access is now FIXED** (commit 1f1836c, verified 2026-05-25): server.js proxies LoRA Manager's root-absolute paths (`/loras`, `/loras_static`, `/locales`, `/api/lm`, `/api/view`) to ComfyUI, so `/comfyui/loras` loads fully through the tunnel. So the in-app manager is no longer *blocking* — it's a QOL/ergonomics improvement now, not a "can't access models at all" fix. (Earlier tonight the `:8188` direct-link approach was reverted as wrong for VastAI before this proper proxy fix landed.)
+
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
 **Completed this session:**
@@ -989,26 +1091,58 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 
 #### Implementation sequence
 
-**COMFY-1: Proxy layer (prerequisite for everything else)**
-- `frontend/server.js` — add `/comfyui` HTTP proxy block (mirror the FastAPI proxy pattern)
-- `frontend/server.js` — add `/ws/comfyui` WebSocket upgrade handler
-- Env var: `COMFYUI_PORT=8188` (add to `start_services_vastai.sh`, `start_services_runpod.sh`, `restart.sh`)
-- `lib/comfy/client.ts` — change default `baseUrl` from `http://localhost:8188` to `/comfyui`
+**COMFY-1: Proxy layer (prerequisite for everything else)** — ✅ Done 2026-05-23 (commit `dfc8a1e`)
+- `frontend/server.js` — `/comfyui/*` HTTP proxy block strips prefix and forwards to ComfyUI
+- `frontend/server.js` — `/comfyui/ws` WebSocket upgrade handler (matches the client's relative `baseUrl + '/ws'` pattern)
+- Env var: `COMFYUI_PORT=8188` honored in `server.js` (still TODO: add explicit export in `start_services_vastai.sh`, `start_services_runpod.sh`, `restart.sh` for documentation)
+- `lib/comfy/client.ts` — change default `baseUrl` from `http://localhost:8188` to `/comfyui` (handled in COMFY-2 when the file lands in the repo)
 
-**COMFY-2: Drop in the library layer**
-- Copy `lib/comfy/` into `frontend/lib/comfy/`
-- Copy `lib/stores/` into `frontend/lib/stores/` (check for Zustand dep — add to package.json if missing)
-- Copy `hooks/use-generation.ts` into `frontend/hooks/`
+**COMFY-2: Library layer** — ✅ Done 2026-05-23 (commit `5ebd646`)
+- `lib/comfy/types.ts` — full TypeScript types for all ComfyUI API surfaces (workflow, queue, history, system stats, WebSocket message discriminated union)
+- `lib/comfy/client.ts` — `comfyClient` singleton: `submitPrompt`, `interrupt`, `getQueue`, `getHistory` (overloaded), `deleteHistory`, `getObjectInfo`, `getSystemStats`, `getImageUrl`, `ping`, `connectWebSocket` with auto-reconnect
+- `lib/comfy/workflows/txt2img.ts` — `buildTxt2ImgWorkflow()` targeting SDXL / SD 1.5 (CheckpointLoaderSimple chain; see **ANIMA note** below)
+- `lib/comfy/workflows/img2img.ts` — `buildImg2ImgWorkflow()` with LoadImage + VAEEncode
+- `lib/comfy/workflows/index.ts` — barrel re-export
+- `lib/comfy/useComfyConnection.ts` — `useComfyConnection()` hook: manages WS lifecycle, status, progress, queue; client ID from `sessionStorage` (stable per tab); `submitTxt2Img` convenience wrapper
+- `lib/comfy/index.ts` — top-level barrel export
 
-**COMFY-3: UI components**
-- Copy `components/comfy/` into `frontend/components/comfy/`
-- New page: `frontend/app/comfyui/page.tsx` (adapt from template's `app/page.tsx`)
-- Add ComfyUI to navbar under a new "Generate" section (or alongside Tools)
-- Add to `server.js` `nodeApiPrefixes` if any Next.js API routes are needed
+**COMFY-3: UI components** — ✅ Done 2026-05-23 (commit `5ebd646`)
+- `components/comfy/ComfyConnectionStatus.tsx` — pill badge (emerald/yellow/zinc/red) for header
+- `components/comfy/GenerateUI.tsx` — full two-panel resizable UI (Splitter); left: prompts, checkpoint, dimensions, sampler settings, LoRA stack, denoise/VAE/CLIP skip; right: image gallery + progress
+- `app/comfyui/page.tsx` — connection-aware page shell (connecting / disconnected / error / connected states); BorderGlow disconnected card
+- `components/blocks/navigation/navbar.tsx` — added "Generate" top-level nav item → `/comfyui`
 
-**COMFY-4: Settings integration**
-- Add ComfyUI URL field to existing settings page (`frontend/app/settings/page.tsx`)
-- Read from settings store rather than hardcoding; show connection status badge
+**COMFY-4: Settings integration** — ✅ Done 2026-05-23 (commit `5ebd646`)
+- `lib/node-services/settings-service.ts` — `comfyui_url?: string` field; GET returns `comfyui_url: settings.comfyui_url ?? 'http://localhost:8188'`; POST merges update
+- `app/api/settings/user/route.ts` — accepts `comfyui_url` string in POST body
+- `app/settings/page.tsx` — ComfyUI GradientCard section with URL Input before API Keys section; note: changes take effect within 5 s (proxy cache)
+
+**ANIMA workflow vs SDXL — node structure differences**
+
+The bundled SDXL workflow (`guy90sVerySimpleAndEasyTo_v10.json`, adapted from Guy90s) uses a `CheckpointLoaderSimple` chain — a single node loads MODEL + CLIP + VAE. ANIMA uses a completely separate loader pattern:
+
+| Aspect | SDXL / SD 1.5 (`buildTxt2ImgWorkflow`) | ANIMA (`buildAnimaWorkflow` — TODO) |
+|--------|----------------------------------------|--------------------------------------|
+| Model loader | `CheckpointLoaderSimple` (outputs MODEL[0], CLIP[1], VAE[2]) | `UNETLoader` (MODEL only) |
+| CLIP loader | Output [1] of checkpoint | `DualCLIPLoader` (loads two CLIP models for AuraFlow — CLIP-L + T5XXL) |
+| VAE loader | Output [2] of checkpoint | `VAELoader` (separate VAE file) |
+| Sampling | `KSampler` | `KSampler` + `ModelSamplingAuraFlow` (patches the model's sigma schedule for AuraFlow's non-standard distribution) |
+| Detailer | Adetailer via Impact Pack | same |
+| Upscaler | Ultimate SD Upscale | same |
+
+`buildAnimaWorkflow()` needs to live at `lib/comfy/workflows/anima.ts` and wire:
+- Node 1: `UNETLoader` → `model`
+- Node 2: `DualCLIPLoader` → `clip` (clip_name1 = CLIP-L file, clip_name2 = T5XXL file, type = "stable_diffusion" or "flux" depending on AuraFlow version)
+- Node 3: `VAELoader` → `vae`
+- Node 4: `ModelSamplingAuraFlow` (patches Node 1's model output) → patched `model`
+- Nodes 5, 6: `CLIPTextEncode` positive/negative (using Node 2's clip)
+- Node 7: `EmptyLatentImage`
+- Node 8: `KSampler` (uses patched model from Node 4)
+- Node 9: `VAEDecode`
+- Node 10: `SaveImage`
+- LoRA nodes 20+: `LoraLoader` chain injected between UNETLoader and ModelSamplingAuraFlow
+
+The `GenerateUI` architecture switcher (header toggle) will call `buildAnimaWorkflow` vs `buildTxt2ImgWorkflow` depending on user selection — same resizable panel, different builder underneath. This is tracked in the architecture switcher todo below.
 
 **COMFY-6 (long-horizon): Custom node plugin system**
 - Custom node packs map to UI component "plugins" — similar to A1111's extension system
@@ -1022,8 +1156,57 @@ The client defaults to `http://localhost:8188` and opens a WebSocket directly fr
 - Clicking it navigates to `/comfyui` with the trained LoRA pre-loaded into the LoRA stack
 - Requires: COMFY-1 through COMFY-4 complete + ComfyUI actually running on the instance
 
+**COMFY-7: Auto-install required custom nodes (revised stance, 2026-05-23)**
+
+The earlier "we do NOT auto-install nodes" position was conservative scope-trimming, not a technical decision. Since we ship a custom UI template that *requires* specific nodes to function (LoRA Manager, rgthree, Impact Pack, Ultimate SD Upscale), missing nodes = silently broken feature from the user's perspective. Auto-installing is a correctness requirement, not a power-user convenience.
+
+**Required nodes for the bundled SDXL / ANIMA workflow templates:**
+- `rgthree-comfy` — https://github.com/rgthree/rgthree-comfy (Seed, Fast Groups Bypasser, Image Comparer)
+- `ComfyUI-Lora-Manager` — https://github.com/willmiao/ComfyUI-Lora-Manager (LoRA loader + Save Image)
+- `ComfyUI-Impact-Pack` — https://github.com/ltdrdata/ComfyUI-Impact-Pack (DetailerForEach, SAMLoader, ImpactSimpleDetectorSEGS, SEGSPreview)
+- `ComfyUI-Impact-Subpack` — https://github.com/ltdrdata/ComfyUI-Impact-Subpack (UltralyticsDetectorProvider)
+- `ComfyUI_UltimateSDUpscale` — https://github.com/ssitu/ComfyUI_UltimateSDUpscale (UltimateSDUpscale)
+- `comfyui_fearnworksnodes` — **KNX SDXL fork only**: `Checkpoint Loader (LoraManager)` node that loads MODEL+CLIP+VAE from a single checkpoint. Required by `sdxl-knx-v1.json`. Not needed for ANIMA template.
+- `ComfyUI-Manager` — https://github.com/ltdrdata/ComfyUI-Manager (optional but useful so users can add extras themselves)
+
+**Provisioning script approach (preferred):** `vastai_setup.sh` / `provision_runpod.sh` / `install.bat` clone each repo into `ComfyUI/custom_nodes/` and `pip install -r requirements.txt` for each. No ComfyUI Manager dependency, no chicken-and-egg problem, deterministic.
+
+**In-app fallback (later):** On `/comfyui` page load, check `/object_info` for missing node types. If any required node is missing, show a dialog with an "Install missing nodes" button that POSTs to a Next.js API route which runs the equivalent `git clone` server-side. Skip if ComfyUI Manager handles it.
+
+**COMFY-8: ComfyUI backend location — DECIDED 2026-05-23: direct clone everywhere**
+
+`.gitmodules` exists but is empty; `ComfyUI/` directory does not exist. Direct-clone approach chosen over git submodule:
+
+- **All provisioning paths clone ComfyUI consistently** — `vastai_setup.sh`, `provision_runpod.sh`, `install.bat`, `install.sh` each `git clone https://github.com/comfyanonymous/ComfyUI` into the platform-appropriate directory (e.g. `/workspace/ComfyUI` on remote, `./ComfyUI` next to the trainer locally).
+- **No submodule overhead** — no `.gitmodules` config, no `git submodule update --init --recursive` step, no submodule pin to bump.
+- **Graceful degrade if missing** — if a local user runs the trainer without having gone through the installer (or deletes their `ComfyUI/` dir), the `/comfyui` page shows the disconnected skeleton state already planned. App stays functional; ComfyUI tab is just inert.
+- **Same install loop for custom nodes** — the COMFY-7 custom node install routine runs the same way regardless of how ComfyUI got there.
+
+Rejected: git submodule (extra complexity for no real benefit in this use case; we don't need a version pin since ComfyUI's `main` branch is stable enough and breaking changes are rare).
+
+**COMFY-9: `knx-nodes` ComfyUI custom node package**
+
+A small package owned by KNX that ships alongside the bundled workflow templates. Auto-installed by provisioning scripts the same way as third-party nodes. Initial scope is two nodes:
+
+- **`KNXSaveImage`** — saves images with `Software: KNX Ecosystem` PNG metadata so downstream tools (Dataset-Tools, Discord bots, Civitai) tag the source correctly. Written from scratch using ComfyUI core's `SaveImage` pattern (MIT) — no fork. Optionally embeds a structured `knx_metadata` JSON chunk (template name, workflow version, KNX trainer build).
+- **`KNXMetadataReader`** — loads an image and extracts PNG text chunks as ComfyUI `STRING` outputs (positive prompt, negative prompt, seed, model, etc.). Lets users feed an existing image's prompt directly into `CLIPTextEncode` without re-tagging via WD14. Intentionally narrow — read chunks, return strings, no format-scoring heuristics. (Lesson from the vendored sdpr in Dataset-Tools-main: numpy scoring stacks become unmaintainable fast.)
+
+Package layout:
+```text
+knx-nodes/
+├── __init__.py          # NODE_CLASS_MAPPINGS + NODE_DISPLAY_NAME_MAPPINGS
+├── knx_save_image.py    # KNXSaveImage
+├── knx_metadata_reader.py  # KNXMetadataReader
+├── requirements.txt
+└── README.md
+```
+
+Lives in its own GitHub repo (`Ktiseos-Nyx/knx-nodes` or similar) so the provisioning loop clones it the same way it clones rgthree/Impact Pack. Growth path: any custom node KNX needs that doesn't exist upstream goes here.
+
+**Future ideas (not blocking):** dataset folder save node, training reference metadata embedder, ArcEnCiel-aware Civitai uploader node.
+
 #### Notes
-- ComfyUI backend ships as a **git submodule**, always co-located, `localhost:8188`. See "ComfyUI backend: submodule" section above.
+- ComfyUI backend is **directly cloned** by all install paths (local + remote), always co-located on `localhost:8188`. See COMFY-8 above for the decision rationale; the "ComfyUI backend: submodule" subsection further up is superseded.
 - The template has workflow builders for `inpaint`, `controlnet`, and `adetailer` types referenced in `types.ts` but not yet built in `workflows/`. Those are future scope.
 - Check whether `zustand` is already a dep before adding it — the stores use it.
 - **Issue #374 (Reflow Violations)** fixed in PR #375 (2026-05-20). TrainingMonitor auto-scroll moved fully into rAF with cleanup; auto-tag page SelectContent → position="item-aligned"; raw buttons → shadcn Button.
@@ -1082,6 +1265,15 @@ These handoffs are URL-based (no shared state stores), keeping the projects loos
 - Ideally the Trainer can deep-link with `?folder=/path/to/dataset` so Dataset Tools opens to the right place
 - Check if Dataset Tools' settings API accepts a folder override via query param, or whether we need to add it
 
+**DT-5: "KNX Ecosystem" source tag (pairs with COMFY-9)**
+
+Today, images generated by the bundled ComfyUI workflows show up as `Automatic1111` in Dataset-Tools' viewer because the LoRA Manager save node writes a `parameters` PNG chunk in A1111 format, and detection at `lib/parseImageMetadata.ts:181` keys off that chunk. Once `KNXSaveImage` (COMFY-9) writes `Software: KNX Ecosystem`, Dataset-Tools needs a matching detection block:
+
+- **Next.js viewer** (`lib/parseImageMetadata.ts`): add `'KNX Ecosystem'` to the `format` union type; add detection block `if (textChunks['Software'] === 'KNX Ecosystem')` before the A1111 check (mirroring the NovelAI pattern at line 172).
+- **Python CLI** (vendored sdpr at `dataset_tools/vendored_sdpr/format/`): add a `KNXFormat` class with `tool = "KNX Ecosystem"` and register it in `image_data_reader.py:PARSER_CLASSES_PNG` ahead of A1111.
+
+Tags both ends of the same ecosystem with one consistent name.
+
 #### Notes
 - Dataset Tools has its own settings system and thumbnail cache — these are self-contained, no conflict with Trainer settings
 - The Python `dataset_tools/` CLI is a separate tool; ignore it for web integration
@@ -1107,12 +1299,20 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
-| COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ⏳ Not started |
-| COMFY-2: Copy lib/stores/hooks layer from KNX-ComfyUI | Integration | Tiny | ⏳ Not started |
-| COMFY-3: UI page + navbar link + skeleton disconnected state | Integration | Small | ⏳ Not started |
-| COMFY-4: Settings integration (ComfyUI URL field) | UX | Tiny | ⏳ Not started |
+| COMFY-1: server.js proxy for ComfyUI | Infrastructure | Small | ✅ Done 2026-05-23 |
+| COMFY-2: lib/comfy layer (client, types, connection hook, workflows) | Integration | Tiny | ✅ Done 2026-05-23 |
+| COMFY-3: UI page + navbar + architecture switcher + template injector | Integration | Small | ✅ Done 2026-05-24 |
+| COMFY-4: Settings integration (ComfyUI URL field) | UX | Tiny | ✅ Done 2026-05-23 |
 | COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
+| COMFY-7: Auto-install required custom nodes (provisioning) | Infrastructure | Small | ✅ Done 2026-05-24 (fearnworksnodes URL still TODO) |
+| COMFY-8: ComfyUI submodule vs direct clone (decision) | Decision | n/a | ✅ Decided: direct clone everywhere |
+| COMFY-9: knx-nodes package (KNXSaveImage + KNXMetadataReader) | New Repo | Small | ⏳ Not started |
+| COMFY-10: Model picker (useComfyModels + /models API + combobox UI) | UX | Small | ✅ Done 2026-05-24 |
+| COMFY-11: Model download to ComfyUI folder (from HuggingFace/Civitai) | Feature | Medium | ✅ Done 2026-05-24 |
+| COMFY-12: Auto-download Ultralytics bbox/segm models for Impact-Pack | Infrastructure | Tiny | ⏳ Not started |
+| COMFY-13: Gallery image popup — show + copy generation metadata (prompt/seed/sampler/settings) from the lightbox in `GenerateUI.tsx` | Feature | Small | ⏳ Not started |
 | DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
+| DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
 | DT-3: Handoff buttons (inspect LoRA, view reference, files) | Feature | Small | ⏳ Not started |
 | DT-4: Deep-link folder awareness | Enhancement | Small | ⏳ Not started |
@@ -1255,6 +1455,10 @@ The goal is NOT a ground-up redesign. The component architecture is good, shadcn
 - Consider: active route highlighting is too subtle currently
 - Ecosystem tools (ComfyUI, Dataset Tools when added) should have a distinct "Ecosystem" group in the nav
 
+**G. File Manager**
+- **More contrast** — the file list is low-contrast and hard to scan. Needs clearer row separation, stronger hover/selected states, and a visible dir-vs-file distinction (structural contrast, per the page-by-page approach here).
+- **Copy files (feature, do alongside the contrast pass)** — the files API has list/rename/delete/mkdir/read/write/workspace but **no copy**; `rename` only moves. Add a copy capability: a new `/api/files/copy` route reusing the existing files-route path-safety guards (`is_safe_path`/`ALLOWED_DIRS`), plus a UI action. Pairs naturally with the contrast work since both touch FileManager.
+
 ### 14.4 What NOT to do
 
 - Don't do a full design system overhaul. Keep shadcn/ui, keep the component structure.
@@ -1279,6 +1483,7 @@ This is iterative, not a big-bang redesign. Work page by page, card by card:
 | Task | Effort | Impact | Status |
 |------|--------|--------|--------|
 | Port theme system from Dataset-Tools (customizer + swatches + hook) | Small | High | ⏳ Not started |
+| **Theme-matched button glow:** faint `box-shadow` behind buttons driven by theme CSS vars (`--primary` etc.) on the existing shadcn `Button` — ship alongside expanded color themes. Keep subtle, no neon/flashing. No bare HTML / primitives needed (pure CSS via className). | Tiny | Low | ⏳ Not started |
 | Dashboard redesign (UI-2) | Medium | High | ⏳ Not started |
 | Training form: progressive disclosure | Medium | High | ⏳ Not started |
 | Training form: section nav / orientation | Small | Medium | ⏳ Not started |
@@ -1286,8 +1491,72 @@ This is iterative, not a big-bang redesign. Work page by page, card by card:
 | Toast copy pass | Tiny | Medium | ⏳ Not started |
 | Nav: active states + ecosystem group | Small | Medium | ⏳ Not started |
 | Semantic color pass (icons, badges) | Small | Medium | ⏳ Not started |
+| **Slate purge:** Training cards (`SavingCard`, `MemoryCard`, `LoRAStructureCard`, `LoggingCard`, `CaptionCard`, `AdvancedCard`, `AugmentationCard`) — `border-slate-700` dividers → `border-border` | Tiny | Medium | ⏳ Not started |
+| **Slate purge:** `DatasetUploader.tsx` + `UppyDatasetUploader.tsx` — raw HTML form elements + `bg-slate-800`/`border-slate-600` → shadcn components + CSS vars | Medium | High | ⏳ Not started |
+| **Custom → shadcn audit:** `components/effects/` custom cards/borders/buttons — identify which can be replaced by installed shadcn components, retire the rest. Root cause: went custom early before knowing what shadcn had. | Small | Medium | ⏳ Not started |
+| **Hero slate:** `hero-animated.tsx` gradient strings bake in `slate-950` — make theme-aware or replace with CSS var equivalents | Tiny | Low | ⏳ Not started |
+| **a11y: numeric inputs for Steps & CFG** — on the Generate page (`GenerateUI.tsx`) Steps and CFG are slider-only; add paired numeric `<Input>` (like width/height/seed already have) so values are typeable, precise, and exposed to keyboard/assistive-tech users. | Tiny | Medium | ⏳ Not started |
+| **a11y sweep (whole app)** — dedicated pass at some stage (not urgent): keyboard nav, `focus-visible` states, ARIA labels, slider-only controls, color contrast, form-label associations. Audit + fix per page. | Medium | High | ⏳ Not started |
 
 ---
+
+## Section 16 — ArcEnCiel Model Browser
+
+**Priority:** Beta+ / "Nice to Have"
+**Status:** Not started
+**Permission:** Confirmed with ArcEnCiel team
+**Source:** https://github.com/Anzhc/ArcEnCiel-Extension-for-WebUI
+**API:** `https://arcenciel.io/api` — public, no authentication required
+
+### What it is
+
+ArcEnCiel (arcenciel.io) is a community model platform hosting LoRAs, checkpoints, VAEs, and embeddings — primarily anime/illustration focused, with strong Illustrious/NoobAI/Pony coverage. Adding it as a second model source gives users an alternative to Civitai, which can be geoblocked or rate-limited.
+
+### API
+
+No API key required. Key endpoints:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/models/search?search=&sort=&page=&limit=&base_model=&type=` | Search models |
+| `GET /api/models/{id}` | Model details + versions |
+| `GET /api/models/{id}/versions/{version_id}/download` | Download URL for a version |
+| `GET /api/models/{id}/gallery` | Preview images |
+
+Response includes model metadata, all versions, activation tags, base model, and direct download URLs. No OAuth, no rate limit enforced in the extension code.
+
+**"Link versions"** = model versions (same LoRA trained on different base models, different training epochs). Not a separate concept — just standard versioning like Civitai.
+
+### Implementation
+
+Same shape as the existing Civitai browser (`/models/browse`). Options:
+
+1. **New route** `/models/arcenciel` — mirrors Civitai browser structure, hits ArcEnCiel API instead. Cleanest separation.
+2. **Second tab** on `/models/browse` — toggle between Civitai and ArcEnCiel. More compact.
+
+Backend barely needs touching — the existing download endpoint already handles arbitrary URLs. Only additions needed:
+- New Next.js API route: `GET /api/arcenciel/models` (proxy to ArcEnCiel API)
+- Frontend page/tab with search, base model filter, model cards, download button
+
+Base model filter values that map to our existing model types: Illustrious, NoobAI, Pony, Flux, SDXL, SD1.5.
+
+### Attribution
+
+Add to `ATTRIBUTIONS.md` when implemented:
+```text
+ArcEnCiel Extension for WebUI by Anzhc
+https://github.com/Anzhc/ArcEnCiel-Extension-for-WebUI
+Used with permission from the ArcEnCiel team.
+```
+
+### Priority matrix
+
+| Item | Effort | Status |
+|------|--------|--------|
+| Next.js API proxy route for ArcEnCiel search | Small | ⏳ Not started |
+| Model browser page/tab (search, filters, cards) | Medium | ⏳ Not started |
+| Download wiring (reuses existing endpoint) | Tiny | ⏳ Not started |
+| ATTRIBUTIONS.md entry | Tiny | ⏳ Not started |
 
 ---
 
@@ -1421,6 +1690,120 @@ Kohya's newer tuning framework. Promising but overlap with existing Kohya backen
 **Status:** Not started
 
 Chroma is already partially supported via `flux_train.py --model_type chroma` in the vendored Kohya backend. SimpleTuner (§15.1) adds native Chroma support as a side effect of its broader model family coverage. Evaluate what's still missing after SimpleTuner lands before scoping a dedicated Chroma training path.
+
+---
+
+---
+
+## Section 17 — Image → Prompt Helper (WD-Tagger + Florence-2)
+
+**Priority:** Beta / Phase 2  
+**Status:** Not started  
+**Depends on:** Nothing — WD-tagger and transformers are already in requirements
+
+A standalone utility that takes a single image and returns two things: booru-style tags from WD-tagger and a natural-language caption from Florence-2. The intent is prompt generation — give the tool a reference image, get usable prompt text back. Distinct from the dataset auto-tagger (batch, writes `.txt` sidecar files); this is interactive, single-image, no file writes.
+
+**Natural fit with Dataset-Tools (§11.2):** once Dataset-Tools is embedded, an "Extract Prompt" button on any image in the browser can deep-link here with the image pre-selected.
+
+---
+
+### 17.1 Backend
+
+**New route:** `POST /api/utilities/image-to-prompt`
+
+Accepts a multipart image upload, runs both models, returns:
+
+```json
+{
+  "tags": ["1girl", "solo", "long_hair", "..."],
+  "tag_scores": {"1girl": 0.98, "solo": 0.96, "...": 0.0},
+  "caption": "A young woman with long silver hair standing in a forest.",
+  "detailed_caption": "..."
+}
+```
+
+**WD-tagger:** reuse `custom/tag_images_by_wd14_tagger.py` logic but as a Python function call, not a subprocess — or expose a thin single-image endpoint that calls the same ONNX model. Model is already cached by the auto-tag workflow so no extra download on first use.
+
+**Florence-2:** `microsoft/florence-2-base` (~232 MB, fast) or `florence-2-large` (~770 MB, better captions). Use the transformers pipeline with task token `<MORE_DETAILED_CAPTION>`. Lazy-load on first request so startup time isn't affected. Cache the loaded model in a module-level variable (same pattern as the existing BLIP captioner in `caption_service.py`).
+
+Available Florence-2 caption tasks (selectable by user or returned together):
+- `<CAPTION>` — one sentence
+- `<DETAILED_CAPTION>` — two to three sentences  
+- `<MORE_DETAILED_CAPTION>` — paragraph
+
+**New service file:** `services/image_prompt_service.py` — keeps the logic out of the route handler and mirrors the pattern in `captioning_service.py`.
+
+---
+
+### 17.2 Frontend
+
+**Location:** new tab or card in `/utilities`, or its own page `/utilities/image-prompt`.
+
+**UI flow:**
+1. Image drop zone (reuse or adapt the one in `DatasetUploader.tsx`)
+2. Optional: confidence threshold slider (same as auto-tag page, default 0.35)
+3. Optional: Florence-2 model size toggle (base vs large)
+4. Submit → spinner → results
+
+**Results panel — two sections side by side:**
+- **Tags (WD-tagger):** tag chips (same style as the tag editor), with a "Copy as comma list" button
+- **Caption (Florence-2):** text display with length selector (short / detailed / more detailed), copy button
+
+**Combine mode (nice to have):** single "Copy as prompt" button that produces `tags..., caption sentence` — useful for trainers who want structured + natural text together.
+
+---
+
+### 17.3 Models and Deps
+
+| Model | Source | Size | Notes |
+|-------|--------|------|-------|
+| WD-tagger | Already in project (onnxruntime-gpu) | ~350 MB | No new dep |
+| Florence-2 base | `microsoft/florence-2-base` via HF hub | ~232 MB | transformers already a dep |
+| Florence-2 large | `microsoft/florence-2-large` via HF hub | ~770 MB | Optional; user chooses |
+
+No new Python packages needed — `transformers`, `Pillow`, `onnxruntime-gpu`, `huggingface-hub` are all already in `requirements_base.txt`.
+
+Florence-2 requires `flash_attn` for best performance but falls back cleanly to standard attention if not installed — don't add it as a hard dep.
+
+---
+
+### 17.4 Implementation Sequence
+
+1. `services/image_prompt_service.py` — WD-tagger single-image wrapper + Florence-2 lazy loader
+2. `api/routes/utilities.py` — add `POST /image-to-prompt` endpoint
+3. Frontend page/tab — drop zone + results panel
+4. Wire confidence threshold and caption length controls
+5. (Later) Dataset-Tools deep-link when §11.2 is in progress
+
+---
+
+### 17.5 Open Questions
+
+- **Model size default:** base is fast enough for interactive use; large adds noticeable latency on CPU fallback. Default to base, let user opt into large.
+- **WD-tagger model variant:** the project currently uses whatever `wd14_tagger_model_dir` is set to in settings. For the prompt helper, auto-select the best available cached model or download `wd-eva02-large-tagger-v3` if nothing is cached.
+- **Florence-2 on VastAI:** model downloads automatically via HF hub — no special VastAI handling needed beyond ensuring `HF_HOME` points somewhere with disk space.
+
+---
+
+## Section 18 — Frontend Tooling & Follow-up Backlog
+
+### 18.1 Priority Matrix
+
+| Item | Effort | Impact | Status |
+|------|--------|--------|--------|
+| **Fix Next-16 lint** — `package.json` lint script is `next lint`, but Next 16 removed the `lint` subcommand (misfires, treats `lint` as a directory). `npx eslint` also fails with `minimatch: expand is not a function` (broken dep). Migrate to ESLint flat config (`eslint.config.mjs`) + repair the dep. Gate frontend changes with `npx tsc --noEmit` until fixed. | Small | High | ⏳ Not started |
+| **Frontend unit tests** — no React/Next test runner exists (`tests/` is Python only). Recommend Vitest + React Testing Library (Next 16 / React 19 fit). Would let us unit-test things like the gallery keyboard accessibility instead of relying on manual visual checks. Ties into the existing "smoke tests" intent. | Medium | Medium | ⏳ Not started |
+| **LyCORIS re-sync** — vendored LyCORIS is at 67372a `dev16` (synced 2026-05-05); upstream `dev` HEAD adds 4 newer algos not yet vendored: PiSSA, RaLoRA, GoRA, LoRA². Wholesale re-sync per the methodology, then register in `modules/__init__.py` + `config.py` and (optionally) the frontend LoRA-type dropdown. Nothing is broken without them. See §11.1. | Small | Low | ⏳ Not started |
+| **`train_llm_adapter` wiring (Anima)** — the arg exists in the vendored backend (sd_scripts `lora_anima.py` + LyCORIS) and is documented, but is NOT exposed in the config flow (`api.ts` / `validation.ts` / `config-service.ts` / `kohya_toml.py` / presets / UI). Currently defaults `False` with no way to enable. Mind the Anima (`networks.lora_anima`) vs LyCORIS network_args path difference. | Small | Low | ⏳ Not started |
+| **Preset audit + rename** — review presets for what's actually useful; rename misleading names (e.g. the Illustrious preset labelled "Conservative" that's actually a fast/clean config). Distinct from the format-migration audit (§5.0.96) and optimizer-args contamination (§5.1) — this is a content/naming pass. | Small | Medium | ⏳ Not started |
+| **`.jsx` → `.tsx` conversion** (deferred from CR on #386) — convert remaining plain-JSX components to TypeScript per the frontend TS-only policy. `ClickSpark.jsx` is in active use (GenerateUI) so it must be *converted*, not deleted; type the canvas refs, `Spark[]`, and pointer/mouse handlers. (`BorderGlow.jsx` is exempt — slated for deletion via the §14.6 "Custom → shadcn audit".) | Small | Low | ⏳ Not started |
+| **Demo/showcase file audit** (deferred from CR on #386) — `*-demo.tsx` and `satori-ui/dotted-modern.tsx` look unused. Either delete them, or fix the nits CR flagged (dotted-modern CTA label/href mismatch, `gooey-input-demo` missing docstring). Decide keep-vs-delete first. | Small | Low | ⏳ Not started |
+| **`upload-progress.tsx` dark-mode decision** (deferred from CR on #386) — the redundant `isDark` ternaries were collapsed to a light-only palette (lint fix). Decide whether this aicanvas upload card should actually support dark mode; if yes, supply real dark hex values for the color tokens. Pairs with the §14.6 theme-system work. | Tiny | Low | ⏳ Not started |
+
+### 18.2 Notes
+
+- The hand-built `components/effects/*` (and `components/BorderGlow.jsx`) are confirmed duplicates of installed shadcn/registry components (`shiny-button`, `shine-border`, `hover-border-gradient`, `rainbow-button`, `backlight`, `spotlightcard`, …). Retiring them is already tracked as the "Custom → shadcn audit" row in §14.6.
+- Root cause of the duplication (per §14.6): components were built custom early, before knowing what shadcn/the installed registries already provided. Rule going forward: use the installed component; only hand-build when nothing installed/installable fits.
 
 ---
 

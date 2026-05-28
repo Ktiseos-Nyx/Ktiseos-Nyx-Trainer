@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { Sparkles, Settings } from 'lucide-react';
+import { Footer } from '@/components/blocks/navigation/footer';
 
 // 🚀 OPTIMIZATION: Lazy load hero animation (saves 6.4MB GSAP bundle)
 const HeroAnimated = dynamic(() => import('@/components/blocks/hero/hero-animated').then(mod => ({ default: mod.HeroAnimated })), {
@@ -18,6 +19,7 @@ const HeroAnimated = dynamic(() => import('@/components/blocks/hero/hero-animate
 
 export default function Home() {
   return (
+    <>
     <HeroAnimated
       title="Ktiseos Nyx TRAINER"
       subtitle="Model Training Made Beautiful"
@@ -45,5 +47,7 @@ export default function Home() {
       helperText="Optimized for VastAI & Remote containers and local development"
       theme="purple-blue"
     />
+    <Footer />
+    </>
   );
 }

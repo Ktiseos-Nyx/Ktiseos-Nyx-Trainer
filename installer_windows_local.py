@@ -34,11 +34,20 @@ if sys.platform == "win32":
 class LocalWindowsInstaller:
     """Local Windows Installer for Ktiseos-Nyx-Trainer Backend + Frontend Dependencies"""
 
-    def __init__(self, verbose=False, skip_install=False, force=False):
+    def __init__(self, verbose=False, skip_install=False, force=False, skip_comfyui=False):
+        """Initialize the local Windows installer.
+
+        Args:
+            verbose: Stream subprocess output live when True.
+            skip_install: Skip dependency installation when True.
+            force: Re-run installation even if the completion marker exists.
+            skip_comfyui: Skip installing ComfyUI when True.
+        """
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
         self.force = force
+        self.skip_comfyui = skip_comfyui
         self.install_marker = os.path.join(self.project_root, "install_complete.marker")
 
         self.setup_logging()
@@ -452,7 +461,7 @@ class LocalWindowsInstaller:
             print(" 📦 Installing frontend (Next.js) dependencies...")
             success = self._npm_run(
                 npm_exe, frontend_dir,
-                ["install", "--legacy-peer-deps"],
+                ["install"],
                 "Installing npm packages",
             )
             if not success:
@@ -461,7 +470,7 @@ class LocalWindowsInstaller:
                 print(" ⚠️  Retrying npm install with --force...")
                 success = self._npm_run(
                     npm_exe, frontend_dir,
-                    ["install", "--legacy-peer-deps", "--force"],
+                    ["install", "--force"],
                     "Installing npm packages (force)",
                 )
             return success
@@ -531,6 +540,204 @@ class LocalWindowsInstaller:
             self.logger.info("Frontend already built and up to date.")
             print(" ✅ Frontend already built and up to date.")
             return True
+
+    def install_comfyui(self):
+        """
+        Clone ComfyUI and install required custom nodes into {project_root}/ComfyUI/.
+
+        Per the COMFY-8 decision, ComfyUI is cloned directly (not a git submodule).
+        Required custom nodes for the bundled workflow templates are installed too.
+        All failures are non-fatal — the training tool works without ComfyUI.
+        """
+        if not shutil.which("git"):
+            self.logger.warning("git not found — skipping ComfyUI installation.")
+            print("   ⚠️  git not found. Install Git for Windows to enable ComfyUI auto-install.")
+            return False
+
+        comfyui_dir = os.path.join(self.project_root, "ComfyUI")
+        custom_nodes_dir = os.path.join(comfyui_dir, "custom_nodes")
+
+        # Clone or pull ComfyUI
+        if os.path.isdir(os.path.join(comfyui_dir, ".git")):
+            self.logger.info("ComfyUI already cloned, pulling updates...")
+            print("   ComfyUI already cloned — pulling updates...")
+            self.run_command(
+                ["git", "pull", "--ff-only"],
+                "Updating ComfyUI",
+                cwd=comfyui_dir,
+                allow_failure=True,
+            )
+        else:
+            self.logger.info("Cloning ComfyUI into %s", comfyui_dir)
+            success = self.run_command(
+                ["git", "clone", "https://github.com/comfyanonymous/ComfyUI.git", comfyui_dir],
+                "Cloning ComfyUI",
+            )
+            if not success:
+                self.logger.warning("ComfyUI clone failed — skipping custom nodes.")
+                return False
+
+        # Install ComfyUI Python requirements
+        comfyui_req = os.path.join(comfyui_dir, "requirements.txt")
+        if os.path.exists(comfyui_req):
+            install_cmd = self.package_manager["install_cmd"] + ["-r", comfyui_req]
+            self.run_command(install_cmd, "Installing ComfyUI requirements", allow_failure=True)
+
+        # Create model subdirectory structure
+        models_dir = os.path.join(comfyui_dir, "models")
+        for subdir in [
+            "checkpoints", "diffusion_models", "vae", "loras",
+            "text_encoders", "clip", "upscale_models", "controlnet",
+            "embeddings", "hypernetworks",
+            # Impact Pack detection models
+            "sams",
+            os.path.join("ultralytics", "bbox"),
+            os.path.join("ultralytics", "segm"),
+        ]:
+            os.makedirs(os.path.join(models_dir, subdir), exist_ok=True)
+        self.logger.info("Model subdirectories created under %s", models_dir)
+
+        # Download detection/segmentation models + sync the curated KNX repo.
+        self._download_comfyui_models(models_dir)
+
+        # Clone required custom nodes (allow_failure=True so one bad node doesn't stop the rest)
+        os.makedirs(custom_nodes_dir, exist_ok=True)
+        # ComfyUI-Manager first: it lets the user reinstall any node that fails
+        # auto-install (like a flaked LoRA Manager) from the ComfyUI UI.
+        custom_nodes = [
+            ("ComfyUI-Manager",           "https://github.com/ltdrdata/ComfyUI-Manager"),
+            ("rgthree-comfy",             "https://github.com/rgthree/rgthree-comfy"),
+            ("ComfyUI-Lora-Manager",      "https://github.com/willmiao/ComfyUI-Lora-Manager"),
+            ("ComfyUI-Impact-Pack",       "https://github.com/ltdrdata/ComfyUI-Impact-Pack"),
+            ("ComfyUI-Impact-Subpack",    "https://github.com/ltdrdata/ComfyUI-Impact-Subpack"),
+            ("ComfyUI_UltimateSDUpscale", "https://github.com/ssitu/ComfyUI_UltimateSDUpscale"),
+            ("comfyui_fearnworksnodes",   "https://github.com/fearnworks/ComfyUI_FearnworksNodes"),
+        ]
+
+        # Track nodes that don't fully install so we can report them loudly at the
+        # end instead of silently swallowing the failure (how a missing LoRA
+        # Manager slipped by before).
+        failed_nodes = []
+        for node_name, node_url in custom_nodes:
+            node_dir = os.path.join(custom_nodes_dir, node_name)
+            if os.path.isdir(os.path.join(node_dir, ".git")):
+                self.run_command(
+                    ["git", "pull", "--ff-only"],
+                    f"Updating {node_name}",
+                    cwd=node_dir,
+                    allow_failure=True,
+                )
+            else:
+                # Retry the clone — transient git/network failures are the usual
+                # reason a node silently goes missing on a fresh instance.
+                cloned = False
+                for attempt in range(1, 4):
+                    # A partial dir from a failed attempt blocks the retry; clear it.
+                    if os.path.isdir(node_dir):
+                        shutil.rmtree(node_dir, ignore_errors=True)
+                    label = f"Cloning {node_name}" + (f" (retry {attempt - 1})" if attempt > 1 else "")
+                    if self.run_command(["git", "clone", node_url, node_dir], label, allow_failure=True):
+                        cloned = True
+                        break
+                if not cloned:
+                    failed_nodes.append(node_name)
+                    self.logger.warning("Custom node %s failed to clone after retries", node_name)
+                    continue
+            node_req = os.path.join(node_dir, "requirements.txt")
+            if os.path.exists(node_req):
+                install_cmd = self.package_manager["install_cmd"] + ["-r", node_req]
+                if not self.run_command(
+                    install_cmd,
+                    f"Installing {node_name} requirements",
+                    allow_failure=True,
+                ):
+                    failed_nodes.append(f"{node_name} (requirements)")
+
+        if failed_nodes:
+            print("   ⚠️  Custom nodes that did NOT fully install: " + ", ".join(failed_nodes))
+            print("       Re-run the installer, or install them in-app via ComfyUI-Manager.")
+            self.logger.warning("Custom nodes not fully installed: %s", ", ".join(failed_nodes))
+        else:
+            self.logger.info("All custom nodes installed successfully.")
+
+        self.logger.info("ComfyUI installation complete.")
+        print("   ✅ ComfyUI installation complete.")
+        return True
+
+    def _download_comfyui_models(self, models_dir: str) -> None:
+        """Download Impact Pack detection/segmentation models + the KNX repo.
+
+        SAM and the base face detector come from their upstreams (stdlib urllib,
+        no third-party dep); the curated KNX-Trainer-Models repo is synced via
+        _sync_knx_trainer_models. Downloads skip files already present and all
+        failures are non-fatal.
+        """
+        import urllib.request
+
+        models_to_download = [
+            # SAM (Segment Anything) — used by SAMLoader node
+            (
+                os.path.join("sams", "sam_vit_b_01ec64.pth"),
+                "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
+                "SAM ViT-B (~375 MB)",
+            ),
+            # Ultralytics face detection bbox model — used by UltralyticsDetectorProvider
+            (
+                os.path.join("ultralytics", "bbox", "face_yolov8n.pt"),
+                "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8n.pt",
+                "face_yolov8n (~6 MB)",
+            ),
+        ]
+
+        for rel_path, url, label in models_to_download:
+            dest = os.path.join(models_dir, rel_path)
+            if os.path.exists(dest):
+                print(f"   ✅ {label} already present, skipping")
+                continue
+            print(f"   ⬇️  Downloading {label}...")
+            try:
+                urllib.request.urlretrieve(url, dest)
+                print(f"   ✅ {label} downloaded")
+                self.logger.info("Downloaded %s to %s", label, dest)
+            except Exception as exc:
+                print(f"   ⚠️  {label} download failed (non-fatal): {exc}")
+                self.logger.warning("Failed to download %s: %s", label, exc)
+
+        self._sync_knx_trainer_models(models_dir)
+
+    def _sync_knx_trainer_models(self, models_dir: str) -> None:
+        """Sync the curated KNX-Trainer-Models repo into ComfyUI/models.
+
+        The repo's top-level folders (vae, upscale_models, ultralytics/bbox,
+        ultralytics/segm) mirror ComfyUI's model dirs, so the allow_patterns map
+        1:1 onto the right locations. snapshot_download is resumable and skips
+        files already present, so re-running the installer is cheap. Adding a
+        file to the repo makes it appear here on the next install — no code change
+        needed. All failures are non-fatal.
+        """
+        try:
+            from huggingface_hub import snapshot_download
+        except ImportError as exc:
+            print(f"   ⚠️  huggingface_hub unavailable — skipping KNX-Trainer-Models sync: {exc}")
+            self.logger.warning("huggingface_hub unavailable for KNX-Trainer-Models sync: %s", exc)
+            return
+
+        print("   ⬇️  Syncing KNX-Trainer-Models (VAEs, upscalers, detailers)...")
+        try:
+            snapshot_download(
+                repo_id="KtiseosNyx/KNX-Trainer-Models",
+                local_dir=models_dir,
+                allow_patterns=[
+                    "vae/*", "upscale_models/*",
+                    "ultralytics/bbox/*", "ultralytics/segm/*",
+                ],
+                ignore_patterns=["*.rar", "README.md", ".gitattributes"],
+            )
+            print("   ✅ KNX-Trainer-Models synced into ComfyUI/models")
+            self.logger.info("Synced KNX-Trainer-Models into %s", models_dir)
+        except Exception as exc:
+            print(f"   ⚠️  KNX-Trainer-Models sync failed (non-fatal): {exc}")
+            self.logger.warning("Failed to sync KNX-Trainer-Models: %s", exc)
 
     # ====================================================
 
@@ -667,6 +874,23 @@ class LocalWindowsInstaller:
                 print(f" ⚠️  Frontend build skipped due to error: {fe}")
             # ===================================================
 
+            # =============== COMFYUI SETUP ==================
+            # Optional — failures here do NOT abort the installation.
+            if self.skip_comfyui:
+                self.logger.info("Skipping ComfyUI installation (--no-comfyui).")
+                print("\n 🎨 [ComfyUI] Skipped (--no-comfyui).")
+            else:
+                try:
+                    self.logger.info("Installing ComfyUI (optional — failures are non-fatal)...")
+                    print("\n 🎨 [ComfyUI] Installing ComfyUI and required custom nodes...")
+                    self.install_comfyui()
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception as ce:
+                    self.logger.warning("Unexpected error in ComfyUI install: %s", ce)
+                    print(f" ⚠️  ComfyUI install skipped due to error: {ce}")
+            # ===================================================
+
             end_time = datetime.datetime.now()
             duration = end_time - start_time
             # Detect if we're running inside a venv
@@ -742,9 +966,15 @@ Logs: logs/installer_windows_local_TIMESTAMP.log
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     parser.add_argument("--skip-install", action="store_true", help="Skip dependency installation")
     parser.add_argument("--force", "-f", action="store_true", help="Force reinstall even if already installed")
+    parser.add_argument("--no-comfyui", action="store_true", help="Skip ComfyUI installation (installs by default)")
     args = parser.parse_args()
     try:
-        installer = LocalWindowsInstaller(verbose=args.verbose, skip_install=args.skip_install, force=args.force)
+        installer = LocalWindowsInstaller(
+            verbose=args.verbose,
+            skip_install=args.skip_install,
+            force=args.force,
+            skip_comfyui=args.no_comfyui,
+        )
         success = installer.run_installation()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:

@@ -44,7 +44,7 @@ export function ShimmerBorder({
       />
 
       {/* Content */}
-      <div className="relative z-10 bg-slate-900 rounded-lg">
+      <div className="relative z-10 bg-card rounded-lg">
         {children}
       </div>
     </div>

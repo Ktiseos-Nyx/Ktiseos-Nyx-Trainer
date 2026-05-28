@@ -3,7 +3,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/blocks/navigation/navbar";
-import { Footer } from "@/components/blocks/navigation/footer";
 
 export const metadata: Metadata = {
   title: "Ktiseos-Nyx LoRA Trainer",
@@ -26,7 +25,6 @@ export default function RootLayout({
         >
           <Navbar />
           <main className="flex-1">{children}</main>
-          <Footer />
           <Toaster richColors position="bottom-right" />
         </ThemeProvider>
       </body>

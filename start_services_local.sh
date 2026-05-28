@@ -210,7 +210,7 @@ if [ -d "frontend" ]; then
         # Auto-install deps if missing
         if [ ! -d "frontend/node_modules/next" ]; then
             echo "[Frontend] Dependencies missing, running npm install..."
-            (cd frontend && npm install --legacy-peer-deps)
+            (cd frontend && npm install)
         fi
         # Auto-build if missing OR stale (source newer than build)
         if [ ! -d "frontend/.next" ]; then
@@ -240,6 +240,15 @@ else
     echo "[Warning] Frontend directory not found - skipping frontend startup."
 fi
 
+# Start ComfyUI (optional — only if cloned by installer)
+COMFYUI_PORT="${COMFYUI_PORT:-8188}"
+if [ -d "ComfyUI" ]; then
+    echo "[ComfyUI] Starting on http://localhost:${COMFYUI_PORT}..."
+    $PYTHON_CMD ComfyUI/main.py --port "$COMFYUI_PORT" --listen 127.0.0.1 &
+else
+    echo "[ComfyUI] Not installed — skipping. Run './install.sh' to add ComfyUI support."
+fi
+
 echo ""
 echo "=========================================="
 echo "[SUCCESS] Local Services Started!"
@@ -247,6 +256,7 @@ echo "=========================================="
 echo ""
 echo ">> Access the UI at: http://localhost:${FRONTEND_PORT}"
 echo ">> API Docs available at: http://localhost:${BACKEND_PORT}/docs"
+echo ">> ComfyUI (if running): http://localhost:${COMFYUI_PORT}"
 echo ""
 echo "[INFO] Services are running in the background."
 echo "[INFO] Press CTRL+C in this terminal to stop all services."

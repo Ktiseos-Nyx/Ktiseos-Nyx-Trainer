@@ -142,6 +142,33 @@ def get_api_keys() -> dict:
     }
 
 
+def get_comfyui_models_path() -> str:
+    """
+    Return the filesystem path to ComfyUI's models directory.
+
+    Resolution order:
+      1. COMFYUI_MODELS_PATH environment variable
+      2. comfyui_models_path field in user_settings.json
+      3. Fallback: {project_root}/ComfyUI/models
+         (ComfyUI is cloned directly inside the project root by the installer)
+
+    Returns an empty string if no configured path exists and the
+    fallback directory is also missing — callers must validate.
+    """
+    import os as _os
+    env_path = _os.environ.get("COMFYUI_MODELS_PATH", "")
+    if env_path:
+        return env_path
+
+    settings = load_settings()
+    settings_path = settings.get("comfyui_models_path", "")
+    if settings_path:
+        return settings_path
+
+    fallback = _os.path.abspath(_os.path.join(_os.getcwd(), "ComfyUI", "models"))
+    return fallback
+
+
 def mask_token(token: Optional[str]) -> Optional[str]:
     """Mask API token for display (show first 4 and last 4 chars)."""
     if not token or len(token) < 12:

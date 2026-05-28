@@ -151,6 +151,7 @@ cd /workspace/Ktiseos-Nyx-Trainer
 
 BACKEND_PORT="${BACKEND_PORT:-18000}"
 FRONTEND_PORT="${FRONTEND_PORT:-13000}"
+COMFYUI_PORT="${COMFYUI_PORT:-18188}"
 
 echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 pkill -f "uvicorn api.main:app" 2>/dev/null || true
@@ -169,7 +170,7 @@ EOL
 
 echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
 cd frontend || exit 1
-PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
+PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
 FRONTEND_PID=$!
 EOL
     fi
@@ -181,6 +182,26 @@ EOL
 
     chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
 
+    # ComfyUI gets its own supervisor process so backend/frontend restarts
+    # don't kill it (and force a full model-reload).
+    cat > /opt/supervisor-scripts/comfyui.sh << 'EOL'
+#!/bin/bash
+source /venv/main/bin/activate 2>/dev/null || true
+
+COMFYUI_PORT="${COMFYUI_PORT:-18188}"
+
+if [ ! -d /workspace/Ktiseos-Nyx-Trainer/ComfyUI ]; then
+    echo "[$(date)] ComfyUI not installed — exiting."
+    exit 0
+fi
+
+cd /workspace/Ktiseos-Nyx-Trainer
+echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..."
+exec python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header
+EOL
+
+    chmod +x /opt/supervisor-scripts/comfyui.sh
+
     cat > /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOL'
 [program:ktiseos-nyx]
 command=/opt/supervisor-scripts/ktiseos-nyx.sh
@@ -191,6 +212,19 @@ startsecs=10
 stopasgroup=true
 killasgroup=true
 stdout_logfile=/workspace/logs/supervisor.log
+redirect_stderr=true
+stdout_logfile_maxbytes=50MB
+stdout_logfile_backups=3
+
+[program:comfyui]
+command=/opt/supervisor-scripts/comfyui.sh
+directory=/workspace/Ktiseos-Nyx-Trainer
+autostart=true
+autorestart=true
+startsecs=30
+stopasgroup=true
+killasgroup=true
+stdout_logfile=/workspace/logs/comfyui.log
 redirect_stderr=true
 stdout_logfile_maxbytes=50MB
 stdout_logfile_backups=3
@@ -211,9 +245,14 @@ EOL
         supervisorctl update
         sleep 5
         if supervisorctl status ktiseos-nyx | grep -q RUNNING; then
-            echo "   ✅ Services started successfully!"
+            echo "   ✅ ktiseos-nyx started successfully!"
         else
-            echo "   ⚠️  Services may not have started - check logs"
+            echo "   ⚠️  ktiseos-nyx may not have started - check logs"
+        fi
+        if supervisorctl status comfyui | grep -q RUNNING; then
+            echo "   ✅ comfyui started successfully!"
+        else
+            echo "   ⚠️  comfyui may not have started yet (takes ~30s to load)"
         fi
     else
         echo "   ⚠️  supervisorctl not found - services won't auto-start"
@@ -221,21 +260,23 @@ EOL
 
     echo ""
     echo "🌐 Access your applications via VastAI portal links:"
-    echo "   - Frontend: Next.js UI (port 3000)"
-    echo "   - Backend:  FastAPI (port 8000)"
+    echo "   - Frontend: Next.js UI (port ${FRONTEND_PORT:-13000})"
+    echo "   - Backend:  FastAPI (port ${BACKEND_PORT:-18000})"
+    echo "   - ComfyUI:  (port ${COMFYUI_PORT:-18188})"
     echo ""
-    echo "♻️  Auto-restart is enabled!"
+    echo "♻️  Auto-restart is enabled (ComfyUI restarts independently of backend/frontend)!"
     echo ""
     echo "📋 Service logs:"
     echo "   - Backend:    /workspace/logs/backend.log"
     echo "   - Frontend:   /workspace/logs/frontend.log"
+    echo "   - ComfyUI:    /workspace/logs/comfyui.log"
     echo "   - Supervisor: /workspace/logs/supervisor.log"
     echo ""
     echo "🔧 Manual service control:"
-    echo "   - Restart:  supervisorctl restart ktiseos-nyx"
-    echo "   - Status:   supervisorctl status"
-    echo "   - Stop:     supervisorctl stop ktiseos-nyx"
-    echo "   - Start:    supervisorctl start ktiseos-nyx"
+    echo "   - Restart all:    supervisorctl restart all"
+    echo "   - Restart app:    supervisorctl restart ktiseos-nyx"
+    echo "   - Restart ComfyUI: supervisorctl restart comfyui"
+    echo "   - Status:         supervisorctl status"
     echo ""
     echo "🔄 Pull latest dev changes:"
     echo "   cd /workspace/Ktiseos-Nyx-Trainer && git pull origin dev"
