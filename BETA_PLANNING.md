@@ -218,6 +218,18 @@ Both LoRA and Checkpoint merging are implemented:
 - **Problem:** Reads file size without verifying output file actually exists
 - **Fix:** Add `output_path.exists()` check before stat()
 
+**Issue MG-9: LoRA → Checkpoint merging (bake LoRA into base model)** *(feature request — 2026-05-28)*
+- **Severity:** Feature request (backlog)
+- **Problem:** No path to bake a LoRA's weights directly into a base checkpoint and save a standalone merged model. Current "LoRA merge" combines LoRAs; "Checkpoint merge" is a checkpoint↔checkpoint weighted merge. Kohya's `networks/merge_lora.py` / `sdxl_merge_lora.py` can apply a LoRA onto the base model and save a full checkpoint.
+- **Fix:** Expose a "merge LoRA into checkpoint" mode (LoRA + base ckpt → merged ckpt) in the API + UI. Dusk has implementation context to add when this is picked up.
+
+**Issue MG-10: Block-weight (LBW-style) control for LoRA merge** *(feature request — 2026-05-28)*
+- **Severity:** Feature request (backlog)
+- **Problem:** No per-block (layer block weight) control when merging LoRAs — only a single global model/clip strength. Block weighting tunes individual UNet blocks (IN/MID/OUT) for finer style vs. likeness control.
+- **Fix:** Add per-block weight inputs to the LoRA merge flow. Dusk has implementation context to add later.
+
+> **Note (2026-05-28):** the merge-tool fixes in commit `80144fd` (paths, `size_formatted`, dirs) are **not yet verified** — needs a fetch-restart + manual run before MG items are re-audited as done.
+
 ---
 
 ## 4. LoRA Training - Audit Results
