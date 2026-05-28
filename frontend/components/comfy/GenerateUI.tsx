@@ -413,6 +413,7 @@ export function GenerateUI({
   const [upscaleEnabled, setUpscaleEnabled] = useState(true);
   const [adetailerEnabled, setAdetailerEnabled] = useState(true);
   const [adetailerModel, setAdetailerModel] = useState('');
+  const [samModel, setSamModel] = useState('');
 
   // ── LoRA stack (converted to LoRA Manager text format at submit time)
   const [loras, setLoras] = useState<LoraEntry[]>([]);
@@ -506,6 +507,7 @@ export function GenerateUI({
           upscaleEnabled,
           adetailerEnabled,
           adetailerModel: adetailerModel.trim() || undefined,
+          samModel: samModel.trim() || undefined,
         });
         const { apiPrompt, workflow } = injectTemplate(sdxlWorkflow, patch, { bypassNodeIds });
         await submitPrompt({
@@ -548,7 +550,7 @@ export function GenerateUI({
     positivePrompt, negativePrompt,
     steps, cfg, sampler, scheduler, seed,
     width, height, batchSize, queueCount, loras,
-    upscaleEnabled, adetailerEnabled, adetailerModel,
+    upscaleEnabled, adetailerEnabled, adetailerModel, samModel,
     submitPrompt,
   ]);
 
@@ -837,22 +839,41 @@ export function GenerateUI({
                     <Switch checked={adetailerEnabled} onCheckedChange={setAdetailerEnabled} />
                   </div>
                   {adetailerEnabled && (
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Detector model{' '}
-                        <span className="text-muted-foreground/60">(optional)</span>
-                      </Label>
-                      <ModelPicker
-                        value={adetailerModel}
-                        onChange={setAdetailerModel}
-                        models={models.ultralyticsModels}
-                        loading={models.loading}
-                        placeholder="bbox/face_yolov8m.pt"
-                        onRefresh={models.refresh}
-                      />
-                      <FieldHint>
-                        Install via Impact Pack manager or place in <code className="font-mono text-[10px]">ComfyUI/models/ultralytics/bbox/</code> or <code className="font-mono text-[10px]">segm/</code>
-                      </FieldHint>
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Detector model{' '}
+                          <span className="text-muted-foreground/60">(optional)</span>
+                        </Label>
+                        <ModelPicker
+                          value={adetailerModel}
+                          onChange={setAdetailerModel}
+                          models={models.ultralyticsModels}
+                          loading={models.loading}
+                          placeholder="bbox/face_yolov8m.pt"
+                          onRefresh={models.refresh}
+                        />
+                        <FieldHint>
+                          Install via Impact Pack manager or place in <code className="font-mono text-[10px]">ComfyUI/models/ultralytics/bbox/</code> or <code className="font-mono text-[10px]">segm/</code>
+                        </FieldHint>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          SAM model{' '}
+                          <span className="text-muted-foreground/60">(optional)</span>
+                        </Label>
+                        <ModelPicker
+                          value={samModel}
+                          onChange={setSamModel}
+                          models={models.samModels}
+                          loading={models.loading}
+                          placeholder="sam_vit_b_01ec64.pth"
+                          onRefresh={models.refresh}
+                        />
+                        <FieldHint>
+                          Place in <code className="font-mono text-[10px]">ComfyUI/models/sams/</code>
+                        </FieldHint>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -57,6 +57,8 @@
  *                                [6]=scheduler, [7]=denoise, …
  *   74  (DetailerForEach):       many — seed at [3], steps at [5], cfg at [6],
  *                                sampler at [7], scheduler at [8], denoise at [9]
+ *   77  (UltralyticsDetectorProvider): [0]=model_name
+ *   78  (SAMLoader):             [0]=model_name, [1]=device_mode
  *   65  (Save Image LM):         [0]=filename_prefix, [1]=file_format, …
  */
 
@@ -108,6 +110,8 @@ export interface SdxlKnxTemplateParams {
   upscaleBy?: number;
   /** Adetailer detection model (e.g. "bbox/face_yolov8m.pt"). */
   adetailerModel?: string;
+  /** SAM model for Adetailer segmentation (e.g. "sam_vit_b_01ec64.pth"). */
+  samModel?: string;
   /** Output filename prefix. Default "ComfyUI". */
   outputPrefix?: string;
   /** Enable UltimateSDUpscale post-processing. Default true. */
@@ -202,6 +206,11 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildRe
   // Node 77: UltralyticsDetectorProvider (Adetailer model)
   if (params.adetailerModel !== undefined) {
     patch['77'] = { ...patch['77'], 0: params.adetailerModel };
+  }
+
+  // Node 78: SAMLoader — [0]=model_name, [1]=device_mode (leave device_mode at default AUTO)
+  if (params.samModel !== undefined) {
+    patch['78'] = { ...patch['78'], 0: params.samModel };
   }
 
   // Node 74: DetailerForEach — only mirror steps/cfg; sampler+scheduler are fixed
