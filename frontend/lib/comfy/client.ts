@@ -153,12 +153,13 @@ function getImageUrl(file: ComfyOutputFile, preview = false): string {
 
 /**
  * Ping ComfyUI to check if it's reachable.
- * Returns true if the server responds, false if it's down or the proxy errors.
+ * Returns true only if the server responds with an OK status; false if it's
+ * down, the proxy errors, or the endpoint returns a non-2xx status.
  */
 async function ping(): Promise<boolean> {
   try {
-    await fetch(`${BASE_URL}/system_stats`, { method: 'HEAD' });
-    return true;
+    const res = await fetch(`${BASE_URL}/system_stats`, { method: 'HEAD' });
+    return res.ok;
   } catch {
     return false;
   }

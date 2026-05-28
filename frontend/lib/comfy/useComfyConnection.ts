@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { comfyClient, type ComfyWsHandle } from './client';
+import { comfyClient, type ComfyWsHandle } from '@/lib/comfy/client';
 import type {
   ComfyConnectionState,
   ComfyConnectionStatus,
@@ -28,8 +28,8 @@ import type {
   ComfyWsMessage,
   ComfyWsProgress,
   ComfyWsStatus,
-} from './types';
-import { buildTxt2ImgWorkflow, type Txt2ImgParams } from './workflows';
+} from '@/lib/comfy/types';
+import { buildTxt2ImgWorkflow, type Txt2ImgParams } from '@/lib/comfy/workflows';
 
 // ─── Client ID ────────────────────────────────────────────────────────────────
 

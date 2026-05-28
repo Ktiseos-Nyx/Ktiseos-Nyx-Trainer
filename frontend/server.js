@@ -232,7 +232,7 @@ app.prepare().then(() => {
       // Must run BEFORE the Node/FastAPI /api handling so /api/lm and /api/view
       // reach ComfyUI instead of 404ing at FastAPI. The comfyuiProxy pathRewrite
       // only strips a leading /comfyui, so root paths pass through unchanged.
-      if (pathname.startsWith('/comfyui/') || isComfyuiRootPath(pathname)) {
+      if (pathname === '/comfyui' || pathname.startsWith('/comfyui/') || isComfyuiRootPath(pathname)) {
         return comfyuiProxy(req, res);
       }
 

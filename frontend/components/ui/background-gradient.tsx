@@ -18,7 +18,7 @@ export const BackgroundGradient = ({
       backgroundPosition: "0 50%",
     },
     animate: {
-      backgroundPosition: ["0, 50%", "100% 50%", "0 50%"],
+      backgroundPosition: ["0 50%", "100% 50%", "0 50%"],
     },
   };
   return (

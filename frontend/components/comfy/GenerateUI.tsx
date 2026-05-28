@@ -151,7 +151,10 @@ function LoraRow({
       <Input
         type="number"
         value={lora.modelWeight ?? 1}
-        onChange={e => onChange(index, { ...lora, modelWeight: parseFloat(e.target.value) || 1 })}
+        onChange={e => {
+          const parsed = Number.parseFloat(e.target.value);
+          onChange(index, { ...lora, modelWeight: Number.isNaN(parsed) ? 1 : parsed });
+        }}
         step="0.05"
         min={-2}
         max={2}

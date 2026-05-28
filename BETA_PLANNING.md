@@ -1180,7 +1180,7 @@ A small package owned by KNX that ships alongside the bundled workflow templates
 - **`KNXMetadataReader`** — loads an image and extracts PNG text chunks as ComfyUI `STRING` outputs (positive prompt, negative prompt, seed, model, etc.). Lets users feed an existing image's prompt directly into `CLIPTextEncode` without re-tagging via WD14. Intentionally narrow — read chunks, return strings, no format-scoring heuristics. (Lesson from the vendored sdpr in Dataset-Tools-main: numpy scoring stacks become unmaintainable fast.)
 
 Package layout:
-```
+```text
 knx-nodes/
 ├── __init__.py          # NODE_CLASS_MAPPINGS + NODE_DISPLAY_NAME_MAPPINGS
 ├── knx_save_image.py    # KNXSaveImage

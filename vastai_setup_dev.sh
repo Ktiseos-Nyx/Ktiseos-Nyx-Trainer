@@ -260,9 +260,9 @@ EOL
 
     echo ""
     echo "🌐 Access your applications via VastAI portal links:"
-    echo "   - Frontend: Next.js UI (port 3000)"
-    echo "   - Backend:  FastAPI (port 8000)"
-    echo "   - ComfyUI:  (port 8188)"
+    echo "   - Frontend: Next.js UI (port ${FRONTEND_PORT:-13000})"
+    echo "   - Backend:  FastAPI (port ${BACKEND_PORT:-18000})"
+    echo "   - ComfyUI:  (port ${COMFYUI_PORT:-18188})"
     echo ""
     echo "♻️  Auto-restart is enabled (ComfyUI restarts independently of backend/frontend)!"
     echo ""

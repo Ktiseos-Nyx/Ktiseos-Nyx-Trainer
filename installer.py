@@ -150,11 +150,17 @@ class RemoteInstaller:
         if not self.verbose:
             print(f" {description}...")
 
+        # Force UTF-8 in child Python processes so Windows code pages (cp1252)
+        # don't break on non-ASCII output. Safe on all platforms.
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        env["PYTHONUTF8"] = "1"
+
         try:
             # Run command with real-time output if verbose
             if self.verbose:
                 process = subprocess.Popen(
-                    command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=cwd
+                    command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, cwd=cwd, env=env
                 )
 
                 output_lines = []
@@ -173,7 +179,7 @@ class RemoteInstaller:
                     raise subprocess.CalledProcessError(return_code, command, output)
             else:
                 # Run command silently
-                result = subprocess.run(command, check=True, capture_output=True, text=True, cwd=cwd)
+                result = subprocess.run(command, check=True, capture_output=True, text=True, cwd=cwd, env=env)
                 output = result.stdout
 
             self.logger.info(" %s successful.", description)

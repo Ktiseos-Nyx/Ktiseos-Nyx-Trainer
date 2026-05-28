@@ -33,6 +33,9 @@ class JobManager:
     def __init__(self):
         self.store = JobStore()
         self.log_parser = LogParser()
+        # Retain references to fire-and-forget coroutine job tasks so they aren't
+        # garbage-collected mid-run (RUF006); discarded automatically on completion.
+        self._background_tasks: set[asyncio.Task] = set()
 
     def create_job(
         self,
@@ -106,7 +109,9 @@ class JobManager:
         )
 
         self.store.add(job)
-        asyncio.create_task(self._run_coroutine_job(job_id, coro_factory))
+        task = asyncio.create_task(self._run_coroutine_job(job_id, coro_factory))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
         logger.info(f"Created {job_type} job (coroutine): {job_id}")
         return job_id

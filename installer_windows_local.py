@@ -35,6 +35,14 @@ class LocalWindowsInstaller:
     """Local Windows Installer for Ktiseos-Nyx-Trainer Backend + Frontend Dependencies"""
 
     def __init__(self, verbose=False, skip_install=False, force=False, skip_comfyui=False):
+        """Initialize the local Windows installer.
+
+        Args:
+            verbose: Stream subprocess output live when True.
+            skip_install: Skip dependency installation when True.
+            force: Re-run installation even if the completion marker exists.
+            skip_comfyui: Skip installing ComfyUI when True.
+        """
         self.project_root = os.path.dirname(os.path.abspath(__file__))
         self.verbose = verbose
         self.skip_install = skip_install
