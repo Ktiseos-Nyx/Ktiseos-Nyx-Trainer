@@ -45,9 +45,9 @@ export interface ComfyModelLists {
   /** Models in upscale_models/ */
   upscaleModels: string[];
   /**
-   * Ultralytics bbox + segm detector models — merged from
-   * `ultralytics/bbox/` and `ultralytics/segm/`, prefixed with their
-   * subfolder so ComfyUI can locate them.
+   * Ultralytics detector models from Impact Pack's registered "ultralytics"
+   * folder type. Filenames already include their bbox/ or segm/ subpath
+   * (e.g. "bbox/face_yolov8m.pt").
    */
   ultralyticsModels: string[];
   /** Re-fetch all model lists from ComfyUI. */
@@ -80,7 +80,7 @@ export function useComfyModels(): ComfyModelLists {
 
     setLoading(true);
     try {
-      const [unet, ckpts, textEnc, clip, vae, loras, upscale, lmLoras, ultBbox, ultSegm] = await Promise.all([
+      const [unet, ckpts, textEnc, clip, vae, loras, upscale, lmLoras, ultralytics] = await Promise.all([
         safe('diffusion_models'),
         safe('checkpoints'),
         safe('text_encoders'),
@@ -89,8 +89,9 @@ export function useComfyModels(): ComfyModelLists {
         safe('loras'),
         safe('upscale_models'),
         comfyClient.getLmLoras(),
-        safe('ultralytics/bbox'),
-        safe('ultralytics/segm'),
+        // Impact Pack registers "ultralytics" as a single folder type; filenames
+        // already include their bbox/ or segm/ subpath prefix.
+        safe('ultralytics'),
       ]);
       setDiffusionModels(unet);
       setCheckpoints(ckpts);
@@ -100,11 +101,7 @@ export function useComfyModels(): ComfyModelLists {
       setLoraModels(loras);
       setLmLoraModels(lmLoras);
       setUpscaleModels(upscale);
-      // Prefix each filename with its subfolder so ComfyUI's loader can locate it.
-      setUltralyticsModels([
-        ...ultBbox.map(f => `bbox/${f}`),
-        ...ultSegm.map(f => `segm/${f}`),
-      ].sort());
+      setUltralyticsModels([...ultralytics].sort());
     } finally {
       setLoading(false);
     }

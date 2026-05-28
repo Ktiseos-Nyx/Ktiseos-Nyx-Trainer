@@ -851,7 +851,7 @@ export function GenerateUI({
                         onRefresh={models.refresh}
                       />
                       <FieldHint>
-                        Place in <code className="font-mono text-[10px]">ComfyUI/models/ultralytics/bbox/</code> or <code className="font-mono text-[10px]">segm/</code>
+                        Install via Impact Pack manager or place in <code className="font-mono text-[10px]">ComfyUI/models/ultralytics/bbox/</code> or <code className="font-mono text-[10px]">segm/</code>
                       </FieldHint>
                     </div>
                   )}
