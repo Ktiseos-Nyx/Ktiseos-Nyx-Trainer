@@ -1495,6 +1495,8 @@ This is iterative, not a big-bang redesign. Work page by page, card by card:
 | **Slate purge:** `DatasetUploader.tsx` + `UppyDatasetUploader.tsx` — raw HTML form elements + `bg-slate-800`/`border-slate-600` → shadcn components + CSS vars | Medium | High | ⏳ Not started |
 | **Custom → shadcn audit:** `components/effects/` custom cards/borders/buttons — identify which can be replaced by installed shadcn components, retire the rest. Root cause: went custom early before knowing what shadcn had. | Small | Medium | ⏳ Not started |
 | **Hero slate:** `hero-animated.tsx` gradient strings bake in `slate-950` — make theme-aware or replace with CSS var equivalents | Tiny | Low | ⏳ Not started |
+| **a11y: numeric inputs for Steps & CFG** — on the Generate page (`GenerateUI.tsx`) Steps and CFG are slider-only; add paired numeric `<Input>` (like width/height/seed already have) so values are typeable, precise, and exposed to keyboard/assistive-tech users. | Tiny | Medium | ⏳ Not started |
+| **a11y sweep (whole app)** — dedicated pass at some stage (not urgent): keyboard nav, `focus-visible` states, ARIA labels, slider-only controls, color contrast, form-label associations. Audit + fix per page. | Medium | High | ⏳ Not started |
 
 ---
 
