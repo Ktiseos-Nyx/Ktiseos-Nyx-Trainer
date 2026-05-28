@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from services.core.validation import (
     validate_path_within, validate_dataset_path, validate_output_path,
-    PROJECT_ROOT, DATASETS_DIR, OUTPUT_DIR,
+    PROJECT_ROOT, DATASETS_DIR, OUTPUT_DIR, MODELS_DIR, VAE_DIR,
 )
 from services.core.exceptions import ValidationError
 
@@ -178,12 +178,12 @@ class LoRAResizeRequest(BaseModel):
 
 @router.get("/directories")
 async def get_directories():
-    """Get project directory paths (relative to trainer root)"""
+    """Get project directory paths for use with the file listing API."""
     return {
-        "output": "output",
-        "datasets": "datasets",
-        "pretrained_model": "pretrained_model",
-        "vae": "vae",
+        "output": str(OUTPUT_DIR),
+        "datasets": str(DATASETS_DIR),
+        "pretrained_model": str(MODELS_DIR),
+        "vae": str(VAE_DIR),
     }
 
 
@@ -212,29 +212,31 @@ async def list_lora_files(request: ListLoraFilesRequest):
 
         directory = Path(request.directory)
 
-        # Security: confine to output directory
+        # Security: confine to output or pretrained_model directory
         try:
-            directory = validate_path_within(str(directory), [OUTPUT_DIR])
+            directory = validate_path_within(str(directory), [OUTPUT_DIR, MODELS_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Create directory if it doesn't exist
         directory.mkdir(parents=True, exist_ok=True)
 
-        # Find LoRA files (supports comma-separated extensions like "safetensors,ckpt")
+        # Find files recursively (supports comma-separated extensions like "safetensors,ckpt")
         extensions = [ext.strip() for ext in request.file_extension.split(",")]
         files = []
         seen = set()
 
         for ext in extensions:
-            for file_path in directory.glob(f"*.{ext}"):
-                if file_path.is_file() and file_path.name not in seen:
-                    seen.add(file_path.name)
+            for file_path in directory.rglob(f"*.{ext}"):
+                if file_path.is_file() and str(file_path) not in seen:
+                    seen.add(str(file_path))
                     stat = file_path.stat()
+                    size_mb = round(stat.st_size / (1024 * 1024), 2)
                     files.append({
                         "name": file_path.name,
                         "path": str(file_path),
-                        "size_mb": round(stat.st_size / (1024 * 1024), 2),
+                        "size_mb": size_mb,
+                        "size_formatted": f"{size_mb:.1f} MB",
                         "modified": stat.st_mtime
                     })
 
@@ -381,10 +383,10 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
     Uses Kohya's merge_models.py script from vendored backend.
     """
     try:
-        # Security: confine all paths to output directory
+        # Security: inputs from output/ or pretrained_model/; output always to output/
         try:
             for cp in request.checkpoint_inputs:
-                validate_path_within(cp["path"], [OUTPUT_DIR])
+                validate_path_within(cp["path"], [OUTPUT_DIR, MODELS_DIR])
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
