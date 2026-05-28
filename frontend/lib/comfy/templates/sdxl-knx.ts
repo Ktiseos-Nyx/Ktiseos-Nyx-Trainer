@@ -204,7 +204,9 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildRe
     patch['77'] = { ...patch['77'], 0: params.adetailerModel };
   }
 
-  // Node 74: DetailerForEach — mirror sampler/cfg/steps
+  // Node 74: DetailerForEach — only mirror steps/cfg; sampler+scheduler are fixed
+  // to euler/karras in the template JSON and must not be overridden by the main
+  // KSampler selection (Adetailer works better with a stable sampler pair).
   // Widget order: guide_size[0], guide_size_for[1], max_size[2], seed[3], ctrl[4],
   //               steps[5], cfg[6], sampler_name[7], scheduler[8], denoise[9], …
   if (params.steps !== undefined) {
@@ -212,12 +214,6 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildRe
   }
   if (params.cfg !== undefined) {
     patch['74'] = { ...patch['74'], 6: params.cfg };
-  }
-  if (params.sampler !== undefined) {
-    patch['74'] = { ...patch['74'], 7: params.sampler };
-  }
-  if (params.scheduler !== undefined) {
-    patch['74'] = { ...patch['74'], 8: params.scheduler };
   }
 
   // Node 64: Lora Loader (LoraManager)

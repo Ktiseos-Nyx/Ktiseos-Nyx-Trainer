@@ -1278,7 +1278,7 @@
         "fixed",
         10,
         4,
-        "euler_ancestral",
+        "euler",
         "karras",
         0.05,
         5,

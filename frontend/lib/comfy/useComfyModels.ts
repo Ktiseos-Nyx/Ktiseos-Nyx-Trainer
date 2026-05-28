@@ -44,6 +44,12 @@ export interface ComfyModelLists {
   lmLoraModels: string[];
   /** Models in upscale_models/ */
   upscaleModels: string[];
+  /**
+   * Ultralytics bbox + segm detector models — merged from
+   * `ultralytics/bbox/` and `ultralytics/segm/`, prefixed with their
+   * subfolder so ComfyUI can locate them.
+   */
+  ultralyticsModels: string[];
   /** Re-fetch all model lists from ComfyUI. */
   refresh: () => void;
 }
@@ -63,6 +69,7 @@ export function useComfyModels(): ComfyModelLists {
   const [loraModels, setLoraModels] = useState<string[]>([]);
   const [lmLoraModels, setLmLoraModels] = useState<string[]>([]);
   const [upscaleModels, setUpscaleModels] = useState<string[]>([]);
+  const [ultralyticsModels, setUltralyticsModels] = useState<string[]>([]);
 
   const fetchAll = useCallback(async () => {
     /** Fetch a single folder, returning [] on any error. */
@@ -73,7 +80,7 @@ export function useComfyModels(): ComfyModelLists {
 
     setLoading(true);
     try {
-      const [unet, ckpts, textEnc, clip, vae, loras, upscale, lmLoras] = await Promise.all([
+      const [unet, ckpts, textEnc, clip, vae, loras, upscale, lmLoras, ultBbox, ultSegm] = await Promise.all([
         safe('diffusion_models'),
         safe('checkpoints'),
         safe('text_encoders'),
@@ -82,6 +89,8 @@ export function useComfyModels(): ComfyModelLists {
         safe('loras'),
         safe('upscale_models'),
         comfyClient.getLmLoras(),
+        safe('ultralytics/bbox'),
+        safe('ultralytics/segm'),
       ]);
       setDiffusionModels(unet);
       setCheckpoints(ckpts);
@@ -91,6 +100,11 @@ export function useComfyModels(): ComfyModelLists {
       setLoraModels(loras);
       setLmLoraModels(lmLoras);
       setUpscaleModels(upscale);
+      // Prefix each filename with its subfolder so ComfyUI's loader can locate it.
+      setUltralyticsModels([
+        ...ultBbox.map(f => `bbox/${f}`),
+        ...ultSegm.map(f => `segm/${f}`),
+      ].sort());
     } finally {
       setLoading(false);
     }
@@ -108,6 +122,7 @@ export function useComfyModels(): ComfyModelLists {
     loraModels,
     lmLoraModels,
     upscaleModels,
+    ultralyticsModels,
     refresh: fetchAll,
   };
 }
