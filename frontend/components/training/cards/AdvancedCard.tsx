@@ -25,7 +25,6 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
   const isLumina = modelType === 'LUMINA';
   const isAnima = modelType === 'Anima';
   const isHunyuanImage = modelType === 'HunyuanImage';
-  const isSDXL = modelType === 'SDXL';
   // SD2 check kept for future support - currently no SD2 in ModelType enum
   const isSD2 = (modelType as string) === 'SD2.0' || (modelType as string) === 'SD2.1';
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { utilitiesAPI, LoRAFile } from '@/lib/api';
-import { Wrench, CheckCircle, Loader2, Minimize2, Home, Plus, Trash2 } from 'lucide-react';
+import { Wrench, CheckCircle, Loader2, Minimize2, Home, Trash2 } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

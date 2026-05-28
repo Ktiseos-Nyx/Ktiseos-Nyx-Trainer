@@ -8,16 +8,16 @@
  */
 
 import { cn } from '@/lib/utils';
-import type { ComfyConnectionStatus } from '@/lib/comfy';
+import type { ComfyConnectionStatus as ConnectionStatus } from '@/lib/comfy';
 
 interface Props {
-  status: ComfyConnectionStatus;
+  status: ConnectionStatus;
   queueRemaining?: number;
   className?: string;
 }
 
 const CONFIG: Record<
-  ComfyConnectionStatus,
+  ConnectionStatus,
   { dot: string; pulse: boolean; label: string }
 > = {
   connected: {

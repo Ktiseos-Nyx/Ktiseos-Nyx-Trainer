@@ -199,6 +199,11 @@ function Splitter({
     [handleInteractionEnd],
   );
 
+  // Stable reference so the matching removeEventListener can actually detach it.
+  const preventSelectStart = React.useCallback((e: Event): void => {
+    e.preventDefault();
+  }, []);
+
   React.useEffect(() => {
     if (isDragging) {
       const options = { passive: false, capture: true };
@@ -210,11 +215,7 @@ function Splitter({
       document.addEventListener('touchend', handleTouchEnd, options);
       document.addEventListener('touchcancel', handleTouchEnd, options);
 
-      document.addEventListener(
-        'selectstart',
-        (e) => e.preventDefault(),
-        options,
-      );
+      document.addEventListener('selectstart', preventSelectStart, options);
       window.addEventListener('blur', handleInteractionEnd);
     }
 
@@ -232,10 +233,10 @@ function Splitter({
       document.removeEventListener('touchcancel', handleTouchEnd, {
         capture: true,
       });
-      document.removeEventListener('selectstart', (e) => e.preventDefault(), {
+      document.removeEventListener('selectstart', preventSelectStart, {
         capture: true,
       });
-      window.removeEventListener('blur-sm', handleInteractionEnd);
+      window.removeEventListener('blur', handleInteractionEnd);
     };
   }, [
     isDragging,
@@ -244,6 +245,7 @@ function Splitter({
     handleTouchMove,
     handleTouchEnd,
     handleInteractionEnd,
+    preventSelectStart,
   ]);
 
   React.useEffect(() => {
