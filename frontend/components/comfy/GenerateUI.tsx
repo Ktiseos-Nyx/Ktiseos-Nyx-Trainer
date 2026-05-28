@@ -125,22 +125,29 @@ function FieldHint({ children }: { children: React.ReactNode }) {
 function LoraRow({
   lora,
   index,
+  loraModels,
+  modelsLoading,
   onChange,
   onRemove,
 }: {
   lora: LoraEntry;
   index: number;
+  loraModels: string[];
+  modelsLoading: boolean;
   onChange: (i: number, l: LoraEntry) => void;
   onRemove: (i: number) => void;
 }) {
   return (
     <div className="flex gap-1.5 items-center">
-      <Input
-        value={lora.name}
-        onChange={e => onChange(index, { ...lora, name: e.target.value })}
-        placeholder="lora_name.safetensors"
-        className="flex-1 h-8 text-xs"
-      />
+      <div className="flex-1 min-w-0">
+        <ModelPicker
+          value={lora.name}
+          onChange={v => onChange(index, { ...lora, name: v })}
+          models={loraModels}
+          loading={modelsLoading}
+          placeholder="lora_name.safetensors"
+        />
+      </div>
       <Input
         type="number"
         value={lora.modelWeight ?? 1}
@@ -849,11 +856,19 @@ export function GenerateUI({
                 )}
                 <div className="space-y-1.5">
                   {loras.map((lora, i) => (
-                    <LoraRow key={i} lora={lora} index={i} onChange={updateLora} onRemove={removeLora} />
+                    <LoraRow
+                      key={i}
+                      lora={lora}
+                      index={i}
+                      loraModels={models.lmLoraModels.length > 0 ? models.lmLoraModels : models.loraModels}
+                      modelsLoading={models.loading}
+                      onChange={updateLora}
+                      onRemove={removeLora}
+                    />
                   ))}
                 </div>
                 {loras.length > 0 && (
-                  <FieldHint>Type the filename or use Manager → to browse and refresh your LoRA list</FieldHint>
+                  <FieldHint>Pick from the list or type a filename — trained LoRAs from output/ are included</FieldHint>
                 )}
               </div>
 

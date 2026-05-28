@@ -225,12 +225,25 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildRe
   // The 'text' field (index 1) is an AUTOCOMPLETE UI widget — explicitly deleted
   // by the Python node and NOT used to determine which LoRAs to load.
   // Format per _collect_widget_entries: { name, active, strength, clipStrength }.
+  //
+  // LM cache indexes files by filename WITH extension. If the user typed a bare
+  // stem (e.g. "MyLora") the cache lookup fails and LM falls back to setting
+  // absolute_path = "<lora:name:strength>", which then throws FileNotFoundError.
+  // Appending ".safetensors" when no recognised extension is present fixes this.
+  const LORA_EXTENSIONS = ['.safetensors', '.pt', '.ckpt', '.bin', '.pth'];
+  const normalizeLora = (n: string) => {
+    // Parse A1111 syntax: <lora:stem:model_weight> or <lora:stem:model_weight:clip_weight>
+    const a1111 = n.match(/^<lora:([^:>]+):/i);
+    if (a1111) return `${a1111[1]}.safetensors`;
+    return LORA_EXTENSIONS.some(ext => n.toLowerCase().endsWith(ext)) ? n : `${n}.safetensors`;
+  };
+
   patch['64'] = {
     ...patch['64'],
     2: (params.loras ?? [])
       .filter(l => l.name.trim())
       .map(l => ({
-        name: l.name.trim(),
+        name: normalizeLora(l.name.trim()),
         active: true,
         strength: l.modelWeight ?? 1.0,
         clipStrength: l.clipWeight ?? l.modelWeight ?? 1.0,

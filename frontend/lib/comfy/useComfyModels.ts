@@ -34,8 +34,14 @@ export interface ComfyModelLists {
   clipModels: string[];
   /** Models in vae/ */
   vaeModels: string[];
-  /** Models in loras/ */
+  /** Models in loras/ — from ComfyUI's /models/loras (only sees the loras/ folder). */
   loraModels: string[];
+  /**
+   * LoRAs from LoRA Manager's cache — includes every path in extra_model_paths.yaml
+   * (e.g. training output/). Empty if LM is not installed. Falls back to `loraModels`
+   * in consumers when empty.
+   */
+  lmLoraModels: string[];
   /** Models in upscale_models/ */
   upscaleModels: string[];
   /** Re-fetch all model lists from ComfyUI. */
@@ -55,6 +61,7 @@ export function useComfyModels(): ComfyModelLists {
   const [clipModels, setClipModels] = useState<string[]>([]);
   const [vaeModels, setVaeModels] = useState<string[]>([]);
   const [loraModels, setLoraModels] = useState<string[]>([]);
+  const [lmLoraModels, setLmLoraModels] = useState<string[]>([]);
   const [upscaleModels, setUpscaleModels] = useState<string[]>([]);
 
   const fetchAll = useCallback(async () => {
@@ -66,7 +73,7 @@ export function useComfyModels(): ComfyModelLists {
 
     setLoading(true);
     try {
-      const [unet, ckpts, textEnc, clip, vae, loras, upscale] = await Promise.all([
+      const [unet, ckpts, textEnc, clip, vae, loras, upscale, lmLoras] = await Promise.all([
         safe('diffusion_models'),
         safe('checkpoints'),
         safe('text_encoders'),
@@ -74,6 +81,7 @@ export function useComfyModels(): ComfyModelLists {
         safe('vae'),
         safe('loras'),
         safe('upscale_models'),
+        comfyClient.getLmLoras(),
       ]);
       setDiffusionModels(unet);
       setCheckpoints(ckpts);
@@ -81,6 +89,7 @@ export function useComfyModels(): ComfyModelLists {
       setClipModels([...new Set([...textEnc, ...clip])].sort());
       setVaeModels(vae);
       setLoraModels(loras);
+      setLmLoraModels(lmLoras);
       setUpscaleModels(upscale);
     } finally {
       setLoading(false);
@@ -97,6 +106,7 @@ export function useComfyModels(): ComfyModelLists {
     clipModels,
     vaeModels,
     loraModels,
+    lmLoraModels,
     upscaleModels,
     refresh: fetchAll,
   };

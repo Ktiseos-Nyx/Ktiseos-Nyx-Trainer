@@ -105,6 +105,31 @@ async function getModelFiles(folder: string): Promise<string[]> {
   return request<string[]>(`/models/${encodeURIComponent(folder)}`);
 }
 
+/**
+ * Fetch all LoRA filenames from LoRA Manager's cache.
+ *
+ * Unlike ComfyUI's /models/loras, the LM cache includes every root in
+ * extra_model_paths.yaml — including the training output/ directory.
+ * Returns filenames (basename with extension) sorted alphabetically.
+ *
+ * Returns an empty array if LoRA Manager is not installed.
+ */
+async function getLmLoras(): Promise<string[]> {
+  try {
+    const data = await request<{ items: Array<{ file_path: string; file_name: string }> }>(
+      '/api/lm/loras/list?page_size=9999'
+    );
+    return data.items
+      .map(item => {
+        const parts = item.file_path.replace(/\\/g, '/').split('/');
+        return parts[parts.length - 1] ?? item.file_name;
+      })
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
 /** Fetch system stats (GPU VRAM, OS, Python version). */
 async function getSystemStats(): Promise<ComfySystemStats> {
   return request<ComfySystemStats>('/system_stats');
@@ -232,6 +257,7 @@ export const comfyClient = {
   deleteHistory,
   getObjectInfo,
   getModelFiles,
+  getLmLoras,
   getSystemStats,
   getImageUrl,
   ping,
