@@ -123,7 +123,7 @@ provisioning_start() {
     git config --global --add safe.directory $(pwd)
 
     # Create log directory
-    mkdir -p /workspace/logs
+    mkdir -p /workspace/Ktiseos-Nyx-Trainer/logs
 
     # Create supervisor config for auto-restart
     echo ""
@@ -151,7 +151,7 @@ fi
 
 # Navigate to project directory
 if [ ! -d /workspace/Ktiseos-Nyx-Trainer ]; then
-    echo "[$(date)] ERROR: Project directory not found at /workspace/Ktiseos-Nyx-Trainer" | tee -a /workspace/logs/supervisor.log
+    echo "[$(date)] ERROR: Project directory not found at /workspace/Ktiseos-Nyx-Trainer" | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
     exit 1
 fi
 cd /workspace/Ktiseos-Nyx-Trainer
@@ -160,17 +160,18 @@ cd /workspace/Ktiseos-Nyx-Trainer
 # Our services must listen on the proxy-target ports, not the Caddy-owned ports.
 BACKEND_PORT="${BACKEND_PORT:-18000}"
 FRONTEND_PORT="${FRONTEND_PORT:-13000}"
+COMFYUI_PORT="${COMFYUI_PORT:-18188}"
 
 # Clean up any existing processes on our ports (only if they're python/node processes)
 # This prevents accidentally killing VastAI infrastructure (Caddy on 3000/8000)
-echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
+echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
 pkill -f "uvicorn api.main:app" 2>/dev/null || true
 pkill -f "next-server" 2>/dev/null || true
 sleep 1
 
 # Start backend
-echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/logs/supervisor.log
-python -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/logs/backend.log &
+echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
+python -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/backend.log &
 BACKEND_PID=$!
 
 # Give backend a moment to start
@@ -181,9 +182,9 @@ EOL
         cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
 
 # Start frontend (using custom server with WebSocket proxy)
-echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/logs/supervisor.log
+echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
 cd frontend || exit 1
-PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
+PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log &
 FRONTEND_PID=$!
 EOL
     fi
@@ -196,6 +197,26 @@ EOL
 
     chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
 
+    # ComfyUI gets its own supervisor process so backend/frontend restarts
+    # don't kill it (and force a full model-reload).
+    cat > /opt/supervisor-scripts/comfyui.sh << 'EOL'
+#!/bin/bash
+source /venv/main/bin/activate 2>/dev/null || true
+
+COMFYUI_PORT="${COMFYUI_PORT:-18188}"
+
+if [ ! -d /workspace/Ktiseos-Nyx-Trainer/ComfyUI ]; then
+    echo "[$(date)] ComfyUI not installed — exiting."
+    exit 0
+fi
+
+cd /workspace/Ktiseos-Nyx-Trainer
+echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..."
+exec python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header
+EOL
+
+    chmod +x /opt/supervisor-scripts/comfyui.sh
+
     cat > /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOL'
 [program:ktiseos-nyx]
 command=/opt/supervisor-scripts/ktiseos-nyx.sh
@@ -205,7 +226,20 @@ autorestart=true
 startsecs=10
 stopasgroup=true
 killasgroup=true
-stdout_logfile=/workspace/logs/supervisor.log
+stdout_logfile=/workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
+redirect_stderr=true
+stdout_logfile_maxbytes=50MB
+stdout_logfile_backups=3
+
+[program:comfyui]
+command=/opt/supervisor-scripts/comfyui.sh
+directory=/workspace/Ktiseos-Nyx-Trainer
+autostart=true
+autorestart=true
+startsecs=30
+stopasgroup=true
+killasgroup=true
+stdout_logfile=/workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log
 redirect_stderr=true
 stdout_logfile_maxbytes=50MB
 stdout_logfile_backups=3
@@ -234,6 +268,11 @@ EOL
         else
             echo "   ⚠️  Services may not have started - check logs"
         fi
+        if supervisorctl status comfyui | grep -q RUNNING; then
+            echo "   ✅ comfyui started successfully!"
+        else
+            echo "   ⚠️  comfyui may not have started yet (takes ~30s to load)"
+        fi
     else
         echo "   ⚠️  supervisorctl not found - services won't auto-start"
     fi
@@ -248,9 +287,10 @@ EOL
     echo "   - Supervisor will automatically restart services if they crash"
     echo ""
     echo "📋 Service logs:"
-    echo "   - Backend:    /workspace/logs/backend.log"
-    echo "   - Frontend:   /workspace/logs/frontend.log"
-    echo "   - Supervisor: /workspace/logs/supervisor.log"
+    echo "   - Backend:    /workspace/Ktiseos-Nyx-Trainer/logs/backend.log"
+    echo "   - Frontend:   /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log"
+    echo "   - ComfyUI:    /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log"
+    echo "   - Supervisor: /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log"
     echo ""
     echo "🔧 Manual service control:"
     echo "   - Restart:  supervisorctl restart ktiseos-nyx"
