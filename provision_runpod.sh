@@ -2,7 +2,8 @@
 # RunPod Provisioning Script for Ktiseos-Nyx-Trainer
 #
 # RunPod Template: Ktiseos-Nyx LoRA Trainer
-#   Container Image: runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+#   Container Image: any RunPod PyTorch image with CUDA 12.1 or newer (we run 12.4).
+#     This script runs on top of whatever image you pick — it does not pin one.
 #   HTTP Ports: 8888, 6006, 3000, 8000
 #   TCP Ports: 22
 #   Docker Command (auto-provisions on pod start, keeps Jupyter/SSH alive):

@@ -1,6 +1,8 @@
-# Ktiseos Nyx LoRA Trainer
+# Ktiseos Nyx Trainer
 
-Web-based LoRA training interface built on Kohya SS. Runs locally on Windows/Linux or on cloud GPU instances (VastAI, RunPod).
+**Train, tag, and generate — a full LoRA & checkpoint training suite with ComfyUI built in.**
+
+A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many model types (SDXL, Flux, SD3, Lumina, Anima…), then generate and test results in a bundled ComfyUI workspace. Runs locally on Windows/Linux or on cloud GPUs (VastAI, RunPod).
 
 | Python | License | Deploy | Discord | Twitch | Support | Quality |
 |---|---|---|---|---|---|---|
@@ -40,7 +42,7 @@ Web-based LoRA training interface built on Kohya SS. Runs locally on Windows/Lin
 
 ### Hardware
 
-- **GPU:** NVIDIA with CUDA 12.1+ (12 GB VRAM minimum; 24 GB recommended for SDXL/Flux)
+- **GPU:** NVIDIA with CUDA 12.1+ (12 GB VRAM minimum; 24 GB recommended for SDXL/Flux). Local installs target CUDA 12.1; the VastAI/RunPod deploy templates run CUDA 12.4.
 - **Disk:** 50 GB+ free space
 
 | GPU | Status |
@@ -150,6 +152,10 @@ python clean_slate.py --nuclear
 **Models:**
 - Civitai browser: search, filter, and download directly into local model folders
 - HuggingFace upload after training
+
+**Image generation (ComfyUI):**
+- Bundled ComfyUI workspace, installed by default (local and cloud) — generate images to test your trained models without leaving the app
+- LoRA Manager for browsing and applying your LoRAs
 
 **Utilities:**
 - LoRA merge, resize, and metadata editing
