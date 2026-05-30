@@ -135,10 +135,11 @@ provisioning_start() {
     # shellcheck disable=SC2046
     git config --global --add safe.directory $(pwd)
 
-    mkdir -p /workspace/logs
+    mkdir -p /workspace/Ktiseos-Nyx-Trainer/logs
 
     BACKEND_PORT="${BACKEND_PORT:-8000}"
     FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+    COMFYUI_PORT="${COMFYUI_PORT:-18188}"
 
     echo ""
     echo "=========================================="
@@ -151,20 +152,30 @@ provisioning_start() {
     echo "   Frontend: port $FRONTEND_PORT"
     echo ""
 
-    echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/logs/backend.log
-    $PYTHON_CMD -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/logs/backend.log &
+    echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/backend.log
+    $PYTHON_CMD -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/backend.log &
     BACKEND_PID=$!
 
     sleep 2
 
     if [ -d "frontend/.next" ] && [ "$SKIP_FRONTEND" != true ]; then
-        echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/logs/frontend.log
+        echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log
         cd frontend || exit 1
-        PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/logs/frontend.log &
+        PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log &
         FRONTEND_PID=$!
         cd ..
     else
         echo "  Frontend not available - running backend only"
+    fi
+
+    # Start ComfyUI (installed by installer.py unless --no-comfyui).
+    # Accessed through the frontend proxy via COMFYUI_PORT, not a separate RunPod port.
+    if [ -d "ComfyUI" ]; then
+        echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log
+        $PYTHON_CMD ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log &
+        COMFYUI_PID=$!
+    else
+        echo "  ComfyUI not installed - skipping"
     fi
 
     echo ""
@@ -183,8 +194,9 @@ provisioning_start() {
     fi
     echo ""
     echo "  Service logs:"
-    echo "   Backend:  /workspace/logs/backend.log"
-    echo "   Frontend: /workspace/logs/frontend.log"
+    echo "   Backend:  /workspace/Ktiseos-Nyx-Trainer/logs/backend.log"
+    echo "   Frontend: /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log"
+    echo "   ComfyUI:  /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log"
     echo ""
     echo "  NOTE: RunPod HTTP proxy has a 100-second timeout."
     echo "  Long-running requests (training) use async job polling, so this is fine."
@@ -194,9 +206,9 @@ provisioning_start() {
     echo "   python install_frontend.py --force && bash provision_runpod_dev.sh"
     echo ""
 
-    wait $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    wait $BACKEND_PID $FRONTEND_PID ${COMFYUI_PID:+$COMFYUI_PID} 2>/dev/null
     echo "[$(date)] Services exited - tailing logs to keep container alive..."
-    tail -f /workspace/logs/backend.log /workspace/logs/frontend.log 2>/dev/null &
+    tail -f /workspace/Ktiseos-Nyx-Trainer/logs/backend.log /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log 2>/dev/null &
     wait
 }
 

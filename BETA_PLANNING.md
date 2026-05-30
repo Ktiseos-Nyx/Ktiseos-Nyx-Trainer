@@ -1807,4 +1807,34 @@ Florence-2 requires `flash_attn` for best performance but falls back cleanly to 
 
 ---
 
+## Section 19 — Repository Root Organization
+
+### 19.1 Problem
+~48 tracked files sit at the repo root — mostly install/setup/run/diagnostic scripts plus **six** `requirements*.txt`. Hard to scan; new contributors can't tell which entry point is "the" one.
+
+### 19.2 Proposed grouping (a *plan*, not a blind `git mv`)
+- `scripts/install/` — `install.bat`, `install.sh`, `install_frontend.py`, `install_linux.py`, `installer.py`, `installer_windows_local.py`
+- `scripts/provision/` — `provision_runpod.sh`, `provision_runpod_dev.sh`, `vastai_setup.sh`, `vastai_setup_dev.sh`
+- `scripts/run/` — `start.sh`, `start_services_*.{bat,sh}`, `restart.{bat,sh}`, `fetch-restart.sh`, `run_backend.py`
+- `scripts/diagnose/` — `diagnose.{bat,py,sh}`, `clean_slate.py`
+- `requirements/` — the six `requirements*.txt`
+- **Must stay at root** (auto-discovered by tooling/GitHub): `.gitignore`, `.gitattributes`, `.gitmodules`, `LICENSE`, `pyproject.toml`, `README.md`, and the agent files `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `QWEN.md`. GitHub special files (`CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`) may move to `.github/` if wanted.
+
+### 19.3 Critical caveat — NOT a free move
+Every relocation breaks references that must be updated **and re-tested on all three platforms (local / VastAI / RunPod)**:
+- README install steps (clone → run `install.sh`)
+- Cross-script path assumptions (scripts calling siblings / assuming root as cwd)
+- VastAI/RunPod provisioning expecting fixed paths
+- `pyproject.toml` entry points / `run_backend.py`
+- `CLAUDE.md` / `AGENTS.md` references (e.g. `start_services_local.bat`)
+- Installer `project_root` / `install_complete.marker` path math
+
+Do it **incrementally** (one group per PR), re-test each platform, update docs in the same PR.
+
+### 19.4 Quick-win cleanup (independent of the reorg)
+- `.snyk` — Snyk was removed from the project; this file is almost certainly dead → verify + delete.
+- `find_fences.py` — looks like a one-off debug script; confirm unused → delete.
+
+---
+
 **Document maintained by:** Ktiseos-Nyx-Trainer Project

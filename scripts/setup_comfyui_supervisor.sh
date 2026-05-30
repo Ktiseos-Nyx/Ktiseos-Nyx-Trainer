@@ -6,7 +6,7 @@
 set -e
 
 mkdir -p /opt/supervisor-scripts
-mkdir -p /workspace/logs
+mkdir -p /workspace/Ktiseos-Nyx-Trainer/logs
 
 cat > /opt/supervisor-scripts/comfyui.sh << 'EOF'
 #!/bin/bash
@@ -39,7 +39,7 @@ autorestart=true
 startsecs=30
 stopasgroup=true
 killasgroup=true
-stdout_logfile=/workspace/logs/comfyui.log
+stdout_logfile=/workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log
 redirect_stderr=true
 stdout_logfile_maxbytes=50MB
 stdout_logfile_backups=3
