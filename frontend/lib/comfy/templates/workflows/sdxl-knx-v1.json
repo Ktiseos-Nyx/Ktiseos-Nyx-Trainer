@@ -1,8 +1,8 @@
 {
   "id": "92112d97-bb64-4b44-86f2-ea5691ef8f6e",
   "revision": 0,
-  "last_node_id": 129,
-  "last_link_id": 186,
+  "last_node_id": 132,
+  "last_link_id": 200,
   "nodes": [
     {
       "id": 100,
@@ -1061,7 +1061,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 157
+          "link": 199
         }
       ],
       "outputs": [
@@ -1159,7 +1159,7 @@
           "dir": 3,
           "name": "image_b",
           "type": "IMAGE",
-          "link": 161
+          "link": 200
         }
       ],
       "outputs": [],
@@ -1260,8 +1260,8 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            157,
-            161
+            190,
+            191
           ]
         }
       ],
@@ -1882,6 +1882,220 @@
         "karras",
         1
       ]
+    },
+    {
+      "id": 130,
+      "type": "UltralyticsDetectorProvider",
+      "pos": [
+        1980,
+        -1026
+      ],
+      "size": [
+        279.0767578125,
+        78
+      ],
+      "flags": {},
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "BBOX_DETECTOR",
+          "type": "BBOX_DETECTOR",
+          "links": [
+            187
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "SEGM_DETECTOR",
+          "type": "SEGM_DETECTOR",
+          "links": [
+            188
+          ],
+          "slot_index": 1
+        }
+      ],
+      "title": "Load Eye Adetailer Model",
+      "properties": {
+        "cnr_id": "comfyui-impact-subpack",
+        "ver": "1.3.5",
+        "Node name for S&R": "UltralyticsDetectorProvider"
+      },
+      "widgets_values": [
+        "segm/Anzhc Eyes -seg-hd.pt"
+      ]
+    },
+    {
+      "id": 131,
+      "type": "ImpactSimpleDetectorSEGS",
+      "pos": [
+        1955,
+        -721
+      ],
+      "size": [
+        309.212890625,
+        310
+      ],
+      "flags": {},
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "bbox_detector",
+          "type": "BBOX_DETECTOR",
+          "link": 187
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 190
+        },
+        {
+          "name": "sam_model_opt",
+          "shape": 7,
+          "type": "SAM_MODEL",
+          "link": 189
+        },
+        {
+          "name": "segm_detector_opt",
+          "shape": 7,
+          "type": "SEGM_DETECTOR",
+          "link": 188
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SEGS",
+          "type": "SEGS",
+          "links": [
+            192
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-impact-pack",
+        "ver": "8.28.2",
+        "Node name for S&R": "ImpactSimpleDetectorSEGS"
+      },
+      "widgets_values": [
+        0.45,
+        0,
+        2.5,
+        10,
+        0.7,
+        0,
+        0,
+        0.7,
+        0
+      ]
+    },
+    {
+      "id": 132,
+      "type": "DetailerForEach",
+      "pos": [
+        2321,
+        -1028
+      ],
+      "size": [
+        307.27272727272725,
+        682.7272727272727
+      ],
+      "flags": {},
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 191
+        },
+        {
+          "name": "segs",
+          "type": "SEGS",
+          "link": 192
+        },
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 193
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 194
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 195
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 196
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 197
+        },
+        {
+          "name": "detailer_hook",
+          "shape": 7,
+          "type": "DETAILER_HOOK",
+          "link": null
+        },
+        {
+          "name": "scheduler_func_opt",
+          "shape": 7,
+          "type": "SCHEDULER_FUNC",
+          "link": null
+        },
+        {
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": 198
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            199,
+            200
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-impact-pack",
+        "ver": "8.28.2",
+        "Node name for S&R": "DetailerForEach"
+      },
+      "widgets_values": [
+        1024,
+        true,
+        1024,
+        25131135352033,
+        "fixed",
+        10,
+        4,
+        "euler_ancestral",
+        "karras",
+        0.05,
+        5,
+        true,
+        true,
+        " ",
+        1,
+        false,
+        20,
+        false,
+        false
+      ]
     }
   ],
   "links": [
@@ -2038,27 +2252,11 @@
       "IMAGE"
     ],
     [
-      157,
-      74,
-      0,
-      65,
-      0,
-      "IMAGE"
-    ],
-    [
       160,
       53,
       0,
       82,
       0,
-      "IMAGE"
-    ],
-    [
-      161,
-      74,
-      0,
-      82,
-      1,
       "IMAGE"
     ],
     [
@@ -2172,6 +2370,118 @@
       3,
       2,
       "CONDITIONING"
+    ],
+    [
+      187,
+      130,
+      0,
+      131,
+      0,
+      "BBOX_DETECTOR"
+    ],
+    [
+      188,
+      130,
+      1,
+      131,
+      3,
+      "SEGM_DETECTOR"
+    ],
+    [
+      189,
+      78,
+      0,
+      131,
+      2,
+      "SAM_MODEL"
+    ],
+    [
+      190,
+      74,
+      0,
+      131,
+      1,
+      "IMAGE"
+    ],
+    [
+      191,
+      74,
+      0,
+      132,
+      0,
+      "IMAGE"
+    ],
+    [
+      192,
+      131,
+      0,
+      132,
+      1,
+      "SEGS"
+    ],
+    [
+      193,
+      118,
+      0,
+      132,
+      2,
+      "MODEL"
+    ],
+    [
+      194,
+      64,
+      1,
+      132,
+      3,
+      "CLIP"
+    ],
+    [
+      195,
+      118,
+      2,
+      132,
+      4,
+      "VAE"
+    ],
+    [
+      196,
+      6,
+      0,
+      132,
+      5,
+      "CONDITIONING"
+    ],
+    [
+      197,
+      7,
+      0,
+      132,
+      6,
+      "CONDITIONING"
+    ],
+    [
+      198,
+      98,
+      0,
+      132,
+      9,
+      "INT"
+    ],
+    [
+      199,
+      132,
+      0,
+      65,
+      0,
+      "IMAGE"
+    ],
+    [
+      200,
+      132,
+      0,
+      82,
+      1,
+      "IMAGE"
     ]
   ],
   "floatingLinks": [
