@@ -46,17 +46,19 @@ const LORA_TYPE_OPTIONS = [
       { value: 'Diag-OFT', label: 'Diag-OFT', description: 'Diagonal Orthogonal Fine-Tuning' },
       { value: 'BOFT',     label: 'BOFT',     description: 'Butterfly Orthogonal Fine-Tuning' },
       { value: 'IA3',      label: 'IA3',      description: '(IA)³ — inhibition/amplification adapter' },
-      { value: 'Full',     label: 'Full',     description: 'Full fine-tuning (DreamBooth-style)' },
+      { value: 'Full',     label: 'Full',     description: 'Full-rank LyCORIS — all layers, still a LoRA file' },
     ],
   },
 ];
 
+// Disambiguation / behavioural facts only — what an algo *is* or *does*, never a
+// value-range nudge ("use LR X", "keep rank small"). In-form value hints are
+// bias-by-suggestion; see CLAUDE.md "Empirical Lore" + BETA_PLANNING LT-5. Such
+// guidance belongs in the docs/wiki, not the controls.
 const TYPE_HINTS: Record<string, string> = {
-  Full:     'Full fine-tuning — equivalent to DreamBooth. Rank and alpha are not used.',
-  IA3:      'Requires a high learning rate (5e-3 to 1e-2). Standard LoRA learning rates will underfit.',
-  DyLoRA:   'Use a high rank (64+). Alpha should be between rank/4 and rank.',
-  'Diag-OFT': 'Orthogonal fine-tuning — fundamentally different from LoRA. Keep rank small (4–16).',
-  BOFT:     'Orthogonal fine-tuning — fundamentally different from LoRA. Keep rank small (4–16).',
+  Full:     'Full-rank LyCORIS network (algo=full): trains every layer but still outputs a LoRA-format file — NOT a standalone checkpoint. Rank/alpha are unused. For native checkpoint fine-tuning, use the Checkpoint Training page.',
+  'Diag-OFT': 'Orthogonal fine-tuning — fundamentally different from LoRA (rotates weights rather than adding a low-rank delta).',
+  BOFT:     'Orthogonal fine-tuning — fundamentally different from LoRA (rotates weights rather than adding a low-rank delta).',
   TLoRA:    'Rank dropout is ignored — timestep-dependent masking provides equivalent regularisation.',
 };
 

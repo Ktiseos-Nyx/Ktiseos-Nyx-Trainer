@@ -86,25 +86,14 @@ export function DatasetCard({ form, datasets, onSave }: DatasetCardProps) {
         />
 
         {/* Batch Size */}
-        <div className="space-y-2">
-          <NumberFormField
-            form={form}
-            name="train_batch_size"
-            label="Batch Size"
-            description={`Lower = less VRAM. Est. VRAM: ~${estimatedVRAM}GB`}
-            placeholder="1"
-            min={1}
-            max={128}
-          />
-
-          {estimatedVRAM > 24 && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                ⚠️ This batch size may exceed your VRAM! Consider reducing to 1-2.
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
+        <NumberFormField
+          form={form}
+          name="train_batch_size"
+          label="Batch Size"
+          description={`Lower = less VRAM. Est. VRAM: ~${estimatedVRAM}GB`}
+          placeholder="1"
+          min={1}
+        />
 
         {/* Repeats */}
         <NumberFormField
