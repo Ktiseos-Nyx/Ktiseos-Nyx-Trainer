@@ -375,9 +375,10 @@ Verified: `orthograd`/`torchao` appear **only** in the vendored backend — noth
 **Code findings (verified in `library/train_util.py:prepare_optimizer`, ~line 7589–7650, on 2026-05-30):**
 - **orthograd does NOT depend on torchao.** `apply_orthograd` is detected (line 7646) and applied at the **network/param level** via `network.prepare_optimizer_params(..., apply_orthograd=...)`; the implementation `_paper_orthograd` is pure torch (imported from `LoraEasyCustomOptimizer/.utils`). The torchao ImportError only makes `inspect.signature(optimizer_class.__init__)` fail → fallback to `{}` (line 7642–7644) → can't auto-detect an orthograd *default* from the signature. Explicit `use_orthograd=True` still applies. So **orthograd is a red herring for the torchao decision.**
 - **What torchao actually unlocks: `state_storage_dtype`** (line 7648+) — low-bit/quantized **optimizer-state storage** (8/4-bit, fp8). This is precisely the `state_storage_dtype=bfloat16 state_storage_device=cuda` that 4070-class **CAME** users need for VRAM (cross-ref the Anima §7.2 note + PR-1). Without torchao the low_bit_optim chain (`subclass_8bit/4bit/fp8`) can't import.
-- **Revised lean (Dusk, 2026-05-30 — "torchao isn't that heavy, and if it helps CAME"):** ADD it. Real benefit = low-bit optimizer state (VRAM win for small-GPU CAME), warning silenced as a bonus. The only genuine cost is **torch-version pinning** + import smoke-test on local/VastAI/RunPod (not package size). Watch CAME stability during testing (intersects the unresolved CAME NaN investigation).
-- **Status:** 🔵 Agreed direction: add torchao, pinned to our torch version, smoke-tested on all 3 platforms. Pairs well with the schedule-free/low-bit optimizer (beta phase 3) work.
-- **⚠️ Tension to resolve before wiring torchao+CAME (found 2026-06-05):** the whole point of torchao here is low-bit/bf16 **CAME optimizer-state storage** for small GPUs — but bf16 CAME state is *exactly* what the generator now deliberately avoids because it NaNs (see LT-OPT-1 / `kohya_toml.py:449-450`: "do NOT auto-inject state_storage_dtype/device for CAME — forcing bf16 state storage causes NaN"). So "add torchao for CAME VRAM savings" partially fights the existing NaN guard. Decide: is the torchao win for CAME specifically, or for *other* optimizers (where bf16 state is safe)? If CAME-specific, the NaN must be solved first (ties to the unresolved CAME NaN investigation).
+- **Why torchao surfaces — NOT a CAME dependency (clarified 2026-06-06):** `came.py` imports only torch + pytorch_optimizer; CAME is kozistr-based (`came.py:1-3`) + neggles stochastic rounding. torchao gets pulled in purely because the vendored `LoraEasyCustomOptimizer` collection's **eager `__init__`** imports its whole roster, including AO low-bit optimizers (copied from pytorch/ao) that hard-import torchao. That eager `__init__` is **67372a's fork's** (`refresh` branch); derrian's *original* had an **empty `__init__`** and never pulled torchao. So it's not derrian's packaging, not CAME — it's the fork's roster.
+- **Per research (2026-06-06): the upstream we vendor has already moved on.** 67372a migrated installs pip→**uv** and now installs torchao via `--index-strategy unsafe-best-match` (2026-05-30) — resolving it against the installed torch instead of a hard pin, neutralizing the version-coupling risk. Our vendored snapshot is simply **behind**; the `No module named 'torchao'` warning is a *staleness artifact*, not a real problem (training proceeds; it's caught at `train_util.py:7639-7643` during orthograd-default introspection).
+- **DECISION (Dusk, 2026-06-06): do NOT add torchao standalone / by hand.** Chasing torchao via more hand-vendoring is the exact "chase vendored updates by hand" pain we're trying to escape. **The right answer is the submodule strategy → see Section 20.** Submodule the backend and we inherit torchao (and everything else 67372a ships) naturally, far more often, **and align better with GPL-3.0 licensing** (reference upstream rather than copy GPL source into our tree). torchao's fate is folded into the §20 backend-delivery decision — resolved there, not here. The earlier "add it for CAME VRAM" lean is **withdrawn** (it also fought the CAME bf16-state NaN guard at `kohya_toml.py:515`).
+- **Status:** 🚫 **Won't add standalone — folded into §20 (Backend Delivery & Vendoring Strategy).** Warning documented benign.
 
 ### 4.5 Custom Optimizer Audit — Wiring Solid, Pins Drift *(Dusk, 2026-06-05)*
 
@@ -2013,6 +2014,48 @@ Do it **incrementally** (one group per PR), re-test each platform, update docs i
 ### 19.4 Quick-win cleanup (independent of the reorg)
 - `.snyk` — Snyk was removed from the project; this file is almost certainly dead → verify + delete.
 - `find_fences.py` — looks like a one-off debug script; confirm unused → delete.
+
+---
+
+## Section 20 — Backend Delivery & Vendoring Strategy *(decision captured 2026-06-06)*
+
+**Status:** ⏳ **Decision captured, NOT executed.** Do it deliberately when fresh — this is fiddly infra on the most fragile path (cloud provisioning); explicitly **not** a tired/health-day task. Nothing changes this weekend; capturing the plan was the imperative.
+
+**Lean firmed 2026-06-06: Option A (submodule) is the likely direction** — three reasons stack the same way: (1) updates land far more often (the steady-state need), (2) cleaner GPL-3.0 posture (reference vs copy), (3) escapes the git-clone-chasing fever dream. ComfyUI already proves the submodule-on-cloud pattern *in this repo*, so the vision is to extend that same pattern to the training backend (and converge there long-term). Pending only the de-risk test (20.4) and the hinge question (20.3). Code patches (LT-OPT-2, etc.) are **paused** until this is decided, to avoid patching files we may be about to swap to a submodule.
+
+### 20.1 The reframe — backend currency is the steady state, not an edge case
+Kill the "updating the ML backend is a rare edge case" bias. 67372a ships ~weekly (1,226 commits; our vendored snapshot is ~a month stale as of 2026-06-06). ML moves constantly, so the design criterion is **"updating to latest is trivial, frequent, and low-risk"** — NOT "minimize how often we touch it." Generalizes the project anti-bias rule from training params to process/architecture (cross-ref CLAUDE.md "Bleeding Edge" + "Empirical Lore — Interrogate It").
+
+### 20.2 What's wrong with each delivery mechanism
+- **Vendoring (current):** hand-copy slog, no version marker, perpetual drift — "weird/messy." This is the pain we're escaping.
+- **Plain `git clone`:** stupidly fragile on cloud (network blips, the documented install cascade).
+- **pip-install-from-git — REJECTED:** it's a git fetch at deploy time, so it's the **same fragility class as clone** (Dusk's call, correct). It would only clean up *updates*, not *robustness* — not worth pretending otherwise.
+
+### 20.3 Options
+**(A) Submodule → OUR fork of 67372a — *leaning, for now*.**
+- Update = bump a pinned SHA (purpose-built for constant change).
+- **Licensing alignment (GPL-3.0):** 67372a is GPL-3.0. A submodule *references* their code (clean attribution, no relicensing/propagation question); vendoring *copies* GPL source into our tree — murkier. Submodule is the cleaner GPL posture. (Third reason it wins, alongside update-cleanliness and matching upstream's own pattern.)
+- **Reuses machinery already in this repo:** ComfyUI already ships as a submodule (see "ComfyUI backend: submodule (2026-05-20)"); `.gitmodules` exists; provision scripts already run `git submodule update --init --recursive`, and `--recursive` already covers nesting (67372a itself submodules `sd_scripts @ 457914d`). So this *widens an existing pattern*, not pioneering.
+- **Honest boundary:** fixes *update cleanliness*, NOT *clone robustness* — still git-clone-based. Clone fragility stays parked until (B).
+- **Precedent ≠ proof:** the ComfyUI submodule path is itself still pending live cloud verification.
+- **HINGE QUESTION (unresolved — needs Dusk):** do we still hand-patch the backend?
+  - *Still patching* → the submodule **must point at our fork** of 67372a (patch in the fork; pull 67372a → fork).
+  - *Pure consumer* → could point at 67372a directly, but a fork is safer/more flexible either way.
+
+**(B) Pre-baked Docker image — *long-term, deliberately parked*.**
+- The only option that truly fixes clone fragility (backend pre-installed → no runtime clone/install cascade).
+- Parked by Dusk's explicit call (2026-06-06): **not because it's wrong** — it's the gold standard — but a hands-on **knowledge gap** (Docker + service offloading + security layers he hasn't worked with directly). Revisit when he's ready. **Do not push it.**
+
+**(C) Status-quo vendoring — *fallback*.** Just clones, freely patchable, but the staleness/drift is exactly the pain. Keep only if (A) proves too fragile in the de-risk test.
+
+### 20.4 De-risk step (MANDATORY before switching the repo over)
+Test a `--recurse-submodules` clone + full install **end-to-end on one throwaway VastAI box** first. Pennies, disposable — if it cascades, lose nothing and keep vendoring. This directly guards the failure mode that burned Dusk on submodules ~a year ago.
+
+### 20.5 Why staying current matters — what 67372a shipped since our ~2026-05-05 snapshot
+New optimizers (SODA/MODA/AMUSE, AdamWScheduleFreePlus, nor_muon_schedulefree, OCGOptV2, fftdescent); adaptive non-uniform timestep sampling (arXiv:2411.09998); Weight Noising; Latent Wavelet Diffusion masking; `min_snr_gamma_soft` + Min-SNR-gamma for flow-matching models; ICC-aware color (`to_srgb()` replacing `.convert('RGB')`); LyCORIS T-LoRA via LoCon/ortholora; Anima leco + addift; flash-attn guard for < CUDA sm_80; REX scheduler fixes. We're missing all of it.
+
+### 20.6 Related — torchao is now installed upstream (cross-ref §4.4)
+67372a migrated installs pip→**uv** and added torchao via `--index-strategy unsafe-best-match` (2026-05-30) — upstream resolves torchao against the *installed* torch instead of a hard pin, which solves the version-coupling risk that argued against adding it standalone. So: the §4.4 decision (**don't add torchao standalone; warning is benign**) stands **now**; a forward-sync would bring the uv+torchao install as the clean path. **Decide torchao's fate as part of the sync, not before.**
 
 ---
 
