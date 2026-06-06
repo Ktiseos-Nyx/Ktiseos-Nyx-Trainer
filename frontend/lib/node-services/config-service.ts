@@ -14,6 +14,71 @@ import fs from 'fs/promises';
 import path from 'path';
 import toml from '@iarna/toml';
 
+/**
+ * Split an `optimizer_args` string into clean `key=value` tokens.
+ *
+ * Mirrors the Python `_tokenize_optimizer_args` in services/trainers/kohya_toml.py.
+ * Kohya's parser does a strict `arg.split("=")` per token, so each token must hold
+ * exactly one `=` and no stray separators. This must accept every format that shows
+ * up in real presets and user pastes:
+ *   - space-separated (Kohya CLI):           `weight_decay=0.1 betas=(0.9,0.999)`
+ *   - quoted args (older presets):           `"weight_decay=0.1" "betas=0.9,0.99"`
+ *   - bare comma-tuple value (presets):      `weight_decay=0.5 betas=0.9,0.99`
+ *   - comma-separated (LoRA-metadata paste): `weight_decay=0.08,betas=(0.99, 0.999, 0.99995)`
+ *
+ * Strategy: walk char by char — inside quotes nothing splits and the quotes are
+ * stripped; inside ()/[]/{} nothing splits (tuple values); at the top level, split
+ * on commas/whitespace. Then collapse inner whitespace, and merge any `=`-less token
+ * back into the previous one (the tail of a paren-less comma tuple like
+ * `betas=0.9,0.99`).
+ */
+function tokenizeOptimizerArgs(raw: string): string[] {
+  const tokens: string[] = [];
+  let current = '';
+  let depth = 0;
+  let quote: string | null = null;
+  for (const ch of raw) {
+    if (quote !== null) {
+      if (ch === quote) {
+        quote = null; // closing quote — strip it
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"' || ch === "'") {
+      quote = ch; // opening quote — strip it
+    } else if (ch === '(' || ch === '[' || ch === '{') {
+      depth++;
+      current += ch;
+    } else if (ch === ')' || ch === ']' || ch === '}') {
+      depth = Math.max(0, depth - 1);
+      current += ch;
+    } else if (depth === 0 && (ch === ',' || /\s/.test(ch))) {
+      if (current) {
+        tokens.push(current);
+        current = '';
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) tokens.push(current);
+
+  // Collapse inner whitespace (bracketed tuple values) into clean key=value tokens.
+  const cleaned = tokens.map((t) => t.replace(/\s+/g, '')).filter(Boolean);
+
+  // Re-attach paren-less comma-tuple tails: a token with no '=' is the continuation
+  // of the previous value (`betas=0.9,0.99` -> ['betas=0.9','0.99'] -> 'betas=0.9,0.99').
+  const merged: string[] = [];
+  for (const tok of cleaned) {
+    if (tok.includes('=') || merged.length === 0) {
+      merged.push(tok);
+    } else {
+      merged[merged.length - 1] = `${merged[merged.length - 1]},${tok}`;
+    }
+  }
+  return merged;
+}
+
 // Import TrainingConfig type from frontend API definitions
 // Note: This should match the Python TrainingConfig model
 interface TrainingConfig {
@@ -560,7 +625,7 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
   const CUSTOM_OPTIMIZERS = ['CAME', 'Compass', 'LPFAdamW', 'RMSProp'];
   const isCustomOptimizer = CUSTOM_OPTIMIZERS.includes(config.optimizer_type);
   const userArgs = config.optimizer_args
-    ? config.optimizer_args.trim().split(/\s+/).filter(Boolean)
+    ? tokenizeOptimizerArgs(config.optimizer_args)
     : [];
   const optimizerArgsList: string[] = [...userArgs];
   if (isCustomOptimizer && config.weight_decay && !optimizerArgsList.some(a => a.startsWith('weight_decay='))) {

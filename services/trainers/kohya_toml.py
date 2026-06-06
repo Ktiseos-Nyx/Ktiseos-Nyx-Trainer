@@ -6,7 +6,6 @@ Generates FLAT toml files compatible with sd-scripts train_network.py variants.
 
 import logging
 import os
-import shlex
 from pathlib import Path
 from typing import Any, Dict
 
@@ -16,6 +15,73 @@ import tomlkit  # Ensure tomlkit is installed (pip install tomlkit)
 from services.models.training import ModelType, TrainingConfig, TrainingMode
 
 logger = logging.getLogger(__name__)
+
+
+def _tokenize_optimizer_args(raw: str) -> list[str]:
+    """Split an ``optimizer_args`` string into clean ``key=value`` tokens.
+
+    Kohya's parser (``train_util.prepare_optimizer``) does a strict
+    ``key, value = arg.split("=")`` on every token, so each token must contain
+    exactly one ``=`` and no stray separators. This must accept every format that
+    shows up in real presets and user pastes:
+
+    * space-separated (Kohya CLI):          ``weight_decay=0.1 betas=(0.9,0.999)``
+    * quoted args (older presets):          ``"weight_decay=0.1" "betas=0.9,0.99"``
+    * bare comma-tuple value (presets):     ``weight_decay=0.5 betas=0.9,0.99``
+    * comma-separated (LoRA-metadata paste): ``weight_decay=0.08,betas=(0.99, 0.999, 0.99995)``
+
+    Strategy (single pass + a merge):
+      1. Walk char by char. Inside quotes (``"``/``'``) nothing splits and the quote
+         marks are stripped. Inside ``()``/``[]``/``{}`` nothing splits (tuple values).
+      2. At the top level, split on commas *or* whitespace.
+      3. Collapse any whitespace left inside a token (bracketed tuples).
+      4. Merge any token without an ``=`` back into the previous one, rejoined with a
+         comma — that fragment is the tail of a *paren-less* comma tuple
+         (``betas=0.9,0.99`` -> ``['betas=0.9', '0.99']`` -> ``'betas=0.9,0.99'``).
+
+    The result is always a list of ``key=value`` tokens that Kohya's ``split("=")``
+    and ``ast.literal_eval`` accept.
+    """
+    tokens: list[str] = []
+    current: list[str] = []
+    depth = 0
+    quote: str | None = None
+    for ch in raw:
+        if quote is not None:
+            if ch == quote:
+                quote = None          # closing quote — strip it
+            else:
+                current.append(ch)
+        elif ch in ("'", '"'):
+            quote = ch                # opening quote — strip it
+        elif ch in "([{":
+            depth += 1
+            current.append(ch)
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+            current.append(ch)
+        elif depth == 0 and (ch == "," or ch.isspace()):
+            if current:
+                tokens.append("".join(current))
+                current = []
+        else:
+            current.append(ch)
+    if current:
+        tokens.append("".join(current))
+
+    # Optimizer-arg values never contain meaningful whitespace, so collapse any
+    # left inside a token (from bracketed tuple values) into a clean key=value.
+    tokens = ["".join(tok.split()) for tok in tokens if tok.strip()]
+
+    # Re-attach paren-less comma-tuple tails: a token with no '=' is the
+    # continuation of the previous value (e.g. `betas=0.9,0.99` split on the comma).
+    merged: list[str] = []
+    for tok in tokens:
+        if "=" in tok or not merged:
+            merged.append(tok)
+        else:
+            merged[-1] = f"{merged[-1]},{tok}"
+    return merged
 
 
 class KohyaTOMLGenerator:
@@ -449,7 +515,7 @@ class KohyaTOMLGenerator:
         # Note: do NOT auto-inject state_storage_dtype/device for CAME — forcing
         # bf16 state storage causes NaN; CAME's default (fp32 states) is correct.
         is_custom_optimizer = self.config.optimizer_type in self.CUSTOM_OPTIMIZER_PATHS
-        opt_args = shlex.split(self.config.optimizer_args) if self.config.optimizer_args else []
+        opt_args = _tokenize_optimizer_args(self.config.optimizer_args) if self.config.optimizer_args else []
         if is_custom_optimizer and self.config.weight_decay and not any(
             a.startswith('weight_decay=') for a in opt_args
         ):
