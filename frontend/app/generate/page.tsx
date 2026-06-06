@@ -1,7 +1,12 @@
 'use client';
 
 /**
- * ComfyUI generate page (COMFY-3).
+ * Generate page — our Next.js UI at route /generate (COMFY-3).
+ *
+ * NOTE: deliberately NOT /comfyui. server.js reverse-proxies /comfyui/* to the
+ * ComfyUI service, so a page at /comfyui gets shadowed by the proxy and renders
+ * literal ComfyUI (see BETA_PLANNING GEN-1). The GenerateUI this renders still
+ * talks to ComfyUI through that /comfyui proxy.
  *
  * Connection states:
  *   Never connected → show DisconnectedState / ConnectingState cards as before.
@@ -102,7 +107,7 @@ function ConnectingState() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ComfyUIPage() {
+export default function GeneratePage() {
   const {
     status, connect, queueRemaining,
     submitPrompt, interrupt, currentPromptId, currentNode, progress,

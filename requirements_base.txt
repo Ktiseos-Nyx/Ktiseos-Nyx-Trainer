@@ -29,9 +29,9 @@ prodigyopt==1.1.2
 lion-pytorch==0.2.3
 dadaptation==3.2
 pytorch_optimizer==3.10.0 # matches sd_scripts/requirements.txt; base.type module exists in 3.10.0
-schedulefree==1.4
+schedulefree~=1.4.1  # was ==1.4 (older than code targets); match vendored lycoris/sd_scripts (~=1.4.1)
 prodigy-plus-schedule-free==1.9.2
-came-pytorch
+came-pytorch~=0.1.3  # pin to vendored requirement (was unpinned); a breaking 0.2.x would silently break installs
 
 # General Utilities
 colorama>=0.4.6

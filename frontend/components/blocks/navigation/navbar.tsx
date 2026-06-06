@@ -98,10 +98,12 @@ export function Navbar() {
               </NavigationMenuContent>
             </NavigationMenuItem>
 
-            {/* Generate (ComfyUI) - Top level */}
+            {/* Generate - Top level. Our Next.js page lives at /generate; /comfyui is
+                the ComfyUI reverse-proxy passthrough (don't point this here or the proxy
+                shadows our page — see BETA_PLANNING GEN-1). */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/comfyui" prefetch={false} className={navigationMenuTriggerStyle()}>
+                <Link href="/generate" prefetch={false} className={navigationMenuTriggerStyle()}>
                   <Wand2 className="w-4 h-4 mr-2" />
                   Generate
                 </Link>
