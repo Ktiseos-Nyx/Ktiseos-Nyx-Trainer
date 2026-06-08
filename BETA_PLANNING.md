@@ -2019,9 +2019,16 @@ Do it **incrementally** (one group per PR), re-test each platform, update docs i
 
 ## Section 20 — Backend Delivery & Vendoring Strategy *(decision captured 2026-06-06)*
 
-**Status:** ⏳ **Decision captured, NOT executed.** Do it deliberately when fresh — this is fiddly infra on the most fragile path (cloud provisioning); explicitly **not** a tired/health-day task. Nothing changes this weekend; capturing the plan was the imperative.
+**Status:** ✅ **DECIDED (2026-06-09) — NOT executed.** Direction locked (Option A, below); execution stays a deliberate fresh-day job — fiddly infra on the most fragile path (cloud provisioning), explicitly **not** a tired/health-day task.
 
-**Lean firmed 2026-06-06: Option A (submodule) is the likely direction** — three reasons stack the same way: (1) updates land far more often (the steady-state need), (2) cleaner GPL-3.0 posture (reference vs copy), (3) escapes the git-clone-chasing fever dream. ComfyUI already proves the submodule-on-cloud pattern *in this repo*, so the vision is to extend that same pattern to the training backend (and converge there long-term). Pending only the de-risk test (20.4) and the hinge question (20.3). **Vendored-backend** code patches (anything under `trainer/derrian_backend/`) are **paused** until this is decided, to avoid patching files we may be about to swap to a submodule. **Frontend-only items are NOT affected** — e.g. LT-OPT-2 lives in `useTrainingForm.ts` + `validation.ts`, never touches the vendored backend, so it's safe to do anytime.
+**Decision (2026-06-09): Option A (submodule) — locked.** Three reasons stack: (1) updates land far more often (the steady-state need), (2) cleaner GPL-3.0 posture (reference vs copy), (3) escapes the git-clone-chasing fever dream.
+
+- **Correction to an earlier assumption:** ComfyUI does **not** currently prove a submodule-on-cloud pattern here — `.gitmodules` is **empty** and ComfyUI is **direct-cloned** (see COMFY-8 / §11 "ComfyUI backend is directly cloned"). So Option A *pioneers* the submodule-on-cloud pattern in this repo — which is why the 20.4 wiring smoke-check on a real box still matters (the pattern is new *here*), even though the decision itself is settled.
+- **Two submodule targets:** (a) the **training backend** → our clean tracking fork of 67372a; (b) **ComfyUI** (currently direct-cloned — intermittent clone failures motivate pinning + one uniform `--recursive` pull for both).
+- **Hinge resolved:** we were never carrying a private patch-set — just *chasing upstream by hand* — so we're effectively a **pure consumer**. The fork is a **clean tracking fork** (a stable pin we control + the base to PR fixes back to 67372a), not a divergence to carry patches. Stays close to upstream, low-maintenance.
+- **Robustness is a separate lever (don't conflate):** submodules fix update-cleanliness + pinning, **NOT** clone fragility — a submodule update is still a git fetch. The clone-fragility fix is shallow `--depth 1` + retry, **landed 2026-06-09** in `installer.py` / `installer_windows_local.py` for the direct ComfyUI clone; carry the same `shallow = true` into the submodule. True elimination of clone fragility still needs Docker (Option B, parked).
+
+**Vendored-backend** code patches (anything under `trainer/derrian_backend/`) stay **paused** until executed, to avoid patching files we're about to swap to a submodule. **Frontend-only items are NOT affected** — e.g. LT-OPT-2 lives in `useTrainingForm.ts` + `validation.ts`, never touches the vendored backend, so it's safe to do anytime.
 
 ### 20.1 The reframe — backend currency is the steady state, not an edge case
 Kill the "updating the ML backend is a rare edge case" bias. 67372a ships ~weekly (1,226 commits; our vendored snapshot is ~a month stale as of 2026-06-06). ML moves constantly, so the design criterion is **"updating to latest is trivial, frequent, and low-risk"** — NOT "minimize how often we touch it." Generalizes the project anti-bias rule from training params to process/architecture (cross-ref CLAUDE.md "Bleeding Edge" + "Empirical Lore — Interrogate It").
@@ -2035,12 +2042,10 @@ Kill the "updating the ML backend is a rare edge case" bias. 67372a ships ~weekl
 **(A) Submodule → OUR fork of 67372a — *leaning, for now*.**
 - Update = bump a pinned SHA (purpose-built for constant change).
 - **Licensing alignment (GPL-3.0):** 67372a is GPL-3.0. A submodule *references* their code (clean attribution, no relicensing/propagation question); vendoring *copies* GPL source into our tree — murkier. Submodule is the cleaner GPL posture. (Third reason it wins, alongside update-cleanliness and matching upstream's own pattern.)
-- **Reuses machinery already in this repo:** ComfyUI already ships as a submodule (see "ComfyUI backend: submodule (2026-05-20)"); `.gitmodules` exists; provision scripts already run `git submodule update --init --recursive`, and `--recursive` already covers nesting (67372a itself submodules `sd_scripts @ 457914d`). So this *widens an existing pattern*, not pioneering.
+- **Machinery is partly present, but the pattern is UNPROVEN here:** `.gitmodules` exists (though **empty**), and `--recursive` covers nesting (67372a itself submodules `sd_scripts @ 457914d`). **Correction (2026-06-09):** ComfyUI is **direct-cloned, not a submodule** — the earlier "ComfyUI backend: submodule (2026-05-20)" note was *superseded* by COMFY-8. So Option A **pioneers** the submodule-on-cloud pattern in this repo rather than widening a proven one — which is why the 20.4 wiring smoke-check on a real box is worth doing (the pattern is new *here*): a wiring confirmation, not a reason to doubt the decision.
 - **Honest boundary:** fixes *update cleanliness*, NOT *clone robustness* — still git-clone-based. Clone fragility stays parked until (B).
 - **Precedent ≠ proof:** the ComfyUI submodule path is itself still pending live cloud verification.
-- **HINGE QUESTION (unresolved — needs Dusk):** do we still hand-patch the backend?
-  - *Still patching* → the submodule **must point at our fork** of 67372a (patch in the fork; pull 67372a → fork).
-  - *Pure consumer* → could point at 67372a directly, but a fork is safer/more flexible either way.
+- **HINGE QUESTION — RESOLVED (2026-06-09):** we were never carrying a private patch-set; the pain was *chasing upstream by hand*, not maintaining divergent patches. So we're effectively a **pure consumer** → the submodule points at our **clean tracking fork** of 67372a (a stable pin we control + the base to PR fixes back upstream), staying close to upstream and low-maintenance. Not a fork to hold patches.
 
 **(B) Pre-baked Docker image — *long-term, deliberately parked*.**
 - The only option that truly fixes clone fragility (backend pre-installed → no runtime clone/install cascade).
@@ -2048,8 +2053,8 @@ Kill the "updating the ML backend is a rare edge case" bias. 67372a ships ~weekl
 
 **(C) Status-quo vendoring — *fallback*.** Just clones, freely patchable, but the staleness/drift is exactly the pain. Keep only if (A) proves too fragile in the de-risk test.
 
-### 20.4 De-risk step (MANDATORY before switching the repo over)
-Test a `--recurse-submodules` clone + full install **end-to-end on one throwaway VastAI box** first. Pennies, disposable — if it cascades, lose nothing and keep vendoring. This directly guards the failure mode that burned Dusk on submodules ~a year ago.
+### 20.4 Wiring smoke-check before flipping main (NOT a referendum on the decision)
+The decision is made — submodule beats vendoring, full stop (it ends the hand-chasing; pinning + shallow make it *less* fragile, not more). This is **not a test of whether the approach works** — it's a one-box confirmation that the **provisioning scripts wire `--recurse-submodules` + `shallow = true` correctly** for both targets (backend fork + ComfyUI) on a real cloud host. We're catching a wiring typo, not re-litigating the approach. The old submodule burn was cloud-execution competence, not the mechanism. Verify GUI-first: read the install log via file-browser/Jupyter (`/workspace/Ktiseos-Nyx-Trainer/logs/`), open the app, run a tiny job — no SSH needed for the happy path.
 
 ### 20.5 Why staying current matters — what 67372a shipped since our ~2026-05-05 snapshot
 New optimizers (SODA/MODA/AMUSE, AdamWScheduleFreePlus, nor_muon_schedulefree, OCGOptV2, fftdescent); adaptive non-uniform timestep sampling (arXiv:2411.09998); Weight Noising; Latent Wavelet Diffusion masking; `min_snr_gamma_soft` + Min-SNR-gamma for flow-matching models; ICC-aware color (`to_srgb()` replacing `.convert('RGB')`); LyCORIS T-LoRA via LoCon/ortholora; Anima leco + addift; flash-attn guard for < CUDA sm_80; REX scheduler fixes. We're missing all of it.
