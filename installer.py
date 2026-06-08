@@ -13,6 +13,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
 
 
 def get_python_command():
@@ -401,12 +402,33 @@ class RemoteInstaller:
             )
         else:
             self.logger.info("Cloning ComfyUI into %s", comfyui_dir)
-            success = self.run_command(
-                ["git", "clone", "https://github.com/comfyanonymous/ComfyUI.git", comfyui_dir],
-                "Cloning ComfyUI",
-            )
+            # Shallow clone (--depth 1) skips ComfyUI's large history so far less
+            # data crosses the wire — full clones intermittently fail mid-transfer
+            # on flaky cloud hosts. Retry with backoff covers transient blips, and
+            # each attempt clears any partial clone the previous failure left behind.
+            clone_cmd = [
+                "git", "clone", "--depth", "1",
+                "https://github.com/comfyanonymous/ComfyUI.git", comfyui_dir,
+            ]
+            success = False
+            for attempt in range(1, 4):
+                if os.path.isdir(comfyui_dir):
+                    shutil.rmtree(comfyui_dir, ignore_errors=True)
+                success = self.run_command(
+                    clone_cmd,
+                    f"Cloning ComfyUI (attempt {attempt}/3)",
+                    allow_failure=True,
+                )
+                if success:
+                    break
+                if attempt < 3:
+                    self.logger.warning(
+                        "ComfyUI clone attempt %d/3 failed — retrying in %ds...",
+                        attempt, attempt * 5,
+                    )
+                    time.sleep(attempt * 5)
             if not success:
-                self.logger.warning("ComfyUI clone failed — skipping custom nodes.")
+                self.logger.warning("ComfyUI clone failed after 3 attempts — skipping custom nodes.")
                 return False
 
         # Install ComfyUI Python requirements
