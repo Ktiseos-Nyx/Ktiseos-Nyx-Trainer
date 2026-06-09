@@ -1452,7 +1452,7 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 ### 11.5 SDXL Workflow — Eye Detailer Pass (COMFY-14)
 
-**Status:** ⏳ Not started — fully scoped 2026-05-30, deferred (do it rested; live node-wiring is fiddly, not a tired-brain task).
+**Status:** 🔧 **Workflow BUILT, UI wiring pending (updated 2026-06-09).** Dusk has already built + tested a **4-pass** Adetailer in `sdxl-knx-v13pt5.json` — Face (`bbox/face_yolov8n`), Eyes (`segm/Anzhc Eyes -seg-hd`), Hands (`segm/PitHandDetailer-v1b-seg`), Mouth (`bbox/adetailer2dMouth_v10`). Remaining work is **exposing the full control surface** in the Generate UI — NOT building or hiding a single auto-fix pass. (The single-eye-pass framing below is superseded; kept only for the bbox-vs-segm wiring reference, which is still accurate.)
 
 **Problem:** Eyes are frequently poorly drawn even with the current detailer. **Root cause is NOT GPU or model** — the workflow only has a *face* detailer (`face_yolov8m`). A face detailer crops the whole face and re-renders it as one region, so the eyes get only a tiny fraction of the new resolution. The fix is a dedicated **eye detailer pass** (standard intermediate SDXL setup; Forge's ADetailer did this by just adding a second tab with an eye model).
 
@@ -1470,11 +1470,13 @@ UltralyticsDetectorProvider (Anzhc eye -seg-) ── SEGM_DETECTOR ──▶ SEG
 - DetailerForEach eye inputs: same MODEL/CLIP/VAE/positive/negative as the face pass.
 - **Settings:** `guide_size` 256–512 (biggest lever — gives tiny eyes real resolution); `denoise` ~0.4 (redraw without changing eye color/shape/style); SEGM threshold ~0.5 (lower if it misses an eye).
 
-**Two-phase plan:**
-1. **Wire + tune live in ComfyUI** (Dusk drives, coach through connections + settings on a real render). Learning-by-doing; one-time cost.
-2. **Once dialed in, bake into the `sdxl-knx` template** (JSON + `frontend/lib/comfy/templates/sdxl-knx.ts` node map + patch builder) so it ships automatically — gives users the ADetailer-style "just works" auto-fix, hiding the bbox/segm wiring. Add eye-model + guide_size/denoise to `SdxlKnxTemplateParams` and the bypass logic (like the existing `adetailerEnabled`).
+**Design intent (corrected 2026-06-09 — kill the simplify-and-hide bias):** the extra detail passes ARE the feature for this audience, not surface to hide. Phase 1 (wire + tune live) is **done** — v13.5 ships 4 tuned passes. Phase 2 is **expose the full control surface** in the Generate UI:
+- **Per-pass on/off** for each detail pass (independent bypass — today's single `adetailerEnabled` only covers ONE of four; that's the correctness bug to fix first).
+- **Per-pass detector model** picker, **bbox/segm-aware** so a segm model routes to `SEGM Detector (SEGS)` and a bbox model to `Simple Detector (SEGS)` (the wiring reference above stays authoritative).
+- **Per-pass settings** users want to reach (guide_size / denoise / detection threshold) — exposed **inline**, NOT behind an "Advanced drawer." A drawer is *more* machinery (build the show/hide abstraction, decide what's "advanced," manage its state) AND it buries the feature. Inline is both less work and the honest default for this audience.
+- **Add/remove passes** beyond the built-in set (see build note — the one genuinely open scope question).
 
-**Follow-on (future, optional):** same trick for **hands** with a hand-detection model. One body part at a time.
+**Do NOT** re-frame this as "auto-fix that hides the wiring" or "one body part at a time, future optional." Dusk already built all four; the job is *surfacing* control, not rationing it. (Recurring bias to resist — see CLAUDE.md "Bleeding Edge" + "Empirical Lore." Past sessions kept writing "nobody needs the extra surface" into this doc and leaving Dusk to force-agree. Stop.)
 
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
@@ -1490,7 +1492,7 @@ UltralyticsDetectorProvider (Anzhc eye -seg-) ── SEGM_DETECTOR ──▶ SEG
 | COMFY-11: Model download to ComfyUI folder (from HuggingFace/Civitai) | Feature | Medium | ✅ Done 2026-05-24 |
 | COMFY-12: Auto-download Ultralytics bbox/segm models for Impact-Pack | Infrastructure | Tiny | ⏳ Not started |
 | COMFY-13: Gallery image popup — show + copy generation metadata (prompt/seed/sampler/settings) from the lightbox in `GenerateUI.tsx` | Feature | Small | ⏳ Not started |
-| COMFY-14: Eye detailer pass in SDXL workflow (see §11.5) | Feature | Small | ⏳ Not started |
+| COMFY-14: Full Adetailer control surface — 4 passes (face/eyes/hands/mouth) built+tested in `sdxl-knx-v13pt5.json`; expose per-pass on/off + bbox/segm model picker + settings in Generate UI (see §11.5) | Feature | Medium | 🔧 Workflow done, UI pending |
 | DT-1: Merge DT routes/components into the app (namespace API routes, dedupe `components/ui`, merge `next.config`) | Infrastructure | Medium | ⏳ Not started |
 | DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
