@@ -659,6 +659,34 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 
 ---
 
+### 5.0.97 Categorical Preset Library Expansion — Peer-LoRA Study *(Dusk, 2026-06-09)*
+
+**Goal: add new *categorical* presets covering training patterns that are common across real-world peer LoRAs but that our `presets/` folder doesn't represent yet.**
+- **Severity:** Low (library enrichment, not a bug) — but high *value* for users picking a starting point.
+- **Status:** ⏳ Parked — corpus read + tooling built, the actual gap-walk and preset authoring are not started. (Captured on a flat-brain day; resume fresh.)
+
+**Method — IMPORTANT, this is the part that's easy to get wrong:**
+- **Dusk leads, section by section, qualitatively.** The empirical layer is *his knowledge of what each LoRA actually is* (subject, what worked, output quality) — the metadata can't see that. He walks a section, names the gap.
+- **The metadata stats are BACKING, not the driver.** They sanity-check a hunch; they don't lead and they shouldn't clog the flow. No aggregate tables / histograms unless explicitly asked — that's what derailed the first pass.
+- **Authority order:** Dusk's hands-on training results > paper-reading of preset fields. Community experts (Novowels, Citron, kudou-reira) are authoritative — don't second-guess their values.
+- **Presets don't pin training outcome:** repeats are dataset-side, steps are derived, batch matters — so matching another LoRA's LR/dim does **not** make a new preset redundant. Coverage is about *kind of recipe*, not exact numbers.
+
+**Tooling already built (local scratch in `temp/`, header-only, no deps):**
+- `read_loras.py` — reads safetensors `__metadata__` header-only; emits per-file summary + `lora_study_full.csv`.
+- `lora_study_full.csv` — all 123 peer LoRAs, one row each (optimizer / dim·alpha / unet_lr / scheduler / network).
+- `preset_gaps.py` — flags optimizer×model combos peers use that our `presets/` has **no** preset for (the new-preset hunt). Backing only.
+- `provenance.py` — checks whether a cluster (e.g. the Adafactor-fixed group) is one source or many.
+
+**Corpus:** 123 peer LoRAs at `C:\Users\dusk\Downloads\Loras to study for Claude`.
+
+**Candidate clusters spotted as starting backing (NOT conclusions — Dusk's read decides):**
+- **Adafactor-fixed workhorse** — `dim32 / a16 / lr 5e-4 / cosine_with_restarts`, plain `lora` on SDXL/Illustrious. Most common signature in the corpus; likely one tool/author (that's what `provenance.py` is for). Check coverage vs `finetune_adafactor.json` / `folk_horror_style_adafactor.json`.
+- **Flux/Chroma low-dim** — `dim2 / a16 / lr 5e-4 / cosine_restarts`, `lora_flux`. Distinctive high alpha:dim. Check vs `chroma_style_experimental.json` / `flux_*`.
+- **Prodigy Illustrious/PDXL** — `lr 1.0` adaptive, dim 8–32, cosine/constant. Check vs `kudou-reira_prodigy.json` / `faetastic_sdxl_prodigy.json`.
+- **CAME NoobAI** — `dim8 / a4 / lr ~3–6e-5 / cosine` — likely already covered by `came_character_*`.
+
+---
+
 ### 5.1 Preset Optimizer Args Contamination
 
 **Issue PR-1: optimizer_args field picks up general training args from community presets**
