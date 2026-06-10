@@ -514,6 +514,61 @@ export interface GITConfig {
   debug?: boolean;
 }
 
+/**
+ * Unified auto-tagging / captioning form state — single source of truth for the
+ * auto-tag page (React Hook Form). It is a superset of the three submit shapes:
+ * WD14 maps to `datasetAPI.tag()`, BLIP to {@link BLIPConfig}, GIT to
+ * {@link GITConfig}. The selected model's type decides which fields are sent.
+ */
+export interface TaggingConfig {
+  // Shared
+  datasetDir: string;
+  model: string;
+  captionExtension: string;
+  captionSeparator: string;
+
+  // WD14 thresholds
+  threshold: number;
+  useGeneralThreshold: boolean;
+  generalThreshold: number;
+  useCharacterThreshold: boolean;
+  characterThreshold: number;
+
+  // WD14 tag filtering / ordering / processing
+  undesiredTags: string;
+  tagReplacement: string;
+  alwaysFirstTags: string;
+  characterTagsFirst: boolean;
+  ratingTags: 'none' | 'first' | 'last';
+  removeUnderscore: boolean;
+  characterTagExpand: boolean;
+
+  // BLIP
+  blipBeamSearch: boolean;
+  blipNumBeams: number;
+  blipTopP: number;
+  blipMaxLength: number;
+  blipMinLength: number;
+
+  // GIT
+  gitMaxLength: number;
+  gitRemoveWords: boolean;
+
+  // File handling
+  overwriteMode: 'overwrite' | 'append' | 'ignore';
+  recursive: boolean;
+
+  // Performance
+  batchSize: number;
+  maxWorkers: number;
+  useOnnx: boolean;
+  forceDownload: boolean;
+
+  // Debug
+  frequencyTags: boolean;
+  debug: boolean;
+}
+
 // ✅ MIGRATED: All captioning endpoints use Node.js /api/jobs/* routes
 export const captioningAPI = {
   startBLIP: async (config: BLIPConfig) => {

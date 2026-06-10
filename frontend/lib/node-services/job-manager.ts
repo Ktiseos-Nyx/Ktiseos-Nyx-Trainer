@@ -544,6 +544,20 @@ export interface TaggingJobConfig {
   useRatingTagsAsLastTag?: boolean;
   /** Expand character tag parentheses to separate tags (--character_tag_expand) */
   characterTagExpand?: boolean;
+  /** Re-download the tagger model even if it is already cached (--force_download) */
+  forceDownload?: boolean;
+  /** DataLoader worker count for image reading (--max_data_loader_n_workers) */
+  maxWorkers?: number;
+  /**
+   * Use the ONNX GPU inference path. Defaults to true; set false on platforms
+   * without onnxruntime-gpu (e.g. Apple Silicon / CPU-only) to fall back to the
+   * script's torch loader (--onnx).
+   */
+  useOnnx?: boolean;
+  /** Print a per-image tag frequency report (--frequency_tags) */
+  frequencyTags?: boolean;
+  /** Verbose debug logging (--debug) */
+  debug?: boolean;
 }
 
 /**
@@ -613,7 +627,8 @@ async function applyActivationTags(
 
 /**
  * Create and start a tagging job using the Python WD14 tagger.
- * Always passes --onnx for GPU-accelerated inference.
+ * Uses the ONNX GPU path by default; pass useOnnx: false for platforms without
+ * onnxruntime-gpu (falls back to the script's torch loader).
  */
 export async function createTaggingJob(
   config: TaggingJobConfig
@@ -630,8 +645,11 @@ export async function createTaggingJob(
   // Build CLI args: script path, then positional train_data_dir
   const args: string[] = [scriptPath, config.inputDir];
 
-  // Always enable ONNX for GPU support
-  args.push('--onnx');
+  // ONNX GPU path is the default; allow opting out for platforms without
+  // onnxruntime-gpu (the script falls back to its torch loader).
+  if (config.useOnnx !== false) {
+    args.push('--onnx');
+  }
 
   // Model repo ID
   if (config.model) {
@@ -654,6 +672,9 @@ export async function createTaggingJob(
   }
   if (config.batchSize != null) {
     args.push('--batch_size', String(config.batchSize));
+  }
+  if (config.maxWorkers != null) {
+    args.push('--max_data_loader_n_workers', String(config.maxWorkers));
   }
   if (config.captionSeparator != null) {
     args.push('--caption_separator', config.captionSeparator);
@@ -691,6 +712,15 @@ export async function createTaggingJob(
   }
   if (config.characterTagExpand) {
     args.push('--character_tag_expand');
+  }
+  if (config.forceDownload) {
+    args.push('--force_download');
+  }
+  if (config.frequencyTags) {
+    args.push('--frequency_tags');
+  }
+  if (config.debug) {
+    args.push('--debug');
   }
 
   const jobId = jobManager.createJob('tagging', pythonPath, args, projectRoot);
@@ -731,12 +761,37 @@ export async function createTaggingJob(
   return jobId;
 }
 
+/** Config for a BLIP captioning job. Fields map to finetune/make_captions.py CLI flags. */
+export interface BlipCaptioningJobConfig {
+  /** Directory of images to caption (positional: train_data_dir) */
+  inputDir: string;
+  /** Output caption file extension (--caption_extension) */
+  captionExtension?: string;
+  /** Inference batch size (--batch_size) */
+  batchSize?: number;
+  /** DataLoader worker count (--max_data_loader_n_workers) */
+  maxWorkers?: number;
+  /** Use beam search instead of nucleus sampling (--beam_search) */
+  beamSearch?: boolean;
+  /** Beam count when beam searching (--num_beams) */
+  numBeams?: number;
+  /** Nucleus sampling top-p (--top_p) */
+  topP?: number;
+  /** Max caption length (--max_length) */
+  maxLength?: number;
+  /** Min caption length (--min_length) */
+  minLength?: number;
+  /** Recurse into subfolders (--recursive) */
+  recursive?: boolean;
+  /** Verbose debug logging (--debug) */
+  debug?: boolean;
+}
+
 /**
- * Create and start a BLIP captioning job
+ * Create and start a BLIP captioning job (finetune/make_captions.py).
  */
 export async function createBlipCaptioningJob(
-  inputDir: string,
-  captionExtension: string = '.txt'
+  config: BlipCaptioningJobConfig
 ): Promise<string> {
   const projectRoot = getProjectRoot();
   const pythonPath = getPythonPath();
@@ -750,14 +805,37 @@ export async function createBlipCaptioningJob(
     'make_captions.py'
   );
 
-  const args = [
-    scriptPath,
-    inputDir,
-    '--batch_size',
-    '1',
-    '--caption_extension',
-    captionExtension,
-  ];
+  const args: string[] = [scriptPath, config.inputDir];
+  if (config.captionExtension) {
+    args.push('--caption_extension', config.captionExtension);
+  }
+  if (config.batchSize != null) {
+    args.push('--batch_size', String(config.batchSize));
+  }
+  if (config.maxWorkers != null) {
+    args.push('--max_data_loader_n_workers', String(config.maxWorkers));
+  }
+  // Beam search and nucleus sampling are mutually exclusive in the script.
+  if (config.beamSearch) {
+    args.push('--beam_search');
+    if (config.numBeams != null) {
+      args.push('--num_beams', String(config.numBeams));
+    }
+  } else if (config.topP != null) {
+    args.push('--top_p', String(config.topP));
+  }
+  if (config.maxLength != null) {
+    args.push('--max_length', String(config.maxLength));
+  }
+  if (config.minLength != null) {
+    args.push('--min_length', String(config.minLength));
+  }
+  if (config.recursive) {
+    args.push('--recursive');
+  }
+  if (config.debug) {
+    args.push('--debug');
+  }
 
   const jobId = jobManager.createJob('captioning_blip', pythonPath, args, projectRoot);
   jobManager.startJob(jobId);
@@ -765,12 +843,33 @@ export async function createBlipCaptioningJob(
   return jobId;
 }
 
+/** Config for a GIT captioning job. Fields map to finetune/make_captions_by_git.py CLI flags. */
+export interface GitCaptioningJobConfig {
+  /** Directory of images to caption (positional: train_data_dir) */
+  inputDir: string;
+  /** Output caption file extension (--caption_extension) */
+  captionExtension?: string;
+  /** HuggingFace GIT model id (--model_id) */
+  modelId?: string;
+  /** Inference batch size (--batch_size) */
+  batchSize?: number;
+  /** DataLoader worker count (--max_data_loader_n_workers) */
+  maxWorkers?: number;
+  /** Max caption length (--max_length) */
+  maxLength?: number;
+  /** Strip "with the words xxx" artifacts (--remove_words) */
+  removeWords?: boolean;
+  /** Recurse into subfolders (--recursive) */
+  recursive?: boolean;
+  /** Verbose debug logging (--debug) */
+  debug?: boolean;
+}
+
 /**
- * Create and start a GIT captioning job
+ * Create and start a GIT captioning job (finetune/make_captions_by_git.py).
  */
 export async function createGitCaptioningJob(
-  inputDir: string,
-  captionExtension: string = '.txt'
+  config: GitCaptioningJobConfig
 ): Promise<string> {
   const projectRoot = getProjectRoot();
   const pythonPath = getPythonPath();
@@ -784,14 +883,31 @@ export async function createGitCaptioningJob(
     'make_captions_by_git.py'
   );
 
-  const args = [
-    scriptPath,
-    inputDir,
-    '--batch_size',
-    '1',
-    '--caption_extension',
-    captionExtension,
-  ];
+  const args: string[] = [scriptPath, config.inputDir];
+  if (config.captionExtension) {
+    args.push('--caption_extension', config.captionExtension);
+  }
+  if (config.modelId) {
+    args.push('--model_id', config.modelId);
+  }
+  if (config.batchSize != null) {
+    args.push('--batch_size', String(config.batchSize));
+  }
+  if (config.maxWorkers != null) {
+    args.push('--max_data_loader_n_workers', String(config.maxWorkers));
+  }
+  if (config.maxLength != null) {
+    args.push('--max_length', String(config.maxLength));
+  }
+  if (config.removeWords) {
+    args.push('--remove_words');
+  }
+  if (config.recursive) {
+    args.push('--recursive');
+  }
+  if (config.debug) {
+    args.push('--debug');
+  }
 
   const jobId = jobManager.createJob('captioning_git', pythonPath, args, projectRoot);
   jobManager.startJob(jobId);

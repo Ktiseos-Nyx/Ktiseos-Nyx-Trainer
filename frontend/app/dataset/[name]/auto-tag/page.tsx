@@ -1,155 +1,52 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
-import { datasetAPI, captioningAPI, DatasetInfo, BLIPConfig, GITConfig, LogPoller } from '@/lib/api';
-import { Home, Database, Tag, Zap, Info, ChevronDown, ChevronUp, Terminal, X, Play, Square, Settings, Sliders, Sparkles, Camera } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Home, Database, Tag, Terminal, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Form } from '@/components/ui/form';
+import { datasetAPI, captioningAPI, BLIPConfig, GITConfig, LogPoller } from '@/lib/api';
+import type { TaggingConfig } from '@/lib/api';
+import { useTaggingForm } from '@/hooks/useTaggingForm';
+import { getModelType } from '@/components/tagging/models';
+import { BasicSettingsCard } from '@/components/tagging/cards/BasicSettingsCard';
+import { ModelSettingsCard } from '@/components/tagging/cards/ModelSettingsCard';
+import { TagProcessingCard } from '@/components/tagging/cards/TagProcessingCard';
+import { PerformanceCard } from '@/components/tagging/cards/PerformanceCard';
+import { ActionsCard } from '@/components/tagging/cards/ActionsCard';
 
-// Unified model definitions
-type ModelType = 'wd14' | 'blip' | 'git';
-
-interface ModelOption {
-  id: string;
-  name: string;
-  type: ModelType;
-  description?: string;
-}
-
-const AVAILABLE_MODELS: ModelOption[] = [
-  // WD14 v3 Models (newest, best quality)
-  { id: 'SmilingWolf/wd-eva02-large-tagger-v3', name: 'WD14 EVA02 Large v3', type: 'wd14', description: '⭐ Recommended' },
-  { id: 'SmilingWolf/wd-vit-large-tagger-v3', name: 'WD14 ViT Large v3', type: 'wd14' },
-  { id: 'SmilingWolf/wd-swinv2-tagger-v3', name: 'WD14 SwinV2 v3', type: 'wd14' },
-  { id: 'SmilingWolf/wd-vit-tagger-v3', name: 'WD14 ViT v3', type: 'wd14' },
-  // WD14 v2/v1 Models (older but stable)
-  { id: 'SmilingWolf/wd-v1-4-swinv2-tagger-v2', name: 'WD14 SwinV2 v2', type: 'wd14' },
-  { id: 'SmilingWolf/wd-v1-4-convnext-tagger-v2', name: 'WD14 ConvNext v2', type: 'wd14' },
-  { id: 'SmilingWolf/wd-v1-4-convnext-tagger', name: 'WD14 ConvNext v1', type: 'wd14' },
-  { id: 'SmilingWolf/wd-v1-4-vit-tagger-v2', name: 'WD14 ViT v2', type: 'wd14' },
-  { id: 'SmilingWolf/wd-v1-4-vit-tagger', name: 'WD14 ViT v1', type: 'wd14' },
-  // BLIP Models
-  { id: 'blip-base', name: 'BLIP Base', type: 'blip', description: 'Natural language captions' },
-  // GIT Models
-  { id: 'microsoft/git-large-textcaps', name: 'GIT Large (TextCaps)', type: 'git', description: '⭐ Recommended' },
-  { id: 'microsoft/git-large', name: 'GIT Large', type: 'git' },
-  { id: 'microsoft/git-base', name: 'GIT Base', type: 'git', description: 'Faster' },
-];
-
-type CaptioningMethod = 'wd14' | 'blip' | 'git';
+const MAX_LOGS = 500;
 
 export default function AutoTagPage() {
-  const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { form, datasets, loadingDatasets, reloadDatasets } = useTaggingForm();
 
-  // Unified model selection (replaces method + taggerModel)
-  const [selectedModel, setSelectedModel] = useState<string>('SmilingWolf/wd-eva02-large-tagger-v3');
+  const [activeTab, setActiveTab] = useState('basics');
 
-  // Derive model type from selected model
-  const currentModelType = AVAILABLE_MODELS.find(m => m.id === selectedModel)?.type || 'wd14';
-
-  // Basic settings
-  const [selectedDataset, setSelectedDataset] = useState<string>('');
-  const [captionExtension, setCaptionExtension] = useState('.txt');
-  const [captionSeparator, setCaptionSeparator] = useState(', ');
-
-  // BLIP settings
-  const [blipBeamSearch, setBlipBeamSearch] = useState(false);
-  const [blipNumBeams, setBlipNumBeams] = useState(3);
-  const [blipTopP, setBlipTopP] = useState(0.9);
-  const [blipMaxLength, setBlipMaxLength] = useState(75);
-  const [blipMinLength, setBlipMinLength] = useState(5);
-
-  // GIT settings
-  const [gitMaxLength, setGitMaxLength] = useState(50);
-  const [gitRemoveWords, setGitRemoveWords] = useState(true);
-
-  // Thresholds (3 separate!)
-  const [threshold, setThreshold] = useState(0.35);
-  const [useGeneralThreshold, setUseGeneralThreshold] = useState(false);
-  const [generalThreshold, setGeneralThreshold] = useState(0.35);
-  const [useCharacterThreshold, setUseCharacterThreshold] = useState(false);
-  const [characterThreshold, setCharacterThreshold] = useState(0.35);
-
-  // Tag filtering
-  const [undesiredTags, setUndesiredTags] = useState('');
-  const [tagReplacement, setTagReplacement] = useState('');
-
-  // Tag ordering
-  const [alwaysFirstTags, setAlwaysFirstTags] = useState('');
-  const [characterTagsFirst, setCharacterTagsFirst] = useState(false);
-
-  // Rating tags
-  const [ratingTags, setRatingTags] = useState<'none' | 'first' | 'last'>('none');
-
-  // Tag processing
-  const [removeUnderscore, setRemoveUnderscore] = useState(true);
-  const [characterTagExpand, setCharacterTagExpand] = useState(false);
-
-  // File handling
-  const [overwriteMode, setOverwriteMode] = useState<'overwrite' | 'append' | 'ignore'>('overwrite');
-  const [recursive, setRecursive] = useState(false);
-
-  // Performance
-  const [batchSize, setBatchSize] = useState(8);
-  const [maxWorkers, setMaxWorkers] = useState(2);
-  const [useOnnx, setUseOnnx] = useState(true);
-  const [forceDownload, setForceDownload] = useState(false);
-
-  // Debug
-  const [frequencyTags, setFrequencyTags] = useState(false);
-  const [debug, setDebug] = useState(false);
-
-  // UI state
+  // Job state
   const [tagging, setTagging] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Job tracking
   const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [totalImages, setTotalImages] = useState<number | null>(null);
 
-  // Log viewer — showLogs mounts the card; logsExpanded controls body visibility
-  const [showLogs, setShowLogs] = useState(false);
+  // Logs — showLogs mounts the panel; logsExpanded controls body visibility
+  const [showLogs, setShowLogs] = useState(true);
   const [logsExpanded, setLogsExpanded] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
   const logPollerRef = useRef<LogPoller | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-enable ONNX for v3 models (smart UX!)
+  // Auto-enable ONNX for v3 models (carried over from the original page).
+  const selectedModel = form.watch('model');
   useEffect(() => {
     if (selectedModel.includes('-v3')) {
-      setUseOnnx(true);
+      form.setValue('useOnnx', true);
     }
-  }, [selectedModel]);
+  }, [selectedModel, form]);
 
-  // Load datasets
-  const loadDatasets = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await datasetAPI.list();
-      setDatasets(data.datasets || []);
-      if (data.datasets && data.datasets.length > 0 && !selectedDataset) {
-        setSelectedDataset(data.datasets[0].path);
-      }
-    } catch (err) {
-      console.error('Failed to load datasets:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedDataset]);
-
-  useEffect(() => {
-    loadDatasets();
-  }, [loadDatasets]);
-
-  // Cleanup
+  // Cleanup pollers on unmount
   useEffect(() => {
     return () => {
       if (logPollerRef.current) logPollerRef.current.stop();
@@ -157,42 +54,50 @@ export default function AutoTagPage() {
     };
   }, []);
 
-  const MAX_LOGS = 500;
   /** Append a timestamped message to the on-screen log, capping at MAX_LOGS entries. */
   const addLog = (msg: string) => {
-    setLogs(prev => {
+    setLogs((prev) => {
       const next = [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`];
       return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
     });
   };
 
-  /** Poll the job status endpoint every second, updating progress and handling terminal states. */
-  const startStatusPolling = (jobId: string) => {
+  /** Append a raw (already-formatted) backend log line, capping at MAX_LOGS. */
+  const appendRaw = (msg: string) => {
+    setLogs((prev) => {
+      const next = [...prev, msg];
+      return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
+    });
+  };
+
+  const stopPolling = () => {
+    if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+    if (logPollerRef.current) logPollerRef.current.stop();
+  };
+
+  /** Poll the job status endpoint every second, updating progress and terminal states. */
+  const startStatusPolling = (id: string) => {
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     statusIntervalRef.current = setInterval(async () => {
       try {
-        const response = await datasetAPI.getTaggingStatus(jobId);
-        // Backend returns { success, job: { status, progress, ... } }
+        const response = await datasetAPI.getTaggingStatus(id);
         const job = response.job ?? response;
         if (job.progress != null) setProgress(job.progress);
         if (job.current_image) setCurrentImage(job.current_image);
         if (job.total_images) setTotalImages(job.total_images);
         if (job.status === 'completed') {
           addLog('✅ Tagging completed successfully!');
+          stopPolling();
           setTagging(false);
-          if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-          if (logPollerRef.current) logPollerRef.current.stop();
-          setTimeout(loadDatasets, 1000);
+          setTimeout(reloadDatasets, 1000);
         } else if (job.status === 'failed') {
           addLog(`❌ Tagging failed: ${job.error}`);
+          stopPolling();
           setTagging(false);
-          if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-          if (logPollerRef.current) logPollerRef.current.stop();
         } else if (job.status === 'cancelled') {
           addLog('🛑 Tagging was cancelled');
+          stopPolling();
           setTagging(false);
-          if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-          if (logPollerRef.current) logPollerRef.current.stop();
         }
       } catch (err) {
         console.error('Status poll error:', err);
@@ -200,18 +105,15 @@ export default function AutoTagPage() {
     }, 1000);
   };
 
-  /** Start HTTP log polling for a job (replaces WebSocket which breaks through Caddy proxy). */
-  const connectLogs = (jobId: string) => {
+  /** HTTP log polling for WD14 jobs (WebSocket breaks through the Caddy proxy). */
+  const connectWd14Logs = (id: string) => {
     if (logPollerRef.current) logPollerRef.current.stop();
     logPollerRef.current = datasetAPI.pollTaggingLogs(
-      jobId,
+      id,
       (data) => {
-        if (data.type === 'log' && data.log) {
-          const msg = data.log;
-          setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
-        } else if (data.type === 'progress' && data.progress != null) {
-          setProgress(data.progress as number);
-        } else if (data.type === 'status') {
+        if (data.type === 'log' && data.log) appendRaw(data.log);
+        else if (data.type === 'progress' && data.progress != null) setProgress(data.progress as number);
+        else if (data.type === 'status') {
           if (data.status === 'completed') addLog('✅ Tagging completed!');
           else if (data.status === 'failed') addLog('❌ Tagging failed');
         }
@@ -219,17 +121,29 @@ export default function AutoTagPage() {
       (error) => {
         console.error('Log polling error:', error);
         addLog('⚠️ Log polling error - status polling still active');
-      }
+      },
     );
   };
 
-  /** Validate inputs, start a WD14/BLIP/GIT tagging job, and begin status + log polling. */
-  const handleStartTagging = async () => {
-    if (!selectedDataset) {
-      toast.warning('Please select a dataset');
-      return;
-    }
+  /** HTTP log polling for BLIP/GIT captioning jobs. */
+  const connectCaptionLogs = (id: string) => {
+    if (logPollerRef.current) logPollerRef.current.stop();
+    logPollerRef.current = captioningAPI.pollLogs(
+      id,
+      (data) => {
+        if (data.type === 'log' && data.log) appendRaw(data.log);
+        else if (data.type === 'progress' && data.progress != null) setProgress(data.progress as number);
+      },
+      (error) => {
+        console.error('Log polling error:', error);
+        addLog('⚠️ Log polling error - status polling still active');
+      },
+    );
+  };
 
+  /** Validated submit — fired by RHF only when the config passes the zod schema. */
+  const runTagging = async (cfg: TaggingConfig) => {
+    const modelType = getModelType(cfg.model);
     setTagging(true);
     setShowLogs(true);
     setLogs([]);
@@ -237,102 +151,74 @@ export default function AutoTagPage() {
     setCurrentImage(null);
     setTotalImages(null);
 
-    const methodLabel = currentModelType === 'wd14' ? 'WD14 Tagging' : currentModelType === 'blip' ? 'BLIP Captioning' : 'GIT Captioning';
+    const methodLabel =
+      modelType === 'wd14' ? 'WD14 Tagging' : modelType === 'blip' ? 'BLIP Captioning' : 'GIT Captioning';
     addLog(`🚀 Starting ${methodLabel}...`);
-    addLog(`📁 Dataset: ${selectedDataset}`);
+    addLog(`📁 Dataset: ${cfg.datasetDir}`);
 
     try {
       let response;
-
-      if (currentModelType === 'blip') {
-        addLog(`🤖 Model: BLIP (${blipBeamSearch ? 'beam search' : 'nucleus sampling'})`);
+      if (modelType === 'blip') {
         const config: BLIPConfig = {
-          dataset_dir: selectedDataset,
-          caption_extension: captionExtension,
-          batch_size: batchSize,
-          max_workers: maxWorkers,
-          beam_search: blipBeamSearch,
-          num_beams: blipNumBeams,
-          top_p: blipTopP,
-          max_length: blipMaxLength,
-          min_length: blipMinLength,
-          recursive,
-          debug,
+          dataset_dir: cfg.datasetDir,
+          caption_extension: cfg.captionExtension,
+          batch_size: cfg.batchSize,
+          max_workers: cfg.maxWorkers,
+          beam_search: cfg.blipBeamSearch,
+          num_beams: cfg.blipNumBeams,
+          top_p: cfg.blipTopP,
+          max_length: cfg.blipMaxLength,
+          min_length: cfg.blipMinLength,
+          recursive: cfg.recursive,
+          debug: cfg.debug,
         };
         response = await captioningAPI.startBLIP(config);
-      } else if (currentModelType === 'git') {
-        addLog(`🤖 Model: ${selectedModel}`);
+      } else if (modelType === 'git') {
         const config: GITConfig = {
-          dataset_dir: selectedDataset,
-          caption_extension: captionExtension,
-          model_id: selectedModel,
-          batch_size: batchSize,
-          max_workers: maxWorkers,
-          max_length: gitMaxLength,
-          remove_words: gitRemoveWords,
-          recursive,
-          debug,
+          dataset_dir: cfg.datasetDir,
+          caption_extension: cfg.captionExtension,
+          model_id: cfg.model,
+          batch_size: cfg.batchSize,
+          max_workers: cfg.maxWorkers,
+          max_length: cfg.gitMaxLength,
+          remove_words: cfg.gitRemoveWords,
+          recursive: cfg.recursive,
+          debug: cfg.debug,
         };
         response = await captioningAPI.startGIT(config);
       } else {
-        // WD14 Tagging
-        addLog(`🤖 Model: ${selectedModel}`);
-        addLog(`🎯 Thresholds: Overall=${threshold}, General=${useGeneralThreshold ? generalThreshold : 'default'}, Character=${useCharacterThreshold ? characterThreshold : 'default'}`);
         response = await datasetAPI.tag({
-        datasetDir: selectedDataset,
-        model: selectedModel,
-        forceDownload,
-        threshold,
-        generalThreshold: useGeneralThreshold ? generalThreshold : null,
-        characterThreshold: useCharacterThreshold ? characterThreshold : null,
-        captionExtension,
-        captionSeparator,
-        undesiredTags,
-        tagReplacement: tagReplacement || null,
-        alwaysFirstTags: alwaysFirstTags || null,
-        characterTagsFirst,
-        useRatingTags: ratingTags !== 'none',
-        useRatingTagsAsLastTag: ratingTags === 'last',
-        removeUnderscore,
-        characterTagExpand,
-        overwriteMode,
-        recursive,
-        batchSize,
-        maxWorkers,
-        useOnnx,
-        frequencyTags,
-        debug,
+          datasetDir: cfg.datasetDir,
+          model: cfg.model,
+          forceDownload: cfg.forceDownload,
+          threshold: cfg.threshold,
+          generalThreshold: cfg.useGeneralThreshold ? cfg.generalThreshold : null,
+          characterThreshold: cfg.useCharacterThreshold ? cfg.characterThreshold : null,
+          captionExtension: cfg.captionExtension,
+          captionSeparator: cfg.captionSeparator,
+          undesiredTags: cfg.undesiredTags,
+          tagReplacement: cfg.tagReplacement || null,
+          alwaysFirstTags: cfg.alwaysFirstTags || null,
+          characterTagsFirst: cfg.characterTagsFirst,
+          useRatingTags: cfg.ratingTags !== 'none',
+          useRatingTagsAsLastTag: cfg.ratingTags === 'last',
+          removeUnderscore: cfg.removeUnderscore,
+          characterTagExpand: cfg.characterTagExpand,
+          overwriteMode: cfg.overwriteMode,
+          recursive: cfg.recursive,
+          batchSize: cfg.batchSize,
+          maxWorkers: cfg.maxWorkers,
+          useOnnx: cfg.useOnnx,
+          frequencyTags: cfg.frequencyTags,
+          debug: cfg.debug,
         });
       }
 
-      // Handle response (same for all methods)
       if (response.success && response.job_id) {
         setJobId(response.job_id);
         addLog(`✅ Job started! ID: ${response.job_id}`);
-
-        // Connect log polling and status polling
-        if (currentModelType === 'wd14') {
-          connectLogs(response.job_id);
-        } else {
-          // BLIP/GIT use same polling endpoint
-          if (logPollerRef.current) logPollerRef.current.stop();
-          logPollerRef.current = captioningAPI.pollLogs(
-            response.job_id,
-            (data) => {
-              if (data.type === 'log' && data.log) {
-                const msg = data.log;
-                setLogs(prev => { const next = [...prev, msg]; return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next; });
-              } else if (data.type === 'progress' && data.progress != null) {
-                setProgress(data.progress as number);
-              }
-            },
-            (error) => {
-              console.error('Log polling error:', error);
-              addLog('⚠️ Log polling error - status polling still active');
-            }
-          );
-        }
-
+        if (modelType === 'wd14') connectWd14Logs(response.job_id);
+        else connectCaptionLogs(response.job_id);
         startStatusPolling(response.job_id);
       } else {
         addLog(`❌ Failed: ${response.message}`);
@@ -345,29 +231,36 @@ export default function AutoTagPage() {
     }
   };
 
-  /** Request the backend to stop the active tagging job and reset the UI regardless of outcome. */
-  const handleStopTagging = async () => {
+  // Start runs zod validation first; on failure we surface the first error and
+  // jump to Basics (where the required dataset/model live).
+  const handleStart = form.handleSubmit(runTagging, (errors) => {
+    const firstError = Object.values(errors)[0];
+    const msg = (firstError?.message as string | undefined) ?? 'Please fix the highlighted fields';
+    toast.warning(msg);
+    setActiveTab('basics');
+  });
+
+  const handleStop = async () => {
     if (!jobId) return;
     try {
       addLog('🛑 Stopping...');
       await datasetAPI.stopTagging(jobId);
       addLog('✅ Stopped');
     } catch (err) {
-      // Stop may fail if process already exited — that's fine, still reset UI
+      // Stop may fail if the process already exited — that's fine, still reset UI
       addLog(`⚠️ Stop request: ${err}`);
     } finally {
-      // Always reset UI so user isn't stuck
       setTagging(false);
-      if (logPollerRef.current) logPollerRef.current.stop();
-      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+      stopPolling();
     }
   };
 
-  const selectedDatasetInfo = datasets.find(d => d.path === selectedDataset);
+  const canStart = !!form.watch('datasetDir') && datasets.length > 0;
 
   return (
     <div className="min-h-screen bg-background py-16">
-      <div className="container mx-auto px-4 max-w-7xl">
+      <div className="container mx-auto px-4 max-w-5xl">
+        <Form {...form}>
         <Breadcrumbs
           items={[
             { label: 'Home', href: '/', icon: <Home className="w-4 h-4" /> },
@@ -385,776 +278,39 @@ export default function AutoTagPage() {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column: Basic Settings */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  Basic Settings
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="basics">Basics</TabsTrigger>
+            <TabsTrigger value="model">Model</TabsTrigger>
+            <TabsTrigger value="processing">Tag Processing</TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
+          </TabsList>
 
-                {/* Dataset */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Dataset</label>
-                  {loading ? (
-                    <div className="text-sm text-muted-foreground">Loading...</div>
-                  ) : datasets.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">
-                      No datasets. <Link href="/dataset" prefetch={false} className="text-pink-600 hover:underline">Upload images</Link>
-                    </div>
-                  ) : (
-                    <Select value={selectedDataset} onValueChange={setSelectedDataset} disabled={tagging}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select dataset..." />
-                      </SelectTrigger>
-                      <SelectContent position="item-aligned">
-                        {datasets.map(ds => (
-                          <SelectItem key={ds.path} value={ds.path}>
-                            {ds.name} ({ds.image_count} images)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
+          <TabsContent value="basics" className="mt-6">
+            <BasicSettingsCard form={form} datasets={datasets} loadingDatasets={loadingDatasets} />
+          </TabsContent>
+          <TabsContent value="model" className="mt-6">
+            <ModelSettingsCard form={form} />
+          </TabsContent>
+          <TabsContent value="processing" className="mt-6">
+            <TagProcessingCard form={form} />
+          </TabsContent>
+          <TabsContent value="performance" className="mt-6">
+            <PerformanceCard form={form} />
+          </TabsContent>
+        </Tabs>
 
-                {/* Unified Model Selector */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Model</label>
-                  <Select value={selectedModel} onValueChange={setSelectedModel} disabled={tagging}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select model..." />
-                    </SelectTrigger>
-                    <SelectContent position="item-aligned">
-                      <SelectGroup>
-                        <SelectLabel>WD14 Tagger (Anime Tags)</SelectLabel>
-                        {AVAILABLE_MODELS.filter(m => m.type === 'wd14').map(model => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.name} {model.description && `- ${model.description}`}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      <SelectGroup>
-                        <SelectLabel>BLIP (Natural Language)</SelectLabel>
-                        {AVAILABLE_MODELS.filter(m => m.type === 'blip').map(model => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.name} {model.description && `- ${model.description}`}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      <SelectGroup>
-                        <SelectLabel>GIT (Photo Captions)</SelectLabel>
-                        {AVAILABLE_MODELS.filter(m => m.type === 'git').map(model => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.name} {model.description && `- ${model.description}`}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {currentModelType === 'wd14' && 'Generates booru-style tags (girl, blue_eyes, smile)'}
-                    {currentModelType === 'blip' && 'Generates natural language captions'}
-                    {currentModelType === 'git' && 'Generates photo-style descriptions'}
-                  </p>
-                </div>
-
-                {/* Caption Extension */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Caption Extension</label>
-                  <Select value={captionExtension} onValueChange={setCaptionExtension} disabled={tagging}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select extension..." />
-                    </SelectTrigger>
-                    <SelectContent position="item-aligned">
-                      <SelectItem value=".txt">.txt (Kohya standard)</SelectItem>
-                      <SelectItem value=".caption">.caption</SelectItem>
-                      <SelectItem value=".cap">.cap</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Separator (WD14 only) */}
-                {currentModelType === 'wd14' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Tag Separator</label>
-                    <Input
-                      type="text"
-                      value={captionSeparator}
-                      onChange={(e) => setCaptionSeparator(e.target.value)}
-                      disabled={tagging}
-                      placeholder=", "
-                      className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-pink-500 disabled:opacity-50"
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Dataset Info */}
-            {selectedDatasetInfo && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Selected Dataset</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-orange-400">📁</span>
-                      <span className="font-medium">{selectedDatasetInfo.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-orange-400">🖼️</span>
-                      <span>{selectedDatasetInfo.image_count} images</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {selectedDatasetInfo.tags_present ? (
-                        <>
-                          <span className="text-green-400">✓</span>
-                          <span className="text-green-400">Has tags (will {overwriteMode === 'ignore' ? 'skip' : overwriteMode})</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-yellow-400">⚠</span>
-                          <span className="text-yellow-400">No tags yet</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Middle Column: Model-Specific Settings */}
-          <div className="space-y-6">
-            {currentModelType === 'wd14' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sliders className="w-5 h-5" />
-                    Thresholds
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-
-                {/* Overall Threshold */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Overall Threshold: {threshold.toFixed(2)}
-                  </label>
-                  <Input
-                    type="range"
-                    min="0.1"
-                    max="0.9"
-                    step="0.05"
-                    value={threshold}
-                    onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                    disabled={tagging}
-                    className="w-full accent-cyan-500 disabled:opacity-50"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>More tags</span>
-                    <span>Fewer tags</span>
-                  </div>
-                </div>
-
-                {/* General Threshold */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Input
-                      type="checkbox"
-                      id="use-general"
-                      checked={useGeneralThreshold}
-                      onChange={(e) => setUseGeneralThreshold(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-cyan-500"
-                    />
-                    <label htmlFor="use-general" className="text-sm font-medium cursor-pointer">
-                      Custom General Threshold: {generalThreshold.toFixed(2)}
-                    </label>
-                  </div>
-                  <Input
-                    type="range"
-                    min="0.1"
-                    max="0.9"
-                    step="0.05"
-                    value={generalThreshold}
-                    onChange={(e) => setGeneralThreshold(parseFloat(e.target.value))}
-                    disabled={tagging || !useGeneralThreshold}
-                    className="w-full accent-cyan-500 disabled:opacity-50"
-                  />
-                </div>
-
-                {/* Character Threshold */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Input
-                      type="checkbox"
-                      id="use-character"
-                      checked={useCharacterThreshold}
-                      onChange={(e) => setUseCharacterThreshold(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-cyan-500"
-                    />
-                    <label htmlFor="use-character" className="text-sm font-medium cursor-pointer">
-                      Custom Character Threshold: {characterThreshold.toFixed(2)}
-                    </label>
-                  </div>
-                  <Input
-                    type="range"
-                    min="0.1"
-                    max="0.9"
-                    step="0.05"
-                    value={characterThreshold}
-                    onChange={(e) => setCharacterThreshold(parseFloat(e.target.value))}
-                    disabled={tagging || !useCharacterThreshold}
-                    className="w-full accent-cyan-500 disabled:opacity-50"
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                  <p className="text-xs text-muted-foreground">
-                    💡 Separate thresholds for general/character tags allow fine-tuned control
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-            {currentModelType === 'blip' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5" />
-                    BLIP Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-
-                  {/* Sampling Method */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Sampling Method</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Input
-                          type="radio"
-                          checked={!blipBeamSearch}
-                          onChange={() => setBlipBeamSearch(false)}
-                          disabled={tagging}
-                          className="accent-cyan-500"
-                        />
-                        <span className="text-sm">Nucleus (faster)</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <Input
-                          type="radio"
-                          checked={blipBeamSearch}
-                          onChange={() => setBlipBeamSearch(true)}
-                          disabled={tagging}
-                          className="accent-cyan-500"
-                        />
-                        <span className="text-sm">Beam Search (better)</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Beam Settings */}
-                  {blipBeamSearch && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Number of Beams: {blipNumBeams}</label>
-                      <Input
-                        type="range"
-                        min="1"
-                        max="10"
-                        value={blipNumBeams}
-                        onChange={(e) => setBlipNumBeams(parseInt(e.target.value))}
-                        disabled={tagging}
-                        className="w-full accent-cyan-500"
-                      />
-                      <p className="text-xs text-muted-foreground mt-2">More beams = better quality but slower</p>
-                    </div>
-                  )}
-
-                  {/* Top-P */}
-                  {!blipBeamSearch && (
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Top-P (Nucleus): {blipTopP.toFixed(2)}</label>
-                      <Input
-                        type="range"
-                        min="0.5"
-                        max="1.0"
-                        step="0.05"
-                        value={blipTopP}
-                        onChange={(e) => setBlipTopP(parseFloat(e.target.value))}
-                        disabled={tagging}
-                        className="w-full accent-cyan-500"
-                      />
-                    </div>
-                  )}
-
-                  {/* Length */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Max Length: {blipMaxLength}</label>
-                    <Input
-                      type="range"
-                      min="20"
-                      max="150"
-                      step="5"
-                      value={blipMaxLength}
-                      onChange={(e) => setBlipMaxLength(parseInt(e.target.value))}
-                      disabled={tagging}
-                      className="w-full accent-cyan-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Min Length: {blipMinLength}</label>
-                    <Input
-                      type="range"
-                      min="1"
-                      max="20"
-                      value={blipMinLength}
-                      onChange={(e) => setBlipMinLength(parseInt(e.target.value))}
-                      disabled={tagging}
-                      className="w-full accent-cyan-500"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {currentModelType === 'git' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Camera className="w-5 h-5" />
-                    GIT Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-
-                  {/* Max Length */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Max Caption Length: {gitMaxLength}</label>
-                    <Input
-                      type="range"
-                      min="20"
-                      max="100"
-                      step="5"
-                      value={gitMaxLength}
-                      onChange={(e) => setGitMaxLength(parseInt(e.target.value))}
-                      disabled={tagging}
-                      className="w-full accent-purple-500"
-                    />
-                  </div>
-
-                  {/* Remove Words */}
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="git-remove-words"
-                      checked={gitRemoveWords}
-                      onChange={(e) => setGitRemoveWords(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-purple-500"
-                    />
-                    <label htmlFor="git-remove-words" className="text-sm cursor-pointer">
-                      Remove "with the words xxx" artifacts
-                    </label>
-                  </div>
-
-                  <div className="pt-4 border-t border-border">
-                    <p className="text-xs text-muted-foreground">
-                      💡 GIT is optimized for photo-realistic images and general scenes
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {currentModelType === 'wd14' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Tag className="w-5 h-5" />
-                  Tag Processing
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-
-                {/* Prefix Tags */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Prefix Tags (Optional)</label>
-                  <Input
-                    type="text"
-                    value={alwaysFirstTags}
-                    onChange={(e) => setAlwaysFirstTags(e.target.value)}
-                    disabled={tagging}
-                    placeholder="e.g., 1girl, solo"
-                    className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Tags to always put first
-                  </p>
-                </div>
-
-                {/* Blacklist */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Undesired Tags (Optional)</label>
-                  <Input
-                    type="text"
-                    value={undesiredTags}
-                    onChange={(e) => setUndesiredTags(e.target.value)}
-                    disabled={tagging}
-                    placeholder="e.g., watermark, logo, text"
-                    className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Comma-separated tags to exclude
-                  </p>
-                </div>
-
-                {/* Tag Replacement */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Tag Replacement (Optional)</label>
-                  <Input
-                    type="text"
-                    value={tagReplacement}
-                    onChange={(e) => setTagReplacement(e.target.value)}
-                    disabled={tagging}
-                    placeholder="old1,new1;old2,new2"
-                    className="w-full px-4 py-2 bg-input text-foreground border border-border rounded-lg focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Format: source,target;source,target
-                  </p>
-                </div>
-
-                {/* Rating Tags */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">Rating Tags</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Input
-                        type="radio"
-                        name="rating"
-                        value="none"
-                        checked={ratingTags === 'none'}
-                        onChange={() => setRatingTags('none')}
-                        disabled={tagging}
-                        className="accent-orange-500"
-                      />
-                      <span className="text-sm">None</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Input
-                        type="radio"
-                        name="rating"
-                        value="first"
-                        checked={ratingTags === 'first'}
-                        onChange={() => setRatingTags('first')}
-                        disabled={tagging}
-                        className="accent-orange-500"
-                      />
-                      <span className="text-sm">First</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <Input
-                        type="radio"
-                        name="rating"
-                        value="last"
-                        checked={ratingTags === 'last'}
-                        onChange={() => setRatingTags('last')}
-                        disabled={tagging}
-                        className="accent-orange-500"
-                      />
-                      <span className="text-sm">Last</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Flags */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="char-first"
-                      checked={characterTagsFirst}
-                      onChange={(e) => setCharacterTagsFirst(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-orange-500"
-                    />
-                    <label htmlFor="char-first" className="text-sm cursor-pointer">
-                      Character Tags First
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="rm-underscore"
-                      checked={removeUnderscore}
-                      onChange={(e) => setRemoveUnderscore(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-orange-500"
-                    />
-                    <label htmlFor="rm-underscore" className="text-sm cursor-pointer">
-                      Remove Underscores
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="char-expand"
-                      checked={characterTagExpand}
-                      onChange={(e) => setCharacterTagExpand(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-orange-500"
-                    />
-                    <label htmlFor="char-expand" className="text-sm cursor-pointer">
-                      Expand Character Tags (name_(series) → name, series)
-                    </label>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-          </div>
-
-          {/* Right Column: Performance & Actions */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Performance
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-
-                {/* Batch Size */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Batch Size: {batchSize}
-                  </label>
-                  <Input
-                    type="range"
-                    min="1"
-                    max="16"
-                    step="1"
-                    value={batchSize}
-                    onChange={(e) => setBatchSize(parseInt(e.target.value))}
-                    disabled={tagging}
-                    className="w-full accent-purple-500 disabled:opacity-50"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Higher = faster (more GPU memory)
-                  </p>
-                </div>
-
-                {/* Max Workers */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Data Loader Workers: {maxWorkers}
-                  </label>
-                  <Input
-                    type="range"
-                    min="1"
-                    max="8"
-                    step="1"
-                    value={maxWorkers}
-                    onChange={(e) => setMaxWorkers(parseInt(e.target.value))}
-                    disabled={tagging}
-                    className="w-full accent-purple-500 disabled:opacity-50"
-                  />
-                </div>
-
-                {/* Flags */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="onnx"
-                      checked={useOnnx}
-                      onChange={(e) => setUseOnnx(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-purple-500"
-                    />
-                    <label htmlFor="onnx" className="text-sm cursor-pointer">
-                      Use ONNX Runtime (faster)
-                    </label>
-                  </div>
-                  <div className="space-y-1">
-                    <label htmlFor="overwrite-mode" className="text-sm font-medium">Existing Caption Handling</label>
-                    <Select
-                      value={overwriteMode}
-                      onValueChange={(v) => setOverwriteMode(v as 'overwrite' | 'append' | 'ignore')}
-                      disabled={tagging}
-                    >
-                      <SelectTrigger id="overwrite-mode" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="overwrite">Overwrite — replace existing captions</SelectItem>
-                        <SelectItem value="append">Append — merge new tags with existing</SelectItem>
-                        <SelectItem value="ignore">Ignore — skip images that already have captions</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="recursive"
-                      checked={recursive}
-                      onChange={(e) => setRecursive(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-purple-500"
-                    />
-                    <label htmlFor="recursive" className="text-sm cursor-pointer">
-                      Recursive (process subfolders)
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="checkbox"
-                      id="freq"
-                      checked={frequencyTags}
-                      onChange={(e) => setFrequencyTags(e.target.checked)}
-                      disabled={tagging}
-                      className="w-4 h-4 accent-purple-500"
-                    />
-                    <label htmlFor="freq" className="text-sm cursor-pointer">
-                      Show Tag Frequency Report
-                    </label>
-                  </div>
-                </div>
-
-                {/* Advanced Options Toggle */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  aria-expanded={showAdvanced}
-                  className="w-full justify-between px-4"
-                >
-                  <span className="text-sm font-medium">Advanced Options</span>
-                  {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                </Button>
-
-                {showAdvanced && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="checkbox"
-                        id="force-dl"
-                        checked={forceDownload}
-                        onChange={(e) => setForceDownload(e.target.checked)}
-                        disabled={tagging}
-                        className="w-4 h-4 accent-purple-500"
-                      />
-                      <label htmlFor="force-dl" className="text-sm cursor-pointer">
-                        Force Download Model
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="checkbox"
-                        id="debug"
-                        checked={debug}
-                        onChange={(e) => setDebug(e.target.checked)}
-                        disabled={tagging}
-                        className="w-4 h-4 accent-purple-500"
-                      />
-                      <label htmlFor="debug" className="text-sm cursor-pointer">
-                        Debug Mode
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Action Buttons */}
-            <Card>
-              <CardContent className="pt-6 space-y-4">
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleStartTagging}
-                    disabled={tagging || !selectedDataset || datasets.length === 0}
-                    className="flex-1 gap-2"
-                  >
-                    <Play className="w-5 h-5" />
-                    {tagging ? 'Tagging...' : 'Start'}
-                  </Button>
-                  {tagging && (
-                    <Button
-                      onClick={handleStopTagging}
-                      variant="destructive"
-                      className="gap-2"
-                    >
-                      <Square className="w-5 h-5" />
-                      Stop
-                    </Button>
-                  )}
-                </div>
-
-                {/* Progress */}
-                {tagging && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">Progress: {progress}%</span>
-                      {totalImages && <span className="text-muted-foreground">{totalImages} images</span>}
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className="h-full bg-gradient-to-r from-pink-500 to-rose-500 rounded-full transition-all"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    {currentImage && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {currentImage}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* How It Works */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Info className="w-5 h-5" />
-                  How It Works
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400">1.</span>
-                    <span>WD14 analyzes images with deep learning</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400">2.</span>
-                    <span>Generates tags based on confidence thresholds</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400">3.</span>
-                    <span>Processes tags (ordering, filtering, replacement)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400">4.</span>
-                    <span>Saves as .txt files (Kohya format)</span>
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Always-visible action bar */}
+        <div className="mt-6">
+          <ActionsCard
+            tagging={tagging}
+            canStart={canStart}
+            progress={progress}
+            currentImage={currentImage}
+            totalImages={totalImages}
+            onStart={handleStart}
+            onStop={handleStop}
+          />
         </div>
 
         {/* Logs */}
@@ -1164,7 +320,7 @@ export default function AutoTagPage() {
               <div className="flex items-center bg-accent/50 hover:bg-accent">
                 <Button
                   variant="ghost"
-                  onClick={() => setLogsExpanded(v => !v)}
+                  onClick={() => setLogsExpanded((v) => !v)}
                   aria-expanded={logsExpanded}
                   aria-controls="auto-tag-logs-body"
                   className="flex-1 px-6 py-4 justify-between h-auto"
@@ -1188,12 +344,17 @@ export default function AutoTagPage() {
                 )}
               </div>
               {logsExpanded && (
-                <div id="auto-tag-logs-body" className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
+                <div
+                  id="auto-tag-logs-body"
+                  className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto"
+                >
                   {logs.length === 0 ? (
                     <div className="text-muted-foreground">No logs yet...</div>
                   ) : (
                     logs.map((log, idx) => (
-                      <div key={idx} className="py-1">{log}</div>
+                      <div key={idx} className="py-1">
+                        {log}
+                      </div>
                     ))
                   )}
                 </div>
@@ -1201,6 +362,7 @@ export default function AutoTagPage() {
             </div>
           </div>
         )}
+          </Form>
       </div>
     </div>
   );

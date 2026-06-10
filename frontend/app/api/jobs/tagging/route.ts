@@ -53,6 +53,11 @@ export async function POST(request: NextRequest) {
       useRatingTags: body.use_rating_tags ?? false,
       useRatingTagsAsLastTag: body.use_rating_tags_as_last_tag ?? false,
       characterTagExpand: body.character_tag_expand ?? false,
+      forceDownload: body.force_download ?? false,
+      maxWorkers: body.max_workers,
+      useOnnx: body.use_onnx ?? true,
+      frequencyTags: body.frequency_tags ?? false,
+      debug: body.debug ?? false,
     };
 
     const jobId = await createTaggingJob(config);

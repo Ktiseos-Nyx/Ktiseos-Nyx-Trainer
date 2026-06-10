@@ -498,3 +498,64 @@ export function formatValidationErrors(errors: z.ZodError) {
     code: error.code,
   }));
 }
+
+// ========== AUTO-TAGGING / CAPTIONING ==========
+
+/**
+ * Validation for the unified auto-tag / caption form (`TaggingConfig`).
+ *
+ * Structural/required checks only: a real dataset + model must be chosen, counts
+ * are positive integers, and confidence thresholds use the mathematical 0–1 range.
+ * Per the bleeding-edge rule there are NO conventional upper-bound ceilings — batch
+ * size, beam count, etc. have a crash-floor of 1 but no imposed maximum.
+ */
+export const TaggingConfigSchema = z.object({
+  // Shared — the dataset gate is what fixes "it tagged the wrong folder"
+  datasetDir: z.string().min(1, 'Select a dataset to tag'),
+  model: z.string().min(1, 'Select a tagging or captioning model'),
+  captionExtension: z.string().min(1),
+  captionSeparator: z.string(),
+
+  // WD14 thresholds (confidence is mathematically 0–1)
+  threshold: z.number().min(0).max(1),
+  useGeneralThreshold: z.boolean(),
+  generalThreshold: z.number().min(0).max(1),
+  useCharacterThreshold: z.boolean(),
+  characterThreshold: z.number().min(0).max(1),
+
+  // WD14 tag filtering / ordering / processing
+  undesiredTags: z.string(),
+  tagReplacement: z.string(),
+  alwaysFirstTags: z.string(),
+  characterTagsFirst: z.boolean(),
+  ratingTags: z.enum(['none', 'first', 'last']),
+  removeUnderscore: z.boolean(),
+  characterTagExpand: z.boolean(),
+
+  // BLIP
+  blipBeamSearch: z.boolean(),
+  blipNumBeams: z.number().int().min(1),
+  blipTopP: z.number().min(0).max(1),
+  blipMaxLength: z.number().int().min(1),
+  blipMinLength: z.number().int().min(1),
+
+  // GIT
+  gitMaxLength: z.number().int().min(1),
+  gitRemoveWords: z.boolean(),
+
+  // File handling
+  overwriteMode: z.enum(['overwrite', 'append', 'ignore']),
+  recursive: z.boolean(),
+
+  // Performance (crash-floor 1, no ceiling per bleeding-edge rule)
+  batchSize: z.number().int().min(1),
+  maxWorkers: z.number().int().min(1),
+  useOnnx: z.boolean(),
+  forceDownload: z.boolean(),
+
+  // Debug
+  frequencyTags: z.boolean(),
+  debug: z.boolean(),
+});
+
+export type ValidatedTaggingConfig = z.infer<typeof TaggingConfigSchema>;
