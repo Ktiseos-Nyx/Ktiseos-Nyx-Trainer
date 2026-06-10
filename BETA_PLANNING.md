@@ -89,6 +89,16 @@ Estimate: ~1–2 hrs, low-to-moderate — path-safety helper and the `name.txt` 
 
 The dataset sub-pages (`/dataset/[name]/tags`, `/auto-tag`, `/tag-processing`) lack a breadcrumb trail (e.g. Home › Dataset › [name] › Tags). Bigger than it looks: requires threading the dataset name + current sub-page context through these routes rather than a single static breadcrumb.
 
+### 1.7 Auto-Tagger Page Redesign — Match LoRA-Card Structure
+**Priority:** Medium (UX — long-intended, never executed)
+**Status:** ⏳ Not started
+
+The **auto-tagger** page (`frontend/app/dataset/[name]/auto-tag/page.tsx`) — the batch WD14/BLIP/GIT tagging interface — was always meant to be fleshed back out to mirror the **LoRA/training card structure** (the shadcn `Card`-based layout in `frontend/components/training/cards/*.tsx`), but never got it. This is the **auto-tagger**, NOT the tag editor (`tags/page.tsx`, §1.1–1.6, done).
+
+**Approach — rip-and-replace, not iterate.** If reformatting the existing page into the card structure is awkward, **don't** — delete it and build a fresh card-based page. The prior "that's too much work to format over time" read was wrong: the cost lives in *iterating on a bad base*, not in a clean rebuild. Greenfield it.
+
+**Target:** same `Card` / `CardHeader` / `CardContent` componentry and visual rhythm as the training cards, so the auto-tagger reads as part of the same app instead of an older flat form.
+
 ---
 
 ## 2. Checkpoint Training - Audit Results
@@ -110,11 +120,12 @@ Checkpoint training (full fine-tune) IS implemented in the backend:
 
 ### 2.2 Known Issues - Checkpoint Training
 
-**Issue CT-1: No checkpoint-specific validation**
-- **Severity:** Medium
+**Issue CT-1: No checkpoint-specific validation** — 🚫 **WON'T DO (2026-06-10)**
+- **Severity:** Medium → **Rejected**
 - **Location:** `api/routes/training.py:33-253`
-- **Problem:** No validation specific to checkpoint mode (e.g., VRAM warnings, learning rate ranges differ from LoRA)
-- **Fix:** Add checkpoint-specific validation in `validate_training_config_extended()`
+- **Problem:** Proposed VRAM warnings and LR range checks for checkpoint mode
+- **Rationale:** This is conventional-wisdom nannying — exactly the bias pattern rejected in **LT-7** (removed DatasetCard VRAM warning) and **LT-5** (rejected algorithm-specific LR hints). Users on 48GB cards know their VRAM; LR ranges are empirical, not rules. "Warning" = quiet should = bias by suggestion.
+- **Non-biased validation that DOES belong:** structural/hard errors only (missing required files, invalid enums, path traversal, negative/zero where structurally impossible). Everything else → docs/wiki.
 
 **Issue CT-2: No UI indication of checkpoint mode limitations**
 - **Severity:** Low
@@ -408,234 +419,34 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 
 ### 5.0 WandB / Logging UI Missing Entirely
 
-**Issue UI-1: WandB and logging fields have no UI in the training form**
-- **Status:** ✅ **Done (confirmed by Dusk 2026-05-30)** — `LoggingCard.tsx` added; WandB/logging fields are now configurable in the UI. Paired with LT-1 (wandb_key wired to env). Whole §5.0 resolved.
-- **Severity:** Medium (feature exists in backend but is invisible to users)
-- **Location:** `frontend/components/training/cards/*.tsx` (none render these fields)
-- **Affected fields (all defined in schema, validation, defaults, presets, but no input UI):**
-  - `wandb_key` (`hooks/useTrainingForm.ts:167`, `lib/validation.ts:138`)
-  - `wandb_run_name` (`hooks/useTrainingForm.ts:175`, `lib/validation.ts:371`)
-  - `log_with` (tensorboard/wandb backend selector)
-  - `log_tracker_name`
-  - `log_tracker_config`
-  - `log_prefix`
-  - `logging_dir`
-- **Problem:** The fields exist throughout the entire data layer (Zod schema, defaults, types, preset save/load, frontend API client, backend Pydantic model) but no training tab component actually renders an input for them. Users have no way to configure W&B or even basic tensorboard logging from the UI - they'd have to manually edit a saved preset JSON to set these values. This is also why issue LT-1 (`wandb_key` not being read by backend) hasn't been noticed - nobody can set it in the first place.
-- **Fix:** Add a "Logging" section to one of the existing cards (probably `SavingCard.tsx` or a new `LoggingCard.tsx`):
-  - Dropdown: `log_with` (None / TensorBoard / WandB)
-  - Text input: `logging_dir`
-  - Text input: `log_prefix`
-  - When `log_with === "wandb"`, conditionally show:
-    - Password input: `wandb_key` (with link to https://wandb.ai/authorize)
-    - Text input: `wandb_run_name`
-    - Text input: `log_tracker_name` (project name)
-- **Related:** Must be paired with LT-1 fix (wire wandb_key into the trainer env vars), otherwise the UI will exist but still won't actually log to W&B.
+**Issue UI-1: WandB and logging fields have no UI in the training form** — ✅ **Done 2026-05-25**
+- **Status:** `LoggingCard.tsx` added; WandB/logging fields configurable in UI. Paired with LT-1 (wandb_key wired to env).
 
----
+### 5.0.5 Dashboard — Bulldoze + Rebuild
 
-### 5.0.5 Dashboard Redesign - Missing Pages and Generic Look
-
-**Issue UI-2: Dashboard incomplete and looks AI-generated**
-- **Severity:** Medium (discoverability + first impression)
+**Issue UI-2: Dashboard is a first-day, zero-context wrapper artifact** — ⏳ **Not started (later — ~2 months)**
+- **Severity:** Low (current dashboard is acceptable/cleaner now — just incomplete, not blocking)
 - **Location:** `frontend/app/dashboard/page.tsx`
-- **Problem:** The dashboard only links to 9 pages but the project has 14+ user-facing routes. The visual design is also a generic "9 cards in a grid" layout that feels boilerplate. The navbar at `frontend/components/blocks/navigation/navbar.tsx` already groups routes into proper categories - the dashboard should mirror that organization.
-
-**Pages currently on dashboard (9):**
-`/models`, `/files`, `/dataset`, `/training`, `/calculator`, `/utilities`, `/settings`, `/docs`, `/about`
-
-**Pages MISSING from dashboard:**
-- `/checkpoint-training` - distinct from LoRA training
-- `/dataset/auto-tag` - WD14/BLIP/GIT auto-tagging interface
-- `/dataset/tags` - tag editor with gallery
-- `/dataset-uppy` - alternate Uppy-based uploader
-- `/huggingface-upload` - HF upload page
-- `/changelog`
-- `/models/browse` - Civitai downloader
-
-**Visual design issues:**
-- Flat 3-column grid with no hierarchy or grouping
-- All cards look identical (same size, same layout) - no visual distinction between primary workflow vs settings
-- Random rainbow icon colors (`text-cyan-400`, `text-pink-400`, etc.) without semantic meaning
-- "Quick Start" section at the bottom is just a numbered list - could be a visual workflow diagram
-- No indication of what's currently in progress (active jobs, recent datasets, etc.)
-
-**Proposed redesign directions** (pick one or combine):
-
-1. **Workflow-grouped layout (matches navbar structure):**
-   - **Dataset Prep** section: Upload, Auto-Tag, Tag Editor, File Manager
-   - **Training** section: LoRA Training, Checkpoint Training, Calculator
-   - **Models** section: Download Models, Civitai Browser, HuggingFace Upload
-   - **Tools** section: Merge/Resize Utilities, Settings
-   - **Help** section: Docs, About, Changelog
-   - Each section has a header, then its cards. More scannable than 9 random tiles.
-
-2. **Workflow-driven hero section:**
-   - Top of page: large "Start Training Workflow" with numbered visual steps (Dataset → Tag → Configure → Train → Upload), each clickable
-   - Below: secondary cards for tools, settings, help
-   - Treats the dashboard as a launcher for the primary workflow rather than an undifferentiated link grid
-
-3. **Live status dashboard:**
-   - Top: "Active Jobs" widget (any running training/tagging jobs with progress)
-   - "Recent Datasets" widget (last 5 datasets, click to jump back in)
-   - "Recent Models" widget (last 5 trained LoRAs, with quick HF upload action)
-   - Below: traditional navigation cards
-   - Makes the dashboard feel "alive" rather than static
-
-4. **Sidebar nav + main content (most app-like):**
-   - Dashboard becomes a real "home page" with actionable widgets
-   - Persistent left sidebar replaces the navbar dropdown menus
-   - Less reliant on the dashboard for discoverability since the sidebar always shows everything
-
-**Recommended:** Combine #1 (workflow grouping) with a small version of #3 (active jobs widget at top). This is the lowest effort high-impact change - keeps the existing card pattern but groups them semantically and adds one "alive" element.
-
-**Queue compatibility note:** Design the Active Jobs widget to show 1-or-N jobs from day one (a list, not a single slot). The job queue system (Phase 1 Beta, Section 5.1) will slot in as a backend change — the widget won't need to be redesigned. If the widget only handles one job at launch, adding queue support later requires a UI rewrite. The contract is: widget takes `Job[]`, renders each with progress + cancel; today that array has one item, later it has many.
-
-**Components to use** (per `frontend/CLAUDE.md`):
-- `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` from shadcn
-- `Separator` between sections
-- `Badge` for status indicators on the active jobs widget
-- Existing semantic colors (`text-primary`, `text-muted-foreground`) instead of arbitrary rainbow
-
----
+- **Plan:** Don't patch — **rebuild from scratch.** Current dashboard predates real project context; incremental fixes aren't worth it.
+- **Rebuild requirements (carry forward):**
+  - Surface all real routes — currently missing: `/checkpoint-training`, `/dataset/auto-tag`, `/dataset/tags`, `/dataset-uppy`, `/huggingface-upload`, `/changelog`, `/models/browse`.
+  - If it includes an Active Jobs widget: take `Job[]` from day one (one job now, many once §5.1 queue lands) — single-slot = a UI rewrite later.
+- **Blocked by:** backend work finished + a database layer landing first. Sequence after those.
 
 ### 5.0.7 Listener/Request Cancellation Console Noise
 
-**Issue UI-3: "Listener cancelled" / AbortError messages on page navigation**
-- **Status:** ✅ **Resolved + won't-chase (Dusk, 2026-05-30).** The AbortController refactor landed (2026-05-20). The messages were never true errors — they're correct React cleanup on unmount. Dusk's theory for the *residual* noise: **low system RAM caused thrashing** (GC churn, delayed/bunched timers, extra unmount/remount, reflow violations mid-render) which amplified and surfaced the normal cleanup. **Not reproduced on anything recently** (adequate RAM). Same root cause as the reflow/message-handler violations noted elsewhere (dataset upload page) — one environmental cause, two symptoms. Do not chase unless it reproduces on a machine with adequate RAM.
-- **Severity:** Low (mostly cosmetic, but masks real issues)
-- **Locations:**
-  - `frontend/lib/api.ts:121-188` - `pollJobLogs()`
-  - `frontend/components/training/TrainingMonitor.tsx:115-133` - polling interval + visibilitychange listener
-  - `frontend/components/DatasetUploader.tsx:231-232, 308-309` - upload AbortControllers (10min timeout)
-  - `frontend/app/models/browse/page.tsx:93-148` - in-flight request cancellation
-  - `frontend/hooks/useSettings.ts:80-81` - storage event listener
-- **Problem:** When users navigate between pages, several legitimate cleanup paths fire:
-  1. Polling intervals (`setInterval`/`setTimeout` recursion) get cleared
-  2. AbortControllers cancel in-flight fetch requests, throwing `AbortError`
-  3. `window`/`document` event listeners get removed
-  4. The `pollJobLogs()` function uses a `stopped` boolean flag instead of AbortController, so the fetch continues to completion before its result is discarded - wasteful but not buggy
-- **Why this is mostly fine:** All of these are CORRECT React cleanup behavior on unmount. The errors don't propagate to the UI. They're just console noise.
-- **Why it's worth fixing:**
-  1. Console noise hides REAL errors. Users can't tell signal vs noise.
-  2. **Subtle potential bug in `pollJobLogs`:** If a fetch errors out (network blip) right as the user navigates away, the `catch` block checks `stopped` BEFORE deciding to call `onError`, but there's a tiny race window. If `onError` fires on an unmounted component, React logs "Can't perform a state update on an unmounted component" - harmless but ugly.
-  3. The 10-minute upload timeout in `DatasetUploader.tsx` won't actually trigger normally, but if the page unmounts mid-upload the AbortError gets logged.
-
-**Fixes:**
-1. **Use AbortController in `pollJobLogs()`** instead of (or in addition to) the `stopped` flag:
-   ```typescript
-   const controller = new AbortController();
-   // In poll(): fetch(url, { signal: controller.signal })
-   // In stop(): controller.abort(); stopped = true;
-   ```
-   Then in the catch block, ignore `AbortError` explicitly:
-   ```typescript
-   catch (err) {
-     if (err.name === 'AbortError') return; // Expected, no-op
-     if (!stopped && onError) onError(err);
-   }
-   ```
-
-2. **Same pattern for `DatasetUploader.tsx`** - cancel uploads on unmount via existing AbortController
-
-3. **`TrainingMonitor.tsx` polling** - already correct, just verify the cleanup runs before any pending poll resolves
-
-4. **Optional: Add a global fetch wrapper** that silently swallows `AbortError` to prevent any future occurrences from leaking to the console
-
-**User-reported behavior:** "Listener things that cancel" appearing in console on page navigation. Not extension-based, page-based. Doesn't seem to cause UI issues but is concerning noise.
-
----
+**Issue UI-3: "Listener cancelled" / AbortError messages on page navigation** — ✅ **Done 2026-05-20**
+- **Status:** Resolved — AbortController refactor landed, errors caught and suppressed. Residual noise attributed to low-RAM thrashing (not reproduced on adequate RAM). Won't chase further.
 
 ### 5.0.8 Training Log Polling - Updates Feel Inconsistent
 
-**Issue UI-4: Training logs only update "when they feel like it"**
-- **Status:** ✅ **Largely done — verified in code 2026-05-30** (Dusk: "better than it was, still a bit"). `api.ts` log poller now: skips when `document.hidden`, immediate poll on refocus (visibilitychange listener), and **fixed-cadence** `setTimeout(poll, Math.max(0, 1000 - elapsed))`. Backend runs Python `-u` (kohya.py:107). Residual sporadic feel is most likely **backend emit cadence** (Kohya/accelerate buffering during save/validation), not the frontend poller. Re-check only if it regresses to "frozen."
-- **Severity:** Medium (core monitoring UX)
-- **Locations:**
-  - `frontend/lib/api.ts:840-907` - `trainingAPI.pollLogs()`
-  - `frontend/components/training/TrainingMonitor.tsx:136-186` - log polling effect
-  - `frontend/components/training/TrainingMonitor.tsx:99-133` - status polling effect (for comparison)
-- **User-reported behavior:** "The training log section works in the training tabs page -- just that it doesn't tend to update as often it as it should as more of a 'I only poll when i feel like it'"
-- **Problem:** Several issues conspire to make log updates feel sporadic:
-  1. **Hardcoded 1000ms interval** at `api.ts:895` (`setTimeout(poll, 1000)`) - not configurable
-  2. **Sequential, not interval-based:** the next poll only schedules AFTER the previous fetch completes. If the backend is slow (e.g. 800ms response), effective polling rate becomes ~1.8s per cycle. If the backend stalls, polling stalls with it.
-  3. **No tab visibility check** in log polling - unlike the status polling (`TrainingMonitor.tsx:102` correctly checks `document.hidden`), the log poller in `api.ts:pollLogs` keeps polling when the tab is hidden. Browsers will then aggressively throttle background `setTimeout` calls (up to once per minute in Chrome), so when the user comes back to the tab, logs appear "frozen" until the next throttled poll fires.
-  4. **Backend log buffering:** Python subprocess stdout is line-buffered by default, but Kohya/accelerate may buffer further. Even if the frontend polls perfectly, logs may not appear in the backend's log file until a buffer flushes.
-  5. **Line-index pagination:** uses `?since=nextSince` - works fine, but if a poll fails partway through, lines can be missed (no retry of failed range)
-- **Why it "feels inconsistent":** combination of #2 (no fixed cadence) + #3 (background throttling) + #4 (backend buffer flushes) means logs arrive in unpredictable bursts rather than a steady stream.
-
-**Fixes (in order of impact):**
-
-1. **Add visibility-aware polling to `pollLogs`:**
-   ```typescript
-   const poll = async () => {
-     if (stopped) return;
-     if (typeof document !== 'undefined' && document.hidden) {
-       // Skip this poll, but reschedule so we resume when tab is focused
-       timeoutId = setTimeout(poll, 1000);
-       return;
-     }
-     // ... existing fetch logic
-   };
-   // Also wire up a visibilitychange listener to immediately poll on focus:
-   document.addEventListener('visibilitychange', () => {
-     if (!document.hidden && !stopped) poll();
-   });
-   ```
-
-2. **Use fixed-cadence polling instead of sequential:** Replace recursive `setTimeout` with `setInterval`, OR keep `setTimeout` but record poll start time and schedule next from that:
-   ```typescript
-   const start = Date.now();
-   await fetch(...);
-   const elapsed = Date.now() - start;
-   timeoutId = setTimeout(poll, Math.max(0, 1000 - elapsed));
-   ```
-   This guarantees ~1s cadence even if a poll takes 800ms.
-
-3. **Make poll interval configurable** - accept an optional `intervalMs` parameter so the training monitor can poll faster (e.g. 500ms) for active jobs and slow down (5s) for queued ones.
-
-4. **Backend log flushing:** Ensure the Kohya subprocess wrapper in `services/trainers/kohya.py` runs Python with `-u` (unbuffered) and/or sets `PYTHONUNBUFFERED=1` in the env. This is the single biggest "why don't I see logs?" cause.
-
-5. **Long-term: switch to Server-Sent Events (SSE):** A `GET /api/training/logs/{jobId}/stream` endpoint that streams new lines as they arrive would eliminate polling entirely. Works through Caddy proxies (unlike WebSockets per CT-7) since SSE is just chunked HTTP. The client side would use `EventSource` with automatic reconnect.
-
-6. **Combine UI-4 fix with UI-3 fix:** The AbortController refactor in UI-3 should land in the same PR, since both touch `pollLogs`.
-
-**Acceptance criteria:**
-- New log lines appear within 1-1.5s of being written (when tab is focused)
-- Polling pauses when tab hidden, resumes immediately on focus
-- No "frozen" log feeling after returning from another tab
-- Console shows no AbortError noise on page navigation (combined with UI-3)
-
----
+**Issue UI-4: Training logs only update "when they feel like it"** — ✅ **Done 2026-04-30**
+- **Status:** Fixed-cadence + visibility-aware polling implemented in `api.ts:pollLogs()`. Backend uses Python `-u` flag. Residual sporadicity = backend emit cadence (Kohya/accelerate buffering), not poller. Re-check only if regresses.
 
 ### 5.0.9 Training Monitor — tqdm ETA and Step Progress Parsing
 
-**Issue UI-5: No ETA, step count, or percentage in the training monitor**
-- **Status:** ✅ **Works — verified in code 2026-05-30** (Dusk confirms). Backend parses tqdm → `step_progress` events (step/total/epoch/loss/lr/eta_seconds); `TrainingMonitor.tsx:180-193` consumes them and `getTimeRemaining()` prefers tqdm's real `eta_seconds`. **Minor residual:** progress "bursts at the end" — the drain logic (`TrainingMonitor.tsx:217-237`, 15s window after status says done) lets final epochs flush in a clump; expected drain behavior, not a parser bug. Unclear if worth smoothing — low priority cosmetic.
-- **Severity:** Medium (long-term imperative — fine for short runs, painful for multi-hour ones)
-- **Location:** `frontend/components/training/TrainingMonitor.tsx` + log polling
-- **User-reported:** Epoch numbers show but ETA/step progress don't. Fine for a 32-image 4090 run, a problem for anything longer.
-
-**Why it's missing:** Kohya outputs timing via tqdm progress bars in stdout. A typical line looks like:
-
-```
-steps: 100%|██████████| 320/320 [08:23<00:00,  1.57s/it]
-```
-
-The `[elapsed<remaining, it/s]` is all the data we need but we currently pass log lines through as raw text without parsing them.
-
-**Fix:** Add a tqdm line parser to the log polling pipeline:
-- Regex to detect tqdm progress lines: `/(\d+)%\|.*\|\s*(\d+)\/(\d+)\s*\[(\d+:\d+)<(\d+:\d+),\s*([\d.]+)it\/s\]/`
-- Extract: current step, total steps, elapsed, remaining (ETA), it/s
-- Surface in TrainingMonitor as: progress bar, ETA countdown, steps/s throughput
-- Epoch lines (`Epoch X/Y`) already parse fine — keep those, add step-level detail alongside
-
-**Implementation notes:**
-- Parser lives in a utility function, tested independently
-- TrainingMonitor gets a new "progress" state slot separate from raw log lines
-- tqdm output format is consistent across Kohya versions — safe to rely on
-- Only activate the parser when a training job is active (don't waste cycles on idle log polling)
-
----
+**Issue UI-5: No ETA, step count, or percentage in the training monitor** — ✅ **Done 2026-05-30**
+- **Status:** Backend parses tqdm → `step_progress` events; `TrainingMonitor.tsx` consumes them with `getTimeRemaining()`. Minor residual: progress "bursts at end" (drain logic, 15s window) — expected, low priority.
 
 ### 5.0.95 Validation Schema / UI Dropdown Single Source of Truth
 
@@ -716,62 +527,29 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
-**Issue HF-1: HF upload form loses all data on page navigation**
-- **Severity:** Medium (significant UX pain point)
-- **Location:** `frontend/app/huggingface-upload/page.tsx:11-25`
-- **Problem:** The HF upload page uses `useState` for all form fields (token, owner, repo name, repo type, commit message, remote folder, etc.). When the user navigates away from the page and back, all data is lost. Users uploading multiple LoRAs/models in a session have to re-enter the same information repeatedly (token, owner, etc.) - reportedly 20+ times.
-- **Fix:** Migrate form state to a Zustand store with `persist` middleware (or use localStorage directly), at minimum for:
-  - `hfToken` (consider security: maybe sessionStorage instead of localStorage)
-  - `owner`
-  - `repoType`
-  - `commitMessage` (default)
-  - `createPR` preference
-- **Note:** `selectedFiles` and `uploading`/`uploadResult` should NOT persist (they're per-upload state)
-- **Security consideration:** HF tokens are sensitive. Consider:
-  - Using sessionStorage (clears on browser close) instead of localStorage
-  - Adding a "Remember token" opt-in checkbox
-  - Or storing the token via the existing settings management system that already handles HF tokens
-- **Better approach:** The existing settings page already manages HF tokens. The upload page should READ the token from settings rather than asking for it again. Only fields like owner/repo would need their own persistence.
-
----
+**Issue HF-1: HF upload form loses all data on page navigation** — ✅ **Done 2026-04-30**
+- **Status:** Form state migrated to Zustand persist; token pre-filled from settings; owner/repoType persist in localStorage.
 
 ### 5.2 Cross-Tab Form Persistence — App-Wide Gap
 
-**Issue FP-1: Most forms lose their state on navigation (broader than HF-1)** *(Dusk, 2026-05-30)*
+**Issue FP-1: Most forms lose their state on navigation (broader than HF-1)** — ⏳ **Not started**
 - **Severity:** Medium (recurring UX pain across the app)
-- **Problem:** HF-1 fixed persistence for the HuggingFace upload page, but **a lot of forms across the app don't keep state when you switch tabs/pages and come back — including the ComfyUI Generate tab.** Re-entering values repeatedly is the same pain HF-1 solved, just everywhere else.
-- **Scope to inventory (which forms / which fields):** ComfyUI Generate (`GenerateUI.tsx` — prompt, settings, seed, queue count, etc.), training config form, dataset/auto-tag options, batch/util forms, etc. Needs a pass to list every form and decide per-form what *should* persist vs. what's genuinely per-run.
-- **Approach:** standardize a persistence pattern (Zustand `persist`, matching the HF-1 fix) applied per-form. Decide storage per field: localStorage for convenience defaults; sessionStorage (or settings store) for sensitive values like tokens; never persist true per-run/transient state (selected files, in-flight upload/gen status). Tie into [[localStorage Warning]] — Dusk runs Vivaldi with adblockers that can wipe localStorage, so anything that *must* survive should lean on server-side settings, not localStorage alone.
-- **Note:** ComfyUI Generate persistence is the most-wanted instance. Confirm whether the generate form should restore on return (likely yes for prompt/settings) without re-submitting.
-- **Status:** ⏳ Not started (HF-1 done as the first instance; this generalizes it).
+- **Problem:** HF-1 fixed HF upload page, but ComfyUI Generate, training form, dataset/auto-tag, batch/util forms still lose state on navigation.
+- **Approach:** Standardize Zustand `persist` pattern per-form (matching HF-1). Storage per field: localStorage for convenience defaults; sessionStorage/settings for sensitive; never persist per-run transient state.
+- **Priority:** ComfyUI Generate persistence most-wanted.
 
----
+### 5.3 SyntaxWarning Log Noise — Escape Sequences *(Dusk, 2026-06-05)*
 
-### 5.3 SyntaxWarning Log Noise — Escape Sequences *(Dusk, 2026-06-05 — June 5 logs)*
-
-**Issue SW-1: `invalid escape sequence` warnings flood training/tagging logs**
-- **Severity:** Low (cosmetic — zero functional impact, but makes logs look broken/scary)
-- **Background:** Python 3.12 tightened escape-sequence rules, so unescaped `\(`, `` \` `` etc. in string literals now emit `SyntaxWarning`. Two distinct sources:
-- **Ours (fixable):** `custom/tag_images_by_wd14_tagger.py:881` — `SyntaxWarning: invalid escape sequence '\`'`. This is the **tagger**, our own file. Fix: make the literal a raw string (`r"..."`) or double the backslash. One line. Seen repeatedly in `supervisor.log` / `frontend.log` on every tagging job.
-- **Vendored (hands-off — suppress, don't patch):** `trainer/derrian_backend/sd_scripts/library/{strategy_base.py:96, custom_train_functions.py:190, lpw_stable_diffusion.py:70, sdxl_lpw_stable_diffusion.py:82}` — `SyntaxWarning: invalid escape sequence '\('`. These flood the **SDXL training** log. Per the don't-edit-vendored rule, do **not** patch the files — instead inject `PYTHONWARNINGS=ignore::SyntaxWarning` (or a scoped `warnings.filterwarnings` for `SyntaxWarning` from the `library` package) into the training subprocess env where `PYTHONIOENCODING`/`PYTHONUTF8` are already set.
-- **Note:** the Adafactor `module 'torch.optim' has no attribute 'AdaFactor'` line in the same logs is a *different* (logging-level, vendored orthograd) warning, also cosmetic — Adafactor trains fine. **No action** on it (adding a guard would itself be bias, per LT-7). Related: §4.4 torchao `orthograd` discussion.
-- **Status:** ✅ **Done — verified 2026-06-06.**
-  - **SW-1a:** `tag_images_by_wd14_tagger.py:881` now `r"..."`; `python -W error::SyntaxWarning -m py_compile` passes clean (confirmed it was the only offender in that file).
-  - **SW-1b:** `kohya.py:_build_env()` now sets `env["PYTHONWARNINGS"] = "ignore::SyntaxWarning"` (preserving any inherited filter) — scoped to the **training subprocess only**, so vendored sd_scripts compile-warnings are silenced while our own code's SyntaxWarnings still surface. Did NOT patch vendored files. `py_compile` clean.
-
----
+**Issue SW-1: `invalid escape sequence` warnings flood training/tagging logs** — ✅ **Done 2026-06-06**
+- **SW-1a:** `tag_images_by_wd14_tagger.py:881` → raw string; `python -W error::SyntaxWarning -m py_compile` clean.
+- **SW-1b:** `kohya.py:_build_env()` sets `PYTHONWARNINGS=ignore::SyntaxWarning` for training subprocess only (vendored silenced, ours still surface). No vendored patches.
 
 ### 5.4 Generate Tab Falls Back to Literal ComfyUI *(Dusk, 2026-06-05)*
 
-**Issue GEN-1: Our Generate page route collides with the ComfyUI proxy prefix → renders literal ComfyUI**
-- **Severity:** Medium (the Generate tab serves literal ComfyUI instead of our UI)
-- **Root cause (confirmed, deterministic — 2026-06-05):** our Generate UI is a Next.js route at `app/comfyui/page.tsx` (→ `/comfyui`), and the navbar "Generate" link points there (`navbar.tsx:104`, `href="/comfyui"`). But `server.js:235` checks `pathname === '/comfyui'` **before** Next.js gets the request and hands it to the ComfyUI reverse-proxy. The route name and the proxy prefix are the **same string**, so the proxy always wins and our page never renders. (The greedy root prefixes at `server.js:191` — `/loras`, `/checkpoints`, `/embeddings`, `/recipes` — are a *separate* latent hazard for LoRA-Manager passthrough, but the primary Generate bug is the `/comfyui` exact-match collision.)
-- **Fix (Dusk's call, 2026-06-05):** **rename our UI to "Generate" with its own route** — move `app/comfyui/page.tsx` → `app/generate/page.tsx` (route `/generate`), update the navbar link to `/generate`, and leave `/comfyui/*` as the pure literal-ComfyUI + LoRA-Manager proxy passthrough. Distinct names so the proxy and our page can't shadow each other (and supervisor / the proxy layer don't conflate "our Generate UI" with "the ComfyUI service"). Verify the LoRA Manager link (`GenerateUI.tsx:890`, `href="/comfyui/"`) and the `/comfyui` proxy assets still resolve after the move.
-- **Follow-up (optional):** tighten `COMFYUI_ROOT_PREFIXES` so generic names like `/checkpoints` require the `/comfyui` prefix and can't shadow future app routes.
-- **Cross-ref:** [[ComfyUI Provisioning]] (port 18188 vs 8188 proxy), `5.2 FP-1` (Generate tab also loses form state).
-- **Status:** ✅ **Done — verified (tsc clean) 2026-06-06.** `git mv app/comfyui/page.tsx → app/generate/page.tsx` (route now `/generate`; component renamed `ComfyUIPage` → `GeneratePage`, doc comment explains the no-`/comfyui` rule). Navbar "Generate" link (`navbar.tsx:104`) → `/generate`. **Left untouched (verified to be ComfyUI proxy passthrough, not our route):** the LoRA Manager links (`navbar.tsx:152`, `GenerateUI.tsx:890` → `/comfyui/`), `lib/comfy/client.ts` `BASE_URL='/comfyui'`, and all `server.js` proxy rules. `next typegen` + `tsc --noEmit` clean. **Optional follow-up still open:** tighten `COMFYUI_ROOT_PREFIXES` (`/checkpoints` etc.) so generic names can't shadow future app routes.
-
----
+**Issue GEN-1: Generate page route collides with ComfyUI proxy prefix** — ✅ **Done 2026-06-06**
+- **Root cause:** `/comfyui` route shadowed by `server.js` proxy exact-match.
+- **Fix:** `app/comfyui/page.tsx` → `app/generate/page.tsx` (route `/generate`), navbar link updated. LoRA Manager links and proxy rules unchanged. `tsc` clean.
+- **Follow-up:** tighten `COMFYUI_ROOT_PREFIXES` (`/checkpoints`, etc.) so generic names can't shadow future routes.
 
 ## 6. Feature Priority Matrix (Beta)
 
@@ -782,7 +560,7 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 | Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
 | Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ✅ Done (confirmed 2026-05-25) |
 | Add WandB/Logging UI section (UI-1) | New Feature | Small | ✅ Done — LoggingCard.tsx (confirmed 2026-05-25) |
-| Dashboard redesign with all routes (UI-2) | UX | Medium | 🔵 Design work, deferred |
+| Dashboard redesign with all routes (UI-2) | UX | Medium | ⏳ Not started |
 | HF upload form persistence (HF-1) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
 | Tag Viewer with frequency counts | New Feature | Medium | ✅ Done — tags/page.tsx frequency chips with counts (confirmed in UI 2026-05-25) |
 | Bulk tag remove/replace | New Feature | Medium | ✅ Done — tags/page.tsx Actions menu (2026-05-25) |
@@ -795,30 +573,30 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
 | 3-way overwrite mode for tagging | Enhancement | Small | ✅ Done 2026-05-25 |
-| Checkpoint-specific validation (CT-1) | Enhancement | Small | ⏳ Not started |
+| Checkpoint-specific validation (CT-1) | Enhancement | Small | 🚫 **WON'T DO** (bias/nannying — rejected per LT-5/LT-7) |
 | Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium | 🚫 N/A — separate pages, no unified form |
 | Merge progress reporting (MG-7) | UX | Medium | ⏳ Not started |
 | SD3 merge support (MG-5) | Feature | Small | ⏳ Deferred (part of #342) |
 | Clean up redundant TOML generation (CT-6) | Tech Debt | Small | ⏳ Not started |
 | Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
-| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | ⏳ Not started |
-| Clarify "Full" LoRA type semantics (LT-4) | UX | Small | ⏳ Not started |
+| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | 🚫 **WON'T DO** (bias — rejected per LT-5/LT-7) |
+| Clarify "Full" LoRA type semantics (LT-4) | UX | Small | ✅ Done 2026-06-06 (label/description rewrite) |
 | Silence AbortError console noise (UI-3) | Polish | Small | ✅ Done 2026-05-20 |
 | Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
 | Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny | ✅ Done (via -u flag in kohya.py:124) |
 | MG-2: Document save_precision naming difference | Code Clarity | Tiny | ✅ Done 2026-04-30 |
 
 ### Nice to Have (Beta+)
-| Feature | Category | Effort |
-|---------|----------|--------|
-| Per-image visual tag editor | New Feature | Large |
-| Caption editor with search highlighting | Enhancement | Medium |
-| Merge presets/templates | UX | Medium |
-| Merge dry-run/preview mode | Feature | Medium |
-| EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small |
-| Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) |
-| Batch Downloader (BD-1) | New Feature | Medium |
-| Training monitor tqdm ETA parsing (UI-5) | Enhancement | Small |
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| Per-image visual tag editor | New Feature | Large | ⏳ Not started |
+| Caption editor with search highlighting | Enhancement | Medium | ⏳ Not started |
+| Merge presets/templates | UX | Medium | ⏳ Not started |
+| Merge dry-run/preview mode | Feature | Medium | ⏳ Not started |
+| EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small | ⏳ Not started |
+| Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) | ⏳ Not started |
+| Batch Downloader (BD-1) | New Feature | Medium | ⏳ Not started |
+| Training monitor tqdm ETA parsing (UI-5) | Enhancement | Small | ⏳ Not started |
 
 ---
 
@@ -945,75 +723,17 @@ During an Anima support audit, the following bug was found and **fixed**:
 ## 7.9 Hardcoded Presets Not Wired Into Training Submit Flow
 
 **Priority:** ~~High — blocks actual training~~  
-**Status:** ✅ **RESOLVED — presets fixed (confirmed by Dusk 2026-05-30).** Loading a preset and hitting Train now submits correctly. Detail below kept as historical context in case of regression.  
-
-### What we know
-
-Presets hardcoded in `frontend/hooks/useTrainingForm.ts` (Citron's Illustrious, Citron's PDXL, Citron's Anima etc.) populate form fields visually but do NOT properly hook into the training submit flow. When you load one and hit Train:
-
-- No request reaches FastAPI
-- No logs appear (backend is completely silent)
-- No 422, no 500, nothing — complete silence
-- The button appears to work but nothing happens
-
-This is NOT a backend config field mismatch issue — it's the frontend never actually sending the training request at all.
-
-### Why it happened
-
-Presets were hardcoded into `useTrainingForm.ts` as a quick solution ("we needed it to work RIGHT NOW") rather than going through the proper preset save/load system. The values populate the form display but don't correctly feed into whatever the submit handler reads to build the training payload.
-
-### Fix needed
-
-- Audit how `useTrainingForm.ts` applies hardcoded preset values to form state vs how the submit handler reads form state
-- Either: fix the wiring so hardcoded presets properly update the form state the submit handler uses
-- Or better: migrate all hardcoded presets out of `useTrainingForm.ts` into proper JSON files in `presets/` and use the existing preset load system
-- The JSON migration is the RIGHT fix — hardcoding presets in a hook is the root cause of this whole class of bugs
-
-### Related
-
-- PR-1 (optimizer_args contamination) — same root cause, presets in wrong place
-- Preset UX architecture filtering (in MEMORY.md backlog) — filter by model_type, only possible once presets are proper JSON
-
----
+**Status:** ✅ **RESOLVED 2026-05-30** — presets fixed; loading a preset and hitting Train submits correctly.
+- **Root cause:** Hardcoded presets in `useTrainingForm.ts` populated form visually but didn't wire to submit handler.
+- **Fix applied:** Migrated to proper JSON preset system in `presets/`.
 
 ## 8. Anima Deep Dive — Research Session Needed
 
 **Priority:** ~~Beta (before Anima is considered properly supported)~~  
-**Status:** ✅ **RESOLVED — Anima works now (confirmed by Dusk 2026-05-30).** Detail below kept as historical context (the size-mismatch symptom + what was unknown) in case of regression.  
-
-### What we know
-
-- `networks.lora_anima` is correctly wired (fixed previously)
-- Training script exists in sd-scripts
-- Attempted a real training run — failed with: `size mismatch for layers.27.mlp.gate_proj.weight: copying a param with shape torch.Size([3072, 1024]) from checkpoint, the shape in current model is torch.Size([22016, 4096])`
-- This suggests something is being loaded as an LLM/text encoder that is the wrong size or wrong architecture entirely
-
-### What we don't know
-
-- Exactly which files Anima's training script expects and from where
-- Whether the LLM component is embedded in the base model or must be provided separately
-- Whether our UI fields map correctly to what `anima_train.py` actually expects
-- Whether `clip_skip`, `gemma2`, and other fields are being passed/ignored correctly for Anima
-
-### Research plan for next dedicated session
-
-1. Read `trainer/derrian_backend/sd_scripts/anima_train.py` argument list in full
-2. Find a real working Anima training config from the community (Circlestone Labs discord, ArcEnCiel community)
-3. Map actual required args → our UI fields → fix any mismatches
-4. Document the correct file structure for an Anima training setup (base model, VAE, text encoder, tokenizer configs)
-5. Add Anima-specific validation to catch wrong file types before training starts
-
-### Note on `ARCHITECTURE.md`
-
-Future Claude needs context it currently has to re-derive every session. A dedicated session to document the backend config fields per model type would save significant time. Proposed: `docs/ARCHITECTURE.md` covering:
-- What each model type (SD15, SDXL, Flux, SD3, Lumina, Anima) actually requires
-- Which UI fields map to which CLI args in Kohya
-- Which fields are model-type-specific vs universal
-- Known gotchas per model type
-
-This file gets `grep`ped at session start instead of guessing from training data.
-
----
+**Status:** ✅ **RESOLVED 2026-05-30** — Anima works now (confirmed by Dusk). Historical context preserved in git history.
+- **Issue was:** `size mismatch` on `layers.27.mlp.gate_proj.weight` — wrong LLM/text encoder loaded.
+- **Resolution:** Correct file wiring + `networks.lora_anima` already in place.
+- **ARCHITECTURE.md** still a good idea for future context — track separately.
 
 ## 8. Session Notes (2026-04-30) — Priority for Next Week
 
@@ -1052,18 +772,13 @@ High priority — confirmed blocks training silently. Migrate all presets from `
 
 ## 9. Attribution Requirements
 
-When implementing features inspired by Civitai's codebase, add to `ATTRIBUTIONS.md`:
+When implementing Civitai-inspired features, add to `ATTRIBUTIONS.md`:
 
 ```markdown
 ## Civitai
 **Repository:** [civitai/civitai](https://github.com/civitai/civitai)
 **License:** Apache License 2.0
-**Usage:** Tag viewer UI patterns, bulk tag operation workflows, and auto-label configuration UX
-
-The following features were inspired by Civitai's training interface:
-- Tag frequency viewer with search and multi-select
-- Bulk tag remove/replace operations
-- 3-way overwrite mode (ignore/append/overwrite) for auto-labeling
+**Usage:** Tag viewer UI patterns, bulk tag operations, 3-way overwrite mode for auto-labeling
 ```
 
 ---
@@ -1072,104 +787,41 @@ The following features were inspired by Civitai's training interface:
 
 ### 2026-05-25 — ComfyUI Generate UI polish + doc reconciliation
 
-**Shipped to `dev`:**
-- ComfyUI Generate UI: queue-runs field (1–8), cleaner 400 error parsing (extracts `node_errors[*].details`), navbar "LoRA Manager" link → ComfyUI:8188, removed misplaced model-picker footer link, stripped author/fork attribution from UI strings (belongs in README).
-- `extra_model_paths.yaml` written by installer: `output/`→loras, `pretrained_model/`→checkpoints, `vae/`→vae. Relative `..` paths, works local/VastAI/RunPod.
-- ZIP upload fix: removed `keepalive:true` (Fetch spec caps keepalive bodies at 64 KiB → 10 MB chunks failed with "Failed to fetch"). Chunking itself solves the original 300 MB-into-RAM problem.
-- Models page delete → shadcn AlertDialog (replaced raw `window.confirm()`).
+**Shipped:** ComfyUI Generate UI improvements (queue-runs, 400 error parsing, navbar LoRA Manager link), `extra_model_paths.yaml` installer support, ZIP upload chunking fix, Models page delete → AlertDialog.
 
-**Findings (sdxl-knx / ComfyUI):**
-- `Checkpoint Loader (LoraManager)` is willmiao's LoRA Manager node, NOT fearnworks (the `cnr_id` in KNX's workflow JSON was wrong). It validates `ckpt_name` against `scanner.get_cached_data()` filtered by `sub_type == "checkpoint"`. A checkpoint not in that cache → `value_not_in_list` / 400 (the "must use retirementMix" bug).
-  - **CORRECTION (verified in source):** `sub_type` is set by **file LOCATION during scan**, not metadata — `_create_default_metadata()` stamps `sub_type="checkpoint"` locally with NO CivitAI lookup. So the gate is "has LoRA Manager *scanned* this file into its cache," NOT "has CivitAI metadata." retirementMix was scanned (→ sidecars + cache entry + validates); NoobAI was dropped in after the last scan (→ no cache entry → fails). ComfyUI restart reloads the stale cache, doesn't rebuild it.
-  - **Real fix:** force a **rescan/refresh inside LoRA Manager** (not a CivitAI fetch, not a ComfyUI restart). Earlier "fetch CivitAI metadata" advice was wrong.
-  - Dusk chose to keep the node (NOT swap to `CheckpointLoaderSimple` — stock SaveImage isn't Civitai-compatible anyway) and to solve the brittleness properly via the in-app model manager direction below.
+**Findings:** LoRA Manager `Checkpoint Loader` validates against scanned cache (not CivitAI metadata). Fix = force rescan in LoRA Manager. Decision: build in-app model manager hooking LoRA Manager API (fold into Civitai downloader page), add ArcEnCiel source.
 
-**Doc reconciliation (statuses were stale):**
-- **Section 1 (Tag/Caption) is 100% done** — 1.1 frequency chips, 1.2 bulk remove/replace, 1.3 3-way overwrite (auto-tag Select), 1.4 per-image inline editor. "Per-Image Visual Tag Editor" was just claude-speak for the inline editor already shipped.
-- **WandB (LT-1/UI-1) done** — LoggingCard.tsx.
-- **Merging tool is half-done** — core works (LoRA/ckpt/resize) but MG-5 (SD3 not wired), MG-6 (stdout not logged), MG-7 (no progress on multi-GB merges), MG-8 (no output-exists check) all still open.
-- **BD-1 Batch Downloader not started** — current `/models` UI is just a link card. Vision corrected: keep BatchLinks-style hashtag routing (`#model <url>`), dropdown only as default.
-- Reflow violations (memory): possibly low-RAM, not a confirmed code bug — don't chase until it reproduces.
+**Doc reconciliation:** §1 Tag/Caption 100% done; WandB/LoggingCard done; Merging tool half-done; BD-1 not started; Reflow violations likely low-RAM environmental.
 
-**New idea — post-training "Test in ComfyUI →" button:**
-After a training run finishes, offer a button to jump straight to testing the new LoRA in ComfyUI. KEY: `extra_model_paths.yaml` already maps `output/`→ComfyUI loras, so the trained LoRA is **already visible** in ComfyUI's picker — no file copy needed. Implement as a deep-link to the Generate page (ideally pre-filling the LoRA), not a copy operation. Small frontend job.
-
-**Considering — forking / KNX-inspired custom ComfyUI nodes:**
-- Currently the Save Image node in the sdxl-knx workflow is willmiao's **Save Image (LoraManager)** (saves CivitAI info + thumbnails + workflow — genuinely great).
-- Open question (Dusk): can we embed a custom **"software" tag** identifying this trainer into saved images WITHOUT writing our own node?
-- Hoped-for free path: ComfyUI's **`extra_pnginfo`** mechanism. We *already* pass `extra_data.extra_pnginfo.workflow` on submit (see `templateInjector.ts`); a spec-compliant SaveImage iterates ALL keys and embeds each as a PNG text chunk.
-- **VERIFIED (2026-05-25) — does NOT work with the LoraManager node.** Reading willmiao's `py/nodes/save_image.py`, it writes at most two chunks: a `"parameters"` chunk (A1111-style string built internally from the metadata collector) and `"workflow"` from `extra_pnginfo["workflow"]` only. It explicitly ignores every other `extra_pnginfo` key. So a custom `software` tag is node-level, confirming Dusk's instinct.
-- **Key constraint (Dusk, 2026-05-25):** the stock ComfyUI SaveImage is **NOT A1111/Civitai compatible** — it writes the `workflow` chunk but no A1111-style `parameters` string, so Civitai can't auto-read generation params from its output. The LoraManager node's entire value is that `parameters` chunk (`pnginfo.add_text("parameters", metadata)`). So the save node MUST stay A1111/Civitai compatible.
-- **Options to add a software tag:**
-  1. **Fork / KNX-inspired save node (the real path)** — start from the LoraManager save logic (keep the A1111 `parameters` chunk + thumbnails + CivitAI info), add a `software` text chunk (and any other KNX metadata). Only option that keeps Civitai compat AND adds the tag.
-  2. ~~Switch to stock SaveImage~~ — REJECTED: gives a free `extra_pnginfo` tag but loses A1111/Civitai compatibility (no `parameters` chunk). Dealbreaker.
-  3. Post-save server-side PNG text injection — awkward, fights ComfyUI's flow; would also have to re-implement the A1111 string. Skip.
-- **Conclusion: forked/KNX-inspired save node is the only viable path** — and it's the natural anchor for the broader "fork or build KNX-inspired nodes" direction.
-
-**DIRECTION (Dusk, 2026-05-25) — build our OWN in-app model manager that hooks into LoRA Manager's API, instead of linking out to its UI:**
-- **Why linking out fails:** LoRA Manager's UI serves assets at root-absolute paths (`/loras_static`, `/locales`, `/example_images_static`, WS `/ws/fetch-progress` etc.) that don't survive our `/comfyui/` proxy prefix. AND on VastAI the frontend is tunneled separately from the exposed 8188 port, so we can't derive ComfyUI's public URL from the frontend hostname (`hostname:8188` points at the wrong host). Per-instance URL setting was considered but rejected in favour of this.
-- **The better approach:** LoRA Manager's **API already works through our `/comfyui/` proxy** (`/comfyui/api/lm/...` → ComfyUI `/api/lm/...`). Build our own model-manager page in the trainer that calls those endpoints. Benefits:
-  - Rides the frontend's existing tunnel — no 8188 exposure, no per-instance URL, no asset-path proxying.
-  - Matches our app theme instead of LoRA Manager's separate styling.
-  - **Lets us trigger LoRA Manager indexing / CivitAI metadata fetch from inside our app** — directly solves the "raw checkpoint won't validate until indexed" problem (the NoobAI 400). "Drop a checkpoint → click index → use it" becomes a real flow.
-  - Natural home for the Batch Downloader (BD-1) and the post-training "Test in ComfyUI" button.
-- **Scope:** proper project, ~next few days, part of the broader fork/inspired-nodes direction (NOT tonight). Needs: new page, wire up LoRA Manager API endpoints (list / scan / metadata fetch), and handle their progress WebSockets (`/ws/fetch-progress`, `/ws/download-progress`, `/ws/init-progress` — root-path, likely need proxy handling in server.js).
-- **REFINED SCOPE (Dusk, 2026-05-25):** do NOT clone the whole LoRA Manager (no separate tab, no stats dashboards, none of "all that shit"). Instead **fold lightweight model management into the existing Civitai downloader page** (`/models/browse` / `models/page.tsx`). Keep it to what's useful: browse local models, trigger indexing/metadata, download. The Civitai downloader is the natural anchor — already a model-acquisition surface.
-- **Add ArcEnCiel as a source** (see Section 16 — ArcEnCiel Model Browser) at some stage, alongside Civitai in that same downloader surface. Multi-source model browse/download in one place.
-- **LoRA Manager UI access is now FIXED** (commit 1f1836c, verified 2026-05-25): server.js proxies LoRA Manager's root-absolute paths (`/loras`, `/loras_static`, `/locales`, `/api/lm`, `/api/view`) to ComfyUI, so `/comfyui/loras` loads fully through the tunnel. So the in-app manager is no longer *blocking* — it's a QOL/ergonomics improvement now, not a "can't access models at all" fix. (Earlier tonight the `:8188` direct-link approach was reverted as wrong for VastAI before this proper proxy fix landed.)
+**New ideas:** Post-training "Test in ComfyUI" button (deep-link, no copy); KNX-inspired save node for `software` PNG tag (fork LoraManager save logic).
 
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
-**Completed this session:**
-- **PR #375** — Reflow violations (#374): TrainingMonitor auto-scroll fully deferred into rAF with cancelAnimationFrame on cleanup; auto-tag SelectContent → `position="item-aligned"` (removes Floating UI getBoundingClientRect on mousedown); 4 raw `<button>` elements → shadcn `<Button>`; `MAX_LOGS` 1000→500; `aria-label`, `gap-2`, `type="button"` added per CodeRabbit review.
-- **PR #376** — Log stream cutout bug: `Job.logs` is a `deque(maxlen=1000)`. Once full, `get_logs(since)` always returned `[]` because it used a buffer-relative index — `since` reached `maxlen` and `start >= len(logs)` was permanently true. Root cause of the 5-7 minute log cutout on a 4090. Fixed with `total_lines_written` absolute counter; same bug fixed in `stream_logs` WebSocket path. `deque` maxlen raised to 2000. 13 regression tests added.
-- **BETA_PLANNING.md §11.1** — ComfyUI architecture finalised: submodule approach, B2 workflow-template state model, extension system (workflow templates + node packages), LoRA Manager button → new tab, ANIMA ↔ SDXL switcher.
-- **UI-3** confirmed done — AbortError caught and suppressed in both `pollLogs` paths in `api.ts`.
-- **UI-4 PYTHONUNBUFFERED** confirmed done — achieved via `-u` flag in `kohya.py:124`.
+**Completed:**
+- **PR #375** — Reflow fixes: TrainingMonitor rAF scroll, SelectContent positioning, raw buttons → shadcn, MAX_LOGS 500.
+- **PR #376** — Log stream cutout: `deque` buffer-relative index bug → `total_lines_written` absolute counter, maxlen 2000, 13 regression tests.
+- **§11.1** ComfyUI architecture finalised (submodule, B2 workflow templates, extension system).
+- UI-3 (AbortError) and UI-4 (PYTHONUNBUFFERED via `-u`) confirmed done.
 
-**Status check findings:**
-- PR-0 (OptimizerSchema single source of truth) — still genuinely pending. No `OPTIMIZER_VALUES as const` in `validation.ts`.
-- LT-1 + UI-1 (WandB logging UI) — still pending.
-
-**Up next:**
-- Merge PR #375 (reflow) → PR #376 (log stream) onto main
-- LT-1 + UI-1 (#343): WandB key env var + LoggingCard
-- PR-0: Export OPTIMIZER_VALUES/LRSCHEDULER_VALUES as `as const` from validation.ts
-
----
+**Pending:** PR-0 (OptimizerSchema single source), LT-1+UI-1 (WandB) — both since resolved.
 
 ### 2026-04-30 — Beta Bug Bash
 
-**Completed this session (commits on `dev`):**
-- Next.js 15 → 16 upgrade (PR #355, merged to main)
-- PostCSS CVE-2026-41305 patch
-- Dev-branch provisioning scripts for VastAI and RunPod
-- CT-5: CheckpointTrainingConfig TypeScript type now includes SD35/CHROMA/ANIMA
-- MG-1: Removed deceptive alpha input from LoRA resize (resize_lora.py auto-calculates it)
-- MG-2: Commented the --save_precision vs --saving_precision naming difference
-- MG-3: asyncio.wait_for() timeouts on all merge/resize subprocesses (resize=30min, merges=1hr)
-- MG-4: _validate_device() CUDA availability check before any subprocess gets --device cuda
-- UI-4 (#346): pollLogs fixed-cadence + visibility-aware polling + visibilitychange listener
-- HF-1 (#344): HF upload page pre-fills token from saved settings; owner/repoType persist in localStorage
-- LT-2: enable_bucket now reads from config instead of hardcoded True
+**Completed (dev branch):**
+- Next.js 15 → 16 upgrade, PostCSS CVE patch, provisioning scripts
+- CT-5: CheckpointTrainingConfig types include SD35/CHROMA/ANIMA
+- MG-1: Removed deceptive alpha input (auto-calculated)
+- MG-2: Documented --save_precision vs --saving_precision difference
+- MG-3: Subprocess timeouts (resize=30min, merges=1hr)
+- MG-4: CUDA availability check before --device cuda
+- UI-4: pollLogs fixed-cadence + visibility-aware + visibilitychange
+- HF-1: HF upload token from settings; owner/repoType persist localStorage
+- LT-2: enable_bucket reads from config (not hardcoded)
 - LT-3: network_train_unet_only guarded to False in checkpoint mode
 
-**Up next:**
-- LT-1 + UI-1 (#343): Wire wandb_key as WANDB_API_KEY env var + add LoggingCard to training form
-- PYTHONUNBUFFERED=1 on Kohya subprocess (UI-4 backend part)
-- MG-5: SD3 merge (deferred but part of #342)
-- #349: Upload progress indicator (needs XHR refactor, waiting a few days)
-- Tag Viewer + Bulk tag ops (larger feature work)
-
-**Ease assessments (2026-05-07):**
-- **#349 upload progress** — Easy. Infrastructure already exists (progress state, file status tracking). Two steps: (1) swap remote zip upload from `fetch` to `XMLHttpRequest` for `onprogress` events, (2) add `<Progress>` component to the UI. ~30-40 lines. Deferred, not tonight.
-- **#343 WandB logging UI** — Easy-Medium. Entire data layer exists (Zod schema, types, defaults, validation, API client, backend Pydantic). Only missing: rendered inputs. Add a `LoggingCard` with `log_with` dropdown + conditional WandB fields. One focused session. Pair with LT-1 backend wire-up.
-- **#340 tag viewer + bulk ops** — Medium. Part 1 (tag viewer): new `GET /api/dataset/{name}/tag-summary` endpoint + frontend chip/badge component. Logic is simple (`flatMap` → `reduce` → sort). Part 2 (bulk ops) builds directly on Part 1. Larger than 343 but very well scoped. Good candidate for a web session.
-- **#347 dashboard redesign** — Large. Visual design decisions + missing pages + workflow grouping hierarchy. Needs a dedicated focused session with component work. Not a quick fix — confirmed big lift.
-
-**CT-2 closed as N/A:** `/training` and `/checkpoint-training` are already separate pages — no unified form exists where LoRA fields would need to be hidden.
-
----
+**Since resolved:** LT-1+UI-1 (wandb_key + LoggingCard), PYTHONUNBUFFERED (via `-u` flag).
+**Deferred:** MG-5 (SD3 merge), #349 (upload progress — easy, ~30-40 lines), Tag Viewer + Bulk ops.
+**CT-2 closed N/A:** Separate pages already.
 
 ## 10. Notes (Original)
 
@@ -1531,52 +1183,17 @@ UltralyticsDetectorProvider (Anzhc eye -seg-) ── SEGM_DETECTOR ──▶ SEG
 
 ## Section 12 — Security Review Backlog
 
-### 12.1 CWE-23 Path Traversal (Snyk removed, low urgency, not today)
+### 12.1 CWE-23 Path Traversal (Snyk removed, low urgency)
 
-> **2026-05-07 note:** Snyk has been removed from the project (rules were SaaS-calibrated noise for a local tool). Path traversal sanitisation is a *good idea in principle* but is **not imperative right now** — this is a single-user local tool, not a public web app. We could add it for belt-and-suspenders safety, but it's firmly in "yeah we should, but not today" territory. DeepScan is still active on the JS side; Bandit is noted as a future candidate for Python security scanning if we ever want coverage again.
+**Status:** ⏳ Not started | **Priority:** Low (pre-public-release gate)
 
-~~Snyk flags~~ Path traversal (CWE-23) exists across several Python service files. Partially false-positive for a single-user local tool, but worth a sanitisation pass before any public/multi-user deployment.
+Snyk removed (SaaS-calibrated noise). Path traversal sanitisation is good practice but not imperative — single-user local tool, private tunnel. `files.py` already protected; `config.py` preset paths need `is_relative_to(presets_dir)` guard; service paths need configurable `WORKSPACE_ROOT` validation.
 
-**Current state:**
-- `api/routes/files.py` — already protected: `is_safe_path()`, `ALLOWED_DIRS`, `is_relative_to()` used before every `open()`. Snyk false-positive here.
-- `services/lora_service.py`, `services/caption_service.py`, `services/tagging_service.py` — user-supplied paths go straight to `Path()`. Intended behaviour (user specifies their own model/dataset paths) but technically traversable.
-- `api/routes/config.py` — preset file paths from API requests, no allowlist check. Lowest-hanging real concern.
+### 12.2 CWE-78 Command Injection (Snyk — mostly false positives)
 
-**Why it's low risk now:** App is single-user, accessed via private tunnel on VastAI/RunPod. Path traversal = user accessing their own files, which they already can.
+**Status:** ⏳ Not started | **Priority:** Low
 
-**Why it matters eventually:** If the app ever supports multiple users, shared instances, or public access, these become real attack surfaces.
-
-**Investigation items (SEC-1):**
-- Check if service-layer paths can be validated against a configurable `WORKSPACE_ROOT` without breaking VastAI/RunPod users who store files outside the project directory
-- Consider `Path.resolve()` + `is_relative_to(WORKSPACE_ROOT)` pattern in services — only viable if `WORKSPACE_ROOT` is user-configurable in settings (default: `/workspace` on cloud, `PROJECT_ROOT` locally)
-- `api/routes/config.py` preset paths — add same `is_relative_to(presets_dir)` guard that `files.py` already uses for a quick partial win
-
-**Effort:** Small–Medium | **Priority:** Low (pre-public-release gate) | **Status:** ⏳ Not started
-
----
-
-### 12.2 CWE-78 Command Injection (Snyk, medium — mostly false positives)
-
-Snyk flags command injection (CWE-78) in Python files that pass user-controlled values into subprocess calls.
-
-**Current state:**
-- All subprocess calls use `asyncio.create_subprocess_exec` or list-form `subprocess.run` — neither passes through a shell. OS `exec()` does not interpret shell metacharacters, so these are not injectable regardless of argument content.
-- No `shell=True`, `os.system()`, or `os.popen()` anywhere in `api/` or `services/`. The one `shell=True` in `job_manager.py` was removed in commit `ab2fb6b`.
-- `model_service.py` — aria2c and wget calls build arg lists from user-supplied URLs and API tokens. List-form, not shell-interpolated. Safe.
-- `services/trainers/`, `lora_service.py`, `captioning_service.py` etc. — training/processing commands built as lists with user-supplied paths. Same pattern, safe.
-
-**Why Snyk flags it:** Static analysis sees user-controlled values flowing into subprocess args and flags conservatively, even when list-form exec is used. It cannot always prove the list won't later be joined into a shell string.
-
-**Why it's low real risk:** List-form exec is the correct mitigation for CWE-78. No shell is invoked, no metacharacter interpretation occurs.
-
-**Investigation items (SEC-2):**
-- Audit that no call site ever does `" ".join(args)` and passes the result to a shell-based subprocess — this would re-introduce the vulnerability
-- Verify `model_service.py` wget/aria2c header args (`Authorization: Bearer {token}`) are never shell-interpreted if the download backend is swapped in future
-- Consider adding a lint rule or comment convention to flag any future `shell=True` additions at review time
-
-**Effort:** Tiny (audit only, no fixes expected) | **Priority:** Low | **Status:** ⏳ Not started
-
----
+All subprocess calls use `asyncio.create_subprocess_exec` / list-form `subprocess.run` — no shell, not injectable. Snyk flags conservatively. Audit: no `" ".join(args)` → shell; verify `model_service.py` headers never shell-interpreted.
 
 ---
 
@@ -1584,24 +1201,13 @@ Snyk flags command injection (CWE-78) in Python files that pass user-controlled 
 
 ### 13.1 Integrate upstream docs + remove hand-holding bias
 
-**Priority:** Low (post-in-house-testing)
-**Status:** ⏳ Not started
+**Priority:** Low (post-in-house-testing) | **Status:** ⏳ Not started | **Effort:** Medium
 
-The in-app `/docs` section needs a proper cleanup pass before beta. Two things to tackle together:
+**Pull in:** LyCORIS docs (params/network types), sd-scripts docs (flags/optimizers/schedulers). Strip outdated/contradicted content.
 
-**Source material to pull in:**
-- LyCORIS documentation — copy relevant parameter/network type explanations into the in-app docs
-- sd-scripts documentation — training flags, optimizer notes, scheduler behaviour etc.
-- Strip anything that's already outdated or contradicted by our vendored versions
+**Remove bias:** Hardware requirement nags on pages user already chose; Claude over-explanation/hedging. Changelog page: populate from git history or delete route.
 
-**Bias/tone cleanup:**
-- Remove hand-holdy warnings that assume the user doesn't know what they're doing (e.g. hardware requirement nags on pages where the user has already made the choice to be there)
-- "Unbiasify" any Claude-written docs that over-explain or hedge excessively
-- Changelog page (`app/changelog/`) exists but is removed from nav — either populate it from git history or delete the route entirely
-
-**Note:** Do not tackle this during active testing phases. Brain goes to FF9 Quina frog-catching, docs rot. Schedule for a dedicated docs sprint.
-
-**Effort:** Medium | **Blocked by:** Stable alpha + in-house testing complete
+**Blocked by:** Stable alpha + in-house testing complete.
 
 ---
 
