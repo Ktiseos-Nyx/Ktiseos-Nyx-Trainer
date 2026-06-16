@@ -254,7 +254,7 @@ North star: a merge experience inspired by A1111 **SuperMerger** + the batteries
 - ✅ **Then MG-10** block-weight LoRA merge (presets), backend ready via `--lbws`.
 - ❌ **Out, permanently:** merge-in-RAM and live gen/test (Dusk finds it confusing; also would need a ComfyUI bridge). Do not build.
 - ❌ **XY/grid ratio plots** — out (needs a gen pipeline). Future only, would pair with a ComfyUI bridge.
-- ❌ **SD3 (MG-5)** — dropped (deprecated on Civitai, licensing uncertainty).
+- ❌ **SD3 (MG-5)** — **perma-deferred** (SD3 **deprecated per Stability AI**; also deprecated on Civitai + licensing uncertainty). No SD3 work unless a user explicitly asks. Don't rip out existing SD3/SD3.5 enum entries — just no new investment.
 
 **Preset/merge-mode references (borrow proven values from these, don't reinvent):**
 
@@ -578,7 +578,7 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 | Checkpoint-specific validation (CT-1) | Enhancement | Small | 🚫 **WON'T DO** (bias/nannying — rejected per LT-5/LT-7) |
 | Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium | 🚫 N/A — separate pages, no unified form |
 | Merge progress reporting (MG-7) | UX | Medium | ⏳ Not started |
-| SD3 merge support (MG-5) | Feature | Small | ⏳ Deferred (part of #342) |
+| SD3 merge support (MG-5) | Feature | Small | 🚫 Perma-deferred — SD3 deprecated per Stability AI; revisit only on explicit user request |
 | Clean up redundant TOML generation (CT-6) | Tech Debt | Small | ⏳ Not started |
 | Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
 | LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | 🚫 **WON'T DO** (bias — rejected per LT-5/LT-7) |
