@@ -19,6 +19,8 @@ from services.models.lora import (
     HuggingFaceUploadResponse,
     LoRAMergeRequest,
     LoRAMergeResponse,
+    LoRAToCheckpointRequest,
+    LoRAToCheckpointResponse,
     CheckpointMergeRequest,
     CheckpointMergeResponse,
 )
@@ -393,6 +395,121 @@ class LoRAService:
                 success=False,
                 message=f"Internal error: {e}"
             )
+
+    async def merge_lora_to_checkpoint(self, request: LoRAToCheckpointRequest) -> LoRAToCheckpointResponse:
+        """
+        Bake one or more LoRAs into a base SD/SDXL checkpoint, producing a full
+        standalone checkpoint (the "LoRA -> checkpoint" merge, like SuperMerger).
+
+        Uses the same vendored Kohya merge scripts as merge_lora() but passes
+        --sd_model, which routes through merge_to_sd_model() and saves a full
+        checkpoint instead of a LoRA-format file.
+
+        Args:
+            request: LoRA-to-checkpoint merge request
+
+        Returns:
+            LoRAToCheckpointResponse with result
+        """
+        try:
+            # Validate base checkpoint
+            base_path = Path(request.base_model_path)
+            if not base_path.exists():
+                raise NotFoundError(f"Base checkpoint not found: {request.base_model_path}")
+
+            # Validate all input LoRAs exist
+            for lora_input in request.lora_inputs:
+                input_path = Path(lora_input.path)
+                if not input_path.exists():
+                    raise NotFoundError(f"Input LoRA not found: {lora_input.path}")
+                if input_path.suffix.lower() not in ['.safetensors', '.pt', '.ckpt']:
+                    raise ValidationError(f"Invalid LoRA file format: {input_path.suffix}")
+
+            # Validate output path
+            output_path = Path(request.output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Only sd / sdxl can bake into a checkpoint via merge_to_sd_model()
+            model_type = request.model_type.lower()
+            if model_type not in ("sd", "sdxl"):
+                raise ValidationError(
+                    f"LoRA-to-checkpoint supports only 'sd' (SD1.5) and 'sdxl'. Got: {model_type}"
+                )
+
+            merge_script = self.merge_scripts[model_type]
+            if not merge_script.exists():
+                raise NotFoundError(
+                    f"Merge script not found for {model_type}. "
+                    "Please ensure the training backend is installed."
+                )
+
+            self._validate_device(request.device)
+
+            # --sd_model triggers merge_to_sd_model() -> saves a full checkpoint
+            command = [
+                sys.executable,
+                str(merge_script),
+                "--sd_model", str(base_path),
+                "--save_to", str(output_path),
+                "--save_precision", request.save_precision,
+                "--precision", request.precision,
+            ]
+
+            model_paths = [lora_input.path for lora_input in request.lora_inputs]
+            model_ratios = [str(lora_input.ratio) for lora_input in request.lora_inputs]
+            command.extend(["--models"] + model_paths)
+            command.extend(["--ratios"] + model_ratios)
+
+            if request.device != "cpu":
+                command.extend(["--device", request.device])
+
+            logger.info(
+                f"Baking {len(request.lora_inputs)} LoRA(s) into base checkpoint "
+                f"using {model_type} merge script"
+            )
+
+            process = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=self.project_root,
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise ProcessError("LoRA-to-checkpoint merge timed out after 1 hour")
+
+            if process.returncode != 0:
+                error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
+                raise ProcessError(f"LoRA-to-checkpoint merge failed: {error_msg}")
+
+            if not output_path.is_file():
+                raise ProcessError(f"Merge succeeded but output file not found: {output_path}")
+
+            file_size_mb = output_path.stat().st_size / (1024 * 1024)
+            logger.info(
+                f"LoRA(s) baked into checkpoint: {output_path.name} "
+                f"({file_size_mb:.2f} MB)"
+            )
+
+            return LoRAToCheckpointResponse(
+                success=True,
+                message=f"Successfully baked {len(request.lora_inputs)} LoRA(s) into checkpoint",
+                output_path=str(output_path),
+                merged_count=len(request.lora_inputs),
+                file_size_mb=round(file_size_mb, 2),
+            )
+
+        except (ValidationError, NotFoundError, ProcessError) as e:
+            logger.error(f"LoRA-to-checkpoint merge failed: {e}")
+            return LoRAToCheckpointResponse(success=False, message=str(e))
+
+        except Exception as e:
+            logger.exception(f"Unexpected error during LoRA-to-checkpoint merge: {e}")
+            return LoRAToCheckpointResponse(success=False, message=f"Internal error: {e}")
 
     async def merge_checkpoint(self, request: CheckpointMergeRequest) -> CheckpointMergeResponse:
         """

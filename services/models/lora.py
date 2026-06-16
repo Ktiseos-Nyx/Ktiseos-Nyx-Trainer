@@ -75,6 +75,26 @@ class LoRAMergeResponse(BaseModel):
     file_size_mb: Optional[float] = None
 
 
+class LoRAToCheckpointRequest(BaseModel):
+    """Request to bake one or more LoRAs into a base checkpoint (LoRA -> full model)."""
+    base_model_path: str = Field(..., description="Path to base SD/SDXL checkpoint")
+    lora_inputs: list[LoRAInput] = Field(..., min_length=1, description="LoRAs to bake into the base")
+    output_path: str = Field(..., description="Path to output merged checkpoint")
+    model_type: str = Field("sdxl", description="Model type: sd (SD1.5) or sdxl")
+    device: str = Field("cpu", description="Device for processing (cpu/cuda)")
+    save_precision: str = Field("fp16", description="Save precision (fp16/bf16/fp32)")
+    precision: str = Field("float", description="Computation precision (float/fp16/bf16)")
+
+
+class LoRAToCheckpointResponse(BaseModel):
+    """Response from LoRA-to-checkpoint merge operation."""
+    success: bool
+    message: str
+    output_path: Optional[str] = None
+    merged_count: Optional[int] = None
+    file_size_mb: Optional[float] = None
+
+
 class CheckpointInput(BaseModel):
     """Single checkpoint input for merging."""
     path: str = Field(..., description="Path to checkpoint file")

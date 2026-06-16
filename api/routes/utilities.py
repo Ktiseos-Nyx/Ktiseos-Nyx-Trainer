@@ -22,6 +22,7 @@ from services.models.lora import (
     LoRAResizeRequest as ServiceResizeRequest,
     HuggingFaceUploadRequest as ServiceHFRequest,
     LoRAMergeRequest as ServiceMergeRequest,
+    LoRAToCheckpointRequest as ServiceLoRAToCheckpointRequest,
     CheckpointMergeRequest as ServiceCheckpointMergeRequest,
     LoRAInput,
     CheckpointInput,
@@ -401,6 +402,66 @@ async def merge_lora(request: LoRAMergeRequest):
         raise
     except Exception as e:
         logger.error(f"LoRA merge error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class LoRAToCheckpointRequest(BaseModel):
+    """Request model for baking LoRA(s) into a base checkpoint."""
+    base_model_path: str
+    lora_inputs: list[dict]  # [{path: str, ratio: float}, ...]
+    output_path: str
+    model_type: Literal["sd", "sdxl"] = "sdxl"
+    device: Literal["cpu", "cuda"] = "cpu"
+    save_precision: Literal["float", "fp16", "bf16"] = "fp16"
+    precision: Literal["float", "fp16", "bf16"] = "float"
+
+
+@router.post("/lora/merge-to-checkpoint")
+async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
+    """
+    Bake one or more LoRAs into a base SD/SDXL checkpoint, producing a full
+    standalone checkpoint (the "LoRA -> checkpoint" merge).
+    Uses Kohya's merge scripts (--sd_model) from the vendored backend.
+    """
+    try:
+        # Security: base + LoRA inputs from any model dir; output always to output/
+        try:
+            validate_path_within(request.base_model_path, _model_input_dirs())
+            for lora in request.lora_inputs:
+                validate_path_within(lora["path"], _model_input_dirs())
+            validate_path_within(request.output_path, [OUTPUT_DIR])
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
+        lora_inputs = [
+            LoRAInput(path=lora["path"], ratio=lora.get("ratio", 1.0))
+            for lora in request.lora_inputs
+        ]
+
+        service_request = ServiceLoRAToCheckpointRequest(
+            base_model_path=request.base_model_path,
+            lora_inputs=lora_inputs,
+            output_path=request.output_path,
+            model_type=request.model_type,
+            device=request.device,
+            save_precision=request.save_precision,
+            precision=request.precision,
+        )
+
+        response = await lora_service.merge_lora_to_checkpoint(service_request)
+
+        return {
+            "success": response.success,
+            "message": response.message,
+            "output_path": response.output_path,
+            "merged_count": response.merged_count,
+            "file_size_mb": response.file_size_mb,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LoRA-to-checkpoint merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

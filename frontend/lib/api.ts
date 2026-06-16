@@ -1235,6 +1235,31 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  mergeLoraToCheckpoint: async (
+    baseModelPath: string,
+    loraInputs: Array<{ path: string; ratio: number }>,
+    outputPath: string,
+    modelType: string = 'sdxl',
+    device: string = 'cpu',
+    savePrecision: string = 'fp16',
+    precision: string = 'float'
+  ) => {
+    const response = await fetch(`${API_BASE}/utilities/lora/merge-to-checkpoint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_model_path: baseModelPath,
+        lora_inputs: loraInputs,
+        output_path: outputPath,
+        model_type: modelType,
+        device,
+        save_precision: savePrecision,
+        precision,
+      }),
+    });
+    return handleResponse(response);
+  },
+
   // HuggingFace
   uploadToHuggingFace: async (request: HuggingFaceUploadRequest) => {
     const response = await fetch(`${API_BASE}/utilities/hf/upload`, {
