@@ -1187,13 +1187,19 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  getBlockWeightPresets: async (): Promise<{ sd: Record<string, number[]>; sdxl: Record<string, number[]> }> => {
+    const response = await fetch(`${API_BASE}/utilities/block-weight-presets`);
+    return handleResponse(response);
+  },
+
   mergeLora: async (
     loraInputs: Array<{ path: string; ratio: number }>,
     outputPath: string,
     modelType: string = 'sd',
     device: string = 'cpu',
     savePrecision: string = 'fp16',
-    precision: string = 'float'
+    precision: string = 'float',
+    blockWeights: number[] | null = null
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge`, {
       method: 'POST',
@@ -1205,6 +1211,7 @@ export const utilitiesAPI = {
         device,
         save_precision: savePrecision,
         precision,
+        block_weights: blockWeights,
       }),
     });
     return handleResponse(response);
@@ -1242,7 +1249,8 @@ export const utilitiesAPI = {
     modelType: string = 'sdxl',
     device: string = 'cpu',
     savePrecision: string = 'fp16',
-    precision: string = 'float'
+    precision: string = 'float',
+    blockWeights: number[] | null = null
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge-to-checkpoint`, {
       method: 'POST',
@@ -1255,6 +1263,7 @@ export const utilitiesAPI = {
         device,
         save_precision: savePrecision,
         precision,
+        block_weights: blockWeights,
       }),
     });
     return handleResponse(response);

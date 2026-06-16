@@ -8,6 +8,7 @@ Handles:
 """
 
 import sys
+import json
 import asyncio
 import logging
 from pathlib import Path
@@ -27,6 +28,29 @@ from services.models.lora import (
 from services.core.exceptions import ValidationError, ProcessError, NotFoundError
 
 logger = logging.getLogger(__name__)
+
+
+def _block_weight_args(block_weights, model_type, num_models, unsupported_msg):
+    """
+    Build the ``--lbws`` argument list for a block-weighted (LBW) merge.
+
+    Block weights are applied per-block via the vendored Kohya merge scripts,
+    which expect one JSON array per LoRA. We apply a single preset to every
+    LoRA, so the same array is repeated ``num_models`` times. Currently SDXL
+    only (12 or 20 values) — the SD1.5 bake script has no ``--lbws``.
+
+    Returns an empty list when no block weights are set.
+    """
+    if not block_weights:
+        return []
+    if model_type != "sdxl":
+        raise ValidationError(unsupported_msg)
+    if len(block_weights) not in (12, 20):
+        raise ValidationError(
+            f"SDXL block weights must have 12 or 20 values, got {len(block_weights)}."
+        )
+    lbw_json = json.dumps(block_weights)
+    return ["--lbws"] + [lbw_json] * num_models
 
 
 class LoRAService:
@@ -335,6 +359,12 @@ class LoRAService:
             command.extend(["--models"] + model_paths)
             command.extend(["--ratios"] + model_ratios)
 
+            # Optional block-weight (LBW) merge — SDXL only
+            command.extend(_block_weight_args(
+                request.block_weights, model_type, len(model_paths),
+                "Block weights are currently supported for SDXL only.",
+            ))
+
             # Add device
             if request.device != "cpu":
                 command.extend(["--device", request.device])
@@ -342,6 +372,7 @@ class LoRAService:
             logger.info(
                 f"Merging {len(request.lora_inputs)} LoRAs "
                 f"using {model_type} merge script"
+                f"{' with block weights' if request.block_weights else ''}"
             )
 
             # Execute merge
@@ -460,12 +491,20 @@ class LoRAService:
             command.extend(["--models"] + model_paths)
             command.extend(["--ratios"] + model_ratios)
 
+            # Optional block-weight (LBW) bake — SDXL only (SD1.5 bake has no --lbws)
+            command.extend(_block_weight_args(
+                request.block_weights, model_type, len(model_paths),
+                "Block weights for LoRA-to-checkpoint are supported for SDXL only "
+                "(the SD1.5 bake script has no --lbws).",
+            ))
+
             if request.device != "cpu":
                 command.extend(["--device", request.device])
 
             logger.info(
                 f"Baking {len(request.lora_inputs)} LoRA(s) into base checkpoint "
                 f"using {model_type} merge script"
+                f"{' with block weights' if request.block_weights else ''}"
             )
 
             process = await asyncio.create_subprocess_exec(

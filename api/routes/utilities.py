@@ -3,6 +3,7 @@ Utilities API Routes
 Handles calculator, LoRA utilities, and HuggingFace uploads via new service layer.
 """
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -229,6 +230,21 @@ async def get_directories():
     return dirs
 
 
+@router.get("/block-weight-presets")
+async def get_block_weight_presets():
+    """
+    Return named block-weight (LBW) presets for the merge tools, keyed by
+    architecture: 'sd' presets are 26 values, 'sdxl' presets are 20 values.
+    """
+    presets_file = PROJECT_ROOT / "presets" / "block_weights.json"
+    try:
+        with open(presets_file, encoding="utf-8") as f:
+            data = json.load(f)
+        return {"sd": data.get("sd", {}), "sdxl": data.get("sdxl", {})}
+    except (FileNotFoundError, ValueError):
+        return {"sd": {}, "sdxl": {}}
+
+
 @router.get("/lora/resize-dimensions")
 async def get_resize_dimensions():
     """Get available LoRA resize dimensions"""
@@ -355,6 +371,7 @@ class LoRAMergeRequest(BaseModel):
     device: Literal["cpu", "cuda"] = "cpu"
     save_precision: Literal["float", "fp16", "bf16"] = "fp16"
     precision: Literal["float", "fp16", "bf16"] = "float"
+    block_weights: Optional[list[float]] = None  # SDXL LBW preset (12/20 values)
 
 
 @router.post("/lora/merge")
@@ -385,7 +402,8 @@ async def merge_lora(request: LoRAMergeRequest):
             model_type=request.model_type,
             device=request.device,
             save_precision=request.save_precision,
-            precision=request.precision
+            precision=request.precision,
+            block_weights=request.block_weights,
         )
 
         response = await lora_service.merge_lora(service_request)
@@ -414,6 +432,7 @@ class LoRAToCheckpointRequest(BaseModel):
     device: Literal["cpu", "cuda"] = "cpu"
     save_precision: Literal["float", "fp16", "bf16"] = "fp16"
     precision: Literal["float", "fp16", "bf16"] = "float"
+    block_weights: Optional[list[float]] = None  # SDXL LBW preset (12/20 values)
 
 
 @router.post("/lora/merge-to-checkpoint")
@@ -446,6 +465,7 @@ async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
             device=request.device,
             save_precision=request.save_precision,
             precision=request.precision,
+            block_weights=request.block_weights,
         )
 
         response = await lora_service.merge_lora_to_checkpoint(service_request)
