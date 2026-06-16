@@ -1648,8 +1648,8 @@ Every relocation breaks references that must be updated **and re-tested on all t
 Do it **incrementally** (one group per PR), re-test each platform, update docs in the same PR.
 
 ### 19.4 Quick-win cleanup (independent of the reorg)
-- `.snyk` — Snyk was removed from the project; this file is almost certainly dead → verify + delete.
-- `find_fences.py` — looks like a one-off debug script; confirm unused → delete.
+- `.snyk` — ✅ **Deleted 2026-06-16** (Snyk removed; policy file was dead).
+- `find_fences.py` — ✅ **Deleted 2026-06-16** (one-off code-fence scanner, zero references).
 
 ---
 
