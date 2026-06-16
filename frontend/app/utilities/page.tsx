@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { utilitiesAPI, LoRAFile } from '@/lib/api';
-import { Wrench, CheckCircle, Loader2, Minimize2, Home, Trash2, FolderOpen } from 'lucide-react';
+import { Wrench, CheckCircle, Loader2, Minimize2, Home, Trash2 } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import FileBrowser from '@/components/FileBrowser';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,28 +79,52 @@ function SuccessBanner({ children }: { children: React.ReactNode }) {
   );
 }
 
+// A listed model file, tagged with which source directory it came from
+// (e.g. trainer "output/" vs "ComfyUI") so the merge lists can label it.
+type ListedFile = LoRAFile & { source?: string };
+
+/**
+ * List model files across multiple source directories and tag each with its
+ * source label. Sources whose dir is undefined (e.g. ComfyUI not configured)
+ * are skipped, so the merge tools degrade gracefully. Returns a flat list.
+ */
+async function loadModelFiles(
+  sources: Array<{ label: string; dir?: string }>,
+  ext: string,
+): Promise<ListedFile[]> {
+  const present = sources.filter((s): s is { label: string; dir: string } => Boolean(s.dir));
+  const lists = await Promise.all(
+    present.map(async ({ label, dir }) => {
+      const res = await utilitiesAPI.listLoraFiles(dir, ext, 'date');
+      return res.success ? res.files.map((f: LoRAFile) => ({ ...f, source: label })) : [];
+    }),
+  );
+  return lists.flat();
+}
+
 // ─── Merge LoRAs ──────────────────────────────────────────────────────────────
 
 function MergeLoRATab() {
-  const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
+  const [availableFiles, setAvailableFiles] = useState<ListedFile[]>([]);
   const [selectedLoras, setSelectedLoras] = useState<Array<{ path: string; name: string; ratio: number }>>([]);
   const [outputPath, setOutputPath] = useState('');
   const [modelType, setModelType] = useState<'sd' | 'sdxl' | 'flux' | 'svd'>('sdxl');
   const [merging, setMerging] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [browserOpen, setBrowserOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
         const dirs = await utilitiesAPI.getDirectories();
-        const res = await utilitiesAPI.listLoraFiles(dirs.output, 'safetensors', 'date');
-        if (res.success) setAvailableFiles(res.files);
+        setAvailableFiles(await loadModelFiles(
+          [{ label: 'output/', dir: dirs.output }, { label: 'ComfyUI', dir: dirs.comfyui_loras }],
+          'safetensors',
+        ));
       } catch (e) {
         console.error('Failed to load LoRA files:', e);
-        setLoadError('Could not auto-list LoRAs from output/. Use Browse to pick files from anywhere.');
+        setLoadError('Could not list LoRAs. Check that the backend is running.');
       }
     };
     void load();
@@ -117,11 +140,6 @@ function MergeLoRATab() {
   const add = (file: LoRAFile) => {
     if (!selectedLoras.find(l => l.path === file.path))
       setSelectedLoras(prev => [...prev, { path: file.path, name: file.name, ratio: 1.0 }]);
-  };
-  const addByPath = (path: string) => {
-    const name = path.split(/[\\/]/).pop() || path;
-    if (!selectedLoras.find(l => l.path === path))
-      setSelectedLoras(prev => [...prev, { path, name, ratio: 1.0 }]);
   };
   const remove = (path: string) => setSelectedLoras(prev => prev.filter(l => l.path !== path));
   const setRatio = (path: string, ratio: number) =>
@@ -160,15 +178,10 @@ function MergeLoRATab() {
       </SectionCard>
 
       <SectionCard title="Available LoRAs">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">Auto-listed from output/ — or browse to any folder.</p>
-          <Button variant="outline" size="sm" onClick={() => setBrowserOpen(true)} className="shrink-0">
-            <FolderOpen className="h-4 w-4 mr-1" /> Browse…
-          </Button>
-        </div>
+        <p className="text-xs text-muted-foreground">From your trainer output/ and ComfyUI loras folder.</p>
         {loadError && <p className="text-xs text-destructive">{loadError}</p>}
         {availableFiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No LoRA files in output/ — use Browse to add files.</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No LoRA files found in output/ or ComfyUI.</p>
         ) : (
           <div className="grid md:grid-cols-2 gap-2 max-h-80 overflow-y-auto">
             {availableFiles.map(f => (
@@ -181,7 +194,7 @@ function MergeLoRATab() {
               >
                 <div className="text-left min-w-0">
                   <div className="truncate text-xs font-medium">{f.name}</div>
-                  <div className="text-xs text-muted-foreground">{f.size_formatted}</div>
+                  <div className="text-xs text-muted-foreground">{f.source} · {f.size_formatted}</div>
                 </div>
                 {selectedLoras.some(l => l.path === f.path) && (
                   <CheckCircle className="h-4 w-4 text-green-500 shrink-0 ml-2" />
@@ -241,14 +254,6 @@ function MergeLoRATab() {
           <div>Merged {String((result as Record<string, unknown>).merged_count)} LoRAs · {String((result as Record<string, unknown>).file_size_mb)} MB</div>
         </SuccessBanner>
       )}
-
-      <FileBrowser
-        open={browserOpen}
-        onOpenChange={setBrowserOpen}
-        onSelect={addByPath}
-        mode="file"
-        title="Select LoRA file"
-      />
     </div>
   );
 }
@@ -256,7 +261,7 @@ function MergeLoRATab() {
 // ─── Merge Checkpoints ────────────────────────────────────────────────────────
 
 function MergeCheckpointTab() {
-  const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
+  const [availableFiles, setAvailableFiles] = useState<ListedFile[]>([]);
   const [selected, setSelected] = useState<Array<{ path: string; name: string; ratio: number }>>([]);
   const [outputPath, setOutputPath] = useState('');
   const [unetOnly, setUnetOnly] = useState(false);
@@ -265,18 +270,19 @@ function MergeCheckpointTab() {
   const [merging, setMerging] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [browserOpen, setBrowserOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
         const dirs = await utilitiesAPI.getDirectories();
-        const res = await utilitiesAPI.listLoraFiles(dirs.pretrained_model, 'safetensors,ckpt', 'date');
-        if (res.success) setAvailableFiles(res.files);
+        setAvailableFiles(await loadModelFiles(
+          [{ label: 'pretrained_model/', dir: dirs.pretrained_model }, { label: 'ComfyUI', dir: dirs.comfyui_checkpoints }],
+          'safetensors,ckpt',
+        ));
       } catch (e) {
         console.error('Failed to load checkpoint files:', e);
-        setLoadError('Could not auto-list checkpoints from pretrained_model/. Use Browse to pick files from anywhere.');
+        setLoadError('Could not list checkpoints. Check that the backend is running.');
       }
     };
     void load();
@@ -292,11 +298,6 @@ function MergeCheckpointTab() {
   const add = (f: LoRAFile) => {
     if (!selected.find(c => c.path === f.path))
       setSelected(prev => [...prev, { path: f.path, name: f.name, ratio: 1.0 }]);
-  };
-  const addByPath = (path: string) => {
-    const name = path.split(/[\\/]/).pop() || path;
-    if (!selected.find(c => c.path === path))
-      setSelected(prev => [...prev, { path, name, ratio: 1.0 }]);
   };
   const remove = (path: string) => setSelected(prev => prev.filter(c => c.path !== path));
   const setRatio = (path: string, ratio: number) =>
@@ -364,15 +365,10 @@ function MergeCheckpointTab() {
       </SectionCard>
 
       <SectionCard title="Available Checkpoints">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">Auto-listed from pretrained_model/ — or browse to any folder.</p>
-          <Button variant="outline" size="sm" onClick={() => setBrowserOpen(true)} className="shrink-0">
-            <FolderOpen className="h-4 w-4 mr-1" /> Browse…
-          </Button>
-        </div>
+        <p className="text-xs text-muted-foreground">From your trainer pretrained_model/ and ComfyUI checkpoints folder.</p>
         {loadError && <p className="text-xs text-destructive">{loadError}</p>}
         {availableFiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No checkpoint files in pretrained_model/ — use Browse to add files.</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No checkpoint files found in pretrained_model/ or ComfyUI.</p>
         ) : (
           <div className="grid md:grid-cols-2 gap-2 max-h-80 overflow-y-auto">
             {availableFiles.map(f => (
@@ -385,7 +381,7 @@ function MergeCheckpointTab() {
               >
                 <div className="text-left min-w-0">
                   <div className="truncate text-xs font-medium">{f.name}</div>
-                  <div className="text-xs text-muted-foreground">{f.size_formatted}</div>
+                  <div className="text-xs text-muted-foreground">{f.source} · {f.size_formatted}</div>
                 </div>
                 {selected.some(c => c.path === f.path) && (
                   <CheckCircle className="h-4 w-4 text-green-500 shrink-0 ml-2" />
@@ -446,14 +442,6 @@ function MergeCheckpointTab() {
           {unetOnly && <div className="text-amber-600 dark:text-amber-400">UNet-only merge: VAE and text encoder from first model</div>}
         </SuccessBanner>
       )}
-
-      <FileBrowser
-        open={browserOpen}
-        onOpenChange={setBrowserOpen}
-        onSelect={addByPath}
-        mode="file"
-        title="Select checkpoint file"
-      />
     </div>
   );
 }
@@ -464,30 +452,30 @@ function ResizeLoRATab() {
   const [inputFile, setInputFile] = useState('');
   const [outputPath, setOutputPath] = useState('');
   const [newDim, setNewDim] = useState(32);
-  const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
+  const [availableFiles, setAvailableFiles] = useState<ListedFile[]>([]);
   const [availableDims, setAvailableDims] = useState<number[]>([4, 8, 16, 32, 64, 128, 256]);
   const [resizing, setResizing] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [browserOpen, setBrowserOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
         const dirs = await utilitiesAPI.getDirectories();
-        const [filesRes, dimsRes] = await Promise.all([
-          utilitiesAPI.listLoraFiles(dirs.output, 'safetensors', 'date'),
+        const [files, dimsRes] = await Promise.all([
+          loadModelFiles(
+            [{ label: 'output/', dir: dirs.output }, { label: 'ComfyUI', dir: dirs.comfyui_loras }],
+            'safetensors',
+          ),
           utilitiesAPI.getResizeDimensions(),
         ]);
-        if (filesRes.success) {
-          setAvailableFiles(filesRes.files);
-          if (filesRes.files.length > 0) setInputFile(filesRes.files[0].path);
-        }
+        setAvailableFiles(files);
+        if (files.length > 0) setInputFile(files[0].path);
         if (dimsRes.dimensions) setAvailableDims(dimsRes.dimensions);
       } catch (e) {
         console.error('Failed to load data:', e);
-        setLoadError('Could not auto-list LoRAs from output/. Use Browse to pick a file from anywhere.');
+        setLoadError('Could not list LoRAs. Check that the backend is running.');
       }
     };
     void load();
@@ -517,19 +505,14 @@ function ResizeLoRATab() {
       <SectionCard title="Resize Configuration">
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <Label className="text-xs">Input LoRA file</Label>
-              <Button variant="outline" size="sm" onClick={() => setBrowserOpen(true)} className="shrink-0 h-7">
-                <FolderOpen className="h-4 w-4 mr-1" /> Browse…
-              </Button>
-            </div>
+            <Label className="text-xs">Input LoRA file</Label>
             {availableFiles.length > 0 ? (
               <Select value={inputFile} onValueChange={setInputFile}>
                 <SelectTrigger className="text-xs font-mono"><SelectValue placeholder="Select a file…" /></SelectTrigger>
                 <SelectContent>
                   {availableFiles.map(f => (
                     <SelectItem key={f.path} value={f.path} className="text-xs font-mono">
-                      {f.name} ({f.size_formatted})
+                      {f.name} ({f.source} · {f.size_formatted})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -592,14 +575,6 @@ function ResizeLoRATab() {
           <div>Dimension: {String((result as Record<string, unknown>).new_dim)} / Alpha: {String((result as Record<string, unknown>).new_alpha)}</div>
         </SuccessBanner>
       )}
-
-      <FileBrowser
-        open={browserOpen}
-        onOpenChange={setBrowserOpen}
-        onSelect={setInputFile}
-        mode="file"
-        title="Select LoRA file to resize"
-      />
     </div>
   );
 }

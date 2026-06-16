@@ -31,6 +31,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _comfyui_model_dirs() -> dict[str, Path]:
+    """
+    Resolve ComfyUI's loras/checkpoints directories when a ComfyUI models path
+    is configured and the subfolders actually exist on disk.
+
+    Returns e.g. ``{"comfyui_loras": Path, "comfyui_checkpoints": Path}``,
+    omitting any that are absent so callers (directory listing + merge-input
+    path validation) degrade gracefully when ComfyUI isn't installed. Works the
+    same locally and on remote (VastAI/RunPod) because the path is resolved on
+    whichever box the backend runs on.
+    """
+    from api.routes.settings import get_comfyui_models_path
+
+    dirs: dict[str, Path] = {}
+    base = get_comfyui_models_path()
+    if not base:
+        return dirs
+    for key, sub in (("comfyui_loras", "loras"), ("comfyui_checkpoints", "checkpoints")):
+        candidate = Path(base) / sub
+        if candidate.is_dir():
+            dirs[key] = candidate
+    return dirs
+
+
+def _model_input_dirs() -> list[Path]:
+    """
+    Allowed source directories for merge/resize *inputs*: the trainer's
+    ``output/`` and ``pretrained_model/`` plus any present ComfyUI model dirs.
+    Merge *outputs* stay confined to ``OUTPUT_DIR`` — we never write into a
+    model source directory.
+    """
+    return [OUTPUT_DIR, MODELS_DIR, *_comfyui_model_dirs().values()]
+
+
 # ========== Calculator Endpoints (Kept from original) ==========
 
 class CalculatorRequest(BaseModel):
@@ -178,13 +212,20 @@ class LoRAResizeRequest(BaseModel):
 
 @router.get("/directories")
 async def get_directories():
-    """Get project directory paths for use with the file listing API."""
-    return {
+    """Get project directory paths for use with the file listing API.
+
+    Includes ComfyUI loras/checkpoints dirs when present so the merge tools
+    can list models from the ComfyUI ecosystem, not just the trainer dirs.
+    """
+    dirs = {
         "output": str(OUTPUT_DIR),
         "datasets": str(DATASETS_DIR),
         "pretrained_model": str(MODELS_DIR),
         "vae": str(VAE_DIR),
     }
+    for key, path in _comfyui_model_dirs().items():
+        dirs[key] = str(path)
+    return dirs
 
 
 @router.get("/lora/resize-dimensions")
@@ -212,9 +253,9 @@ async def list_lora_files(request: ListLoraFilesRequest):
 
         directory = Path(request.directory)
 
-        # Security: confine to output or pretrained_model directory
+        # Security: confine to trainer output/pretrained_model or ComfyUI model dirs
         try:
-            directory = validate_path_within(str(directory), [OUTPUT_DIR, MODELS_DIR])
+            directory = validate_path_within(str(directory), _model_input_dirs())
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
@@ -269,9 +310,9 @@ async def resize_lora(request: LoRAResizeRequest):
     Uses Kohya's resize_lora.py script from vendored backend.
     """
     try:
-        # Security: confine paths to output directory
+        # Security: input from any model dir; output always to output/
         try:
-            validate_path_within(request.input_path, [OUTPUT_DIR])
+            validate_path_within(request.input_path, _model_input_dirs())
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
@@ -322,10 +363,10 @@ async def merge_lora(request: LoRAMergeRequest):
     Uses Kohya's merge scripts from vendored backend.
     """
     try:
-        # Security: confine all paths to output directory
+        # Security: inputs from any model dir; output always to output/
         try:
             for lora in request.lora_inputs:
-                validate_path_within(lora["path"], [OUTPUT_DIR])
+                validate_path_within(lora["path"], _model_input_dirs())
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
@@ -383,10 +424,10 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
     Uses Kohya's merge_models.py script from vendored backend.
     """
     try:
-        # Security: inputs from output/ or pretrained_model/; output always to output/
+        # Security: inputs from any model dir (incl. ComfyUI); output always to output/
         try:
             for cp in request.checkpoint_inputs:
-                validate_path_within(cp["path"], [OUTPUT_DIR, MODELS_DIR])
+                validate_path_within(cp["path"], _model_input_dirs())
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
