@@ -125,7 +125,7 @@ export function LoRAStructureCard({ form, onSave }: LoRAStructureCardProps) {
           options={LORA_TYPE_OPTIONS}
         />
 
-        <Alert className="bg-slate-800/50 border-slate-700">
+        <Alert className="bg-muted/50 border-border">
           <AlertDescription className="text-xs font-mono">
             {networkModule}
           </AlertDescription>
@@ -244,7 +244,7 @@ export function LoRAStructureCard({ form, onSave }: LoRAStructureCardProps) {
           step={0.01}
         />
 
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Training Target</p>
 
           <CheckboxFormField

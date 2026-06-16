@@ -49,7 +49,7 @@ export function LoggingCard({ form }: LoggingCardProps) {
         />
 
         {showTensorboard && (
-          <div className="space-y-4 pt-2 border-t border-slate-700">
+          <div className="space-y-4 pt-2 border-t border-border">
             <p className="text-sm font-semibold text-gray-300">TensorBoard</p>
 
             <TextFormField
@@ -71,7 +71,7 @@ export function LoggingCard({ form }: LoggingCardProps) {
         )}
 
         {showWandB && (
-          <div className="space-y-4 pt-2 border-t border-slate-700">
+          <div className="space-y-4 pt-2 border-t border-border">
             <p className="text-sm font-semibold text-gray-300">WandB</p>
 
             <FormField

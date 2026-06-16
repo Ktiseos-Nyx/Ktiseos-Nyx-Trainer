@@ -114,7 +114,7 @@ export function SavingCard({ form, onSave }: SavingCardProps) {
         </div>
 
         {/* Training State */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Training State (Resume)</p>
 
           <CheckboxFormField
@@ -149,7 +149,7 @@ export function SavingCard({ form, onSave }: SavingCardProps) {
         />
 
         {/* Sample Generation */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Sample Generation (Preview)</p>
 
           <div className="grid grid-cols-2 gap-4">

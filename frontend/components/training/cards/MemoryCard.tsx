@@ -96,7 +96,7 @@ export function MemoryCard({ form, onSave }: MemoryCardProps) {
         </div>
 
         {/* Caching */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Caching (Speed Optimization)</p>
 
           <CheckboxFormField
@@ -137,7 +137,7 @@ export function MemoryCard({ form, onSave }: MemoryCardProps) {
         </div>
 
         {/* Advanced Memory Settings */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Advanced Settings</p>
 
           <CheckboxFormField
@@ -192,7 +192,7 @@ export function MemoryCard({ form, onSave }: MemoryCardProps) {
         </div>
 
         {/* Memory Optimization */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Memory Optimization</p>
 
           <CheckboxFormField

@@ -23,6 +23,8 @@ import { datasetAPI } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface UploadedFile {
   file: File;
@@ -618,11 +620,11 @@ export default function DatasetUploader() {
                   return (
                     <div
                       key={index}
-                      className="relative group rounded-lg overflow-hidden border-2 border-slate-700 bg-slate-800"
+                      className="relative group rounded-lg overflow-hidden border-2 border-border bg-muted"
                     >
                       {/* Image/ZIP Preview */}
                       {isZip ? (
-                        <div className="w-full h-32 flex items-center justify-center bg-slate-800">
+                        <div className="w-full h-32 flex items-center justify-center bg-muted">
                           <FileArchive className="w-12 h-12 text-purple-400" />
                         </div>
                       ) : (
@@ -732,18 +734,14 @@ export default function DatasetUploader() {
 
           {/* Project Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <Label className="mb-2 block">
               Project Name
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white focus:ring-2 focus:border-transparent ${
-                projectExists
-                  ? 'border-yellow-500 focus:ring-yellow-500'
-                  : 'border-slate-600 focus:ring-purple-500'
-              }`}
+              className={cn(projectExists && 'border-yellow-500 focus-visible:ring-yellow-500')}
               placeholder="my_awesome_character (no spaces or special chars)"
               disabled={downloading}
             />
@@ -761,14 +759,13 @@ export default function DatasetUploader() {
 
           {/* Dataset URL */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <Label className="mb-2 block">
               Dataset URL or Path
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={datasetUrl}
               onChange={(e) => setDatasetUrl(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="/path/to/dataset.zip or https://huggingface.co/datasets/..."
               disabled={downloading}
             />
@@ -799,18 +796,14 @@ export default function DatasetUploader() {
 
           {/* Folder Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <Label className="mb-2 block">
               Folder Name
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
-              className={`w-full px-4 py-2 bg-slate-800 border rounded-lg text-white focus:ring-2 focus:border-transparent ${
-                folderExists
-                  ? 'border-red-500 focus:ring-red-500'
-                  : 'border-slate-600 focus:ring-green-500'
-              }`}
+              className={cn(folderExists && 'border-red-500 focus-visible:ring-red-500')}
               placeholder="character_name"
               disabled={creatingFolder}
             />
@@ -824,16 +817,15 @@ export default function DatasetUploader() {
 
           {/* Repeat Count */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <Label className="mb-2 block">
               Repeat Count
-            </label>
-            <input
+            </Label>
+            <Input
               type="number"
               value={folderRepeats}
               onChange={(e) => setFolderRepeats(parseInt(e.target.value) || 1)}
               min={1}
               max={100}
-              className="w-full px-4 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
               disabled={creatingFolder}
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -843,8 +835,8 @@ export default function DatasetUploader() {
 
           {/* Preview */}
           {folderName && (
-            <div className="p-4 bg-slate-800 rounded-lg border border-slate-600">
-              <p className="text-sm text-gray-400 mb-1">Final folder name:</p>
+            <div className="p-4 bg-muted rounded-lg border border-border">
+              <p className="text-sm text-muted-foreground mb-1">Final folder name:</p>
               <p className="text-lg font-bold text-green-400 font-mono">
                 {folderRepeats}_{folderName}
               </p>
