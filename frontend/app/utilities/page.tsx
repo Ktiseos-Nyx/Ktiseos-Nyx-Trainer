@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { utilitiesAPI, LoRAFile } from '@/lib/api';
-import { Wrench, CheckCircle, Loader2, Minimize2, Home, Trash2 } from 'lucide-react';
+import { Wrench, CheckCircle, Loader2, Minimize2, Home, Trash2, FolderOpen } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import FileBrowser from '@/components/FileBrowser';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -89,6 +90,8 @@ function MergeLoRATab() {
   const [merging, setMerging] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -98,6 +101,7 @@ function MergeLoRATab() {
         if (res.success) setAvailableFiles(res.files);
       } catch (e) {
         console.error('Failed to load LoRA files:', e);
+        setLoadError('Could not auto-list LoRAs from output/. Use Browse to pick files from anywhere.');
       }
     };
     void load();
@@ -113,6 +117,11 @@ function MergeLoRATab() {
   const add = (file: LoRAFile) => {
     if (!selectedLoras.find(l => l.path === file.path))
       setSelectedLoras(prev => [...prev, { path: file.path, name: file.name, ratio: 1.0 }]);
+  };
+  const addByPath = (path: string) => {
+    const name = path.split(/[\\/]/).pop() || path;
+    if (!selectedLoras.find(l => l.path === path))
+      setSelectedLoras(prev => [...prev, { path, name, ratio: 1.0 }]);
   };
   const remove = (path: string) => setSelectedLoras(prev => prev.filter(l => l.path !== path));
   const setRatio = (path: string, ratio: number) =>
@@ -151,8 +160,15 @@ function MergeLoRATab() {
       </SectionCard>
 
       <SectionCard title="Available LoRAs">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Auto-listed from output/ — or browse to any folder.</p>
+          <Button variant="outline" size="sm" onClick={() => setBrowserOpen(true)} className="shrink-0">
+            <FolderOpen className="h-4 w-4 mr-1" /> Browse…
+          </Button>
+        </div>
+        {loadError && <p className="text-xs text-destructive">{loadError}</p>}
         {availableFiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No LoRA files found in output/</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No LoRA files in output/ — use Browse to add files.</p>
         ) : (
           <div className="grid md:grid-cols-2 gap-2 max-h-80 overflow-y-auto">
             {availableFiles.map(f => (
@@ -225,6 +241,14 @@ function MergeLoRATab() {
           <div>Merged {String((result as Record<string, unknown>).merged_count)} LoRAs · {String((result as Record<string, unknown>).file_size_mb)} MB</div>
         </SuccessBanner>
       )}
+
+      <FileBrowser
+        open={browserOpen}
+        onOpenChange={setBrowserOpen}
+        onSelect={addByPath}
+        mode="file"
+        title="Select LoRA file"
+      />
     </div>
   );
 }
@@ -241,6 +265,8 @@ function MergeCheckpointTab() {
   const [merging, setMerging] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -250,6 +276,7 @@ function MergeCheckpointTab() {
         if (res.success) setAvailableFiles(res.files);
       } catch (e) {
         console.error('Failed to load checkpoint files:', e);
+        setLoadError('Could not auto-list checkpoints from pretrained_model/. Use Browse to pick files from anywhere.');
       }
     };
     void load();
@@ -265,6 +292,11 @@ function MergeCheckpointTab() {
   const add = (f: LoRAFile) => {
     if (!selected.find(c => c.path === f.path))
       setSelected(prev => [...prev, { path: f.path, name: f.name, ratio: 1.0 }]);
+  };
+  const addByPath = (path: string) => {
+    const name = path.split(/[\\/]/).pop() || path;
+    if (!selected.find(c => c.path === path))
+      setSelected(prev => [...prev, { path, name, ratio: 1.0 }]);
   };
   const remove = (path: string) => setSelected(prev => prev.filter(c => c.path !== path));
   const setRatio = (path: string, ratio: number) =>
@@ -332,8 +364,15 @@ function MergeCheckpointTab() {
       </SectionCard>
 
       <SectionCard title="Available Checkpoints">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Auto-listed from pretrained_model/ — or browse to any folder.</p>
+          <Button variant="outline" size="sm" onClick={() => setBrowserOpen(true)} className="shrink-0">
+            <FolderOpen className="h-4 w-4 mr-1" /> Browse…
+          </Button>
+        </div>
+        {loadError && <p className="text-xs text-destructive">{loadError}</p>}
         {availableFiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No checkpoint files found in pretrained_model/</p>
+          <p className="text-sm text-muted-foreground text-center py-6">No checkpoint files in pretrained_model/ — use Browse to add files.</p>
         ) : (
           <div className="grid md:grid-cols-2 gap-2 max-h-80 overflow-y-auto">
             {availableFiles.map(f => (
@@ -407,6 +446,14 @@ function MergeCheckpointTab() {
           {unetOnly && <div className="text-amber-600 dark:text-amber-400">UNet-only merge: VAE and text encoder from first model</div>}
         </SuccessBanner>
       )}
+
+      <FileBrowser
+        open={browserOpen}
+        onOpenChange={setBrowserOpen}
+        onSelect={addByPath}
+        mode="file"
+        title="Select checkpoint file"
+      />
     </div>
   );
 }
@@ -422,6 +469,8 @@ function ResizeLoRATab() {
   const [resizing, setResizing] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -438,6 +487,7 @@ function ResizeLoRATab() {
         if (dimsRes.dimensions) setAvailableDims(dimsRes.dimensions);
       } catch (e) {
         console.error('Failed to load data:', e);
+        setLoadError('Could not auto-list LoRAs from output/. Use Browse to pick a file from anywhere.');
       }
     };
     void load();
@@ -467,7 +517,12 @@ function ResizeLoRATab() {
       <SectionCard title="Resize Configuration">
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs">Input LoRA file</Label>
+            <div className="flex items-center justify-between gap-3">
+              <Label className="text-xs">Input LoRA file</Label>
+              <Button variant="outline" size="sm" onClick={() => setBrowserOpen(true)} className="shrink-0 h-7">
+                <FolderOpen className="h-4 w-4 mr-1" /> Browse…
+              </Button>
+            </div>
             {availableFiles.length > 0 ? (
               <Select value={inputFile} onValueChange={setInputFile}>
                 <SelectTrigger className="text-xs font-mono"><SelectValue placeholder="Select a file…" /></SelectTrigger>
@@ -487,6 +542,7 @@ function ResizeLoRATab() {
                 className="text-xs font-mono"
               />
             )}
+            {loadError && <p className="text-xs text-destructive">{loadError}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -517,7 +573,7 @@ function ResizeLoRATab() {
         <div className="rounded-md border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-700 dark:text-blue-400 space-y-1">
           <p className="font-medium">How resizing works</p>
           <ul className="list-disc list-inside space-y-0.5">
-            <li>Uses Derrian's enhanced resize script or Kohya's standard script</li>
+            <li>Uses Derrian&apos;s enhanced resize script or Kohya&apos;s standard script</li>
             <li>Reduces file size while preserving quality</li>
             <li>Original file is not modified</li>
           </ul>
@@ -536,6 +592,14 @@ function ResizeLoRATab() {
           <div>Dimension: {String((result as Record<string, unknown>).new_dim)} / Alpha: {String((result as Record<string, unknown>).new_alpha)}</div>
         </SuccessBanner>
       )}
+
+      <FileBrowser
+        open={browserOpen}
+        onOpenChange={setBrowserOpen}
+        onSelect={setInputFile}
+        mode="file"
+        title="Select LoRA file to resize"
+      />
     </div>
   );
 }
