@@ -599,7 +599,7 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 ### Nice to Have (Beta+)
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
-| Per-image visual tag editor | New Feature | Large | ⏳ Not started |
+| Per-image visual tag editor | New Feature | Large | ✅ Done — it's the inline badge-chip editor (shipped 2026-05-25, §1); minor tweaks may follow. NOT a separate unstarted feature. |
 | Caption editor with search highlighting | Enhancement | Medium | ⏳ Not started |
 | Merge presets/templates | UX | Medium | ⏳ Not started |
 | Merge dry-run/preview mode | Feature | Medium | ⏳ Not started |
