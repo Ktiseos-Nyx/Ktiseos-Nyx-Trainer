@@ -1700,6 +1700,15 @@ New optimizers (SODA/MODA/AMUSE, AdamWScheduleFreePlus, nor_muon_schedulefree, O
 ### 20.6 Related — torchao is now installed upstream (cross-ref §4.4)
 67372a migrated installs pip→**uv** and added torchao via `--index-strategy unsafe-best-match` (2026-05-30) — upstream resolves torchao against the *installed* torch instead of a hard pin, which solves the version-coupling risk that argued against adding it standalone. **RESOLVED 2026-06-22:** with the submodule parked and patch-update chosen, torchao was added standalone as `torchao==0.7.0` in `requirements_base.txt` (see §4.4 Status) — cross-platform + torch-2.4.1-safe via the pure-Python `torchao.utils` path. The old "decide as part of the sync" framing is moot.
 
+### 20.7 uv for provisioning installs *(backlog, captured 2026-06-22)*
+**Goal:** use **uv** for **remote/cloud** dependency installs (provisioning), keep **pip the default on local with uv as an opt-in choice** — never force uv on local devs.
+
+- **Why remote:** uv installs are faster + parallel + cached → less GPU-rental time burned on the provisioning cascade (literal $ saved while the rented GPU idles during setup). Also matches 67372a's own pip→uv migration, and uv's resolver (`--index-strategy unsafe-best-match`) handles torch-coupled deps cleanly (the exact trick that resolves torchao against the *installed* torch).
+- **Why local = choice:** some local devs only have pip; mandating uv adds friction for no benefit. Document both paths; default pip.
+- **Zero conflict with current state:** uv reads our existing `requirements_*.txt` (`uv pip install -r ...`), so the `torchao==0.7.0` pin and all other pins work unchanged. Nothing to re-spec.
+- **Scope / risk:** touches the **fragile provisioning path** (`vastai_setup.sh`, `provision_runpod.sh` + `_dev`, installers) — so it gets its **own** scoping + a real container test, same discipline the parked submodule (§20.1–20.4) demanded. Don't bolt it onto unrelated changes. uv quirks to settle: venv vs `--system`, the cu121 torch extra-index under uv, ensuring the installer's torch-reinstall fallback still works.
+- **Status:** ⏳ **Backlog — not started.** Separate workstream from the torchao patch (which shipped on plain pip).
+
 ---
 
 ## Section 20 — AMD GPU Support (ZLUDA) — Research *(captured 2026-05-30)*
