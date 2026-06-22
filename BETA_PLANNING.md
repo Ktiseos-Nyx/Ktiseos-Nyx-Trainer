@@ -601,11 +601,11 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 |---------|----------|--------|--------|
 | Per-image visual tag editor | New Feature | Large | ✅ Done — it's the inline badge-chip editor (shipped 2026-05-25, §1); minor tweaks may follow. NOT a separate unstarted feature. |
 | Caption editor with search highlighting | Enhancement | Small | 🟡 Partial — **tag** editing is the chip editor (§1, done). Natural-language **captions** (BLIP/GIT) don't fit chips → current fallback is the text editor. **Fix: add a caption/textarea *mode toggle* to the existing `tags/page.tsx`** (same .txt file, chips ↔ textarea+search-highlight view) — NOT a new page. Per the "extend existing surfaces, don't spawn a page per feature" preference. Smaller than the old "Medium" implied. |
-| Merge presets/templates | UX | Medium | ⏳ Not started |
+| Merge presets/templates | UX | Medium | ⏳ Not started — **sequenced after** the core SuperMerger work (MG-* block-weight merging) is sorted; presets sit on top of that. |
 | Merge dry-run/preview mode | Feature | Medium | ⏳ Not started |
-| EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small | ⏳ Not started |
-| Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) | ⏳ Not started |
-| Batch Downloader (BD-1) | New Feature | Medium | ⏳ Not started |
+| EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small | ⏳ Not started — deferred ("too hard in the moment, soon"). Niche/edge-case but **wanted** — important to *allow* it (bleeding-edge philosophy). Port of Jelosus2's SDXL-only EQ-VAE / reflection-padding patch our vendored backend lacks. |
+| Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) | ⏳ Not started — **feasibility is a CODE question**: Jelosus2's patch is SDXL-specific; whether it ports to Anima's VAE path (AuraFlow/Qwen autoencoder) must be checked in the Anima VAE code first before scoping. |
+| Batch Downloader (BD-1) | New Feature | Medium | ⏳ Not started — **= the batchlinks tool (§6.5)**. Same item; see §6.5 for the full spec. |
 | Training monitor tqdm ETA parsing (UI-5) | Enhancement | Small | ⏳ Not started |
 
 ---
