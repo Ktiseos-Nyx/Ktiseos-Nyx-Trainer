@@ -67,6 +67,32 @@ def _model_input_dirs() -> list[Path]:
     return [OUTPUT_DIR, MODELS_DIR, *_comfyui_model_dirs().values()]
 
 
+def _validate_model_input(user_path: str) -> Path:
+    """
+    Validate a merge/resize *input* path against the allowed model dirs, tolerating
+    symlinks that physically live inside a model dir.
+
+    Why: LoRA Manager downloads checkpoints into symlinked subfolders that point at
+    its own library, outside ``ComfyUI/models/checkpoints``. ``validate_path_within``
+    calls ``.resolve()`` (follows the symlink) and would reject the off-tree target,
+    so those models were unselectable. Here we check the path's *physical* location
+    (``abspath`` collapses ``..`` but does NOT follow symlinks), so a model the user
+    placed under a model dir is accepted regardless of where the symlink points.
+
+    Security: this is a single-user, local tool — the only symlinks here are ones the
+    user created in their own model library, so trusting them is acceptable. ``..``
+    traversal is still blocked (abspath normalises it). Falls back to the strict
+    resolved check for non-symlinked absolute paths. Output paths are NOT validated
+    with this — they stay strict via ``validate_path_within``.
+    """
+    phys = Path(os.path.abspath(user_path))
+    for d in _model_input_dirs():
+        base = Path(os.path.abspath(str(d)))
+        if phys == base or phys.is_relative_to(base):
+            return phys
+    return validate_path_within(user_path, _model_input_dirs())
+
+
 # ========== Calculator Endpoints (Kept from original) ==========
 
 class CalculatorRequest(BaseModel):
@@ -272,31 +298,41 @@ async def list_lora_files(request: ListLoraFilesRequest):
 
         # Security: confine to trainer output/pretrained_model or ComfyUI model dirs
         try:
-            directory = validate_path_within(str(directory), _model_input_dirs())
+            directory = _validate_model_input(str(directory))
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Create directory if it doesn't exist
         directory.mkdir(parents=True, exist_ok=True)
 
-        # Find files recursively (supports comma-separated extensions like "safetensors,ckpt")
-        extensions = [ext.strip() for ext in request.file_extension.split(",")]
+        # Walk the whole tree, following symlinked subdirs (LoRA Manager symlinks its
+        # download folders in — plain rglob skips them). Supports comma-separated
+        # extensions like "safetensors,ckpt".
+        suffixes = tuple(f".{ext.strip().lower()}" for ext in request.file_extension.split(","))
         files = []
         seen = set()
 
-        for ext in extensions:
-            for file_path in directory.rglob(f"*.{ext}"):
-                if file_path.is_file() and str(file_path) not in seen:
-                    seen.add(str(file_path))
-                    stat = file_path.stat()
-                    size_mb = round(stat.st_size / (1024 * 1024), 2)
-                    files.append({
-                        "name": file_path.name,
-                        "path": str(file_path),
-                        "size_mb": size_mb,
-                        "size_formatted": f"{size_mb:.1f} MB",
-                        "modified": stat.st_mtime
-                    })
+        for root, _dirs, filenames in os.walk(directory, followlinks=True):
+            for fn in filenames:
+                if not fn.lower().endswith(suffixes):
+                    continue
+                file_path = Path(root) / fn
+                key = str(file_path)
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    stat = file_path.stat()  # follows symlink; skips broken links
+                except OSError:
+                    continue
+                size_mb = round(stat.st_size / (1024 * 1024), 2)
+                files.append({
+                    "name": file_path.name,
+                    "path": key,
+                    "size_mb": size_mb,
+                    "size_formatted": f"{size_mb:.1f} MB",
+                    "modified": stat.st_mtime
+                })
 
         # Sort files
         if request.sort_by == "date":
@@ -329,7 +365,7 @@ async def resize_lora(request: LoRAResizeRequest):
     try:
         # Security: input from any model dir; output always to output/
         try:
-            validate_path_within(request.input_path, _model_input_dirs())
+            _validate_model_input(request.input_path)
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
@@ -384,7 +420,7 @@ async def merge_lora(request: LoRAMergeRequest):
         # Security: inputs from any model dir; output always to output/
         try:
             for lora in request.lora_inputs:
-                validate_path_within(lora["path"], _model_input_dirs())
+                _validate_model_input(lora["path"])
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
@@ -445,9 +481,9 @@ async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
     try:
         # Security: base + LoRA inputs from any model dir; output always to output/
         try:
-            validate_path_within(request.base_model_path, _model_input_dirs())
+            _validate_model_input(request.base_model_path)
             for lora in request.lora_inputs:
-                validate_path_within(lora["path"], _model_input_dirs())
+                _validate_model_input(lora["path"])
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
@@ -508,7 +544,7 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
         # Security: inputs from any model dir (incl. ComfyUI); output always to output/
         try:
             for cp in request.checkpoint_inputs:
-                validate_path_within(cp["path"], _model_input_dirs())
+                _validate_model_input(cp["path"])
             validate_path_within(request.output_path, [OUTPUT_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
