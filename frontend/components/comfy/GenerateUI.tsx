@@ -69,7 +69,7 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const animaWorkflow = require('@/lib/comfy/templates/workflows/anima-guy90s-v10.json');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const sdxlWorkflow = require('@/lib/comfy/templates/workflows/sdxl-knx-v1.json');
+const sdxlWorkflow = require('@/lib/comfy/templates/workflows/sdxl-knx-v13pt5.json');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -415,7 +415,10 @@ export function GenerateUI({
   // ── Post-processing toggles (SDXL KNX only)
   const [upscaleEnabled, setUpscaleEnabled] = useState(true);
   const [adetailerEnabled, setAdetailerEnabled] = useState(true);
-  const [adetailerModel, setAdetailerModel] = useState('');
+  const [adetailerModel, setAdetailerModel] = useState(''); // face detector (node 77)
+  const [eyeDetailerModel, setEyeDetailerModel] = useState(''); // eye detector (node 130)
+  const [handDetailerModel, setHandDetailerModel] = useState(''); // hand detector (node 146)
+  const [mouthDetailerModel, setMouthDetailerModel] = useState(''); // mouth detector (node 152)
   const [samModel, setSamModel] = useState('');
 
   // ── LoRA stack (converted to LoRA Manager text format at submit time)
@@ -510,6 +513,9 @@ export function GenerateUI({
           upscaleEnabled,
           adetailerEnabled,
           adetailerModel: adetailerModel.trim() || undefined,
+          eyeDetailerModel: eyeDetailerModel.trim() || undefined,
+          handDetailerModel: handDetailerModel.trim() || undefined,
+          mouthDetailerModel: mouthDetailerModel.trim() || undefined,
           samModel: samModel.trim() || undefined,
         });
         const { apiPrompt, workflow } = injectTemplate(sdxlWorkflow, patch, { bypassNodeIds });
@@ -553,7 +559,7 @@ export function GenerateUI({
     positivePrompt, negativePrompt,
     steps, cfg, sampler, scheduler, seed,
     width, height, batchSize, queueCount, loras,
-    upscaleEnabled, adetailerEnabled, adetailerModel, samModel,
+    upscaleEnabled, adetailerEnabled, adetailerModel, eyeDetailerModel, handDetailerModel, mouthDetailerModel, samModel,
     submitPrompt,
   ]);
 
@@ -845,7 +851,7 @@ export function GenerateUI({
                     <div className="space-y-2">
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">
-                          Detector model{' '}
+                          Face detector{' '}
                           <span className="text-muted-foreground/60">(optional)</span>
                         </Label>
                         <ModelPicker
@@ -856,8 +862,50 @@ export function GenerateUI({
                           placeholder="bbox/face_yolov8m.pt"
                           onRefresh={models.refresh}
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Eye detector{' '}
+                          <span className="text-muted-foreground/60">(optional)</span>
+                        </Label>
+                        <ModelPicker
+                          value={eyeDetailerModel}
+                          onChange={setEyeDetailerModel}
+                          models={models.ultralyticsModels}
+                          loading={models.loading}
+                          placeholder="segm/Anzhc Eyes -seg-hd.pt"
+                          onRefresh={models.refresh}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Hand detector{' '}
+                          <span className="text-muted-foreground/60">(optional)</span>
+                        </Label>
+                        <ModelPicker
+                          value={handDetailerModel}
+                          onChange={setHandDetailerModel}
+                          models={models.ultralyticsModels}
+                          loading={models.loading}
+                          placeholder="segm/PitHandDetailer-v1b-seg.pt"
+                          onRefresh={models.refresh}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Mouth detector{' '}
+                          <span className="text-muted-foreground/60">(optional)</span>
+                        </Label>
+                        <ModelPicker
+                          value={mouthDetailerModel}
+                          onChange={setMouthDetailerModel}
+                          models={models.ultralyticsModels}
+                          loading={models.loading}
+                          placeholder="bbox/adetailer2dMouth_v10.pt"
+                          onRefresh={models.refresh}
+                        />
                         <FieldHint>
-                          Install via Impact Pack manager or place in <code className="font-mono text-[10px]">ComfyUI/models/ultralytics/bbox/</code> or <code className="font-mono text-[10px]">segm/</code>
+                          Each detailer is optional — leave blank to keep the workflow default. Install detectors via Impact Pack manager or place in <code className="font-mono text-[10px]">ComfyUI/models/ultralytics/bbox/</code> or <code className="font-mono text-[10px]">segm/</code>
                         </FieldHint>
                       </div>
                       <div className="space-y-1">
