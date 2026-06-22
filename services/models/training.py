@@ -64,6 +64,10 @@ class OptimizerType(str, Enum):
     COMPASS = "Compass"
     LPFADAMW = "LPFAdamW"
     RMSPROP = "RMSProp"
+    # New custom optimizers (vendored LoraEasyCustomOptimizer, synced from 67372a 2026-06-22)
+    AMUSE = "AMUSE"
+    MODA = "MODA"
+    SODA = "SODA"
     # Schedule-free optimizers (schedulefree package)
     ADAMW_SCHEDULE_FREE = "AdamWScheduleFree"
     SGD_SCHEDULE_FREE = "SGDScheduleFree"

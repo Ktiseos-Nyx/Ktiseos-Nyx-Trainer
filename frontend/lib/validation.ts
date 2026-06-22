@@ -24,9 +24,12 @@ export const LoRATypeSchema = z.enum([
 });
 
 /**
- * Optimizer values — single source of truth.
- * Both the Zod schema and the UI dropdown derive from this tuple.
- * Adding an optimizer here is the only change needed.
+ * Optimizer values — the Zod schema's allowed set + the type for dropdown values.
+ * NOTE: the dropdown in OptimizerCard.tsx is a hardcoded option list (with labels +
+ * descriptions), constrained to these values via `satisfies` but NOT auto-generated
+ * from them. Adding an optimizer means editing BOTH: add the value here, then add the
+ * { value, label, description } entry in OptimizerCard.tsx. Backend also needs the
+ * OptimizerType enum + CUSTOM_OPTIMIZER_PATHS entries.
  */
 export const OPTIMIZER_VALUES = [
   'AdamW',
@@ -46,6 +49,9 @@ export const OPTIMIZER_VALUES = [
   'Compass',
   'LPFAdamW',
   'RMSProp',
+  'AMUSE',
+  'MODA',
+  'SODA',
   'AdamWScheduleFree',
   'SGDScheduleFree',
   'RAdamScheduleFree',

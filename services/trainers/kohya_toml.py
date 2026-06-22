@@ -298,6 +298,10 @@ class KohyaTOMLGenerator:
         "Compass": "LoraEasyCustomOptimizer.compass.Compass",
         "LPFAdamW": "LoraEasyCustomOptimizer.lpfadamw.LPFAdamW",
         "RMSProp": "LoraEasyCustomOptimizer.rmsprop.RMSProp",
+        # New custom optimizers (vendored, synced from 67372a 2026-06-22)
+        "AMUSE": "LoraEasyCustomOptimizer.amuse.AMUSE",
+        "MODA": "LoraEasyCustomOptimizer.moda.MODA",
+        "SODA": "LoraEasyCustomOptimizer.soda.SODA",
         # Schedule-free optimizers (schedulefree package)
         "AdamWScheduleFree": "schedulefree.AdamWScheduleFree",
         "SGDScheduleFree": "schedulefree.SGDScheduleFree",
