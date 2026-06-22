@@ -854,8 +854,8 @@ The goal is a healthy, interconnected set of tools running on the same VastAI/Ru
 
 **🧭 North star (Dusk, 2026-06-22):** *Re-make what made A1111/Forge easy, on top of ComfyUI.* ComfyUI is the right **engine** (graph-as-JSON + API-first is what makes our programmatic template injection / BYO-template possible — Forge couldn't host that); its cost is the lost OOTB ergonomics. So the Generate-UI roadmap is **rebuilding Forge/A1111 comfort as a layer on top of ComfyUI**, not switching back. Every Generate-side feature (detailer dropdowns, batchlinks §6.5, future selection rework) gets one test: *does this make it feel more Forge-easy?* Incremental ergonomic bricks are encouraged (don't over-defer waiting for a grand "rethink"); the bigger rethink = workflow-dependent / BYO-template selection, tracked separately.
 
-**Priority:** Beta+ (after core beta bugs closed)  
-**Status:** Architecture finalised 2026-05-20. **Shipping decision: all-in-one.**
+**Priority:** ~~Beta+ (after core beta bugs closed)~~ — **superseded: it's BUILT.** No longer a future/post-beta item.  
+**Status:** ✅ **IMPLEMENTED & shipping (as of 2026-06-22).** Generate UI is live, bundled all-in-one: ANIMA + SDXL templates, model/VAE/LoRA dropdowns, LoRA Manager loader integration, 4-detailer Adetailer chains with per-detailer model pickers, UltimateSDUpscale. COMFY-1..4 shipped 2026-05-23; architecture finalised 2026-05-20. Now in **active Forge-ergonomic improvement** per the north star above — NOT "post-beta, not built." Remaining work is incremental (batchlinks §6.5, the selection rework) and tracked individually, not a release blocker.
 **Source:** v0-generated template, repo at `duskfallcrew/KNX-ComfyUI`, used as reference — not dropped in wholesale. Code lives in the main trainer repo.
 
 #### Shipping decision (2026-05-09)
@@ -873,7 +873,9 @@ ComfyUI tab ships **bundled in the main app**. No install flag, no optional clon
 - Settings page has a "ComfyUI URL" field (default: `http://localhost:8188`) so users who already have ComfyUI running somewhere can point the app at it — no re-install needed
 - Connection status badge on the tab so it's obvious at a glance whether it's live
 
-#### ComfyUI backend: submodule (2026-05-20)
+#### ComfyUI backend: submodule (2026-05-20) — ⚠️ SUPERSEDED by COMFY-8 (direct clone everywhere, decided 2026-05-23)
+
+> **Stale — kept for history only. ComfyUI is NOT a submodule;** it's direct-cloned by all install paths (see COMFY-8). The text below reflects the abandoned submodule plan.
 
 ComfyUI the Python backend ships as a **git submodule** in the trainer repo. It runs co-located on `localhost:8188` — always same machine, no SSH, no remote ComfyUI. Multi-GPU / remote-ComfyUI is explicitly future scope.
 
@@ -895,7 +897,7 @@ We wrap ComfyUI's API — we do not re-implement node logic. Source of truth is 
 **Architecture switcher (ANIMA ↔ SDXL):**
 - Switcher in the UI header swaps which template is loaded — same resizable-panel UI, different workflow JSON + node map underneath
 - ANIMA template is first (reference: `guy90sVerySimpleAndEasyTo_v10.json`, tested and verified 2026-05-19 — AuraFlow model sampling node, UNET/CLIP/VAE separate loaders, KSampler, Adetailer, Ultimate SD Upscale)
-- SDXL template is the second built-in; in progress, not blocking ANIMA shipping
+- SDXL template — ✅ **shipped** (`sdxl-knx-v13pt5.json`: 4-detailer chains face/eye/hand/mouth, per-detailer model dropdowns, detailer denoise tuned 0.05→0.35 on 2026-06-22). The earlier "in progress" is done.
 
 **Extension model:**
 - Community contributions come in two forms: **workflow templates** (new architecture support) and **node packages** (new node type → UI control bindings)
