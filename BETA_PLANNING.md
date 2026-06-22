@@ -600,7 +600,7 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
 | Per-image visual tag editor | New Feature | Large | ✅ Done — it's the inline badge-chip editor (shipped 2026-05-25, §1); minor tweaks may follow. NOT a separate unstarted feature. |
-| Caption editor with search highlighting | Enhancement | Medium | 🟡 Partial — **tag** editing is the chip editor (§1, done). But chips don't suit natural-language **captions** (BLIP/GIT) — current answer is "use the text editor for now," so a proper caption textarea (+ search highlighting) is still a real (smaller) enhancement. |
+| Caption editor with search highlighting | Enhancement | Small | 🟡 Partial — **tag** editing is the chip editor (§1, done). Natural-language **captions** (BLIP/GIT) don't fit chips → current fallback is the text editor. **Fix: add a caption/textarea *mode toggle* to the existing `tags/page.tsx`** (same .txt file, chips ↔ textarea+search-highlight view) — NOT a new page. Per the "extend existing surfaces, don't spawn a page per feature" preference. Smaller than the old "Medium" implied. |
 | Merge presets/templates | UX | Medium | ⏳ Not started |
 | Merge dry-run/preview mode | Feature | Medium | ⏳ Not started |
 | EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small | ⏳ Not started |
