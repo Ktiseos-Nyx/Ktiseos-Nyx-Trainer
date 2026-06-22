@@ -1637,6 +1637,18 @@ Florence-2 requires `flash_attn` for best performance but falls back cleanly to 
 - The hand-built `components/effects/*` (and `components/BorderGlow.jsx`) are confirmed duplicates of installed shadcn/registry components (`shiny-button`, `shine-border`, `hover-border-gradient`, `rainbow-button`, `backlight`, `spotlightcard`, …). Retiring them is already tracked as the "Custom → shadcn audit" row in §14.6.
 - Root cause of the duplication (per §14.6): components were built custom early, before knowing what shadcn/the installed registries already provided. Rule going forward: use the installed component; only hand-build when nothing installed/installable fits.
 
+### 18.3 Handoff & delegation discipline *(2026-06-22)*
+
+Work hands off cleanly to **anyone** — DeepSeek (≈ peer-tier LLM, run via **opencode** in the same terminal, no PowerShell friction), a future human coder, or a cold-started Claude — **when the context is externalized**, not held in one session's head. Capability was never the gate (framing DeepSeek as "limited to safe scraps" is bias, not analysis). The two tools that externalize context are ones we already use:
+- **Docstrings as we go** (never a deferred pass) — the local "what/why" context.
+- **BETA_PLANNING context** — the cross-system "how it fits / why it's sequenced this way" context.
+
+**Honest current gap:** it's NOT all externalized yet ("hand this to someone tomorrow and they'd get lost"). So *keeping docstring + planning coverage current IS the delegation enabler* — and it serves DeepSeek, future humans, and cold-Claude identically. You never hand anything off cold to any coder; you hand off the context with it.
+
+**The one real gate — about *verifiability*, not who's coding:** silent breakage that needs a GPU / ground-truth to confirm — training correctness, optimizer dispatch (schedule-free train/eval), ComfyUI runtime behavior. DeepSeek can absolutely *write* these; they just need **Dusk-verified before merge** (a verification step, not a capability wall). Hand ComfyUI work its ground truth (`tools/dump-workflow.js`) up front so it's not guessing the graph.
+
+**Pre-PR review = mutual peer review** (DeepSeek ↔ Claude) before Dusk's PR mode + CodeRabbit. Two independent LLM passes over a diff catch more than one — neither is the "junior."
+
 ---
 
 ## Section 19 — Repository Root Organization
