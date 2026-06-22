@@ -615,7 +615,8 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 **Issue BD-1: Model sourcing is fragile and region-dependent**
 - **Priority:** Beta+ (nice to have, but solves a real accessibility problem)
 - **Status:** Not started
-- **Motivation:** Civitai's API geoblocks certain regions (UK datacenter IPs get 451'd due to UK Online Safety Act compliance). Users shouldn't need a working Civitai API to download models — they should be able to paste any link and have it work.
+- **Motivation (1 — accessibility):** Civitai's API geoblocks certain regions (UK datacenter IPs get 451'd due to UK Online Safety Act compliance). Users shouldn't need a working Civitai API to download models — they should be able to paste any link and have it work.
+- **Motivation (2 — escape LM's download UX, added 2026-06-22):** LoRA Manager's built-in download/manage flow is clunky and over-coupled to "how Civitai works" (Dusk: "the worst thing ComfyUI could've slapped in"). Batchlinks should **take over *downloading*** (paste any link, our routing) while **LM stays purely the *loader/browser*** (Dusk firmly keeps the `Lora Loader (LoraManager)` node — see §11). Coexistence hinge: after batchlinks writes a gen model into the ComfyUI folder, **trigger an LM rescan via its API** so the LM loader node sees it (same "force rescan" fix §802 found for HF-downloaded-checkpoint 400s). Net: delete LM's download flow from the user's life without losing LM's loading.
 
 ### Concept
 
@@ -650,6 +651,7 @@ Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag s
 - aria2c already present on instances — no new provisioning needed
 - gdown may need `pip install gdown` added to requirements
 - No torrent tracker/indexer integration — users provide their own links. Completely neutral technology.
+- **LM coexistence (per Motivation 2):** for gen-model destinations (`#lora`/`#checkpoint`/`#vae` → ComfyUI folders), after the download completes, call LoRA Manager's rescan/refresh API so the new file is indexed and selectable in the `Lora Loader (LoraManager)` node without a manual ComfyUI restart. Confirm LM's actual rescan endpoint before wiring (ask-don't-assume — check while LM is running). Trainer-model destinations (`#dataset`/training output) don't touch LM.
 
 ---
 
