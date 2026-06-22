@@ -415,6 +415,14 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 **🟡 LT-OPT-2: Schedule-free scheduler default (optional, low priority)**
 - Schedule-free optimizers self-schedule and want a `constant` LR scheduler; the frontend default is `cosine_with_restarts` with no smart default. **Per the bleeding-edge/anti-bias rule (LT-7, LT-5): a smart *default* when an SF optimizer is selected is acceptable; a *warning/block* is not.** Also note `flux_train_network.md:580` — validation loss is unsupported with SF optimizers, so that UI combo silently no-ops. Low priority; smart-default only, never a nag.
 
+**🟢 LT-OPT-3: Auto-populate optimizer dropdown from a single source (low priority, Dusk 2026-06-22)**
+- Today adding an optimizer is a TWO-file edit: `OPTIMIZER_VALUES` (`validation.ts`) for the schema/type, AND the hardcoded `{ value, label, description }` list in `OptimizerCard.tsx` (constrained via `satisfies` but not generated). The "only change needed" comment was doc-rot — fixed 2026-06-22.
+- **Refactor:** make `OPTIMIZER_VALUES` an array of `{ value, label, description }` objects; derive the Zod enum (`z.enum(values.map(v => v.value))`) AND the dropdown from it. Not free because the labels/descriptions carry real UX value and must relocate, not vanish. Clean afternoon job, behind trainer correctness.
+
+**🟡 LT-OPT-4: Wire the 3 deferred schedule-free/wrapper optimizers (Dusk 2026-06-22)**
+- `AdamWScheduleFreePlus`, `NorMuonScheduleFree`, `SODAWrapper` were pulled from 67372a + staged in-tree (commit `f479989`) but NOT exposed. (`AMUSE`/`MODA`/`SODA` — standard — shipped exposed in `2e7a156`.)
+- **The dispatch problem:** kohya detects schedule-free by name → routes to the external `schedulefree` package (`train_util.py:5454`); `NorMuonScheduleFree`'s name would misroute, and SF opts need the `optimizer_eval_fn()`/`optimizer_train_fn()` train/eval toggle that native SF gets (see §4.5 line re: `train_network.py` save/sample eval calls) — custom-path resolution may not provide it → saved weights would be the wrong train-mode iterate. Verify/handle that toggle for custom-path SF before exposing, or they train silently wrong. `SODAWrapper` purpose still unconfirmed (possibly SF too).
+
 ---
 
 ## 5. Miscellaneous Bug Fixes for Beta
