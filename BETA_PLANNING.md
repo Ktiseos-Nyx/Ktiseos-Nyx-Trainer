@@ -852,6 +852,8 @@ The goal is a healthy, interconnected set of tools running on the same VastAI/Ru
 
 ### 11.1 ComfyUI Frontend Integration
 
+**🧭 North star (Dusk, 2026-06-22):** *Re-make what made A1111/Forge easy, on top of ComfyUI.* ComfyUI is the right **engine** (graph-as-JSON + API-first is what makes our programmatic template injection / BYO-template possible — Forge couldn't host that); its cost is the lost OOTB ergonomics. So the Generate-UI roadmap is **rebuilding Forge/A1111 comfort as a layer on top of ComfyUI**, not switching back. Every Generate-side feature (detailer dropdowns, batchlinks §6.5, future selection rework) gets one test: *does this make it feel more Forge-easy?* Incremental ergonomic bricks are encouraged (don't over-defer waiting for a grand "rethink"); the bigger rethink = workflow-dependent / BYO-template selection, tracked separately.
+
 **Priority:** Beta+ (after core beta bugs closed)  
 **Status:** Architecture finalised 2026-05-20. **Shipping decision: all-in-one.**
 **Source:** v0-generated template, repo at `duskfallcrew/KNX-ComfyUI`, used as reference — not dropped in wholesale. Code lives in the main trainer repo.
