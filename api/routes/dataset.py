@@ -10,6 +10,11 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, File, UploadFile, Form
 from pydantic import BaseModel
 
+
+class DeleteImageRequest(BaseModel):
+    dataset_path: str
+    image_name: str
+
 # Import new services
 from services import dataset_service, tagging_service, caption_service
 from services.core.exceptions import NotFoundError, ValidationError as ServiceValidationError
@@ -653,6 +658,38 @@ async def download_from_url(request: DownloadUrlRequest):
 # Use: ws://host/ws/jobs/{job_id}/status for tagging status updates
 
 # ========== IMAGE SERVING (The Fix) ==========
+
+@router.post("/delete-image")
+async def delete_dataset_image(request: DeleteImageRequest):
+    """Delete an image and its companion .txt caption from a dataset"""
+    try:
+        from services.core.validation import validate_dataset_path, ALLOWED_IMAGE_EXTENSIONS
+
+        dataset_dir = validate_dataset_path(request.dataset_path)
+        safe_filename = Path(request.image_name).name
+
+        # Only allow deleting valid image types
+        ext = Path(safe_filename).suffix.lower()
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"Invalid image type: {ext}")
+
+        img_path = dataset_dir / safe_filename
+        caption_path = img_path.with_suffix('.txt')
+
+        if not img_path.exists():
+            raise HTTPException(status_code=404, detail=f"Image not found: {safe_filename}")
+
+        img_path.unlink()
+        if caption_path.exists():
+            caption_path.unlink()
+
+        return {"success": True, "deleted": safe_filename}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to delete image: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/serve/{dataset_name}/{filename}")
 async def serve_dataset_image(dataset_name: str, filename: str):

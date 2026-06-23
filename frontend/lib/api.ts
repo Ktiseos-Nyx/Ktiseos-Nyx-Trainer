@@ -424,6 +424,15 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  deleteImage: async (datasetPath: string, imageName: string): Promise<{ success: boolean }> => {
+    const response = await fetch(`${API_BASE}/dataset/delete-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataset_path: datasetPath, image_name: imageName }),
+    });
+    return handleResponse(response);
+  },
+
   updateTags: async (imagePath: string, tags: string[]) => {
     const response = await fetch(`${API_BASE}/dataset/update-tags`, {
       method: 'POST',

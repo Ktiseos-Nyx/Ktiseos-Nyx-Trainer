@@ -1,34 +1,55 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
-import { utilitiesAPI, LoRAFile } from '@/lib/api';
+import { useEffect, FormEvent } from 'react';
+import { utilitiesAPI, type LoRAFile } from '@/lib/api';
 import { Upload, FolderOpen, CheckCircle, XCircle, Loader2, Minimize2, Home } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useHuggingFaceUploadStore } from '@/stores/huggingface-upload';
 
 const STORAGE_KEY_OWNER = 'hf_upload_owner';
 const STORAGE_KEY_REPO_TYPE = 'hf_upload_repo_type';
 
 export default function HuggingFaceUploadPage() {
-  const [uploadType, setUploadType] = useState<'lora' | 'dataset'>('lora');
-  const [hfToken, setHfToken] = useState('');
-  const [owner, setOwner] = useState('');
-  const [repoName, setRepoName] = useState('');
-  const [repoType, setRepoType] = useState('model');
-  const [remoteFolder, setRemoteFolder] = useState('');
-  const [commitMessage, setCommitMessage] = useState('Upload via Ktiseos-Nyx-Trainer 🤗');
-  const [createPR, setCreatePR] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [availableFiles, setAvailableFiles] = useState<LoRAFile[]>([]);
-  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
-  const [useStoredToken, setUseStoredToken] = useState(false);
-  const [savingToken, setSavingToken] = useState(false);
-  const [tokenSaved, setTokenSaved] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [datasetDirectory, setDatasetDirectory] = useState('');
+  const uploadType = useHuggingFaceUploadStore((s) => s.uploadType);
+  const hfToken = useHuggingFaceUploadStore((s) => s.hfToken);
+  const owner = useHuggingFaceUploadStore((s) => s.owner);
+  const repoName = useHuggingFaceUploadStore((s) => s.repoName);
+  const repoType = useHuggingFaceUploadStore((s) => s.repoType);
+  const remoteFolder = useHuggingFaceUploadStore((s) => s.remoteFolder);
+  const commitMessage = useHuggingFaceUploadStore((s) => s.commitMessage);
+  const createPR = useHuggingFaceUploadStore((s) => s.createPR);
+  const selectedFiles = useHuggingFaceUploadStore((s) => s.selectedFiles);
+  const availableFiles = useHuggingFaceUploadStore((s) => s.availableFiles);
+  const datasetDirectory = useHuggingFaceUploadStore((s) => s.datasetDirectory);
+  const tokenValid = useHuggingFaceUploadStore((s) => s.tokenValid);
+  const useStoredToken = useHuggingFaceUploadStore((s) => s.useStoredToken);
+  const savingToken = useHuggingFaceUploadStore((s) => s.savingToken);
+  const tokenSaved = useHuggingFaceUploadStore((s) => s.tokenSaved);
+  const uploading = useHuggingFaceUploadStore((s) => s.uploading);
+  const uploadResult = useHuggingFaceUploadStore((s) => s.uploadResult);
+  const error = useHuggingFaceUploadStore((s) => s.error);
+
+  const setUploadType = useHuggingFaceUploadStore((s) => s.setUploadType);
+  const setHfToken = useHuggingFaceUploadStore((s) => s.setHfToken);
+  const setOwner = useHuggingFaceUploadStore((s) => s.setOwner);
+  const setRepoName = useHuggingFaceUploadStore((s) => s.setRepoName);
+  const setRepoType = useHuggingFaceUploadStore((s) => s.setRepoType);
+  const setRemoteFolder = useHuggingFaceUploadStore((s) => s.setRemoteFolder);
+  const setCommitMessage = useHuggingFaceUploadStore((s) => s.setCommitMessage);
+  const setCreatePR = useHuggingFaceUploadStore((s) => s.setCreatePR);
+  const setSelectedFiles = useHuggingFaceUploadStore((s) => s.setSelectedFiles);
+  const setAvailableFiles = useHuggingFaceUploadStore((s) => s.setAvailableFiles);
+  const setDatasetDirectory = useHuggingFaceUploadStore((s) => s.setDatasetDirectory);
+  const setTokenValid = useHuggingFaceUploadStore((s) => s.setTokenValid);
+  const setUseStoredToken = useHuggingFaceUploadStore((s) => s.setUseStoredToken);
+  const setSavingToken = useHuggingFaceUploadStore((s) => s.setSavingToken);
+  const setTokenSaved = useHuggingFaceUploadStore((s) => s.setTokenSaved);
+  const setUploading = useHuggingFaceUploadStore((s) => s.setUploading);
+  const setUploadResult = useHuggingFaceUploadStore((s) => s.setUploadResult);
+  const setError = useHuggingFaceUploadStore((s) => s.setError);
+  const toggleFileSelection = useHuggingFaceUploadStore((s) => s.toggleFileSelection);
 
   // Pre-fill token from saved settings and owner/repoType from localStorage
   useEffect(() => {
@@ -45,7 +66,7 @@ export default function HuggingFaceUploadPage() {
         }
       })
       .catch(() => {}); // silently ignore if settings unavailable
-  }, []);
+  }, [setOwner, setRepoType, setUseStoredToken]);
 
   // Load available files based on upload type
   useEffect(() => {
@@ -73,7 +94,7 @@ export default function HuggingFaceUploadPage() {
     };
     loadFiles();
     setSelectedFiles([]); // Clear selections when switching type
-  }, [uploadType]);
+  }, [uploadType, setDatasetDirectory, setAvailableFiles, setSelectedFiles]);
 
   // Persist owner and repoType across navigations
   useEffect(() => { localStorage.setItem(STORAGE_KEY_OWNER, owner); }, [owner]);
@@ -151,14 +172,6 @@ export default function HuggingFaceUploadPage() {
     } finally {
       setUploading(false);
     }
-  };
-
-  const toggleFileSelection = (filePath: string) => {
-    setSelectedFiles((prev) =>
-      prev.includes(filePath)
-        ? prev.filter((f) => f !== filePath)
-        : [...prev, filePath]
-    );
   };
 
   return (
