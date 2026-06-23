@@ -256,6 +256,18 @@ Both LoRA and Checkpoint merging are implemented:
 - **Verify gate:** merge-correctness — every layer needs a real GPU merge + generation check (Dusk) before "done"; cross-check block mapping against a known SuperMerger result.
 - **Status:** 🔧 Phase 1 done (block weights removed from LoRA flows, `ae0e922`). Foundation build = next.
 
+**🔴🔴 BUG MG-12 — EXTREMELY IMPORTANT (flagged 2026-06-24): Merge Checkpoints tab doesn't list ComfyUI checkpoints**
+- **Symptom:** Merge Checkpoints shows only `pretrained_model/` models, NOT the ComfyUI checkpoints — even though they exist on disk and the page throws no error.
+- **Established — DO NOT re-derive (Claude burned a session on wrong theories):** the ComfyUI checkpoints folder is HEALTHY. `ls -la {ComfyUI}/models/checkpoints/` showed a normal dir with 4 real checkpoints (`T3RR4KNXN30NSKRUNKLE_v05`, `naiComicsNAIXL_v10`, `ultraComix_v20`, `virtualDiffusion_v20`) + the `put_checkpoints_here` placeholder. **NOT a symlink, not missing, not a perms issue.** `/api/utilities/directories` returns JSON with no error. The "Jupyter can't open the folder" symptom is a SEPARATE Jupyter-sandbox quirk — IRRELEVANT (the merge tab uses the FastAPI backend, not Jupyter). The symlink / `is_dir()` / broken-FS / cwd theories were all WRONG.
+- **TWO facts needed to localize — GET THESE FIRST, do not theorize without them:**
+  1. Does the `/api/utilities/directories` JSON contain a `comfyui_checkpoints` key (and what path)?
+  2. Do the 4 checkpoints actually render in the Merge Checkpoints UI list?
+- **Maps cleanly:**
+  - key present + UI empty → the *listing* step (`loadModelFiles` → `utilitiesAPI.listLoraFiles(dir, 'safetensors,ckpt', …)`) or a frontend filter is dropping them (backend found the folder fine).
+  - key absent → backend `_comfyui_model_dirs()` didn't include it despite the folder existing → base/cwd path mismatch.
+- **Code pointers:** `api/routes/utilities.py` → `_comfyui_model_dirs()` (~L36) + `get_directories()` (~L241); `api/routes/settings.py` → `get_comfyui_models_path()` (~L145, fallback `{cwd}/ComfyUI/models`); frontend `frontend/app/utilities/page.tsx` → `loadModelFiles()` (~L93) + `MergeCheckpointTab`.
+- **Status:** 🔴 OPEN — likely a 1-line fix once the 2 facts above are known.
+
 ### 3.3 SuperMerger-lite Vision *(captured 2026-05-30)*
 
 North star: a merge experience inspired by A1111 **SuperMerger** + the batteriesincluded merger, scoped to what a training tool can do safely. Guiding rule from Dusk: **"mix the best of proven tools, borrow presets that already work, never invent untested merge math."** Homegrown merge algorithms silently corrupt models — only wire proven paths.
