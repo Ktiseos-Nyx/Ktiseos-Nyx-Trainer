@@ -23,6 +23,16 @@ provisioning_start() {
         echo "✅ Virtual environment activated"
     fi
 
+    # Reinstall torchaudio from the CUDA-matching PyTorch index.
+    # The Vast base image pre-installs torchaudio from the cu130 index (or later),
+    # which won't load on a CUDA 12.x container (libcudart.so version mismatch).
+    if command -v python &> /dev/null; then
+        _cu="$(python -c "import torch; v=torch.version.cuda; print(f'cu{v.replace(chr(46),chr(48))[:5]}')" 2>/dev/null || echo "")"
+        if [ -n "$_cu" ]; then
+            pip install --force-reinstall torchaudio --index-url "https://download.pytorch.org/whl/$_cu" 2>/dev/null
+        fi
+    fi
+
     if ! command -v python &> /dev/null; then
         if command -v python3 &> /dev/null; then
             echo "Creating python alias for python3..."
