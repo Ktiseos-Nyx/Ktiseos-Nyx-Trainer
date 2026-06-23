@@ -95,9 +95,55 @@ class RemoteInstaller:
         self.logger.info("Verbose mode: %s", "Enabled" if self.verbose else "Disabled")
 
     def detect_package_manager(self):
-        """Use pip for package installation"""
-        self.logger.info("Using pip for package installation")
-        return {"name": "pip", "install_cmd": [self.python_cmd, "-m", "pip", "install"], "available": True}
+        """
+        Prefer uv for remote (Linux) installs; fall back to pip.
+
+        uv installs are faster and cached, cutting GPU-rental time burned on the
+        provisioning cascade. Remote/Linux only — local (especially Windows)
+        stays on pip because uv resolves some packages to source builds that
+        pull in a Rust toolchain. uv reads our existing requirements_*.txt
+        unchanged; --index-strategy unsafe-best-match resolves torch-coupled
+        deps (e.g. torchao) against the already-installed torch. Any bootstrap
+        failure silently returns pip, so provisioning can never be worse off.
+        """
+        pip_pm = {"name": "pip", "install_cmd": [self.python_cmd, "-m", "pip", "install"], "available": True}
+
+        if platform.system() != "Linux":
+            self.logger.info("Non-Linux platform — using pip for package installation")
+            return pip_pm
+
+        try:
+            subprocess.run(
+                [self.python_cmd, "-m", "pip", "install", "-U", "uv"],
+                check=True, capture_output=True, text=True, timeout=300,
+            )
+        except (subprocess.SubprocessError, OSError) as exc:
+            self.logger.warning("uv bootstrap failed (%s) — using pip", exc)
+            return pip_pm
+
+        # Resolve a runnable uv: module form first, then a PATH binary.
+        uv_invocation = None
+        for candidate in ([self.python_cmd, "-m", "uv"], ["uv"]):
+            try:
+                subprocess.run(candidate + ["--version"], check=True, capture_output=True, text=True, timeout=60)
+                uv_invocation = candidate
+                break
+            except (subprocess.SubprocessError, OSError):
+                continue
+
+        if uv_invocation is None:
+            self.logger.warning("uv not runnable after bootstrap — using pip")
+            return pip_pm
+
+        self.logger.info("Using uv for package installation (remote)")
+        return {
+            "name": "uv",
+            "install_cmd": uv_invocation + [
+                "pip", "install", "--python", self.python_cmd,
+                "--index-strategy", "unsafe-best-match",
+            ],
+            "available": True,
+        }
 
     def get_install_command(self, *args):
         """Get package installation command with current package manager"""
@@ -279,6 +325,14 @@ class RemoteInstaller:
 
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
+
+        # If uv hits a flag/resolver quirk, don't brick the deploy — retry the
+        # same requirements with pip before giving up.
+        if not success and self.package_manager["name"] == "uv":
+            self.logger.warning("uv install failed — retrying with pip")
+            print("   uv install failed — retrying with pip...")
+            pip_cmd = [self.python_cmd, "-m", "pip", "install", "-r", requirements_file]
+            success = self.run_command(pip_cmd, "Installing Python packages with pip (fallback)")
 
         if success:
             self.verify_onnx_runtime()
