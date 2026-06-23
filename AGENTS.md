@@ -24,7 +24,7 @@ This project uses **FastAPI + Next.js** for the interface, not Jupyter notebooks
 - **DO** treat it as regular source code
 - **DO NOT** run `git submodule` commands — there are no submodules
 - **DO NOT** add git submodules to this repository
-- **DO NOT** modify vendored backend files unless explicitly asked
+- **TRY NOT TO** modify vendored backend files casually, but editing them to fix or improve something we need is expected — we carry a live patch-set on this tree (see ``upstream_sync_methodology``). Preserve existing patches when you touch it.
 
 ### Do Not Change Server Bindings
 
