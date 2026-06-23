@@ -320,16 +320,21 @@ class RemoteInstaller:
 
             if system == "linux":
                 is_root = os.geteuid() == 0 if hasattr(os, "geteuid") else False
-                sudo_prefix = "" if is_root else "sudo "
+                sudo_prefix = "" if is_root else "sudo -E "
 
-                # Try different package managers
-                # Use shell=True with proper string commands
+                # apt-get with a lock timeout rides out the boot-time
+                # unattended-upgrades dpkg lock instead of hanging on it forever;
+                # DEBIAN_FRONTEND=noninteractive stops debconf from blocking on
+                # stdin that never comes in a non-TTY provisioning context.
+                apt_opts = "-o DPkg::Lock::Timeout=300"
                 package_managers = [
-                    (["apt", "--version"], "%sapt update && %sapt install -y aria2" % (sudo_prefix, sudo_prefix)),
+                    (["apt-get", "--version"],
+                     "%sapt-get %s update && %sapt-get %s install -y aria2" % (sudo_prefix, apt_opts, sudo_prefix, apt_opts)),
                     (["yum", "--version"], "%syum install -y aria2" % sudo_prefix),
                     (["dnf", "--version"], "%sdnf install -y aria2" % sudo_prefix),
                 ]
 
+                apt_env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
                 for pm_cmd, install_cmd in package_managers:
                     try:
                         subprocess.run(pm_cmd, capture_output=True, check=True)
@@ -337,13 +342,24 @@ class RemoteInstaller:
                         self.logger.info("Found package manager: %s", pm_name)
                         print(f"     Installing with {pm_name}...")
 
-                        result = subprocess.run(install_cmd, shell=True, capture_output=True, text=True, check=True)
+                        # timeout is a hard backstop: aria2c is optional, so a
+                        # stuck package manager must never wedge the whole install.
+                        result = subprocess.run(
+                            install_cmd, shell=True, capture_output=True, text=True,
+                            check=True, env=apt_env, timeout=420,
+                        )
                         if result.returncode == 0:
                             self.logger.info("Successfully installed aria2c with %s", pm_name)
                             print("     Successfully installed aria2c")
                             break
                         else:
                             self.logger.warning("Failed to install with %s: %s", pm_name, result.stderr)
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning(
+                            "aria2c install via %s timed out — skipping (optional; downloads fall back)", pm_cmd[0]
+                        )
+                        print("     aria2c install timed out — skipping (optional)")
+                        break
                     except (subprocess.CalledProcessError, FileNotFoundError):
                         continue
                 else:
@@ -715,17 +731,16 @@ class RemoteInstaller:
                 print(f"{error_msg}")
                 return False
 
-            if not self.check_system_dependencies():
-                error_msg = "System dependency check failed."
-                self.logger.error(error_msg)
-                print(f"{error_msg}")
-                return False
-
             if not self.install_dependencies():
                 error_msg = "Halting installation due to dependency installation failure."
                 self.logger.error(error_msg)
                 print(f"{error_msg}")
                 return False
+
+            # aria2c is an optional download accelerator used later for model
+            # downloads, so it runs AFTER pip and is never fatal — a missing or
+            # slow package manager must not block the app from coming up.
+            self.check_system_dependencies()
 
             if not self.apply_special_fixes_and_installs():
                 warning_msg = "Some special fixes or editable installs failed."
