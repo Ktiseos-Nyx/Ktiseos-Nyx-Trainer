@@ -119,7 +119,7 @@ export interface CivitaiModel {
   type: string;
   nsfw: boolean;
   tags: string[];
-  creator: {
+  creator?: {
     username: string;
     image?: string;
   };

@@ -762,7 +762,7 @@ export default function CivitaiBrowsePage() {
                   </h3>
 
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                    by {model.creator.username}
+                    by {model.creator?.username ?? 'Unknown'}
                   </p>
 
                   {/* Stats */}
