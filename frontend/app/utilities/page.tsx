@@ -157,8 +157,6 @@ function MergeLoRATab() {
   const [selectedLoras, setSelectedLoras] = useState<Array<{ path: string; name: string; ratio: number }>>([]);
   const [outputPath, setOutputPath] = useState('');
   const [modelType, setModelType] = useState<'sd' | 'sdxl' | 'flux' | 'svd'>('sdxl');
-  const [blockPreset, setBlockPreset] = useState('');
-  const [blockWeights, setBlockWeights] = useState<number[] | null>(null);
   const [merging, setMerging] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -203,7 +201,6 @@ function MergeLoRATab() {
       const res = await utilitiesAPI.mergeLora(
         selectedLoras.map(l => ({ path: l.path, ratio: l.ratio })),
         outputPath, modelType, 'cpu', 'fp16', 'float',
-        modelType === 'sdxl' ? blockWeights : null,
       );
       if (res.success) { setResult(res); setSelectedLoras([]); }
       else setError(res.message ?? 'Merge failed');
@@ -227,12 +224,6 @@ function MergeLoRATab() {
           ))}
         </div>
       </SectionCard>
-
-      <BlockWeightPicker
-        modelType={modelType}
-        value={blockPreset}
-        onChange={(name, w) => { setBlockPreset(name); setBlockWeights(w); }}
-      />
 
       <SectionCard title="Available LoRAs">
         <p className="text-xs text-muted-foreground">From your trainer output/ and ComfyUI loras folder.</p>
@@ -644,8 +635,6 @@ function LoRAToCheckpointTab() {
   const [baseModel, setBaseModel] = useState('');
   const [selectedLoras, setSelectedLoras] = useState<Array<{ path: string; name: string; ratio: number }>>([]);
   const [modelType, setModelType] = useState<'sd' | 'sdxl'>('sdxl');
-  const [blockPreset, setBlockPreset] = useState('');
-  const [blockWeights, setBlockWeights] = useState<number[] | null>(null);
   const [outputPath, setOutputPath] = useState('');
   const [merging, setMerging] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -702,7 +691,6 @@ function LoRAToCheckpointTab() {
         baseModel,
         selectedLoras.map(l => ({ path: l.path, ratio: l.ratio })),
         outputPath, modelType, 'cpu', 'fp16', 'float',
-        modelType === 'sdxl' ? blockWeights : null,
       );
       if (res.success) { setResult(res); setSelectedLoras([]); }
       else setError(res.message ?? 'Merge failed');
@@ -726,12 +714,6 @@ function LoRAToCheckpointTab() {
           ))}
         </div>
       </SectionCard>
-
-      <BlockWeightPicker
-        modelType={modelType}
-        value={blockPreset}
-        onChange={(name, w) => { setBlockPreset(name); setBlockWeights(w); }}
-      />
 
       <SectionCard title="Base Checkpoint">
         <p className="text-xs text-muted-foreground">From your trainer pretrained_model/ and ComfyUI checkpoints folder.</p>

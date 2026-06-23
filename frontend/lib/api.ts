@@ -1208,7 +1208,6 @@ export const utilitiesAPI = {
     device: string = 'cpu',
     savePrecision: string = 'fp16',
     precision: string = 'float',
-    blockWeights: number[] | null = null
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge`, {
       method: 'POST',
@@ -1220,7 +1219,6 @@ export const utilitiesAPI = {
         device,
         save_precision: savePrecision,
         precision,
-        block_weights: blockWeights,
       }),
     });
     return handleResponse(response);
@@ -1259,7 +1257,6 @@ export const utilitiesAPI = {
     device: string = 'cpu',
     savePrecision: string = 'fp16',
     precision: string = 'float',
-    blockWeights: number[] | null = null
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge-to-checkpoint`, {
       method: 'POST',
@@ -1272,7 +1269,6 @@ export const utilitiesAPI = {
         device,
         save_precision: savePrecision,
         precision,
-        block_weights: blockWeights,
       }),
     });
     return handleResponse(response);

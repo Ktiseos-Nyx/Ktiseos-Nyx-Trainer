@@ -64,9 +64,6 @@ class LoRAMergeRequest(BaseModel):
     device: str = Field("cpu", description="Device for processing (cpu/cuda)")
     save_precision: str = Field("fp16", description="Save precision (fp16/bf16/fp32)")
     precision: str = Field("float", description="Computation precision (float/fp16/bf16)")
-    block_weights: Optional[list[float]] = Field(
-        None, description="Per-block LBW weights (SDXL: 12 or 20 values); applied to every LoRA"
-    )
 
 
 class LoRAMergeResponse(BaseModel):
@@ -87,9 +84,6 @@ class LoRAToCheckpointRequest(BaseModel):
     device: str = Field("cpu", description="Device for processing (cpu/cuda)")
     save_precision: str = Field("fp16", description="Save precision (fp16/bf16/fp32)")
     precision: str = Field("float", description="Computation precision (float/fp16/bf16)")
-    block_weights: Optional[list[float]] = Field(
-        None, description="Per-block LBW weights (SDXL: 12 or 20 values); applied to every LoRA"
-    )
 
 
 class LoRAToCheckpointResponse(BaseModel):
