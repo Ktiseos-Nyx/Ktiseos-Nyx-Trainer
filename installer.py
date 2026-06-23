@@ -99,12 +99,15 @@ class RemoteInstaller:
         Prefer uv for remote (Linux) installs; fall back to pip.
 
         uv installs are faster and cached, cutting GPU-rental time burned on the
-        provisioning cascade. Remote/Linux only — local (especially Windows)
-        stays on pip because uv resolves some packages to source builds that
-        pull in a Rust toolchain. uv reads our existing requirements_*.txt
-        unchanged; --index-strategy unsafe-best-match resolves torch-coupled
-        deps (e.g. torchao) against the already-installed torch. Any bootstrap
-        failure silently returns pip, so provisioning can never be worse off.
+        provisioning cascade. Remote/Linux only as a conservative default —
+        local stays on the known-good pip path. uv on local is unverified (not
+        forbidden): an old-notebook-era report of *something* triggering a Rust
+        source build on Windows was never root-caused (numpy? safetensors? uv
+        itself? unknown), so we don't switch local installs onto uv on a hunch.
+        uv reads our existing requirements_*.txt unchanged; --index-strategy
+        unsafe-best-match resolves torch-coupled deps (e.g. torchao) against the
+        already-installed torch. Any bootstrap failure silently returns pip, so
+        provisioning can never be worse off.
         """
         pip_pm = {"name": "pip", "install_cmd": [self.python_cmd, "-m", "pip", "install"], "available": True}
 
