@@ -145,6 +145,7 @@ export default function DatasetTagsPage() {
     });
   }, [selectedTags, localImages]);
 
+  /** Delete an image and its caption from the dataset, then drop it from local and saved state. */
   const handleDeleteImage = async (imageName: string) => {
     setDeleting(imageName);
     try {

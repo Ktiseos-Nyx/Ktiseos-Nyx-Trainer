@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 
 class DeleteImageRequest(BaseModel):
+    """Request to delete an image and its companion caption from a dataset"""
     dataset_path: str
     image_name: str
 
