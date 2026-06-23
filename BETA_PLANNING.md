@@ -266,7 +266,11 @@ Both LoRA and Checkpoint merging are implemented:
   - key present + UI empty → the *listing* step (`loadModelFiles` → `utilitiesAPI.listLoraFiles(dir, 'safetensors,ckpt', …)`) or a frontend filter is dropping them (backend found the folder fine).
   - key absent → backend `_comfyui_model_dirs()` didn't include it despite the folder existing → base/cwd path mismatch.
 - **Code pointers:** `api/routes/utilities.py` → `_comfyui_model_dirs()` (~L36) + `get_directories()` (~L241); `api/routes/settings.py` → `get_comfyui_models_path()` (~L145, fallback `{cwd}/ComfyUI/models`); frontend `frontend/app/utilities/page.tsx` → `loadModelFiles()` (~L93) + `MergeCheckpointTab`.
-- **Status:** 🔴 OPEN — likely a 1-line fix once the 2 facts above are known.
+- **ROOT CAUSE FOUND + FIXED 2026-06-24 (`a94854f`) — pure code asymmetry, no box data needed:** trainer dirs (`MODELS_DIR` etc.) come from `services.core.validation.PROJECT_ROOT` = `Path(__file__)...resolve()` (cwd-independent → `pretrained_model` always showed), but `get_comfyui_models_path()`'s fallback used `os.getcwd()`. When the backend's working dir ≠ project root, `{cwd}/ComfyUI/models/checkpoints` resolved wrong → `is_dir()` False → `_comfyui_model_dirs()` silently dropped `comfyui_checkpoints`/`comfyui_loras`. Fix: fallback now anchors on `PROJECT_ROOT`. NOT zustand (merge page has no store), NOT settings, NOT the filesystem (folder was healthy). **Verify the 4 checkpoints list on next deploy.**
+- **Sibling latent bug (NOT fixed):** `settings.py:19` `SETTINGS_DIR = os.path.join(os.getcwd(), "user_config")` has the SAME `os.getcwd()` fragility → wrong settings dir if backend cwd ≠ project root. Anchor on `PROJECT_ROOT` when convenient.
+- **Status:** ✅ Fixed (`a94854f`), pending deploy verification.
+
+**🟠 MG-13 — De-bias the model-merging page copy (flagged 2026-06-24):** the merge page reads as AI-marketing-algo speak and ignores what Dusk's actually been asking for for *months*. Needs a copy/UX de-biasing pass — strip the marketing tone, align with his real merge workflow. **Spell the "months" asks out WITH Dusk before doing — don't guess them.** Ties to welcoming-not-corporate + the "don't write bias into the UI" rule.
 
 ### 3.3 SuperMerger-lite Vision *(captured 2026-05-30)*
 
