@@ -643,7 +643,7 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 
 **Issue BD-1: Model sourcing is fragile and region-dependent**
 - **Priority:** Beta+ (nice to have, but solves a real accessibility problem)
-- **Status:** Not started
+- **Status:** Design LOCKED 2026-06-27 — implementation not started (see "v1 Design" below)
 - **Motivation (1 — accessibility):** Civitai's API geoblocks certain regions (UK datacenter IPs get 451'd due to UK Online Safety Act compliance). Users shouldn't need a working Civitai API to download models — they should be able to paste any link and have it work.
 - **Motivation (2 — escape LM's download UX, added 2026-06-22):** LoRA Manager's built-in download/manage flow is clunky and over-coupled to "how Civitai works" (Dusk: "the worst thing ComfyUI could've slapped in"). Batchlinks should **take over *downloading*** (paste any link, our routing) while **LM stays purely the *loader/browser*** (Dusk firmly keeps the `Lora Loader (LoraManager)` node — see §11). Coexistence hinge: after batchlinks writes a gen model into the ComfyUI folder, **trigger an LM rescan via its API** so the LM loader node sees it (same "force rescan" fix §802 found for HF-downloaded-checkpoint 400s). Net: delete LM's download flow from the user's life without losing LM's loading.
 
@@ -674,8 +674,39 @@ Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag s
 
 **Reality check (2026-05-25):** the current `/models` download UI is just a card of links, NOT this paste-and-route batch tool. BD-1 is genuinely not started.
 
+### v1 Design (LOCKED 2026-06-27 — supersedes the older FastAPI/SSE sketch in Implementation notes)
+
+**Scope:** sources = public HF (`hf_hub_download`, tokenless) + Civitai (existing token) + direct HTTP via aria2c. B-tier (Google Drive / MEGA / magnet) deferred — the hashtag-routing design makes them cheap add-ons later. **No gated/private HF auth** (Dusk keeps his unreleased models on PUBLIC HF — can't get gated working and doesn't need to).
+
+**Placement (IA):** standalone page under **File Management** nav. Rationale: it's a general file-getter (the *tool* is file-management even though its *content* is gen-flavored). Batchlinks ≠ the `/models` link-card — additive, doesn't touch it. **Separate sibling task:** relocate the *existing single-model downloader* under **Training** (those are training base models; nav/IA move, ships independently).
+
+**Orchestration:** the **jobs system** (same machinery as tagging/captioning), NOT a bespoke FastAPI/SSE stream. A `batch_download` job runner loops items and **reuses the existing `ModelService.download_model_or_vae()`** (`services/model_service.py` — already routes HF→hf_hub_download+xet, Civitai/direct→aria2c+token, tracks bytes for progress) — **no new download code**. Per-item progress streams over the existing job WebSocket. **Per-item error isolation:** one bad link logs its error and the batch continues — never aborts the whole run.
+
+**Flow:** textarea paste → [frontend] parse each line → `{url, type}` + live preview (counts per type, flag unparseable lines BEFORE submit) → start `batch_download` job → [runner] resolve `type → dir`, download via `ModelService`, emit progress lines → after all gen-model items, **one LM rescan** → per-item ✅/❌ summary.
+
+**Hashtag → destination** (backend owns path resolution, PROJECT_ROOT-anchored via the just-fixed `get_comfyui_models_path()` / `a94854f` so it's correct on local/Vast/RunPod — frontend only sends the `type`):
+
+| Tag | Destination | LM rescan? |
+|-----|-------------|-----------|
+| `#model` / `#checkpoint` | ComfyUI checkpoints | ✅ |
+| `#lora` | ComfyUI loras | ✅ |
+| `#vae` | ComfyUI vae | ✅ |
+| `#dataset` | trainer dataset dir | ❌ |
+| `#output` | trainer output dir | ❌ |
+| *(untagged)* | global-default dropdown | per-type |
+
+**LM coexistence (reframed 2026-06-27):** LM CAN already see HF-downloaded files — it just needs a rescan or a settings tick. So batchlinks **automates that rescan** after gen-model writes (one call at end of batch), saving the manual step. **This is automating a working manual flow, not working around a broken one.** Confirm LM's actual rescan endpoint against a RUNNING LM before wiring (ask-don't-assume). LM stays purely the loader for the SDXL + Guy90s anima workflows. (Updates the older "LM is bad at HF" framing.)
+
+**Logging:** each download + the rescan call logged to the backend logs (also feeds the in-app log-viewer goal).
+
+**Frontend:** `frontend/app/batch-download/page.tsx`, **shadcn only** (`Textarea`, `Select` for the global default, `Button`, progress list reusing the existing job-progress display). Parser is a pure fn → unit-testable.
+
+**Out of scope (v1):** B-tier sources, gated/private HF auth, torrent indexing, replacing the `/models` card, cross-session resume.
+
+**Testing:** parser unit tests (hashtag routing, untagged→default, junk lines); a dry-run that resolves routing without downloading; one small real download per source (HF / Civitai / direct).
+
 ### Implementation notes
-- Backend: new `POST /api/utilities/batch-download` endpoint that accepts a list of `{url, destination}` objects, spawns aria2c/hf-cli/gdown as appropriate per URL, streams progress back
+- Backend: **jobs-system `batch_download` runner reusing `ModelService.download_model_or_vae`** (see v1 Design above) — NOT a standalone FastAPI/SSE endpoint (that earlier sketch superseded 2026-06-27)
 - Frontend: new page at `frontend/app/batch-download/page.tsx`
 - aria2c already present on instances — no new provisioning needed
 - gdown may need `pip install gdown` added to requirements
