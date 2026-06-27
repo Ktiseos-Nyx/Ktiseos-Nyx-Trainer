@@ -9,11 +9,15 @@ import torch
 from torch import Tensor
 from torch.utils._python_dispatch import return_and_correct_aliasing
 
-from torchao.utils import TORCH_VERSION_AT_LEAST_2_5, TorchAOBaseTensor
-try:
-    from torchao.utils import TORCH_VERSION_AT_LEAST_2_4
-except ImportError:
-    TORCH_VERSION_AT_LEAST_2_4 = False
+from torchao.utils import TorchAOBaseTensor
+
+# torchao 0.16+ removed TORCH_VERSION_AT_LEAST_2_4/2_5 from torchao.utils.
+# Derive them from torch directly so this vendored copy stays decoupled from
+# torchao's shifting internal helpers: a torchao bump can no longer break the
+# optimizer import chain that every custom optimizer (even CAME) runs through.
+_TORCH_VER = tuple(int(p) for p in torch.__version__.split("+")[0].split(".")[:2])
+TORCH_VERSION_AT_LEAST_2_4 = _TORCH_VER >= (2, 4)
+TORCH_VERSION_AT_LEAST_2_5 = _TORCH_VER >= (2, 5)
 
 from .quant_utils import (
     create_dynamic_map,
