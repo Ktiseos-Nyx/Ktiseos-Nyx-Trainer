@@ -13,14 +13,17 @@
 # Requires: a python with torch importable on PATH (activate the venv before calling this).
 
 if command -v python &> /dev/null; then
-    # chr(46)='.' / chr(43)='+' avoid embedding quote chars in this command-substitution context.
+    # chr(46)='.' avoids embedding a quote char in this command-substitution context.
     _cu="$(python -c "import torch; v=torch.version.cuda; print(f'cu{str().join(v.split(chr(46)))}')" 2>/dev/null || echo "")"
-    _tv="$(python -c "import torch; print(torch.__version__.split(chr(43))[0])" 2>/dev/null || echo "")"
-    if [ -n "$_cu" ] && [ -n "$_tv" ]; then
-        echo "🔊 Matching torchaudio==$_tv to $_cu ..."
-        pip install --force-reinstall --no-deps "torchaudio==$_tv" --index-url "https://download.pytorch.org/whl/$_cu" \
-            || echo "[match_torchaudio] torchaudio==$_tv ($_cu) reinstall failed (non-fatal)"
+    if [ -n "$_cu" ]; then
+        # Do NOT pin to torch's version: torchaudio LAGS torch (e.g. torch 2.12.0 but torchaudio
+        # tops out at 2.11.0 on cu126), so torchaudio==<torch ver> 404s. Take the latest torchaudio
+        # available on the matched CUDA index instead; --no-deps keeps the installed torch untouched
+        # (without it, pip could try to DOWNGRADE torch to match torchaudio's pin).
+        echo "🔊 Re-matching torchaudio to $_cu (latest available on that index) ..."
+        pip install --force-reinstall --no-deps torchaudio --index-url "https://download.pytorch.org/whl/$_cu" \
+            || echo "[match_torchaudio] torchaudio ($_cu) reinstall failed (non-fatal)"
     else
-        echo "[match_torchaudio] could not detect torch CUDA/version — skipping (CPU build?)"
+        echo "[match_torchaudio] could not detect torch CUDA — skipping (CPU build?)"
     fi
 fi

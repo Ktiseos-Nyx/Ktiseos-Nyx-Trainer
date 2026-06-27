@@ -27,15 +27,15 @@ provisioning_start() {
     # The Vast base image pre-installs torchaudio from the cu130 index (or later),
     # which won't load on a CUDA 12.x container (libcudart.so version mismatch).
     if command -v python &> /dev/null; then
-        # CUDA tag from torch (e.g. 12.6 -> cu126). chr(46)='.' / chr(43)='+' avoid quoting in this
-        # nested $("...") context. BUG FIXED: was replace('.', '0') -> "cu1206" (a nonexistent index),
-        # so the install hit a dead URL and -- hidden by 2>/dev/null -- silently did nothing.
+        # CUDA tag from torch (e.g. 12.6 -> cu126). chr(46)='.' avoids quoting in this nested $("...").
+        # BUG HISTORY: (1) replace('.', '0') -> "cu1206" (dead index, silent no-op); (2) pinning
+        # torchaudio==<torch ver> 404s because torchaudio LAGS torch (torch 2.12.0 but torchaudio tops
+        # at 2.11.0). Fix: take the latest torchaudio on the matched CUDA index; --no-deps keeps torch
+        # untouched (without it pip could DOWNGRADE torch to match torchaudio's pin). NOTE: mirrored in
+        # scripts/match_torchaudio.sh (this copy runs pre-clone, before scripts/ exists) -- keep in sync.
         _cu="$(python -c "import torch; v=torch.version.cuda; print(f'cu{str().join(v.split(chr(46)))}')" 2>/dev/null || echo "")"
-        # Pin torchaudio to torch's exact version (strip +cuXXX) so the ABI matches the installed torch.
-        _tv="$(python -c "import torch; print(torch.__version__.split(chr(43))[0])" 2>/dev/null || echo "")"
-        if [ -n "$_cu" ] && [ -n "$_tv" ]; then
-            # --no-deps: never disturb the installed torch. No 2>/dev/null: a failure must be visible.
-            pip install --force-reinstall --no-deps "torchaudio==$_tv" --index-url "https://download.pytorch.org/whl/$_cu" || echo "[setup] torchaudio==$_tv ($_cu) reinstall failed (non-fatal)"
+        if [ -n "$_cu" ]; then
+            pip install --force-reinstall --no-deps torchaudio --index-url "https://download.pytorch.org/whl/$_cu" || echo "[setup] torchaudio ($_cu) reinstall failed (non-fatal)"
         fi
     fi
 
