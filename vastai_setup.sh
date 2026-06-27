@@ -24,11 +24,12 @@ provisioning_start() {
     # Reinstall torchaudio from the CUDA-matching PyTorch index.
     # The Vast base image pre-installs torchaudio from the cu130 index (or later),
     # which won't load on a CUDA 12.x container (libcudart.so version mismatch).
-    # Re-install torchaudio as a cu126 wheel: the base image ships a cu130 build -> libcudart.so.13 ->
-    # ComfyUI dies on `import torchaudio`. We standardize on CUDA 12.6, so point straight at the cu126
-    # index (a cu126 wheel works on any 12.x box). --no-deps because torchaudio's wheel hard-pins
-    # `torch==` (would otherwise downgrade the installed torch). Mirrored in scripts/match_torchaudio.sh
-    # (this inline copy runs pre-clone, before scripts/ exists) -- keep in sync.
+    # Re-install torchaudio as a cu126 wheel. The host MACHINE's newer CUDA (vs our 12.6.3 template)
+    # leaves torchaudio as a cu13 build (wants libcudart.so.13) that won't load against cu126 torch ->
+    # ComfyUI dies on `import torchaudio`. (It's the host machine, NOT the base image.) We standardize
+    # on CUDA 12.6, so point straight at the cu126 index (a cu126 wheel works on any 12.x box). --no-deps
+    # because torchaudio's wheel hard-pins `torch==` (would otherwise downgrade torch). Mirrored inline in
+    # fetch-restart.sh (this copy runs pre-clone; the restart path re-runs the same line) -- keep in sync.
     pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
         || echo "[setup] cu126 torchaudio reinstall failed (non-fatal)"
 

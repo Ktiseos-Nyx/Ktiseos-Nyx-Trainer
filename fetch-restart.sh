@@ -66,7 +66,14 @@ if [ -d "/workspace" ]; then
     echo ""
     echo "📦 Updating backend Python deps from $_req ..."
     python -m pip install -r "$_req" || echo "⚠️  backend dep update had issues (non-fatal)"
-    bash scripts/match_torchaudio.sh || true
+
+    # Re-match torchaudio to the box's CUDA so ComfyUI can import it. The host's newer CUDA leaves
+    # torchaudio as a cu13 build (wants libcudart.so.13) that won't load against our cu126 torch.
+    # Pin to the cu126 wheel (works on any 12.x box). --no-deps because torchaudio hard-pins `torch==`
+    # and would otherwise downgrade torch. Mirrors the inline copy in vastai_setup.sh (pre-clone).
+    echo "🔊 Re-matching torchaudio to cu126..."
+    pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
+        || echo "⚠️  cu126 torchaudio reinstall failed (non-fatal)"
 fi
 
 # ----------------------------------------------------------------
