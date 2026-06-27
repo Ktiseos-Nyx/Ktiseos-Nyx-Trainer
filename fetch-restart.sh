@@ -52,6 +52,24 @@ else
 fi
 
 # ----------------------------------------------------------------
+# Step 2.5: Backend Python deps + torchaudio (cloud only)
+# A plain restart skips what installer.py / vastai_setup.sh do at first provision. This picks up
+# new/changed pins from the pulled requirements (requirements_cloud.txt -> -r requirements_base.txt,
+# e.g. a torchao bump) and re-matches torchaudio to the box's CUDA so ComfyUI can import it.
+# ----------------------------------------------------------------
+if [ -d "/workspace" ]; then
+    if [ -f /venv/main/bin/activate ]; then
+        # shellcheck disable=SC1091
+        source /venv/main/bin/activate
+    fi
+    _req="requirements_cloud.txt"; [ -f "$_req" ] || _req="requirements.txt"
+    echo ""
+    echo "📦 Updating backend Python deps from $_req ..."
+    python -m pip install -r "$_req" || echo "⚠️  backend dep update had issues (non-fatal)"
+    bash scripts/match_torchaudio.sh || true
+fi
+
+# ----------------------------------------------------------------
 # Step 3: Restart services
 # ----------------------------------------------------------------
 echo ""
@@ -61,6 +79,7 @@ echo "=========================================="
 
 if [ -d "/workspace" ] && command -v supervisorctl &>/dev/null; then
     supervisorctl restart ktiseos-nyx
+    supervisorctl restart comfyui || echo "⚠️  comfyui not under supervisor — skipped"
 
     echo "⏳ Waiting for services to come up..."
     sleep 10
