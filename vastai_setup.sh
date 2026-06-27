@@ -24,18 +24,13 @@ provisioning_start() {
     # Reinstall torchaudio from the CUDA-matching PyTorch index.
     # The Vast base image pre-installs torchaudio from the cu130 index (or later),
     # which won't load on a CUDA 12.x container (libcudart.so version mismatch).
-    if command -v python &> /dev/null; then
-        # CUDA tag from torch (e.g. 12.6 -> cu126). chr(46)='.' avoids quoting in this nested $("...").
-        # BUG HISTORY: (1) replace('.', '0') -> "cu1206" (dead index, silent no-op); (2) pinning
-        # torchaudio==<torch ver> 404s because torchaudio LAGS torch (torch 2.12.0 but torchaudio tops
-        # at 2.11.0). Fix: take the latest torchaudio on the matched CUDA index; --no-deps keeps torch
-        # untouched (without it pip could DOWNGRADE torch to match torchaudio's pin). NOTE: mirrored in
-        # scripts/match_torchaudio.sh (this copy runs pre-clone, before scripts/ exists) -- keep in sync.
-        _cu="$(python -c "import torch; v=torch.version.cuda; print(f'cu{str().join(v.split(chr(46)))}')" 2>/dev/null || echo "")"
-        if [ -n "$_cu" ]; then
-            pip install --force-reinstall --no-deps torchaudio --index-url "https://download.pytorch.org/whl/$_cu" || echo "[setup] torchaudio ($_cu) reinstall failed (non-fatal)"
-        fi
-    fi
+    # Re-install torchaudio as a cu126 wheel: the base image ships a cu130 build -> libcudart.so.13 ->
+    # ComfyUI dies on `import torchaudio`. We standardize on CUDA 12.6, so point straight at the cu126
+    # index (a cu126 wheel works on any 12.x box). --no-deps because torchaudio's wheel hard-pins
+    # `torch==` (would otherwise downgrade the installed torch). Mirrored in scripts/match_torchaudio.sh
+    # (this inline copy runs pre-clone, before scripts/ exists) -- keep in sync.
+    pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
+        || echo "[setup] cu126 torchaudio reinstall failed (non-fatal)"
 
     # Check for python and ensure it's available
     if ! command -v python &> /dev/null; then

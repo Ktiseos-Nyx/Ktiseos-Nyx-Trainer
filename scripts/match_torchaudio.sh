@@ -1,29 +1,20 @@
 #!/bin/bash
-# Re-match torchaudio to the box's CUDA-matching PyTorch wheel.
+# Re-install torchaudio as a CUDA-matched wheel so ComfyUI can import it.
 #
-# The Vast/RunPod base image pre-installs torchaudio from the cu130 index (or later), which won't
-# load on a CUDA 12.x container (OSError: libcudart.so.13) -> ComfyUI dies on `import torchaudio`
-# (it imports torchaudio for audio_vae). This pins torchaudio to torch's EXACT version + the box's
-# CUDA, with --no-deps so the installed torch is never disturbed.
+# The Vast/RunPod base image pre-installs torchaudio built for cu130 (or later), which won't load on
+# our CUDA 12.x boxes (OSError: libcudart.so.13) -> ComfyUI dies on `import torchaudio` (audio_vae).
 #
-# Called by fetch-restart.sh (post-pull incremental update). NOTE: vastai_setup.sh keeps an INLINE
-# copy of this same logic, because its torchaudio step runs BEFORE the repo is cloned (so this
-# script doesn't exist on disk yet at that point). Keep the two copies in sync.
+# We standardize on CUDA 12.6, so point pip straight at the cu126 wheel index and let it pick the
+# matching torchaudio (currently 2.11.0+cu126). A cu126 wheel needs libcudart.so.12, which every
+# CUDA 12.x box has, so this is fine across 12.1-12.8.
 #
-# Requires: a python with torch importable on PATH (activate the venv before calling this).
+# --no-deps is REQUIRED: torchaudio's wheel declares a hard `torch==` pin (e.g. 2.11.0 -> torch 2.11)
+# that conflicts with the installed torch 2.12; without --no-deps pip would try to DOWNGRADE torch.
+# (This is also why torchaudio can't just be a line in requirements.txt -- --no-deps is a global pip
+# flag, not something you can scope to a single requirement. Hence the separate command.)
+#
+# Called by fetch-restart.sh. vastai_setup.sh keeps an inline copy (its step runs pre-clone, before
+# this file exists on disk) -- keep the two in sync. If the CUDA standard ever changes, update the URL.
 
-if command -v python &> /dev/null; then
-    # chr(46)='.' avoids embedding a quote char in this command-substitution context.
-    _cu="$(python -c "import torch; v=torch.version.cuda; print(f'cu{str().join(v.split(chr(46)))}')" 2>/dev/null || echo "")"
-    if [ -n "$_cu" ]; then
-        # Do NOT pin to torch's version: torchaudio LAGS torch (e.g. torch 2.12.0 but torchaudio
-        # tops out at 2.11.0 on cu126), so torchaudio==<torch ver> 404s. Take the latest torchaudio
-        # available on the matched CUDA index instead; --no-deps keeps the installed torch untouched
-        # (without it, pip could try to DOWNGRADE torch to match torchaudio's pin).
-        echo "🔊 Re-matching torchaudio to $_cu (latest available on that index) ..."
-        pip install --force-reinstall --no-deps torchaudio --index-url "https://download.pytorch.org/whl/$_cu" \
-            || echo "[match_torchaudio] torchaudio ($_cu) reinstall failed (non-fatal)"
-    else
-        echo "[match_torchaudio] could not detect torch CUDA — skipping (CPU build?)"
-    fi
-fi
+pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
+    || echo "[match_torchaudio] cu126 torchaudio reinstall failed (non-fatal)"
