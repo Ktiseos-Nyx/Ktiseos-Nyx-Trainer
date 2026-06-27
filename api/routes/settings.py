@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Settings file location
-SETTINGS_DIR = os.path.join(os.getcwd(), "user_config")
+# Settings file location — anchored on the project root (file-relative), NOT os.getcwd().
+# The Next.js settings UI writes user_settings.json to <project_root>/user_config (anchored via
+# process.cwd()/.. in settings-service.ts). Reading it from os.getcwd()/user_config here meant
+# that when the FastAPI process's working dir wasn't the project root, the UI's saved settings
+# (incl. comfyui_models_path) landed in a DIFFERENT file than this resolver read — so the merge
+# tools silently fell back / saw stale config. Same getcwd class of bug as a94854f.
+# parents: settings.py -> routes -> api -> <project_root>.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SETTINGS_DIR = os.path.join(_PROJECT_ROOT, "user_config")
 SETTINGS_FILE = os.path.join(SETTINGS_DIR, "user_settings.json")
 
 
