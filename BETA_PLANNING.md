@@ -404,6 +404,18 @@ These are new capabilities (not bugs) for how datasets feed a LoRA run.
 - **Priority:** Medium (Beta)
 - Support multiple subfolders within one dataset, each with its **own activation/trigger tag and `num_repeats`**, mapping to Kohya's multi-`subset` dataset config. Touches three layers: the dataset uploader/structure (create + manage subfolders), the TOML generator (emit one `[[datasets.subsets]]` per folder with its `class_tokens`/caption + repeats), and the training UI (per-folder trigger + repeats inputs). Larger than it looks because it changes the dataset → TOML shape, not just one field.
 
+**LT-FEAT-3: Progress bar for ZIP uploads** *(Dusk, 2026-06-28)*
+- **Priority:** Low–Medium (Beta polish)
+- Image uploads show a progress bar; ZIP uploads don't. Mirror the image uploader's XHR `upload.onprogress` for the **upload** phase (% of bytes sent). The server-side **extraction** phase (`dataset_service.upload_zip`) only returns on completion, so after upload hits 100% show an indeterminate "Extracting…" state rather than faking extraction %. (Real per-file extraction progress would need the service to stream events — out of scope for v1.) Pairs with the existing image-upload progress UI.
+
+**LT-FEAT-4: Preserve captions (and optionally latent caches) from an uploaded ZIP** *(Dusk, 2026-06-28)*
+- **Priority:** Medium (Beta)
+- Today `dataset_service.upload_zip` extracts **images only** — any `.txt` captions (and `.npz` caches) in the archive are silently skipped (`"Not an image file, skipped"`, dataset_service.py:339-340), so a user who zips a captioned dataset loses their captions **without warning**. Add an opt-in prompt on upload: *"This ZIP includes N caption files — import them too?"*
+  - **`.txt` captions:** the common, wanted case → offer, default **on**. Pair to images by stem.
+  - **`.npz` latent/TE caches:** offer separately, default **off**, with a note they're model/resolution/sd-scripts-version specific — stale caches can silently corrupt a run.
+- **Security: not a concern in this flow (verified 2026-06-28).** The extractor flattens every entry to its basename (`dataset_path / file_path.name`, dataset_service.py:343), so there's no Zip Slip / path-traversal vector for any file type, captions included. The backend only streams bytes to disk — it never `np.load`s uploaded files, so the one real `.npz` danger (`numpy.load(allow_pickle=True)` → code execution) doesn't apply (sd-scripts reads latent `.npz` with `allow_pickle=False` at train time). Adding `.txt`/`.npz` to the allowlist is just "write more bytes to a validated dir."
+- **Real gotcha — collision rename breaks pairing:** the current dedup renames a colliding image to `name_1.jpg` (lines 344-350) but would **not** rename its sibling `.txt`. If captions are imported, the rename must move the image **and** its `.txt` together (by stem) or caption→image pairing silently breaks.
+
 ### 4.4 torchao Optional Dependency (vendored optimizers)
 
 **Priority:** Low (decision needed)
@@ -589,6 +601,42 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 - **Root cause:** `/comfyui` route shadowed by `server.js` proxy exact-match.
 - **Fix:** `app/comfyui/page.tsx` → `app/generate/page.tsx` (route `/generate`), navbar link updated. LoRA Manager links and proxy rules unchanged. `tsc` clean.
 - **Follow-up:** tighten `COMFYUI_ROOT_PREFIXES` (`/checkpoints`, etc.) so generic names can't shadow future routes.
+
+### 5.5 Form State & Field-Linkage Bugs *(Dusk, 2026-06-28)*
+
+**Issue PRESET-1: Preset load is non-deterministic — sticky omits + wrong clears** — ⏳ **Not started**
+- **Severity:** Medium (recurring config-correctness pain; can silently ship a run with hyperparameters the user didn't choose)
+- **Problem (bidirectional):** loading a preset (1) does **not clear** fields the preset omits → stale values ride along (e.g. the "Train UNet Only" tick stays set; a `lr_warmup_ratio` set by one preset persists when you next load one that omits it), AND (2) **does clear** some fields it shouldn't — **confirmed live: swapping to a CAME preset wipes the user's pre-selected base model (Illustrious/NAI)**, a job field that should survive the load. Compounded by `useTrainingForm.ts` hydrating last-saved state from localStorage (falling back to server) on mount (`readStoredConfig` ~L211, hydration `useEffect` ~L294), so the "default" a user sees is their **persisted prior state**, not `defaultConfig` (L49). Net effect: the warmup/optimizer/unet-only values feel "sticky" and un-attributable.
+- **Root cause:** `loadPreset` (`useTrainingForm.ts:348`) merges a *partial* preset over current values — there is no model of what a preset owns vs job/user state.
+- **Fix (no runtime dirty-tracking needed):** statically classify each `TrainingConfig` field as **recipe** (preset owns: LR, optimizer, scheduler, warmup, dim/alpha, dropout, …) or **job** (this-run: dataset/model/output paths, project name, trigger words). Preset load = reset **recipe** fields to `(defaultConfig → then preset overrides)`, leave **job** fields untouched. Deterministic; kills both failure modes at once. (v1 deliberately does not preserve a manual recipe tweak across a preset swap — overriding recipe edits is expected when loading a recipe.)
+- **Files:** `frontend/hooks/useTrainingForm.ts` (loadPreset, defaultConfig, hydration effect), `frontend/components/training/PresetManager.tsx`.
+
+**Issue SCHED-1: `cosine_annealing` & `rex` schedulers hide their restart-count field** — ⏳ **Not started**
+- **Severity:** Low–Medium (silent loss of UI control over a real hyperparameter)
+- **Repro:** pick **Cosine Annealing (Warm Restarts)** or **Rex (Warm Restarts)** in the LR scheduler dropdown → the "Number of Restarts" field disappears, so the user can't set it and is stuck with whatever `lr_scheduler_number` is already in the config (default 3 / stale).
+- **Root cause:** `LearningRateCard.tsx:99` gates the `lr_scheduler_number` field on `scheduler === 'cosine_with_restarts' || scheduler === 'polynomial'` only — it omits the two vendored warm-restart schedulers. But `kohya_toml.py:409` passes `lr_scheduler_num_cycles = lr_scheduler_number` for **every** scheduler, and `rex`/`cosine_annealing` are restart-based (`CUSTOM_SCHEDULER_PATHS`, kohya_toml.py:291-294), so they DO consume the cycle count.
+- **Fix:** add `'cosine_annealing'` and `'rex'` to the `LearningRateCard.tsx:99` conditional and extend the label/description branch (L103-104) to read "Number of Restarts" for them. Confirm the vendored `CosineAnnealingWarmRestarts` / `RexAnnealingWarmRestarts` consume `num_cycles` (strongly implied by the unconditional pass at L409).
+- **Files:** `frontend/components/training/cards/LearningRateCard.tsx`; verify `trainer/derrian_backend/.../LoraEasyCustomOptimizer/{CosineAnnealingWarmRestarts,RexAnnealingWarmRestarts}.py`.
+
+### 5.6 ComfyUI Generate — Checkpoints Not Found (single-source discovery) *(Dusk, 2026-06-28)*
+
+**Issue GEN-CKPT-1: Generate UI lists LoRAs but not checkpoints** — ⏳ **Not started**
+- **Severity:** Medium-High — blocks generation (no base model selectable) after any `extra_model_paths` / folder change.
+- **Symptom:** the Next.js Generate UI finds **loras** but **not checkpoints**, even though ComfyUI's **LoRA Manager *can* see the checkpoints**. The gen checkpoints live in the training dir `pretrained_model/`, surfaced to ComfyUI via `extra_model_paths.yaml` (`installer.py:591`); a recent folder/path change broke that mapping. (There is NO ComfyUI `/object_info` call here — discovery is via `/models/{folder}`.)
+- **Root cause:** asymmetric discovery in `frontend/lib/comfy/useComfyModels.ts:86-94`. **LoRAs have TWO sources** — `safe('loras')` (ComfyUI `/models/loras`) **+ `comfyClient.getLmLoras()`** (LoRA Manager cache via `/api/lm/loras/list`, which indexes every `extra_model_paths` root incl. training dirs). **Checkpoints have ONE** — only `safe('checkpoints')` (ComfyUI `/models/checkpoints`). When the yaml/path breaks, ComfyUI's checkpoint folder returns empty and checkpoints have **no LM-cache fallback** like loras do. LM has them indexed; the frontend just never asks LM for checkpoints. (The "we broke it recently" = the LM fallback was added for loras but never mirrored for checkpoints.)
+- **Fix (mirror the loras path):**
+  1. `client.ts`: add `getLmCheckpoints()` mirroring `getLmLoras()` (`client.ts:117`), hitting LoRA Manager's checkpoint endpoint.
+  2. `useComfyModels.ts`: fetch checkpoints from **both** `safe('checkpoints')` and `getLmCheckpoints()`, merge+dedupe, and have the consumer fall back to the LM source when ComfyUI's is empty — the exact `loraModels` / `lmLoraModels` pattern already in the hook.
+- **One unknown to confirm FIRST (don't guess a ComfyUI endpoint):** LoRA Manager's exact checkpoint route — likely `/api/lm/checkpoints/list?page_size=9999` mirroring the loras endpoint; confirm from the running LM API or LM's source.
+- **Files:** `frontend/lib/comfy/client.ts`, `frontend/lib/comfy/useComfyModels.ts`. ~15 lines once the endpoint string is confirmed.
+
+**ACTUAL ROOT CAUSE found via live testing (2026-06-28) — separate from the frontend fallback above:**
+- LoRA Manager *does* see `pretrained_model` (checkpoints) + `output` (loras) — it indexes the yaml mappings; SDXL workflows (LM checkpoint loader) work fine.
+- **guy90 (Anima) uses `UNETLoader` (comfy-core), which loads from the `diffusion_models/` folder — and `extra_model_paths.yaml` maps `checkpoints`/`loras`/`vae` but has NO `diffusion_models` line.** So `UNETLoader` can't find the Anima base (`anima-base-v1.0`) sitting in `pretrained_model/`. SDXL (CheckpointLoaderSimple → `checkpoints`, mapped) works; Anima (`UNETLoader` → `diffusion_models`, unmapped) doesn't. Same gap hits our Generate UI's diffusion_models list (`useComfyModels.ts:87`, `safe('diffusion_models')`).
+- **Root cause = a MISSING yaml mapping, not a stale scan or single-source frontend.** Anima/UNET models simply have no folder mapping.
+- **Fix (the real unblock):** add `diffusion_models: pretrained_model` (and `unet: pretrained_model` for older ComfyUI naming) to `extra_model_paths.yaml` — live on the box AND permanently in **`installer.py:591`** (the yaml generator) so every install ships it. Then `supervisorctl restart comfyui`.
+- The `getLmCheckpoints` frontend hardening above is still worth doing, but **this yaml line is the actual fix for "ComfyUI can't see the Anima models."**
+- **Why LM "saw" it but guy90 didn't (Dusk, 2026-06-28):** LoRA Manager categorizes *everything* as "checkpoints" — it dumps the Anima diffusion model AND its text encoder into the checkpoints folder, so LM-based loaders find it. But Anima is a **diffusion-transformer, not an all-in-one checkpoint**; its correct loaders are `UNETLoader` → `diffusion_models/` (base) + a CLIP/TE loader → `text_encoders/` or `clip/` (text encoder). guy90 uses the *correct* `UNETLoader`. So the yaml fix likely also needs **`text_encoders: pretrained_model`** (and/or `clip: pretrained_model`) if guy90 loads Anima's TE from `pretrained_model/` separately — confirm from the guy90 workflow's loader nodes before finalizing the `installer.py:591` yaml template. Net: the yaml only maps the SDXL-style folders (`checkpoints`/`loras`/`vae`); the Anima/DiT folders (`diffusion_models`, `text_encoders`/`clip`) were never added.
 
 ## 6. Feature Priority Matrix (Beta)
 

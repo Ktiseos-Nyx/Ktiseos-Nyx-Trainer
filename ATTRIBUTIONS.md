@@ -52,15 +52,15 @@ Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-
 ## Derrian's LoRA Easy Training Scripts
 **Repository:** [derrian-distro/LoRA_Easy_Training_Scripts](https://github.com/derrian-distro/LoRA_Easy_Training_Scripts)
 **Copyright:** Copyright (c) 2023-2024 Derrian Distro
-**License:** Apache License 2.0
-**Usage:** Vendored in `trainer/derrian_backend/` - Enhanced Kohya scripts with improvements and fixes
+**License:** GNU General Public License v3.0 (GPL-3.0)
+**Usage:** Vendored in `trainer/derrian_backend/` - Enhanced Kohya scripts with improvements and fixes. This is the project's one strong-copyleft vendored component; the full GPL-3.0 text ships verbatim at `trainer/derrian_backend/LICENSE`.
 
 This project vendors Derrian's distribution which includes:
 - Stability improvements to Kohya scripts
 - Additional model support and optimizations
 - Bug fixes and compatibility updates
 
-Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+Full license text: [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html) — bundled verbatim at `trainer/derrian_backend/LICENSE`. GPL-3.0's source-availability requirement is satisfied by this project's public source repository.
 
 ---
 
@@ -78,6 +78,25 @@ Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-
 
 ---
 
+## ComfyUI Integration
+
+The training tool optionally integrates **ComfyUI** for image generation. ComfyUI and the custom nodes below are **cloned at install time** into `ComfyUI/` (per the COMFY-8 decision) — they are *not* vendored/redistributed in this repository, so they install like dependencies in the user's own environment. Each retains its own upstream license; several are GPL-3.0.
+
+**ComfyUI** — [comfyanonymous/ComfyUI](https://github.com/comfyanonymous/ComfyUI) — GPL-3.0
+
+**Custom nodes** (installed by `installer.py`):
+- [ComfyUI-Manager](https://github.com/ltdrdata/ComfyUI-Manager) (ltdrdata) — GPL-3.0
+- [ComfyUI-Impact-Pack](https://github.com/ltdrdata/ComfyUI-Impact-Pack) (ltdrdata) — GPL-3.0
+- [ComfyUI-Impact-Subpack](https://github.com/ltdrdata/ComfyUI-Impact-Subpack) (ltdrdata) — GPL-3.0
+- [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) (rgthree) — MIT
+- [ComfyUI-Lora-Manager](https://github.com/willmiao/ComfyUI-Lora-Manager) (willmiao) — GPL-3.0
+- [ComfyUI_UltimateSDUpscale](https://github.com/ssitu/ComfyUI_UltimateSDUpscale) (ssitu) — GPL-3.0
+- [comfyui_fearnworksnodes](https://github.com/fearnworks/ComfyUI_FearnworksNodes) (fearnworks) — Apache-2.0
+
+Detection/segmentation models for the Impact-Pack adetailer nodes are pulled from `KtiseosNyx/KNX-Trainer-Models` on Hugging Face; see that repo for model provenance and licenses.
+
+---
+
 ## Icons
 <a href="https://www.flaticon.com/free-icons/computer-vision" title="computer vision icons">Computer vision icons created by Freepik - Flaticon</a>
 <a href="https://www.flaticon.com/free-icons/wellness" title="wellness icons">Wellness icons created by Freepik - Flaticon</a>
@@ -90,8 +109,23 @@ Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-
 - **FastAPI** - MIT License
 - **PyTorch** - BSD-style License
 - **Transformers (Hugging Face)** - Apache License 2.0
+- **Accelerate (Hugging Face)** - Apache License 2.0
+- **Diffusers (Hugging Face)** - Apache License 2.0
+- **Safetensors (Hugging Face)** - Apache License 2.0
+- **Hugging Face Hub** - Apache License 2.0
+- **timm** - Apache License 2.0 (BLIP captioning)
 - **Pydantic** - MIT License
-- **ONNX Runtime** - MIT License
+- **ONNX** - Apache License 2.0 / **ONNX Runtime** - MIT License
+- **bitsandbytes** - MIT License
+- **torchao** - BSD-3-Clause License
+- **OpenCV (opencv-python)** - Apache License 2.0
+- **Pillow** - HPND (permissive)
+- **NumPy** - BSD-3-Clause License
+- **TensorBoard** - Apache License 2.0
+- **Weights & Biases (wandb)** - MIT License
+- **RamTorch** ([lodestone-rock](https://github.com/lodestone-rock/RamTorch)) - Apache License 2.0 - memory-efficient deep learning; lets large models train/run when they don't fit in GPU memory
+
+**Optimizers & Schedulers:** Prodigy (`prodigyopt`, MIT), Lion (`lion-pytorch`, MIT), D-Adaptation (`dadaptation`, MIT), `pytorch_optimizer` (Apache-2.0), Schedule-Free (`schedulefree`, Apache-2.0), `prodigy-plus-schedule-free` (Apache-2.0, LoganBooker), CAME (`came-pytorch`, MIT — yangluo7/CAME).
 
 ### Frontend
 - **Next.js** - MIT License
@@ -159,7 +193,7 @@ When contributing to this project, please ensure:
 
 ---
 
-**Last Updated:** 2025-01-29
+**Last Updated:** 2026-06-28
 **Maintained By:** Ktiseos-Nyx-Trainer Project
 
 If you believe any attribution is missing or incorrect, please open an issue or pull request.
