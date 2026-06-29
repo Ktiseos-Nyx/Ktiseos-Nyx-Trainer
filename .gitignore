@@ -283,6 +283,7 @@ cache/
 .vscode
 /.vscode
 .agents/
+.cortexkit/
 skills-lock.json
 FEATURE_CREEP.md
 entities.json
