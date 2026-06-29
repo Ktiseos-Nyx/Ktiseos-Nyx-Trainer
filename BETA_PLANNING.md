@@ -272,6 +272,22 @@ Both LoRA and Checkpoint merging are implemented:
 
 **🟠 MG-13 — De-bias the model-merging page copy (flagged 2026-06-24):** the merge page reads as AI-marketing-algo speak and ignores what Dusk's actually been asking for for *months*. Needs a copy/UX de-biasing pass — strip the marketing tone, align with his real merge workflow. **Spell the "months" asks out WITH Dusk before doing — don't guess them.** Ties to welcoming-not-corporate + the "don't write bias into the UI" rule.
 
+**Issue MG-14: LoRA → Checkpoint bake for Anima (DiT)** *(feature request — 2026-06-29)*
+- **Problem:** MG-9's bake path covers SD/SDXL only (`lora_service.merge_lora_to_checkpoint` is gated to `sd`/`sdxl`). Anima is a DiT (loaded via `UNETLoader`, with a separate Qwen text encoder + VAE), so there's no path to bake an Anima LoRA into a standalone diffusion-model checkpoint.
+- **Backend status (verified in source 2026-06-29):** the merge engine already exists in the vendored backend — this is an *expose-existing-capability* job like MG-9, not new math, and needs no clean-room port or external tool (it's upstream's own Anima code, Apache-2):
+  - `networks/lora_anima.py` → `LoRAInfModule.merge_to` (~L150): per-module bake, `weight += multiplier * (up @ down) * scale` (linear + conv variants), written back in-place.
+  - `networks/lora_anima.py` → `LoRANetwork.merge_to(text_encoders, unet, weights_sd)` (~L603): bakes a whole LoRA into the loaded model in-place, routing `lora_unet_*`→DiT / `lora_te_*`→TE.
+  - `networks/lora_anima.py` → `create_network_from_weights` (~L342): builds the network sized from the LoRA file.
+  - The only genuinely new code is the write-out: `save_weights` saves the LoRA, not the baked base, so the merged checkpoint must be saved from the model's own `state_dict`.
+- **Fix (4 steps):**
+  1. Read `load_dit_model` (`anima_minimal_inference.py:221`) + `create_network_from_weights` (`lora_anima.py:342-378`) bodies to lock exact args.
+  2. Add `custom/anima_merge_lora.py`: load DiT → `create_network_from_weights` → `network.merge_to` → `save_file(dit.state_dict())`. CLI `--base --models --ratios --save_to`, mirroring `sdxl_merge_lora.py`.
+  3. Add an `anima` lane to `lora_service.merge_lora_to_checkpoint` (currently gated `sd`/`sdxl`), invoking the script via subprocess.
+  4. Test: bake a real Anima LoRA into the Anima base, confirm it loads in ComfyUI `UNETLoader`.
+- **Output:** save in the base's own key format so the result loads wherever the base did (no key conversion).
+- **UI:** surface as a tab in the existing tabbed-card merge UI (`frontend/app/utilities/page.tsx`), LoRA → Checkpoint with model-type Anima.
+- **Status:** ⏳ Not started — plan locked, backend verified, ready to build.
+
 ### 3.3 SuperMerger-lite Vision *(captured 2026-05-30)*
 
 North star: a merge experience inspired by A1111 **SuperMerger** + the batteriesincluded merger, scoped to what a training tool can do safely. Guiding rule from Dusk: **"mix the best of proven tools, borrow presets that already work, never invent untested merge math."** Homegrown merge algorithms silently corrupt models — only wire proven paths.
