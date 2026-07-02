@@ -11,7 +11,6 @@ class LoRAResizeRequest(BaseModel):
     input_path: str = Field(..., description="Path to input LoRA file")
     output_path: str = Field(..., description="Path to output LoRA file")
     target_dim: int = Field(..., ge=1, le=1024, description="Target dimension/rank")
-    target_alpha: Optional[int] = Field(None, description="Target alpha (None = auto)")
     device: str = Field("cpu", description="Device for processing (cpu/cuda)")
     save_precision: str = Field("fp16", description="Save precision (fp16/bf16/fp32)")
 
@@ -77,10 +76,11 @@ class LoRAMergeResponse(BaseModel):
 
 class LoRAToCheckpointRequest(BaseModel):
     """Request to bake one or more LoRAs into a base checkpoint (LoRA -> full model)."""
-    base_model_path: str = Field(..., description="Path to base SD/SDXL checkpoint")
+    base_model_path: str = Field(..., description="Path to base SD/SDXL/Anima checkpoint")
+    text_encoder_path: Optional[str] = Field(None, description="Path to text encoder (required for Anima)")
     lora_inputs: list[LoRAInput] = Field(..., min_length=1, description="LoRAs to bake into the base")
     output_path: str = Field(..., description="Path to output merged checkpoint")
-    model_type: str = Field("sdxl", description="Model type: sd (SD1.5) or sdxl")
+    model_type: str = Field("sdxl", description="Model type: sd (SD1.5), sdxl, or anima")
     device: str = Field("cpu", description="Device for processing (cpu/cuda)")
     save_precision: str = Field("fp16", description="Save precision (fp16/bf16/fp32)")
     precision: str = Field("float", description="Computation precision (float/fp16/bf16)")

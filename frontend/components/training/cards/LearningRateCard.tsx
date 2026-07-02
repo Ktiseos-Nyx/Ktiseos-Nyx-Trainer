@@ -96,12 +96,12 @@ export function LearningRateCard({ form, onSave }: LearningRateCardProps) {
         />
 
         {/* Scheduler-specific settings */}
-        {(scheduler === 'cosine_with_restarts' || scheduler === 'polynomial') && (
+        {(scheduler === 'cosine_with_restarts' || scheduler === 'cosine_annealing' || scheduler === 'rex' || scheduler === 'polynomial') && (
           <NumberFormField
             form={form}
             name="lr_scheduler_number"
-            label={scheduler === 'cosine_with_restarts' ? 'Number of Restarts' : 'Polynomial Degree'}
-            description={scheduler === 'cosine_with_restarts' ? 'How many times to restart (typical: 1-3)' : 'Degree of polynomial (typical: 1-3)'}
+            label={scheduler === 'cosine_with_restarts' || scheduler === 'cosine_annealing' || scheduler === 'rex' ? 'Number of Restarts' : 'Polynomial Degree'}
+            description={scheduler === 'cosine_with_restarts' || scheduler === 'cosine_annealing' || scheduler === 'rex' ? 'How many times to restart (typical: 1-3)' : 'Degree of polynomial (typical: 1-3)'}
             placeholder="3"
             min={0}
             max={100}

@@ -35,6 +35,35 @@ export function normalizeModelType(value: string): ModelType | undefined {
   }
 }
 
+/** These fields are *job* (run-specific) — presets must never touch them. */
+const JOB_FIELDS = new Set([
+  'project_name',
+  'pretrained_model_name_or_path',
+  'vae_path',
+  'train_data_dir',
+  'output_dir',
+  'output_name',
+  'logging_dir',
+  'log_prefix',
+  'log_with',
+  'continue_from_lora',
+  'wandb_key',
+  'wandb_run_name',
+  'clip_l_path',
+  'clip_g_path',
+  't5xxl_path',
+  'ae_path',
+  'gemma2',
+  'blocks_to_swap',
+  'log_tracker_name',
+  'log_tracker_config',
+  'cache_latents_to_disk',
+  'cache_text_encoder_outputs_to_disk',
+  'resume_from_state',
+  'save_state',
+  'save_state_on_train_end',
+]);
+
 const SD_ONLY_MODEL_TYPES = new Set<ModelType>(['SD15', 'SDXL']);
 
 /** Strip fields that only apply to SD1.x/SDXL when loading a non-SD config. */
@@ -351,9 +380,39 @@ export function useTrainingForm(options: {
       return;
     }
 
-    // Merge preset over current form values (preserves paths, project name, etc.)
+    // Recipe vs job separation:
+    // 1. Start from defaultConfig — resets all recipe fields to clean defaults
+    // 2. Apply preset on top — recipe fields get the preset's values
+    // 3. Restore job fields from currentValues — paths, names, credentials stay untouched
     const currentValues = form.getValues();
-    const fullConfig = { ...currentValues, ...preset } as TrainingConfig;
+    const presetRecipe = { ...preset } as Record<string, unknown>;
+
+    // Remove job fields from the preset so they default back to defaultConfig
+    // (and then get overwritten by currentValues in step 3)
+    for (const field of Object.keys(presetRecipe)) {
+      if (JOB_FIELDS.has(field)) {
+        delete presetRecipe[field];
+      }
+    }
+
+    // Build: defaults → preset recipe overrides → preserved job fields
+    const fullConfig = {
+      ...defaultConfig,
+      ...presetRecipe,
+    } as TrainingConfig;
+
+    // Restore job fields from current state
+    for (const field of JOB_FIELDS) {
+      if (field in currentValues) {
+        (fullConfig as unknown as Record<string, unknown>)[field] = currentValues[field as keyof TrainingConfig];
+      }
+    }
+
+    // model_type: use preset value if explicit; otherwise preserve current (don't
+    // silently switch to SDXL default when loading a generic preset mid-Anima run)
+    if (!('model_type' in preset)) {
+      fullConfig.model_type = currentValues.model_type ?? defaultConfig.model_type;
+    }
 
     // Normalize legacy model_type strings; fall back to default if unrecognized
     fullConfig.model_type = normalizeModelType(fullConfig.model_type) ?? defaultConfig.model_type;
@@ -365,7 +424,7 @@ export function useTrainingForm(options: {
     form.reset(fullConfig, { keepDefaultValues: false, keepDirty: false, keepValues: false });
     writeStoredConfig(fullConfig);
 
-    console.log('Preset loaded:', fullConfig.optimizer_type);
+    console.log('Preset loaded:', fullConfig.optimizer_type, `(${fullConfig.model_type})`);
   }, [form]);
 
   const getValidationErrors = useCallback(() => {

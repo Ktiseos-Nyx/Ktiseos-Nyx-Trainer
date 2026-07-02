@@ -233,7 +233,6 @@ class LoRAResizeRequest(BaseModel):
     input_path: str
     output_path: str
     new_dim: int
-    new_alpha: Optional[int] = None
     device: Literal["cpu", "cuda"] = "cpu"
     save_precision: Literal["float", "fp16", "bf16"] = "fp16"
 
@@ -375,7 +374,6 @@ async def resize_lora(request: LoRAResizeRequest):
             input_path=request.input_path,
             output_path=request.output_path,
             target_dim=request.new_dim,
-            target_alpha=request.new_alpha,
             device=request.device,
             save_precision=request.save_precision
         )
@@ -407,7 +405,6 @@ class LoRAMergeRequest(BaseModel):
     device: Literal["cpu", "cuda"] = "cpu"
     save_precision: Literal["float", "fp16", "bf16"] = "fp16"
     precision: Literal["float", "fp16", "bf16"] = "float"
-    block_weights: Optional[list[float]] = None  # SDXL LBW preset (12/20 values)
 
 
 @router.post("/lora/merge")
@@ -439,7 +436,6 @@ async def merge_lora(request: LoRAMergeRequest):
             device=request.device,
             save_precision=request.save_precision,
             precision=request.precision,
-            block_weights=request.block_weights,
         )
 
         response = await lora_service.merge_lora(service_request)
@@ -462,13 +458,13 @@ async def merge_lora(request: LoRAMergeRequest):
 class LoRAToCheckpointRequest(BaseModel):
     """Request model for baking LoRA(s) into a base checkpoint."""
     base_model_path: str
+    text_encoder_path: Optional[str] = None  # Required for Anima
     lora_inputs: list[dict]  # [{path: str, ratio: float}, ...]
     output_path: str
-    model_type: Literal["sd", "sdxl"] = "sdxl"
+    model_type: Literal["sd", "sdxl", "anima"] = "sdxl"
     device: Literal["cpu", "cuda"] = "cpu"
     save_precision: Literal["float", "fp16", "bf16"] = "fp16"
     precision: Literal["float", "fp16", "bf16"] = "float"
-    block_weights: Optional[list[float]] = None  # SDXL LBW preset (12/20 values)
 
 
 @router.post("/lora/merge-to-checkpoint")
@@ -495,13 +491,13 @@ async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
 
         service_request = ServiceLoRAToCheckpointRequest(
             base_model_path=request.base_model_path,
+            text_encoder_path=request.text_encoder_path,
             lora_inputs=lora_inputs,
             output_path=request.output_path,
             model_type=request.model_type,
             device=request.device,
             save_precision=request.save_precision,
             precision=request.precision,
-            block_weights=request.block_weights,
         )
 
         response = await lora_service.merge_lora_to_checkpoint(service_request)
@@ -518,6 +514,97 @@ async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
         raise
     except Exception as e:
         logger.error(f"LoRA-to-checkpoint merge error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Block-Weighted Checkpoint Merge ==========
+
+class BlockWeightedMergeRequest(BaseModel):
+    """Request model for block-weighted (MBW) checkpoint merge."""
+    model_a_path: str
+    model_b_path: str
+    model_c_path: Optional[str] = None  # Required for Add/Triple/Twice
+    output_path: str
+    mode: Literal["weight", "add", "triple", "twice"] = "weight"
+    block_weights: list[float]  # 26 values for SD1.5, 20 for SDXL
+    block_weights_c: Optional[list[float]] = None  # Second curve for Triple/Twice
+    base_alpha: float = 0.5
+    base_alpha_c: Optional[float] = None  # Second base_alpha for Twice
+    device: Literal["cpu", "cuda"] = "cpu"
+
+
+@router.post("/checkpoint/merge-weighted")
+async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
+    """
+    Block-weighted (MBW) checkpoint merge — like SuperMerger.
+
+    Modes:
+      - weight:   A·(1−α) + B·α
+      - add:      A + (B − C)·α  (requires model C)
+      - triple:   A·(1−α−β) + B·α + C·β  (requires model C + block_weights_c)
+      - twice:    merge(A, B) → merge(AB, C)  (requires model C + block_weights_c)
+
+    block_weights are per-block blend values (26 for SD1.5, 20 for SDXL).
+    base_alpha controls non-UNet keys (TE, VAE).
+    """
+    try:
+        from services.block_weight_merge import (
+            load_checkpoint, save_checkpoint,
+            detect_architecture,
+            merge_weight, merge_add, merge_triple, merge_twice,
+        )
+
+        # Validate all input paths
+        for p in [request.model_a_path, request.model_b_path, request.model_c_path]:
+            if p:
+                _validate_model_input(p)
+        validate_path_within(request.output_path, [OUTPUT_DIR])
+
+        # Load models
+        model_a = load_checkpoint(request.model_a_path, device=request.device)
+        model_b = load_checkpoint(request.model_b_path, device=request.device)
+
+        is_sdxl = detect_architecture(list(model_a.keys()))
+
+        # Dispatch merge
+        if request.mode == "weight":
+            merged = merge_weight(model_a, model_b, request.block_weights, request.base_alpha, is_sdxl)
+        elif request.mode == "add":
+            if not request.model_c_path:
+                raise HTTPException(status_code=400, detail="model_c_path required for 'add' mode")
+            model_c = load_checkpoint(request.model_c_path, device=request.device)
+            merged = merge_add(model_a, model_b, model_c, request.block_weights, request.base_alpha, is_sdxl)
+        elif request.mode == "triple":
+            if not request.model_c_path or not request.block_weights_c:
+                raise HTTPException(status_code=400, detail="model_c_path and block_weights_c required for 'triple' mode")
+            model_c = load_checkpoint(request.model_c_path, device=request.device)
+            merged = merge_triple(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, is_sdxl)
+        elif request.mode == "twice":
+            if not request.model_c_path or not request.block_weights_c:
+                raise HTTPException(status_code=400, detail="model_c_path and block_weights_c required for 'twice' mode")
+            model_c = load_checkpoint(request.model_c_path, device=request.device)
+            bc = request.base_alpha_c or 0.5
+            merged = merge_twice(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, bc, is_sdxl)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown mode: {request.mode}")
+
+        # Save
+        save_checkpoint(merged, request.output_path)
+
+        file_size_mb = os.path.getsize(request.output_path) / (1024 * 1024)
+
+        return {
+            "success": True,
+            "message": f"Block-weighted merge ({request.mode}) successful",
+            "output_path": request.output_path,
+            "mode": request.mode,
+            "file_size_mb": round(file_size_mb, 2),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Block-weighted merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

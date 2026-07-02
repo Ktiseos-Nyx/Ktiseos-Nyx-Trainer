@@ -151,7 +151,7 @@ export function Navbar() {
                   <ListItem href="/huggingface-upload" title="HuggingFace Upload" icon={<Upload className="w-4 h-4" />}>
                     Upload LoRAs to HuggingFace Hub
                   </ListItem>
-                  <ListItem href="/comfyui/" title="LoRA Manager" icon={<ExternalLink className="w-4 h-4" />} external>
+                  <ListItem href="/comfyui/loras" title="LoRA Manager" icon={<ExternalLink className="w-4 h-4" />} external>
                     Browse & download models in ComfyUI
                   </ListItem>
                 </ul>

@@ -1249,6 +1249,37 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  mergeCheckpointWeighted: async (
+    modelAPath: string,
+    modelBPath: string,
+    outputPath: string,
+    mode: string = 'weight',
+    blockWeights: number[],
+    baseAlpha: number = 0.5,
+    modelCPath?: string,
+    blockWeightsC?: number[],
+    baseAlphaC?: number,
+    device: string = 'cpu',
+  ) => {
+    const response = await fetch(`${API_BASE}/utilities/checkpoint/merge-weighted`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model_a_path: modelAPath,
+        model_b_path: modelBPath,
+        model_c_path: modelCPath,
+        output_path: outputPath,
+        mode,
+        block_weights: blockWeights,
+        block_weights_c: blockWeightsC,
+        base_alpha: baseAlpha,
+        base_alpha_c: baseAlphaC,
+        device,
+      }),
+    });
+    return handleResponse(response);
+  },
+
   mergeLoraToCheckpoint: async (
     baseModelPath: string,
     loraInputs: Array<{ path: string; ratio: number }>,
@@ -1257,12 +1288,14 @@ export const utilitiesAPI = {
     device: string = 'cpu',
     savePrecision: string = 'fp16',
     precision: string = 'float',
+    textEncoderPath?: string,
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge-to-checkpoint`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         base_model_path: baseModelPath,
+        text_encoder_path: textEncoderPath,
         lora_inputs: loraInputs,
         output_path: outputPath,
         model_type: modelType,

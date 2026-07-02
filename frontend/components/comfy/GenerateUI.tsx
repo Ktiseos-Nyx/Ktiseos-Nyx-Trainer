@@ -935,7 +935,7 @@ export function GenerateUI({
                   <SectionLabel>LoRAs</SectionLabel>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" className="h-6 gap-1 text-xs" asChild>
-                      <a href="/comfyui/" target="_blank" rel="noopener noreferrer" title="Open LoRA Manager in ComfyUI">
+                      <a href="/comfyui/loras" target="_blank" rel="noopener noreferrer" title="Open LoRA Manager in ComfyUI">
                         <ExternalLink className="h-3 w-3" /> Manager
                       </a>
                     </Button>

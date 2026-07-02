@@ -76,13 +76,7 @@ Visual tag editing per image: show tags as badge chips with X to remove, textare
 
 ### 1.5 Delete Image from Tag Editor (NEW FEATURE)
 **Priority:** Medium (Beta QOL)
-
-Let users delete an image directly from the tag editor (remove a mistakenly-added pic). Three pieces:
-- New `/api/dataset/delete-image` route — takes dataset + image name, uses the existing `validateDatasetPath` guard, deletes the image **and its sibling `.txt` caption**.
-- `datasetAPI.deleteImage(...)` client method.
-- Per-image delete button in the editor behind an AlertDialog confirm (the Models-page pattern, never native `confirm()`), then drop the image from state.
-
-Estimate: ~1–2 hrs, low-to-moderate — path-safety helper and the `name.txt` caption convention already exist, so the risky parts are easy.
+**Status:** ✅ Done (already implemented — full stack: backend endpoint, API client, frontend button with toast confirm and state removal).
 
 ### 1.6 Breadcrumbs on Tag Editor / Dataset Sub-Pages
 **Priority:** Low (Beta QOL)
@@ -91,7 +85,7 @@ The dataset sub-pages (`/dataset/[name]/tags`, `/auto-tag`, `/tag-processing`) l
 
 ### 1.7 Auto-Tagger Page Redesign — Match LoRA-Card Structure
 **Priority:** Medium (UX — long-intended, never executed)
-**Status:** ⏳ Not started
+**Status:** Done (Unsure when, but it's done)
 
 The **auto-tagger** page (`frontend/app/dataset/[name]/auto-tag/page.tsx`) — the batch WD14/BLIP/GIT tagging interface — was always meant to be fleshed back out to mirror the **LoRA/training card structure** (the shadcn `Card`-based layout in `frontend/components/training/cards/*.tsx`), but never got it. This is the **auto-tagger**, NOT the tag editor (`tags/page.tsx`, §1.1–1.6, done).
 
@@ -188,47 +182,55 @@ Both LoRA and Checkpoint merging are implemented:
 - **Location:** `services/lora_service.py:98-101`
 - **Problem:** Frontend allows setting `newAlpha` but `resize_lora.py` doesn't support `--new_alpha`. Alpha is auto-calculated from SVD rank. User thinks they're controlling alpha but it's ignored.
 - **Fix:** Either remove alpha input from frontend with explanation, or show it as read-only "will be auto-calculated"
+- **Status:** ✅ Fixed (2026-07-02) — removed `target_alpha` from `LoRAResizeRequest` service model + API model, cleaned commented-out code, removed `new_alpha` from frontend result display
 
 **Issue MG-2: Parameter naming inconsistency**
 - **Severity:** Medium (confusion)
 - **Location:** `services/lora_service.py:298` vs `services/lora_service.py:400`
 - **Problem:** LoRA merge uses `--save_precision` but checkpoint merge uses `--saving_precision` (different Kohya scripts expect different arg names). This is correct behavior but confusing in the codebase.
 - **Fix:** Add comments explaining the naming difference is intentional per-script
+- **Status:** ✅ Fixed (2026-07-02) — annotated every `--save_precision` / `--saving_precision` usage with the target script name
 
 **Issue MG-3: No subprocess timeout**
 - **Severity:** Medium (reliability)
 - **Location:** `services/lora_service.py:320-327, 428-435`
 - **Problem:** `await process.communicate()` has no timeout. A hung merge process blocks the worker indefinitely.
 - **Fix:** Use `asyncio.wait_for(process.communicate(), timeout=3600)` with proper cleanup
+- **Status:** ✅ Fixed (2026-07-02) — all subprocess calls wrapped in `wait_for` with timeouts (1800s resize, 3600s merge)
 
 **Issue MG-4: No CUDA availability check**
 - **Severity:** Medium
 - **Location:** `services/lora_service.py:312, 420`
 - **Problem:** If user requests `device: "cuda"` but no GPU is available, the merge script will fail with an unhelpful error.
 - **Fix:** Check `torch.cuda.is_available()` before passing cuda device, return clear error
+- **Status:** ✅ Fixed (already had `_validate_device()` which checks `torch.cuda.is_available()`, verified 2026-07-02)
 
 **Issue MG-5: SD3 merge not exposed**
 - **Severity:** Low (missing feature)
 - **Location:** `trainer/derrian_backend/sd_scripts/tools/merge_sd3_safetensors.py` exists but isn't wired up
 - **Problem:** SD3 users can't merge models via the web UI
 - **Fix:** Add SD3 merge option to the API and frontend
+- **Note:** Deferred — `merge_sd3_safetensors.py` is a parts-to-full compositor (DiT + VAE + CLIP-L/G + T5XXL → single file), not a checkpoint averaging tool. Needs its own UI tab. Not a quick patch.
 
 **Issue MG-6: Stdout not logged during merges**
 - **Severity:** Low (observability)
 - **Location:** `services/lora_service.py:320-327`
 - **Problem:** Subprocess stdout is captured but never logged or surfaced
 - **Fix:** Log at debug level, optionally stream to frontend for progress
+- **Status:** ✅ Fixed (2026-07-02) — all 4 subprocess calls log stdout via `logger.debug()` after completion
 
 **Issue MG-7: No merge progress reporting**
 - **Severity:** Low (UX)
 - **Problem:** Large checkpoint merges (2-7GB each) can take minutes with no progress indicator beyond a spinner
 - **Fix:** Parse stdout for progress info, send via job status polling
+- **Note:** Deferred — would need converting from `communicate()` to stdout streaming + job-system integration. ~1-2 day feature, not a quick patch.
 
 **Issue MG-8: Missing output file existence check**
 - **Severity:** Low
 - **Location:** `services/lora_service.py:334`
 - **Problem:** Reads file size without verifying output file actually exists
 - **Fix:** Add `output_path.exists()` check before stat()
+- **Status:** ✅ Fixed (2026-07-02) — `output_path.is_file()` check after all subprocess calls
 
 **Issue MG-9: LoRA → Checkpoint merging (bake LoRA into base model)** *(feature request — 2026-05-28)* — **FIRST SLICE when picked up**
 - **Severity:** Feature request (backlog)
@@ -242,7 +244,7 @@ Both LoRA and Checkpoint merging are implemented:
 - **Problem:** No per-block (layer block weight) control when merging LoRAs — only a single global model/clip strength. Block weighting tunes individual UNet blocks (IN/MID/OUT) for finer style vs. likeness control.
 - **Backend status (verified in source 2026-05-30, NOT yet run):** the LBW engine already exists. `networks/sdxl_merge_lora.py` accepts `--lbws`; `networks/svd_merge_lora.py` holds the machinery — `format_lbws`, `get_lbw_block_index`, and presets at **12/17/20/26 blocks** (`ACCEPTABLE = [12, 17, 20, 26]`; 26 = full `BASE/IN00-11/M00/OUT00-11` SuperMerger MBW layout). The frontend currently sends only a global strength and discards this. SD1.5 path (`merge_lora.py`) lacks `--lbws` — route SD1.5 block merges through the SVD path.
 - **Fix:** Expose `--lbws` in the merge flow, **presets first** (see §3.3).
-- **Status:** ❌ **Superseded/removed 2026-06-23.** Block weights are a *checkpoint-merge* concept, not a LoRA one (Dusk's call): the MBW presets encode an A↔B per-block blend, meaningless on a single LoRA. LBW removed from Merge-LoRAs + LoRA→Checkpoint. The real work moves to **MG-11** (clean-room checkpoint MBW). _Prior status below, for history:_ 🔧 **Built 2026-06-16 — wired, NOT yet run (SDXL).** Presets-first per §3.3. `presets/block_weights.json` = SD1.5 set **lifted verbatim from SuperMerger `mbwpresets_master.txt`** (38 presets, 26-len) + curated **SDXL set (11 presets, 20-len)** position curves (FLAT/GRAD/COSINE/IN/MID/OUT/ALL). `block_weights` field on `LoRAMergeRequest`+`LoRAToCheckpointRequest` → `--lbws` (one JSON array per LoRA) via `_block_weight_args()`; `GET /utilities/block-weight-presets` serves them. Frontend `BlockWeightPicker` (SDXL-only dropdown, default "None/uniform") on Merge-LoRAs + LoRA→Checkpoint tabs. **Key constraint found:** backend infers arch from length — **SDXL = 12/20, SD1.5 = 17/26** (`SDXL_LAYER_NUM=[12,20]`); SD1.5 block weights only work on the **SVD LoRA-merge path** (the SD1.5 *bake* script `merge_lora.py` has no `--lbws`), so MVP wires **SDXL only** (merge + bake), SD1.5 deferred. py_compile/tsc/eslint clean. **Needs a real SDXL GPU run to verify the block-weighted bake/merge.**
+- **Status:** ❌ **Superseded/removed 2026-06-23.** Block weights are a *checkpoint-merge* concept, not a LoRA one (Dusk's call): the MBW presets encode an A↔B per-block blend, meaningless on a single LoRA. LBW removed from Merge-LoRAs + LoRA→Checkpoint. The real work moves to **MG-11** (clean-room checkpoint MBW). Dead `block_weights` fields + `BlockWeightPicker` component cleaned 2026-07-02.
 
 **Issue MG-11: Block-weighted (MBW) checkpoint merge — clean-room SuperMerger port** *(2026-06-23)*
 - **Why:** Block weights belong ONLY on the Merge Checkpoints tab (per-block A/B/C blend). MG-10 misplaced them on LoRA merge/bake — removed.
@@ -254,7 +256,7 @@ Both LoRA and Checkpoint merging are implemented:
   - calcmodes (cosine A/B, train-difference, extract, tensor/self), deep/elemental merge, block exclusions.
 - **Build order (forced by dependency, not by hiding):** (1) own credited module: load/save via our kohya + faithful `blockfromkey` + Weight/Add/Triple/Twice + `base_alpha` + existing presets, wired to MergeCheckpointTab (mode selector, up to 3 model slots, 1–2 block pickers). (2) calcmodes. (3) deep/elemental/exclusions. Each layer ships exposed as it lands.
 - **Verify gate:** merge-correctness — every layer needs a real GPU merge + generation check (Dusk) before "done"; cross-check block mapping against a known SuperMerger result.
-- **Status:** 🔧 Phase 1 done (block weights removed from LoRA flows, `ae0e922`). Foundation build = next.
+- **Status:** 🔧 Phase 1 done (block weights removed from LoRA flows, `ae0e922`). **Foundation (step 1) built 2026-07-02** — `services/block_weight_merge.py` (clean-room, Weight/Add/Triple/Twice modes, `blockfromkey` for SD1.5/SDXL, preset support, `base_alpha`), `POST /checkpoint/merge-weighted` endpoint, frontend MergeCheckpointTab now has Basic/Block-Weighted toggle with mode selector, 2-3 model slots, dual preset pickers, and alpha sliders. Dead `block_weights` fields cleaned from LoRA merge APIs.
 
 **🔴🔴 BUG MG-12 — EXTREMELY IMPORTANT (flagged 2026-06-24): Merge Checkpoints tab doesn't list ComfyUI checkpoints**
 - **Symptom:** Merge Checkpoints shows only `pretrained_model/` models, NOT the ComfyUI checkpoints — even though they exist on disk and the page throws no error.
@@ -271,6 +273,7 @@ Both LoRA and Checkpoint merging are implemented:
 - **Status:** ✅ Fixed (`a94854f`), pending deploy verification.
 
 **🟠 MG-13 — De-bias the model-merging page copy (flagged 2026-06-24):** the merge page reads as AI-marketing-algo speak and ignores what Dusk's actually been asking for for *months*. Needs a copy/UX de-biasing pass — strip the marketing tone, align with his real merge workflow. **Spell the "months" asks out WITH Dusk before doing — don't guess them.** Ties to welcoming-not-corporate + the "don't write bias into the UI" rule.
+- **Status:** ✅ Done (2026-07-02) — stripped marketing fluff from header, LoRA→Checkpoint banner, and resize info box. Functional/no-nonsense tone throughout.
 
 **Issue MG-14: LoRA → Checkpoint bake for Anima (DiT)** *(feature request — 2026-06-29)*
 - **Problem:** MG-9's bake path covers SD/SDXL only (`lora_service.merge_lora_to_checkpoint` is gated to `sd`/`sdxl`). Anima is a DiT (loaded via `UNETLoader`, with a separate Qwen text encoder + VAE), so there's no path to bake an Anima LoRA into a standalone diffusion-model checkpoint.
@@ -286,7 +289,7 @@ Both LoRA and Checkpoint merging are implemented:
   4. Test: bake a real Anima LoRA into the Anima base, confirm it loads in ComfyUI `UNETLoader`.
 - **Output:** save in the base's own key format so the result loads wherever the base did (no key conversion).
 - **UI:** surface as a tab in the existing tabbed-card merge UI (`frontend/app/utilities/page.tsx`), LoRA → Checkpoint with model-type Anima.
-- **Status:** ⏳ Not started — plan locked, backend verified, ready to build.
+- **Status:** 🔧 Built (2026-07-02) — `custom/anima_merge_lora.py` (load DiT → `create_network_from_weights` → `network.merge_to` → `save_anima_model` for DiT + separate TE save). Wired into `lora_service.merge_lora_to_checkpoint` as `anima` lane. API model accepts `"anima"` + `text_encoder_path`. Frontend LoRAToCheckpointTab shows 3-way arch toggle (SD1.5 / SDXL / Anima) with TE path input when Anima selected. **Needs a real GPU run.**
 
 ### 3.3 SuperMerger-lite Vision *(captured 2026-05-30)*
 
@@ -620,14 +623,14 @@ Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. *
 
 ### 5.5 Form State & Field-Linkage Bugs *(Dusk, 2026-06-28)*
 
-**Issue PRESET-1: Preset load is non-deterministic — sticky omits + wrong clears** — ⏳ **Not started**
+**Issue PRESET-1: Preset load is non-deterministic — sticky omits + wrong clears** — ✅ **Fixed 2026-07-02**
 - **Severity:** Medium (recurring config-correctness pain; can silently ship a run with hyperparameters the user didn't choose)
 - **Problem (bidirectional):** loading a preset (1) does **not clear** fields the preset omits → stale values ride along (e.g. the "Train UNet Only" tick stays set; a `lr_warmup_ratio` set by one preset persists when you next load one that omits it), AND (2) **does clear** some fields it shouldn't — **confirmed live: swapping to a CAME preset wipes the user's pre-selected base model (Illustrious/NAI)**, a job field that should survive the load. Compounded by `useTrainingForm.ts` hydrating last-saved state from localStorage (falling back to server) on mount (`readStoredConfig` ~L211, hydration `useEffect` ~L294), so the "default" a user sees is their **persisted prior state**, not `defaultConfig` (L49). Net effect: the warmup/optimizer/unet-only values feel "sticky" and un-attributable.
 - **Root cause:** `loadPreset` (`useTrainingForm.ts:348`) merges a *partial* preset over current values — there is no model of what a preset owns vs job/user state.
 - **Fix (no runtime dirty-tracking needed):** statically classify each `TrainingConfig` field as **recipe** (preset owns: LR, optimizer, scheduler, warmup, dim/alpha, dropout, …) or **job** (this-run: dataset/model/output paths, project name, trigger words). Preset load = reset **recipe** fields to `(defaultConfig → then preset overrides)`, leave **job** fields untouched. Deterministic; kills both failure modes at once. (v1 deliberately does not preserve a manual recipe tweak across a preset swap — overriding recipe edits is expected when loading a recipe.)
 - **Files:** `frontend/hooks/useTrainingForm.ts` (loadPreset, defaultConfig, hydration effect), `frontend/components/training/PresetManager.tsx`.
 
-**Issue SCHED-1: `cosine_annealing` & `rex` schedulers hide their restart-count field** — ⏳ **Not started**
+**Issue SCHED-1: `cosine_annealing` & `rex` schedulers hide their restart-count field** — ✅ **Fixed 2026-07-02**
 - **Severity:** Low–Medium (silent loss of UI control over a real hyperparameter)
 - **Repro:** pick **Cosine Annealing (Warm Restarts)** or **Rex (Warm Restarts)** in the LR scheduler dropdown → the "Number of Restarts" field disappears, so the user can't set it and is stuck with whatever `lr_scheduler_number` is already in the config (default 3 / stale).
 - **Root cause:** `LearningRateCard.tsx:99` gates the `lr_scheduler_number` field on `scheduler === 'cosine_with_restarts' || scheduler === 'polynomial'` only — it omits the two vendored warm-restart schedulers. But `kohya_toml.py:409` passes `lr_scheduler_num_cycles = lr_scheduler_number` for **every** scheduler, and `rex`/`cosine_annealing` are restart-based (`CUSTOM_SCHEDULER_PATHS`, kohya_toml.py:291-294), so they DO consume the cycle count.

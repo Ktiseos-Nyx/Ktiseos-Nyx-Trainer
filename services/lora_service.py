@@ -114,10 +114,9 @@ class LoRAService:
                 "--save_precision", request.save_precision,
                 ]
 
-        # FIX: resize_lora.py does not support --new_alpha.
-        # It calculates alpha automatically based on SVD rank.
-        # if request.target_alpha is not None:
-        #     command.extend(["--new_alpha", str(request.target_alpha)])
+            # NOTE: resize_lora.py calculates alpha automatically from the SVD
+            # rank reduction. It does NOT accept a --new_alpha flag, so we never
+            # pass one. The API model deliberately omits target_alpha for clarity.
 
             logger.info(
                 "Resizing LoRA from %s to rank %s",
@@ -135,6 +134,7 @@ class LoRAService:
 
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=1800)
+                logger.debug("LoRA resize stdout: %s", stdout.decode('utf-8', errors='replace').strip() if stdout else "")
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
@@ -355,6 +355,7 @@ class LoRAService:
 
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+                logger.debug("LoRA merge stdout: %s", stdout.decode('utf-8', errors='replace').strip() if stdout else "")
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
@@ -399,12 +400,12 @@ class LoRAService:
 
     async def merge_lora_to_checkpoint(self, request: LoRAToCheckpointRequest) -> LoRAToCheckpointResponse:
         """
-        Bake one or more LoRAs into a base SD/SDXL checkpoint, producing a full
-        standalone checkpoint (the "LoRA -> checkpoint" merge, like SuperMerger).
+        Bake one or more LoRAs into a base checkpoint, producing a full
+        standalone checkpoint (the "LoRA -> checkpoint" merge).
 
-        Uses the same vendored Kohya merge scripts as merge_lora() but passes
-        --sd_model, which routes through merge_to_sd_model() and saves a full
-        checkpoint instead of a LoRA-format file.
+        Supports:
+        - SD1.5 / SDXL via vendored Kohya merge scripts (--sd_model)
+        - Anima (DiT) via custom/anima_merge_lora.py
 
         Args:
             request: LoRA-to-checkpoint merge request
@@ -430,39 +431,68 @@ class LoRAService:
             output_path = Path(request.output_path)
             output_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Only sd / sdxl can bake into a checkpoint via merge_to_sd_model()
             model_type = request.model_type.lower()
-            if model_type not in ("sd", "sdxl"):
-                raise ValidationError(
-                    f"LoRA-to-checkpoint supports only 'sd' (SD1.5) and 'sdxl'. Got: {model_type}"
-                )
-
-            merge_script = self.merge_scripts[model_type]
-            if not merge_script.exists():
-                raise NotFoundError(
-                    f"Merge script not found for {model_type}. "
-                    "Please ensure the training backend is installed."
-                )
-
             self._validate_device(request.device)
 
-            # --sd_model triggers merge_to_sd_model() -> saves a full checkpoint
-            command = [
-                sys.executable,
-                str(merge_script),
-                "--sd_model", str(base_path),
-                "--save_to", str(output_path),
-                "--save_precision", request.save_precision,
-                "--precision", request.precision,
-            ]
+            if model_type == "anima":
+                # ── Anima (DiT) lane via custom script ──────────────────────
+                if not request.text_encoder_path:
+                    raise ValidationError("text_encoder_path is required for Anima model type")
 
-            model_paths = [lora_input.path for lora_input in request.lora_inputs]
-            model_ratios = [str(lora_input.ratio) for lora_input in request.lora_inputs]
-            command.extend(["--models"] + model_paths)
-            command.extend(["--ratios"] + model_ratios)
+                te_path = Path(request.text_encoder_path)
+                if not te_path.exists():
+                    raise NotFoundError(f"Text encoder not found: {request.text_encoder_path}")
 
-            if request.device != "cpu":
-                command.extend(["--device", request.device])
+                anima_script = self.project_root / "custom" / "anima_merge_lora.py"
+                if not anima_script.exists():
+                    raise NotFoundError(
+                        "Anima merge script not found at custom/anima_merge_lora.py. "
+                        "Please ensure the training backend is installed."
+                    )
+
+                model_paths = [lora_input.path for lora_input in request.lora_inputs]
+                model_ratios = [str(lora_input.ratio) for lora_input in request.lora_inputs]
+
+                command = [
+                    sys.executable,
+                    str(anima_script),
+                    "--base_model", str(base_path),
+                    "--text_encoder", str(te_path),
+                    "--models", *model_paths,
+                    "--ratios", *model_ratios,
+                    "--save_to", str(output_path),
+                    "--device", request.device,
+                ]
+            else:
+                # ── SD1.5 / SDXL lane via vendored Kohya scripts ───────────
+                if model_type not in ("sd", "sdxl"):
+                    raise ValidationError(
+                        f"LoRA-to-checkpoint supports 'sd' (SD1.5), 'sdxl', or 'anima'. Got: {model_type}"
+                    )
+
+                merge_script = self.merge_scripts[model_type]
+                if not merge_script.exists():
+                    raise NotFoundError(
+                        f"Merge script not found for {model_type}. "
+                        "Please ensure the training backend is installed."
+                    )
+
+                model_paths = [lora_input.path for lora_input in request.lora_inputs]
+                model_ratios = [str(lora_input.ratio) for lora_input in request.lora_inputs]
+
+                command = [
+                    sys.executable,
+                    str(merge_script),
+                    "--sd_model", str(base_path),
+                    "--save_to", str(output_path),
+                    "--save_precision", request.save_precision,  # sdxl_merge_lora.py uses --save_precision
+                    "--precision", request.precision,
+                    "--models", *model_paths,
+                    "--ratios", *model_ratios,
+                ]
+
+                if request.device != "cpu":
+                    command.extend(["--device", request.device])
 
             logger.info(
                 f"Baking {len(request.lora_inputs)} LoRA(s) into base checkpoint "
@@ -478,6 +508,7 @@ class LoRAService:
 
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+                logger.debug("LoRA-to-checkpoint merge stdout: %s", stdout.decode('utf-8', errors='replace').strip() if stdout else "")
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
@@ -588,6 +619,7 @@ class LoRAService:
 
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+                logger.debug("Checkpoint merge stdout: %s", stdout.decode('utf-8', errors='replace').strip() if stdout else "")
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
