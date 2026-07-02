@@ -5,7 +5,21 @@
  * REST API Reference: https://github.com/civitai/civitai/wiki/REST-API-Reference
  */
 
-const CIVITAI_API_BASE = 'https://civitai.com/api/v1';
+/**
+ * Read the configured Civitai base URL from user settings.
+ * Defaults to https://civitai.com; switch to https://civitai.red for
+ * the restricted-content endpoint.
+ */
+async function getCivitaiBaseUrl(): Promise<string> {
+  try {
+    const { settingsService } = await import('./settings-service');
+    const settings = await settingsService.loadSettings();
+    return settings.civitai_base_url || 'https://civitai.com';
+  } catch {
+    // Fallback when settings service can't load (e.g. during tests)
+    return 'https://civitai.com';
+  }
+}
 
 /**
  * Get Civitai API headers, including API key if available
@@ -33,8 +47,9 @@ export function getCivitaiApiKey(): string | undefined {
 /**
  * Build URL with query parameters
  */
-export function buildUrl(endpoint: string, params: Record<string, string | number | boolean | undefined>): string {
-  const url = new URL(`${CIVITAI_API_BASE}${endpoint}`);
+export async function buildUrl(endpoint: string, params: Record<string, string | number | boolean | undefined>): Promise<string> {
+  const base = await getCivitaiBaseUrl();
+  const url = new URL(`${base}/api/v1${endpoint}`);
 
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== '') {
@@ -54,7 +69,7 @@ export async function civitaiFetch<T>(
   apiKey?: string
 ): Promise<{ success: boolean; data?: T; error?: string; status?: number }> {
   try {
-    const url = buildUrl(endpoint, params);
+    const url = await buildUrl(endpoint, params);
     const headers = getCivitaiHeaders(apiKey || getCivitaiApiKey());
 
     const response = await fetch(url, {

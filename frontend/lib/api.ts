@@ -1550,7 +1550,9 @@ export const civitaiAPI = {
     versionId: number,
     downloadUrl: string,
     filename: string,
-    modelType: 'model' | 'vae' | 'lora' = 'model'
+    modelType: 'model' | 'vae' | 'lora' = 'model',
+    destination?: 'training' | 'comfyui',
+    comfyuiFolder?: string,
   ) => {
     const response = await fetch(`${API_BASE}/civitai/download`, {
       method: 'POST',
@@ -1561,6 +1563,8 @@ export const civitaiAPI = {
         download_url: downloadUrl,
         filename,
         model_type: modelType,
+        destination: destination ?? 'training',
+        comfyui_folder: comfyuiFolder,
       }),
     });
     return handleResponse(response);

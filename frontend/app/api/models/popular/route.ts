@@ -8,16 +8,24 @@
 import { NextResponse } from 'next/server';
 
 /**
+ * Read the configured Civitai base URL from user settings.
+ */
+async function getCivitaiBaseUrl(): Promise<string> {
+  try {
+    const { settingsService } = await import('@/lib/node-services/settings-service');
+    const settings = await settingsService.loadSettings();
+    return settings.civitai_base_url || 'https://civitai.com';
+  } catch {
+    return 'https://civitai.com';
+  }
+}
+
+/**
  * Provide a fixed JSON payload listing supported models and VAEs with download metadata.
- *
- * The response contains:
- * - `success`: boolean set to `true`.
- * - `models`: an object mapping category keys (e.g., `sdxl`, `sd15`, `flux`, `sd3.5`, `chroma`, `anima`, `lumina`, `hunyuanimage`) to arrays of model entries. Each model entry includes `name`, `url`, `filename`, and `description`; some entries may include `manualOnly: true` and `repoUrl` for manual-download guidance or gated access notes.
- * - `vaes`: an array of VAE entries, each including `name`, `url`, `filename`, and `description`.
- *
- * @returns A JSON object with `success`, `models`, and `vaes` describing available models and VAEs and their download or manual-download instructions.
  */
 export async function GET() {
+  const civitaiUrl = await getCivitaiBaseUrl();
+
   return NextResponse.json({
     success: true,
     models: {
@@ -36,7 +44,7 @@ export async function GET() {
         },
         {
           name: 'Pony Diffusion V6 XL',
-          url: 'https://civitai.com/api/download/models/290640',
+          url: `${civitaiUrl}/api/download/models/290640`,
           filename: 'ponyDiffusionV6XL_v6.safetensors',
           description: 'Anime/cartoon model from Civitai',
         },

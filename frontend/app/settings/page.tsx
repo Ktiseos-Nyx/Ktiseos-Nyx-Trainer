@@ -38,6 +38,8 @@ export default function SettingsPage() {
   // ComfyUI
   const [comfyuiUrl, setComfyuiUrl] = useState('http://localhost:8188')
   const [comfyuiModelsPath, setComfyuiModelsPath] = useState('')
+  // Civitai domain
+  const [civitaiBaseUrl, setCivitaiBaseUrl] = useState('https://civitai.com')
 
   // Upload Optimization
   const [remoteGPU, setRemoteGPU] = useState(false)
@@ -117,6 +119,7 @@ export default function SettingsPage() {
           setExtraVaeDirs(data.settings.extra_vae_dirs ?? [])
           setComfyuiUrl(data.settings.comfyui_url ?? 'http://localhost:8188')
           setComfyuiModelsPath(data.settings.comfyui_models_path ?? '')
+          setCivitaiBaseUrl(data.settings.civitai_base_url ?? 'https://civitai.com')
         }
       }
     } catch (error) {
@@ -141,6 +144,7 @@ export default function SettingsPage() {
       payload.extra_vae_dirs = extraVaeDirs
       payload.comfyui_url = comfyuiUrl.trim() || 'http://localhost:8188'
       payload.comfyui_models_path = comfyuiModelsPath.trim()
+      payload.civitai_base_url = civitaiBaseUrl
 
       const response = await fetch(`${API_BASE}/settings/user`, {
         method: 'POST',
@@ -409,6 +413,42 @@ export default function SettingsPage() {
                   >
                     civitai.com/user/account
                   </a>
+                </p>
+              </div>
+
+              {/* Civitai Domain */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Civitai Domain
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCivitaiBaseUrl('https://civitai.com')}
+                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      civitaiBaseUrl === 'https://civitai.com'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    civitai.com (Blue)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCivitaiBaseUrl('https://civitai.red')}
+                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      civitaiBaseUrl === 'https://civitai.red'
+                        ? 'bg-red-600 text-white shadow-md'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    civitai.red (Red)
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {civitaiBaseUrl === 'https://civitai.red'
+                    ? 'Using civitai.red for restricted content — may require API key.'
+                    : 'Default Civitai domain (blue). Switch to red for restricted content access.'}
                 </p>
               </div>
 

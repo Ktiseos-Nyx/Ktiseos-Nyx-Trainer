@@ -77,6 +77,7 @@ export default function CivitaiBrowsePage() {
   const [browsingLevel, setBrowsingLevel] = useState<number>(1); // Default: PG only
 
   // Download state
+  const [downloadDestination, setDownloadDestination] = useState<'training' | 'comfyui'>('training');
   const [downloading, setDownloading] = useState<Set<number>>(new Set());
 
   // Browsing level helpers
@@ -264,12 +265,19 @@ export default function CivitaiBrowsePage() {
         : (model.type === 'LORA' || model.type === 'LoCon') ? 'lora'
         : 'model';
 
+      const comfyuiFolder =
+        model.type === 'VAE' ? 'vae'
+        : (model.type === 'LORA' || model.type === 'LoCon') ? 'loras'
+        : 'checkpoints';
+
       await civitaiAPI.download(
         model.id,
         latestVersion.id,
         downloadUrl,
         primaryFile.name,
-        modelType
+        modelType,
+        downloadDestination,
+        downloadDestination === 'comfyui' ? comfyuiFolder : undefined
       );
 
       toast.success(`Download started: ${primaryFile.name}`);
@@ -638,6 +646,42 @@ export default function CivitaiBrowsePage() {
                 </button>
                 <p className="text-xs text-muted-foreground mt-1">
                   Adds mature content to API results
+                </p>
+              </div>
+
+              {/* Download Destination */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Download To
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDownloadDestination('training')}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      downloadDestination === 'training'
+                        ? 'bg-cyan-600 text-white shadow-md'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    <span className="block">Trainer</span>
+                    <span className="block text-[10px] opacity-70">pretrained_model/</span>
+                  </button>
+                  <button
+                    onClick={() => setDownloadDestination('comfyui')}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      downloadDestination === 'comfyui'
+                        ? 'bg-cyan-600 text-white shadow-md'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    <span className="block">ComfyUI</span>
+                    <span className="block text-[10px] opacity-70">ComfyUI/models/</span>
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {downloadDestination === 'comfyui'
+                    ? 'Downloads directly into ComfyUI model folders for generation use.'
+                    : 'Downloads to trainer directories for training runs.'}
                 </p>
               </div>
             </div>
