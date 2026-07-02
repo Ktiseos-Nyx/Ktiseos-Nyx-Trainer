@@ -308,18 +308,75 @@ class KohyaTOMLGenerator:
         "RAdamScheduleFree": "schedulefree.RAdamScheduleFree",
     }
 
+    # Image extensions counted when estimating total steps for warm-restart schedulers.
+    _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
+
+    def _count_dataset_images(self) -> int:
+        """Count image files under the configured training data dir (recursive)."""
+        dataset_abs_path = Path(self.config.train_data_dir)
+        if not dataset_abs_path.is_absolute():
+            dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
+        if not dataset_abs_path.exists():
+            return 0
+        return sum(
+            1 for p in dataset_abs_path.rglob("*")
+            if p.suffix.lower() in self._IMAGE_EXTS
+        )
+
+    def _total_training_steps(self) -> int:
+        """Best-effort total optimizer steps, used to size warm-restart cycles.
+
+        Mirrors the step calculator: images x repeats x epochs / (batch x grad_accum).
+        Returns 0 when it can't be determined so the caller can fall back.
+        """
+        if self.config.max_train_steps and self.config.max_train_steps > 0:
+            return self.config.max_train_steps
+        images = self._count_dataset_images()
+        if not images:
+            return 0
+        batch = max(1, self.config.train_batch_size)
+        grad_accum = max(1, self.config.gradient_accumulation_steps)
+        return (images * self.config.num_repeats * self.config.max_train_epochs) // (batch * grad_accum)
+
     def _resolve_scheduler(self) -> dict:
         """
-        Return the correct scheduler TOML key/value.
+        Return the scheduler TOML key(s).
 
         Standard schedulers use lr_scheduler = "cosine" etc.
-        Custom vendored schedulers use lr_scheduler_type = "dotted.Module.Class"
-        which Kohya resolves via importlib (same mechanism as custom optimizers).
+        Custom vendored schedulers (cosine_annealing, rex) use a dotted
+        lr_scheduler_type = "Module.Class" (Kohya resolves it via importlib, same
+        mechanism as custom optimizers) PLUS the lr_scheduler_args the class needs.
+
+        The vendored CosineAnnealingWarmRestarts / RexAnnealingWarmRestarts take
+        `gamma` as a REQUIRED positional arg and expect `first_cycle_max_steps`
+        (per-cycle length in steps), NOT a cycle count. derrian's colab backend
+        injects these via utils/validation.validate_restarts; KNX writes the TOML
+        directly and bypasses that path, so we replicate the derivation here
+        (first_cycle_max_steps = total_steps // num_cycles). Without it the class
+        raises "missing 1 required positional argument: 'gamma'".
         """
         path = self.CUSTOM_SCHEDULER_PATHS.get(self.config.lr_scheduler)
-        if path:
-            return {"lr_scheduler_type": path}
-        return {"lr_scheduler": self.config.lr_scheduler}
+        if not path:
+            return {"lr_scheduler": self.config.lr_scheduler}
+
+        num_cycles = max(1, self.config.lr_scheduler_number)
+        total_steps = self._total_training_steps()
+        first_cycle_max_steps = max(1, total_steps // num_cycles) if total_steps else 1
+        if not total_steps:
+            logger.warning(
+                "Could not determine total steps for the '%s' scheduler; "
+                "first_cycle_max_steps falls back to 1 (LR would restart every step). "
+                "Set Max Train Steps or ensure the dataset directory is populated.",
+                self.config.lr_scheduler,
+            )
+
+        return {
+            "lr_scheduler_type": path,
+            "lr_scheduler_args": [
+                f"gamma={self.config.lr_scheduler_gamma}",
+                f"first_cycle_max_steps={first_cycle_max_steps}",
+            ],
+        }
 
     def _resolve_optimizer_type(self, optimizer_type: str) -> str:
         """
