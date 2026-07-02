@@ -6,25 +6,13 @@
  */
 
 import { NextResponse } from 'next/server';
-
-/**
- * Read the configured Civitai base URL from user settings.
- */
-async function getCivitaiBaseUrl(): Promise<string> {
-  try {
-    const { settingsService } = await import('@/lib/node-services/settings-service');
-    const settings = await settingsService.loadSettings();
-    return settings.civitai_base_url || 'https://civitai.com';
-  } catch {
-    return 'https://civitai.com';
-  }
-}
+import { getCivitaiDownloadBase } from '@/lib/node-services/civitai-service';
 
 /**
  * Provide a fixed JSON payload listing supported models and VAEs with download metadata.
  */
 export async function GET() {
-  const civitaiUrl = await getCivitaiBaseUrl();
+  const civitaiUrl = await getCivitaiDownloadBase();
 
   return NextResponse.json({
     success: true,

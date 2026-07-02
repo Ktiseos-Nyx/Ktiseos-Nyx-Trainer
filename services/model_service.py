@@ -283,7 +283,7 @@ class ModelService:
             download_url = url
             hostname = (urlparse(url).hostname or "")
             is_hf_host = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
-            if "civitai.com" in hostname and api_token and "hf" not in api_token:
+            if "civitai" in hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 headers["Authorization"] = f"Bearer {api_token}"
@@ -409,7 +409,7 @@ class ModelService:
 
             # Handle API tokens
             is_hf_host = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
-            if "civitai.com" in hostname and api_token and "hf" not in api_token:
+            if "civitai" in hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 header = f"Authorization: Bearer {api_token}"
@@ -567,7 +567,7 @@ class ModelService:
             # Handle API tokens
             wget_hostname = (urlparse(url).hostname or "")
             is_hf_host = wget_hostname == "huggingface.co" or wget_hostname.endswith(".huggingface.co")
-            if "civitai.com" in wget_hostname and api_token and "hf" not in api_token:
+            if "civitai" in wget_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 wget_args.extend(["--header", f"Authorization: Bearer {api_token}"])
@@ -610,7 +610,7 @@ class ModelService:
             # Handle API tokens
             req_hostname = (urlparse(url).hostname or "")
             is_hf_host = req_hostname == "huggingface.co" or req_hostname.endswith(".huggingface.co")
-            if "civitai.com" in req_hostname and api_token and "hf" not in api_token:
+            if "civitai" in req_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 headers["Authorization"] = f"Bearer {api_token}"

@@ -6,17 +6,26 @@
  */
 
 /**
- * Read the configured Civitai base URL from user settings.
- * Defaults to https://civitai.com; switch to https://civitai.red for
- * the restricted-content endpoint.
+ * The Civitai REST API lives on civitai.com — always.
+ * civitai.red is a content mirror, not an API endpoint.
  */
-async function getCivitaiBaseUrl(): Promise<string> {
+const CIVITAI_API_BASE = 'https://civitai.com/api/v1';
+
+/**
+ * Read the configured Civitai download domain from user settings.
+ * Used only for constructing download URLs in the popular models list
+ * and similar direct-link scenarios. API calls always use civitai.com.
+ */
+/**
+ * Read the configured Civitai download domain from user settings.
+ * Used only for constructing download URLs. API calls always use civitai.com.
+ */
+export async function getCivitaiDownloadBase(): Promise<string> {
   try {
     const { settingsService } = await import('./settings-service');
     const settings = await settingsService.loadSettings();
     return settings.civitai_base_url || 'https://civitai.com';
   } catch {
-    // Fallback when settings service can't load (e.g. during tests)
     return 'https://civitai.com';
   }
 }
@@ -45,11 +54,11 @@ export function getCivitaiApiKey(): string | undefined {
 }
 
 /**
- * Build URL with query parameters
+ * Build URL with query parameters.
+ * Always uses civitai.com — the REST API is not available on civitai.red.
  */
-export async function buildUrl(endpoint: string, params: Record<string, string | number | boolean | undefined>): Promise<string> {
-  const base = await getCivitaiBaseUrl();
-  const url = new URL(`${base}/api/v1${endpoint}`);
+export function buildUrl(endpoint: string, params: Record<string, string | number | boolean | undefined>): string {
+  const url = new URL(`${CIVITAI_API_BASE}${endpoint}`);
 
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== '') {
@@ -69,7 +78,7 @@ export async function civitaiFetch<T>(
   apiKey?: string
 ): Promise<{ success: boolean; data?: T; error?: string; status?: number }> {
   try {
-    const url = await buildUrl(endpoint, params);
+    const url = buildUrl(endpoint, params);
     const headers = getCivitaiHeaders(apiKey || getCivitaiApiKey());
 
     const response = await fetch(url, {
