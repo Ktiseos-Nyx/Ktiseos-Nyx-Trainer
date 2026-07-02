@@ -35,14 +35,13 @@ router = APIRouter()
 
 def _comfyui_model_dirs() -> dict[str, Path]:
     """
-    Resolve ComfyUI's loras/checkpoints directories when a ComfyUI models path
-    is configured and the subfolders actually exist on disk.
+    Resolve ComfyUI's model subdirectories for use in merge/bake file listings
+    and input path validation.
 
-    Returns e.g. ``{"comfyui_loras": Path, "comfyui_checkpoints": Path}``,
-    omitting any that are absent so callers (directory listing + merge-input
-    path validation) degrade gracefully when ComfyUI isn't installed. Works the
-    same locally and on remote (VastAI/RunPod) because the path is resolved on
-    whichever box the backend runs on.
+    Returns e.g. ``{"comfyui_loras": Path, "comfyui_checkpoints": Path}``.
+    If the standard subfolder (loras/, checkpoints/) doesn't exist under the
+    ComfyUI models root, the root itself is returned as a fallback so users
+    on custom setups still see their files.
     """
     from api.routes.settings import get_comfyui_models_path
 
@@ -50,10 +49,16 @@ def _comfyui_model_dirs() -> dict[str, Path]:
     base = get_comfyui_models_path()
     if not base:
         return dirs
+    base_path = Path(base)
+    found = False
     for key, sub in (("comfyui_loras", "loras"), ("comfyui_checkpoints", "checkpoints")):
-        candidate = Path(base) / sub
+        candidate = base_path / sub
         if candidate.is_dir():
             dirs[key] = candidate
+            found = True
+    if not found and base_path.is_dir():
+        dirs["comfyui_checkpoints"] = base_path
+        dirs["comfyui_loras"] = base_path
     return dirs
 
 
