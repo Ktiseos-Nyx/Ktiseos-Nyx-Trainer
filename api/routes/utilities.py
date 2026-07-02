@@ -538,6 +538,29 @@ class BlockWeightedMergeRequest(BaseModel):
     device: Literal["cpu", "cuda"] = "cpu"
 
 
+class DetectArchRequest(BaseModel):
+    """Request to detect checkpoint architecture."""
+    checkpoint_path: str
+
+
+@router.post("/checkpoint/detect-arch")
+async def detect_checkpoint_arch(request: DetectArchRequest):
+    """Detect architecture of a safetensors checkpoint and return block info."""
+    try:
+        from services.block_weight_merge import load_checkpoint, detect_architecture, arch_block_count, arch_block_names
+
+        _validate_model_input(request.checkpoint_path)
+        sd = load_checkpoint(request.checkpoint_path, device="cpu")
+        arch = detect_architecture(list(sd.keys()))
+        return {
+            "arch": arch,
+            "block_count": arch_block_count(arch),
+            "block_names": arch_block_names(arch),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/checkpoint/merge-weighted")
 async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
     """
@@ -555,7 +578,7 @@ async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
     try:
         from services.block_weight_merge import (
             load_checkpoint, save_checkpoint,
-            detect_architecture,
+            detect_architecture, arch_block_count,
             merge_weight, merge_add, merge_triple, merge_twice,
         )
 
@@ -569,27 +592,35 @@ async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
         model_a = load_checkpoint(request.model_a_path, device=request.device)
         model_b = load_checkpoint(request.model_b_path, device=request.device)
 
-        is_sdxl = detect_architecture(list(model_a.keys()))
+        arch = detect_architecture(list(model_a.keys()))
+
+        # Validate block weight count matches detected architecture
+        expected_blocks = arch_block_count(arch)
+        if len(request.block_weights) != expected_blocks:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Detected architecture '{arch}' expects {expected_blocks} block weights, got {len(request.block_weights)}"
+            )
 
         # Dispatch merge
         if request.mode == "weight":
-            merged = merge_weight(model_a, model_b, request.block_weights, request.base_alpha, is_sdxl)
+            merged = merge_weight(model_a, model_b, request.block_weights, request.base_alpha, arch)
         elif request.mode == "add":
             if not request.model_c_path:
                 raise HTTPException(status_code=400, detail="model_c_path required for 'add' mode")
             model_c = load_checkpoint(request.model_c_path, device=request.device)
-            merged = merge_add(model_a, model_b, model_c, request.block_weights, request.base_alpha, is_sdxl)
+            merged = merge_add(model_a, model_b, model_c, request.block_weights, request.base_alpha, arch)
         elif request.mode == "triple":
             if not request.model_c_path or not request.block_weights_c:
                 raise HTTPException(status_code=400, detail="model_c_path and block_weights_c required for 'triple' mode")
             model_c = load_checkpoint(request.model_c_path, device=request.device)
-            merged = merge_triple(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, is_sdxl)
+            merged = merge_triple(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, arch)
         elif request.mode == "twice":
             if not request.model_c_path or not request.block_weights_c:
                 raise HTTPException(status_code=400, detail="model_c_path and block_weights_c required for 'twice' mode")
             model_c = load_checkpoint(request.model_c_path, device=request.device)
             bc = request.base_alpha_c or 0.5
-            merged = merge_twice(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, bc, is_sdxl)
+            merged = merge_twice(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, bc, arch)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown mode: {request.mode}")
 

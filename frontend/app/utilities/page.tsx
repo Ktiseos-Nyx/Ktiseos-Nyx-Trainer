@@ -284,6 +284,9 @@ function MergeCheckpointTab() {
   const [bwPresetC, setBwPresetC] = useState('');
   const [bwPresets, setBwPresets] = useState<Record<string, number[]>>({});
   const [bwPresetsSdxl, setBwPresetsSdxl] = useState<Record<string, number[]>>({});
+  const [bwPresetsAnima, setBwPresetsAnima] = useState<Record<string, number[]>>({});
+  const [detectedArch, setDetectedArch] = useState<string | null>(null);
+  const [detectedBlockNames, setDetectedBlockNames] = useState<string[]>([]);
   const [baseAlpha, setBaseAlpha] = useState(0.5);
   const [baseAlphaC, setBaseAlphaC] = useState(0.5);
 
@@ -296,11 +299,12 @@ function MergeCheckpointTab() {
             [{ label: 'pretrained_model/', dir: dirs.pretrained_model }, { label: 'ComfyUI', dir: dirs.comfyui_checkpoints }],
             'safetensors,ckpt',
           ),
-          utilitiesAPI.getBlockWeightPresets().catch(() => ({ sd: {}, sdxl: {} })),
+          utilitiesAPI.getBlockWeightPresets().catch(() => ({ sd: {}, sdxl: {}, anima: {} })),
         ]);
         setAvailableFiles(files);
         setBwPresets(presets.sd || {});
         setBwPresetsSdxl(presets.sdxl || {});
+        setBwPresetsAnima(presets.anima || {});
         if (files.length > 0) { setModelA(files[0].path); if (files[1]) setModelB(files[1].path); }
       } catch (e) {
         console.error('Failed to load checkpoint files:', e);
@@ -311,14 +315,24 @@ function MergeCheckpointTab() {
   }, []);
 
   useEffect(() => {
+    if (!modelA) return;
+    utilitiesAPI.detectCheckpointArch(modelA)
+      .then(info => {
+        setDetectedArch(info.arch);
+        setDetectedBlockNames(info.block_names);
+      })
+      .catch(() => setDetectedArch(null));
+  }, [modelA]);
+
+  useEffect(() => {
     if (mergeMode === 'basic' && selected.length >= 2) {
       const date = new Date().toISOString().split('T')[0];
       setOutputPath(`merged_checkpoint${unetOnly ? '_unet' : ''}_${date}.safetensors`);
     } else if (mergeMode === 'weighted' && modelA && modelB) {
       const date = new Date().toISOString().split('T')[0];
-      setOutputPath(`mbw_${bwMode}_${date}.safetensors`);
+      setOutputPath(`mbw_${detectedArch || bwMode}_${date}.safetensors`);
     }
-  }, [mergeMode, selected.length, unetOnly, modelA, modelB, bwMode]);
+  }, [mergeMode, selected.length, unetOnly, modelA, modelB, bwMode, detectedArch]);
 
   // ── Basic mode handlers ────────────────────────────────────
   const add = (f: LoRAFile) => {
@@ -360,8 +374,12 @@ function MergeCheckpointTab() {
     }
     if (!outputPath) { setError('Provide an output filename'); return; }
 
-    const weights = getResolvedBlockWeights(bwPreset, bwPresets);
-    const weightsC = bwPresetC ? getResolvedBlockWeights(bwPresetC, bwPresetsSdxl) ?? getResolvedBlockWeights(bwPresetC, bwPresets) : undefined;
+    const presetsByArch =
+      detectedArch === 'anima' ? bwPresetsAnima :
+      detectedArch === 'sdxl' ? bwPresetsSdxl :
+      bwPresets;
+    const weights = bwPreset ? getResolvedBlockWeights(bwPreset, presetsByArch) : null;
+    const weightsC = bwPresetC ? getResolvedBlockWeights(bwPresetC, presetsByArch) : undefined;
 
     try {
       setMerging(true); setError(null); setResult(null);
@@ -516,6 +534,14 @@ function MergeCheckpointTab() {
           </SectionCard>
 
           <SectionCard title="Model Selection">
+            {detectedArch && (
+              <div className="mb-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium">
+                <span className="text-muted-foreground">Detected:</span>
+                <span>{detectedArch === 'anima' ? 'Anima DiT' : detectedArch === 'sdxl' ? 'SDXL' : 'SD1.5'}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">{detectedBlockNames.length} blocks</span>
+              </div>
+            )}
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Model A (base)</Label>
@@ -562,25 +588,31 @@ function MergeCheckpointTab() {
                 <Select value={bwPreset} onValueChange={setBwPreset}>
                   <SelectTrigger className="text-xs font-mono"><SelectValue placeholder="Select a preset…" /></SelectTrigger>
                   <SelectContent>
-                    {Object.keys(bwPresets).length === 0 && Object.keys(bwPresetsSdxl).length === 0 && (
-                      <SelectItem value="__loading" disabled className="text-xs text-muted-foreground">No presets loaded</SelectItem>
-                    )}
-                    {Object.keys(bwPresets).length > 0 && (
-                      <>
-                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">SD1.5</div>
-                        {Object.keys(bwPresets).map(name => (
-                          <SelectItem key={name} value={name} className="text-xs font-mono">{name}</SelectItem>
-                        ))}
-                      </>
-                    )}
-                    {Object.keys(bwPresetsSdxl).length > 0 && (
-                      <>
-                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">SDXL</div>
-                        {Object.keys(bwPresetsSdxl).map(name => (
-                          <SelectItem key={name} value={name} className="text-xs font-mono">{name}</SelectItem>
-                        ))}
-                      </>
-                    )}
+                    {(() => {
+                      const presetsByArch =
+                        detectedArch === 'anima' ? bwPresetsAnima :
+                        detectedArch === 'sdxl' ? bwPresetsSdxl :
+                        bwPresets;
+                      const allEmpty = Object.keys(bwPresets).length === 0
+                        && Object.keys(bwPresetsSdxl).length === 0
+                        && Object.keys(bwPresetsAnima).length === 0;
+                      if (allEmpty) {
+                        return <SelectItem value="__loading" disabled className="text-xs text-muted-foreground">No presets loaded</SelectItem>;
+                      }
+                      const label = detectedArch === 'anima' ? 'Anima' : detectedArch === 'sdxl' ? 'SDXL' : 'SD1.5';
+                      return Object.keys(presetsByArch).length > 0 ? (
+                        <>
+                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">{label}</div>
+                          {Object.keys(presetsByArch).map(name => (
+                            <SelectItem key={name} value={name} className="text-xs font-mono">{name}</SelectItem>
+                          ))}
+                        </>
+                      ) : (
+                        <SelectItem value="__no_presets" disabled className="text-xs text-muted-foreground">
+                          No {label} presets — use All-Equal or enter custom weights
+                        </SelectItem>
+                      );
+                    })()}
                   </SelectContent>
                 </Select>
               </div>
@@ -600,7 +632,7 @@ function MergeCheckpointTab() {
               )}
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Base alpha (non-UNet: TE / VAE) — {baseAlpha.toFixed(2)}</Label>
+                <Label className="text-xs">Base alpha ({detectedArch === 'anima' ? 'non-DiT: TE / VAE' : 'non-UNet: TE / VAE'}) — {baseAlpha.toFixed(2)}</Label>
                 <Input type="range" min={0} max={1} step={0.01} value={baseAlpha}
                   onChange={e => setBaseAlpha(parseFloat(e.target.value))} />
                 <div className="flex justify-between text-xs text-muted-foreground">

@@ -1249,6 +1249,15 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  detectCheckpointArch: async (checkpointPath: string) => {
+    const response = await fetch(`${API_BASE}/utilities/checkpoint/detect-arch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checkpoint_path: checkpointPath }),
+    });
+    return handleResponse(response) as Promise<{ arch: string; block_count: number; block_names: string[] }>;
+  },
+
   mergeCheckpointWeighted: async (
     modelAPath: string,
     modelBPath: string,
