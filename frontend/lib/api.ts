@@ -1196,7 +1196,7 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
-  getBlockWeightPresets: async (): Promise<{ sd: Record<string, number[]>; sdxl: Record<string, number[]> }> => {
+  getBlockWeightPresets: async (): Promise<{ sd: Record<string, number[]>; sdxl: Record<string, number[]>; anima: Record<string, number[]> }> => {
     const response = await fetch(`${API_BASE}/utilities/block-weight-presets`);
     return handleResponse(response);
   },

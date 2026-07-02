@@ -64,6 +64,22 @@ Full license text: [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html) —
 
 ---
 
+## SuperMerger (block-weight merge presets)
+**Repository:** [hako-mikan/sd-webui-supermerger](https://github.com/hako-mikan/sd-webui-supermerger)
+**License:** GNU Affero General Public License v3.0 (AGPL-3.0)
+**Usage:** Block-weight (MBW) merge — data and math only, no source code copied.
+
+Our block-weighted checkpoint merge is an independent implementation
+(`services/block_weight_merge.py`). From SuperMerger we use:
+- The named **preset weight arrays** (numeric data) for the SD1.5 26-block layout,
+  lifted from `scripts/mbwpresets_master.txt` into `presets/block_weights.json`.
+- The **curve shapes** (flat / gradient / cosine / smoothstep) as mathematical
+  formulas, resampled to the SDXL (20-block) and Anima (35-block) layouts.
+
+No SuperMerger Python source is included or redistributed in this repository.
+
+---
+
 ## WD14 Tagger Models
 **Repository:** [SmilingWolf on Hugging Face](https://huggingface.co/SmilingWolf)
 **Models Used:**

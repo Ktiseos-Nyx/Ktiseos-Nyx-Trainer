@@ -263,16 +263,17 @@ async def get_directories():
 @router.get("/block-weight-presets")
 async def get_block_weight_presets():
     """
-    Return named block-weight (LBW) presets for the merge tools, keyed by
-    architecture: 'sd' presets are 26 values, 'sdxl' presets are 20 values.
+    Return named block-weight (LBW/MBW) presets for the merge tools, keyed by
+    architecture: 'sd' presets are 26 values, 'sdxl' are 20, 'anima' are 35
+    (28 DiT + 6 LLM-adapter + 1 unlayered).
     """
     presets_file = PROJECT_ROOT / "presets" / "block_weights.json"
     try:
         with open(presets_file, encoding="utf-8") as f:
             data = json.load(f)
-        return {"sd": data.get("sd", {}), "sdxl": data.get("sdxl", {})}
+        return {"sd": data.get("sd", {}), "sdxl": data.get("sdxl", {}), "anima": data.get("anima", {})}
     except (FileNotFoundError, ValueError):
-        return {"sd": {}, "sdxl": {}}
+        return {"sd": {}, "sdxl": {}, "anima": {}}
 
 
 @router.get("/lora/resize-dimensions")
