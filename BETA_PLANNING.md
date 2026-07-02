@@ -1116,12 +1116,11 @@ The bundled SDXL workflow (`guy90sVerySimpleAndEasyTo_v10.json`, adapted from Gu
 
 The `GenerateUI` architecture switcher (header toggle) will call `buildAnimaWorkflow` vs `buildTxt2ImgWorkflow` depending on user selection — same resizable panel, different builder underneath. This is tracked in the architecture switcher todo below.
 
-**COMFY-6 (long-horizon): Custom node plugin system**
-- Custom node packs map to UI component "plugins" — similar to A1111's extension system
-- Installing a custom node pack (e.g. ControlNet, Impact Pack) surfaces a friendly UI panel for it rather than raw node inputs
-- Foundation already exists: `lib/comfy/types.ts` has full ComfyUI API typing to build node→component mapping on
-- Research: Dataset-Tools already has `lib/comfyui-node-registry.ts` and `lib/comfyui-github-search.ts` — may be the starting point
-- **Do not design this until COMFY-1 through COMFY-4 are shipped and stable**
+**COMFY-6 (evolving): Custom workflow templates**
+- Users drop a workflow JSON into a `workflows/custom/` folder → it appears as a generation mode in the architecture dropdown
+- Requires component coverage for the nodes used in the template (added over time as we encounter new node types)
+- NOT a plugin system — no extension API, no dynamic node→component mapping
+- Priority: low. Add template UI slots as we build workflows. No up-front abstraction effort.**
 
 **COMFY-5 (dream feature): "Test in ComfyUI" post-training shortcut**
 - When a training job completes, show a "Open in ComfyUI" button on `TrainingMonitor`
