@@ -38,10 +38,18 @@ def _comfyui_model_dirs() -> dict[str, Path]:
     Resolve ComfyUI's model subdirectories for use in merge/bake file listings
     and input path validation.
 
-    Returns e.g. ``{"comfyui_loras": Path, "comfyui_checkpoints": Path}``.
-    If the standard subfolder (loras/, checkpoints/) doesn't exist under the
-    ComfyUI models root, the root itself is returned as a fallback so users
-    on custom setups still see their files.
+    Scans the standard base-model folders (checkpoints/, diffusion_models/, unet/)
+    plus loras/, returning e.g.
+    ``{"comfyui_checkpoints": Path, "comfyui_diffusion_models": Path, ...}``.
+
+    Scanning several base-model folders (not just checkpoints/) means the merge
+    and bake pickers still find a model even when it landed in a different folder
+    than expected — e.g. a DiT/Anima base in diffusion_models/ (where it belongs),
+    or a checkpoint misplaced by LoRA Manager. The merge engine auto-detects
+    architecture per file, so listing them together is safe.
+
+    If none of the standard subfolders exist under the ComfyUI models root, the
+    root itself is returned as a fallback so users on custom setups still see files.
     """
     from api.routes.settings import get_comfyui_models_path
 
@@ -51,7 +59,12 @@ def _comfyui_model_dirs() -> dict[str, Path]:
         return dirs
     base_path = Path(base)
     found = False
-    for key, sub in (("comfyui_loras", "loras"), ("comfyui_checkpoints", "checkpoints")):
+    for key, sub in (
+        ("comfyui_loras", "loras"),
+        ("comfyui_checkpoints", "checkpoints"),
+        ("comfyui_diffusion_models", "diffusion_models"),
+        ("comfyui_unet", "unet"),
+    ):
         candidate = base_path / sub
         if candidate.is_dir():
             dirs[key] = candidate

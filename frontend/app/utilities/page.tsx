@@ -296,7 +296,7 @@ function MergeCheckpointTab() {
         const dirs = await utilitiesAPI.getDirectories();
         const [files, presets] = await Promise.all([
           loadModelFiles(
-            [{ label: 'pretrained_model/', dir: dirs.pretrained_model }, { label: 'ComfyUI', dir: dirs.comfyui_checkpoints }],
+            [{ label: 'pretrained_model/', dir: dirs.pretrained_model }, { label: 'ComfyUI checkpoints', dir: dirs.comfyui_checkpoints }, { label: 'ComfyUI diffusion_models', dir: dirs.comfyui_diffusion_models }, { label: 'ComfyUI unet', dir: dirs.comfyui_unet }],
             'safetensors,ckpt',
           ),
           utilitiesAPI.getBlockWeightPresets().catch(() => ({ sd: {}, sdxl: {}, anima: {} })),
@@ -830,7 +830,7 @@ function LoRAToCheckpointTab() {
         const dirs = await utilitiesAPI.getDirectories();
         const [ckpts, loras] = await Promise.all([
           loadModelFiles(
-            [{ label: 'pretrained_model/', dir: dirs.pretrained_model }, { label: 'ComfyUI', dir: dirs.comfyui_checkpoints }],
+            [{ label: 'pretrained_model/', dir: dirs.pretrained_model }, { label: 'ComfyUI checkpoints', dir: dirs.comfyui_checkpoints }, { label: 'ComfyUI diffusion_models', dir: dirs.comfyui_diffusion_models }, { label: 'ComfyUI unet', dir: dirs.comfyui_unet }],
             'safetensors,ckpt',
           ),
           loadModelFiles(
