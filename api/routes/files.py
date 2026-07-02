@@ -415,6 +415,49 @@ async def create_directory(path: str, name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class CopyFileRequest(BaseModel):
+    """Request model for copying/moving a file."""
+    source_path: str
+    destination_path: str
+    move: bool = False
+
+
+@router.post("/copy")
+async def copy_file(request: CopyFileRequest):
+    """Copy (or move) a file between allowed directories."""
+    try:
+        src = Path(request.source_path).resolve()
+        dst = Path(request.destination_path).resolve()
+
+        if not is_safe_path(src):
+            raise HTTPException(status_code=403, detail="Source access denied")
+        if not any(dst == d or dst.is_relative_to(d) for d in [d.resolve() for d in ALLOWED_DIRS]):
+            raise HTTPException(status_code=403, detail="Destination access denied")
+        if not src.exists():
+            raise HTTPException(status_code=404, detail="Source not found")
+        if dst.exists():
+            raise HTTPException(status_code=400, detail="Destination already exists")
+
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
+        if request.move:
+            src.rename(dst)
+            logger.info(f"Moved {src} → {dst}")
+        else:
+            if src.is_dir():
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
+            logger.info(f"Copied {src} → {dst}")
+
+        return {"success": True, "source": str(src), "destination": str(dst)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to copy file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/read/{path:path}")
 async def read_file(path: str):
     """Read text file contents (for editor)"""
