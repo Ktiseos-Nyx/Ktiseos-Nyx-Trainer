@@ -26,6 +26,7 @@ from services.models.lora import (
     CheckpointMergeResponse,
 )
 from services.core.exceptions import ValidationError, ProcessError, NotFoundError
+from services.core.validation import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,11 @@ class LoRAService:
     """
 
     def __init__(self):
-        self.project_root = Path.cwd()
+        # Anchor to the source file (via the canonical PROJECT_ROOT), NOT the process
+        # CWD. Path.cwd() was wrong on VastAI/RunPod where the backend starts from /root
+        # or similar, so merge/bake script paths (incl. custom/anima_merge_lora.py) failed
+        # to resolve even though the scripts exist.
+        self.project_root = PROJECT_ROOT
         self.scripts_path = (
             self.project_root / "trainer" / "derrian_backend" / "sd_scripts" / "networks"
         )

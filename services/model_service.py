@@ -31,6 +31,7 @@ from services.models.model_download import (
     ModelType,
 )
 from services.core.exceptions import ValidationError
+from services.core.validation import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,10 @@ class ModelService:
     """
 
     def __init__(self):
-        self.project_root = Path.cwd()
+        # Anchor to the source file (via PROJECT_ROOT), NOT the process CWD — the backend
+        # starts from /root or similar on VastAI/RunPod, so downloads landed in the wrong
+        # place relative to where the trainer/merge tools look for them.
+        self.project_root = PROJECT_ROOT
         self.pretrained_model_dir = self.project_root / "pretrained_model"
         self.vae_dir = self.project_root / "vae"
         self.lora_dir = self.project_root / "output"  # LoRAs stored in output

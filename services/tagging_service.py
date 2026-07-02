@@ -24,7 +24,7 @@ from services.models.job import JobType, JobStatus
 from services.jobs import job_manager
 from services.core.exceptions import ValidationError, ProcessError
 from services.core.subprocess_env import python_subprocess_env
-from services.core.validation import validate_dataset_path
+from services.core.validation import PROJECT_ROOT, validate_dataset_path
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,9 @@ class TaggingService:
     """
 
     def __init__(self):
-        self.project_root = Path.cwd()
+        # Anchor to the source file (via PROJECT_ROOT), NOT the process CWD — the backend
+        # starts from /root or similar on VastAI/RunPod, which broke script resolution.
+        self.project_root = PROJECT_ROOT
         # Try custom tagger first (has v3 model support), fallback to vendored
         self.custom_tagger = self.project_root / "custom" / "tag_images_by_wd14_tagger.py"
         self.vendored_tagger = (

@@ -153,31 +153,33 @@ def get_comfyui_models_path() -> str:
     """
     Return the filesystem path to ComfyUI's models directory.
 
-    Resolution order:
-      1. COMFYUI_MODELS_PATH environment variable
-      2. comfyui_models_path field in user_settings.json
+    Resolution order (a configured path is used only if it exists on disk, so a stale
+    or wrong value can't shadow the working fallback):
+      1. COMFYUI_MODELS_PATH environment variable (if it is a real directory)
+      2. comfyui_models_path field in user_settings.json (if it is a real directory)
       3. Fallback: {project_root}/ComfyUI/models
          (ComfyUI is cloned directly inside the project root by the installer)
 
-    Returns an empty string if no configured path exists and the
-    fallback directory is also missing — callers must validate.
+    Always returns the anchored fallback string when no configured path exists on disk;
+    callers still validate that the directory is present.
     """
     import os as _os
+    # A configured path (env or setting) wins ONLY if it actually exists. A stale/wrong
+    # value (e.g. a "/workspace/ComfyUI" guess that doesn't exist) must NOT shadow the
+    # anchored fallback — that was the bug where the merge tools listed only
+    # pretrained_model/ because a dead configured path returned here and
+    # _comfyui_model_dirs() then found no loras/ or checkpoints/ under it.
     env_path = _os.environ.get("COMFYUI_MODELS_PATH", "")
-    if env_path:
+    if env_path and _os.path.isdir(env_path):
         return env_path
 
     settings = load_settings()
     settings_path = settings.get("comfyui_models_path", "")
-    if settings_path:
+    if settings_path and _os.path.isdir(settings_path):
         return settings_path
 
     # Anchor on the project root the SAME way the trainer dirs do — services.core.validation
-    # uses PROJECT_ROOT = Path(__file__)...resolve(), which is cwd-independent. Using
-    # os.getcwd() here was the bug: when the backend's working dir wasn't the project root,
-    # this fallback resolved to a wrong/nonexistent ComfyUI path, so is_dir() failed and the
-    # merge tools silently dropped ComfyUI checkpoints/loras while pretrained_model (which is
-    # file-anchored) still showed.
+    # uses PROJECT_ROOT = Path(__file__)...resolve(), which is cwd-independent.
     from services.core.validation import PROJECT_ROOT
     fallback = str((PROJECT_ROOT / "ComfyUI" / "models").resolve())
     return fallback
