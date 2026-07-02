@@ -35,6 +35,14 @@ from services.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 
+# Browser-like User-Agent to avoid geo-blocking from CDNs
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
+
+
 class ModelService:
     """
     Service for downloading and managing models, VAEs, and LoRAs.
@@ -414,7 +422,8 @@ class ModelService:
                 "-x", "8",  # Max connections per server
                 "-k", "1M",  # Min split size (smaller = more effective splitting)
                 "-d", str(destination.parent),  # Directory
-                "-o", destination.name  # Output filename
+                "-o", destination.name,  # Output filename
+                "--user-agent", BROWSER_UA,
             ]
 
             if header:
@@ -563,6 +572,7 @@ class ModelService:
             elif is_hf_host and api_token:
                 wget_args.extend(["--header", f"Authorization: Bearer {api_token}"])
 
+            wget_args.extend(["-U", BROWSER_UA])
             wget_args.append(download_url)
 
             result = subprocess.run(
@@ -594,7 +604,7 @@ class ModelService:
         try:
             import requests
 
-            headers = {}
+            headers = {"User-Agent": BROWSER_UA}
             download_url = url
 
             # Handle API tokens
