@@ -334,6 +334,7 @@ export default function CivitaiBrowsePage() {
     { value: 'Hunyuan 1', label: 'HunyuanDiT' },
     { value: 'Kolors', label: 'Kolors' },
     { value: 'Lumina', label: 'Lumina' },
+    { value: 'Anima', label: 'Anima' },
     { value: 'PixArt a', label: 'PixArt Alpha' },
     { value: 'PixArt E', label: 'PixArt Sigma' },
     { value: '', label: '─────────────────', disabled: true },
