@@ -153,22 +153,37 @@ def get_comfyui_models_path() -> str:
     """
     Return the filesystem path to ComfyUI's models directory.
 
-    Resolution order (a configured path is used only if it exists on disk, so a stale
-    or wrong value can't shadow the working fallback):
-      1. COMFYUI_MODELS_PATH environment variable (if it is a real directory)
-      2. comfyui_models_path field in user_settings.json (if it is a real directory)
-      3. Fallback: {project_root}/ComfyUI/models
-         (ComfyUI is cloned directly inside the project root by the installer)
+    Resolution order — the trainer's OWN bundled ComfyUI wins first, so a stale env
+    var or saved setting can never shadow the models the installer actually put on
+    disk:
+      1. {project_root}/ComfyUI/models — used whenever it exists on disk. The installer
+         clones ComfyUI directly inside the project root, so on a normal box this IS the
+         answer, and it is authoritative.
+      2. COMFYUI_MODELS_PATH environment variable (if it is a real directory) — fallback
+         for setups that have no bundled ComfyUI and run one elsewhere.
+      3. comfyui_models_path field in user_settings.json (if it is a real directory) —
+         same escape hatch, from the settings UI.
+      4. {project_root}/ComfyUI/models — bare anchored string when nothing above exists
+         on disk; callers still validate that the directory is present.
 
-    Always returns the anchored fallback string when no configured path exists on disk;
-    callers still validate that the directory is present.
+    Why bundled-first: the previous order consulted the env/setting BEFORE the anchored
+    path. A stale value that pointed at an existing-but-wrong directory (e.g. a leftover
+    "/workspace/ComfyUI/models" from an old template) passed the is_dir() guard and got
+    returned, so _comfyui_model_dirs() scanned a foreign/empty tree — the bug where the
+    merge/bake pickers listed only pretrained_model/ even though checkpoints and
+    diffusion_models sat right there in the trainer's ComfyUI. Anchoring first is
+    cwd-independent (services.core.validation.PROJECT_ROOT is Path(__file__)-based), so
+    it's stable on Windows / VastAI / RunPod.
     """
     import os as _os
-    # A configured path (env or setting) wins ONLY if it actually exists. A stale/wrong
-    # value (e.g. a "/workspace/ComfyUI" guess that doesn't exist) must NOT shadow the
-    # anchored fallback — that was the bug where the merge tools listed only
-    # pretrained_model/ because a dead configured path returned here and
-    # _comfyui_model_dirs() then found no loras/ or checkpoints/ under it.
+    from services.core.validation import PROJECT_ROOT
+
+    anchored = str((PROJECT_ROOT / "ComfyUI" / "models").resolve())
+    # The trainer manages its own ComfyUI here; when present it is authoritative and a
+    # stale/wrong override must not win over the models the user actually has.
+    if _os.path.isdir(anchored):
+        return anchored
+
     env_path = _os.environ.get("COMFYUI_MODELS_PATH", "")
     if env_path and _os.path.isdir(env_path):
         return env_path
@@ -178,11 +193,7 @@ def get_comfyui_models_path() -> str:
     if settings_path and _os.path.isdir(settings_path):
         return settings_path
 
-    # Anchor on the project root the SAME way the trainer dirs do — services.core.validation
-    # uses PROJECT_ROOT = Path(__file__)...resolve(), which is cwd-independent.
-    from services.core.validation import PROJECT_ROOT
-    fallback = str((PROJECT_ROOT / "ComfyUI" / "models").resolve())
-    return fallback
+    return anchored
 
 
 def mask_token(token: Optional[str]) -> Optional[str]:
