@@ -1,8 +1,8 @@
 # Additive Multi-Source Download System — Design
 
-**Status:** Draft for review (KNX-internal + external review by Arc En Ciel dev)
+**Status:** Arc-reviewed implementation draft
 **Date:** 2026-07-03
-**Scope:** v1 = pluggable source-adapter framework + Arc En Ciel adapter. Civitai left as-is.
+**Scope:** v1 = pluggable source-adapter framework + Arc En Ciel adapter. Civitai left as-is. Arc Link remains later.
 
 ---
 
@@ -17,7 +17,8 @@ bundled ComfyUI's folders (for generation).
 **Today:**
 - KNX has its own **Civitai** downloader. It works but is stale/fragile in the
   *search + URL-resolution* layer (Civitai's gated, quirky API). The underlying
-  download **engine** is solid.
+  download **engine** is a good base, but Arc v1 must explicitly add/confirm
+  SHA-256 verification, safe redirect handling, and optional request headers.
 - **LoRA Manager (LM)** — the ComfyUI extension KNX already ships — handles Civitai
   well (batch URLs, rich metadata, confirmation). LM is the intended long-term owner
   of Civitai acquisition.
@@ -45,10 +46,13 @@ LM and KNX owns the sources LM won't.
    `PYTHONIOENCODING=utf-8`/`PYTHONUTF8=1` for any subprocess, no hardcoded separators.
 4. **Contain each source's quirks in its own adapter.** A bug or API change in one
    source cannot destabilize another.
-5. **Quality bar = LM.** Batch URLs, real metadata, SHA-256 confirmation.
-6. **Honesty about unknowns.** Arc has **no public API docs**; its *download auth* is
-   unverified. The design isolates that unknown into a single, swappable step plus a
-   dedicated discovery phase — it is not papered over.
+5. **Quality bar = LM.** Batch URLs, real metadata, SHA-256 confirmation, and
+   per-item failure isolation.
+6. **Use Arc's current public pull contract for v1.** Search/detail/version metadata and
+   public downloads work without an Arc API key today. Arc Link Keys (`lk_...`) are for
+   the later push/worker integration, not for v1 in-app pull.
+7. **Treat credentials and redirects as security boundaries.** Do not put credentials in
+   query strings or logs. Follow only HTTPS redirects to explicitly allowed hosts.
 
 ---
 
@@ -67,15 +71,15 @@ triggered (triggers). They are independent layers.
 │  SourceAdapter interface + registry                  │
 │   ├─ CivitaiAdapter    (NOT built in v1; legacy path │
 │   │                     stays; future LM handoff)    │
-│   ├─ ArcEnCielAdapter  (v1: search confident,        │
-│   │                     download pending Phase 0)    │
+│   ├─ ArcEnCielAdapter  (v1: public search/detail +   │
+│   │                     safe server-side pull)       │
 │   └─ (future: HuggingFace, direct URL, …)            │
 └──────────────────────┬──────────────────────────────┘
                        │  produces a DownloadSpec
 ┌─ Download engine (already exists) ──────────────────┐
 │  services/model_service.py: fallback chain           │
 │  (hf_hub → aria2c → wget → requests), resume,        │
-│  SHA-256 verify, filename preservation, dest routing │
+│  SHA-256 verify, safe redirects, filename routing    │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -96,13 +100,13 @@ the shared engine consumes.
 ```python
 class SourceAdapter(Protocol):
     name: str                      # "arcenciel", "civitai", …
-    requires_api_key: bool
+    credential_kind: str            # "none" | "api_key" | "link_key"
 
     def search(self, query: SearchQuery) -> SearchResult: ...
     def get_model(self, model_id: str) -> ModelDetail: ...
     def get_versions(self, model_id: str) -> list[ModelVersion]: ...
     def resolve_download(self, version: ModelVersion,
-                         api_key: str | None) -> DownloadSpec: ...
+                         credential: str | None = None) -> DownloadSpec: ...
     def base_model_classes(self) -> list[str]: ...   # for search filters
 ```
 
@@ -111,60 +115,93 @@ class SourceAdapter(Protocol):
 - `SearchQuery { term, sort, page, limit, base_model?, model_type? }`
 - `ModelSummary { source, model_id, title, type, base_model, cover_url, nsfw }`
 - `ModelDetail { …summary…, description, versions[] }`
-- `ModelVersion { version_id, name, base_model, model_type, files[], sha256?, cover_url }`
-- `DownloadSpec { url, filename, sha256?, size?, headers?, dest_type }`
-  - `dest_type` is a normalized enum (`checkpoint | diffusion_model | lora | vae |
-    text_encoder | embedding`) used for destination routing (§4.4).
+- `ModelVersion { version_id, name, base_model, model_type, status, files[],
+  sha256?, sha256_webui?, file_scan_status?, cover_url }`
+- `DownloadSpec { url, filename, sha256?, size?, headers?, allowed_redirect_hosts,
+  dest_type }`
+  - `dest_type` is a normalized enum (`checkpoint | lora | vae | embedding | other`)
+    used for destination routing (§4.4).
 
 A **registry** maps `name → adapter`. Routes and UI iterate the registry so adding a
 source is one new class + one registration line.
 
 ### 4.2 `ArcEnCielAdapter`
 
-Verified from two community reference clients (Anzhc's A1111 extension; FallenIncursio's
-ComfyUI node) — treated as *leads, not gospel* (see §6).
+Verified against Arc En Ciel production on 2026-07-03/04. The old community reference
+clients remain useful leads, but the v1 implementation should follow the current public
+contract below.
 
 - **Base URL:** `https://arcenciel.io/api`
 - **Search (confirmed unauthenticated GET):**
-  `GET /models/search?search=&sort=&page=&limit=&baseModel=&modelType=`
-- **Classes / base models:** `GET /models/classes`
+  `GET /models/search?search=&sort=&page=&limit=&baseModel=&modelType=&status=available`
+  - For grids, use `compact=true&versionLimit=1..50`.
+  - Do **not** use compact search results to resolve downloads; compact responses omit
+    file metadata (`filePath`, `fileName`, `sha256`, etc.).
+- **Classes / base models:** `GET /models/classes` returns `{ classes: [{ id, name }] }`.
 - **Detail:** `GET /models/{id}`
-- **Versions:** `GET /models/{id}/versions` → carries file info + (per Anzhc) an
-  `externalDownloadUrl` and/or `filePath`, and a SHA-256.
+- **Versions:** `GET /models/{id}/versions` carries authoritative download metadata:
+  `filePath`, `fileName`, `originalName`, `externalDownloadUrl`, `fileSizeKb`, `sha256`,
+  `sha256webui`, `baseModel`, `status`, and `fileScanStatus`.
 - **Gallery (optional, for UI previews):** `GET /models/{id}/gallery`
-- **Download URL resolution (per Anzhc):**
-  `version.externalDownloadUrl` if present, else
-  `https://arcenciel.io/api/models/{id}/versions/{version_id}/download`
-- **Auth for download:** **UNKNOWN — see Phase 0 (§5) and Questions (§6).** Implemented
-  behind a single `_attach_auth(request, api_key)` method so the resolved mechanism is a
-  one-place change.
-- **Assets base (thumbnails):** `https://arcenciel.io/uploads/{path}`
+- **Download URL resolution:**
+  - If `externalDownloadUrl` is present, only download it when the host is allowlisted
+    (currently expected: HuggingFace/HF direct URLs).
+  - Otherwise use the canonical Arc endpoint:
+    `https://arcenciel.io/api/models/{model_id}/versions/{version_id}/download`.
+  - Arc currently responds to the canonical endpoint with `302` to
+    `https://uploads.arcenciel.io/api/models/{model_id}/versions/{version_id}/download`,
+    then `200` with `Content-Length`, `Accept-Ranges`, and `Content-Disposition`.
+- **Auth for v1 pull:** no Arc API key is required for public published downloads.
+  Do not add an "Arc API key" setting for v1.
+- **Assets base:** image paths are uploads-relative; resolve against
+  `https://arcenciel.io/uploads/{path}` or the image URL helper already used in KNX UI.
+- **Rate limit observed:** public API responses include a `1200` requests/minute policy.
+  Add client-side debouncing, pagination, and modest retry/backoff for `429`.
+- **Link Keys:** `lk_...` credentials are for Arc Link worker/queue flows only (§6.4).
 
-### 4.3 Download engine (reuse, no changes expected)
+### 4.3 Download engine (reuse with required hardening)
 
 `services/model_service.py::download_model_or_vae(DownloadConfig)` already:
 - takes a URL + optional `api_token`, downloads **server-side** (remote-safe),
 - runs a fallback chain (hf_hub → aria2c → wget → requests) with resume,
-- preserves filename and verifies size; SHA-256 verification is added/confirmed here.
+- preserves filename.
 
-The adapter's `DownloadSpec` maps directly onto `DownloadConfig`. If Arc's auth turns
-out to need a **header** (not a URL token), we add a small `headers` pass-through to the
-engine's request methods — the one anticipated engine change, gated on Phase 0.
+Before Arc ships, confirm/add these engine guarantees:
+
+- `DownloadConfig.headers: dict[str, str] | None` pass-through for HEAD, aria2c, wget,
+  and requests. Redact sensitive header values from logs.
+- `DownloadConfig.expected_sha256: str | None`; after download, compute SHA-256 and fail
+  the item if it does not match Arc's `sha256`.
+- `DownloadConfig.allowed_redirect_hosts: set[str]`; for Arc allow
+  `arcenciel.io` and `uploads.arcenciel.io`; for external HuggingFace allow
+  `huggingface.co`, `hf.co`, and their documented subdomains.
+- Reject non-HTTPS final URLs, unsupported schemes, missing/HTML-looking files, and
+  filename/path traversal. Always write to a temp file first, verify, then atomically move
+  into the final destination.
+- Preserve server-side execution and background-job polling. Do not hold one HTTP request
+  open for the entire multi-GB transfer.
+
+The adapter's `DownloadSpec` maps directly onto `DownloadConfig`.
 
 ### 4.4 Destination routing
 
 Reuse the existing pattern from the Civitai endpoint (`api/routes/civitai.py:262`):
 a request carries a `destination` (`training` vs `comfyui`) and, for ComfyUI, a subfolder.
-The adapter's normalized `dest_type` maps to a concrete directory:
+The adapter's normalized `dest_type` maps to a concrete directory. Arc's current model
+types are `LORA`, `CHECKPOINT`, `EMBEDDING`, `VAE`, `SEGMENTATION`, and `OTHER`; do not
+assume Arc exposes `diffusion_model` or `text_encoder` as first-class model types.
 
 | `dest_type` | training dest | comfyui dest |
 |---|---|---|
 | `checkpoint` | `pretrained_model/` | `ComfyUI/models/checkpoints/` |
-| `diffusion_model` | `pretrained_model/` | `ComfyUI/models/diffusion_models/` |
 | `lora` | `output/` | `ComfyUI/models/loras/` |
 | `vae` | `vae/` | `ComfyUI/models/vae/` |
-| `text_encoder` | `pretrained_model/` | `ComfyUI/models/text_encoders/` |
 | `embedding` | `pretrained_model/` | `ComfyUI/models/embeddings/` |
+| `other` / `segmentation` | `pretrained_model/` | user-selected folder |
+
+For ComfyUI, keep the folder override visible. If KNX wants advanced defaults later
+(e.g. Flux/Anima diffusion models), derive that from `baseModel`/filename heuristics and
+still let the user override.
 
 ComfyUI path resolution uses `get_comfyui_models_path()` (recently hardened to prefer the
 bundled `{project_root}/ComfyUI/models`).
@@ -189,82 +226,89 @@ A source-agnostic **Browse & Download** surface (shadcn/ui only — `Select`, `I
 - Result cards → version picker → **destination choice** (training vs ComfyUI folder).
 - **Batch selection** (queue multiple, mirroring LM's batch-URL strength).
 - Live download progress from the job manager.
-- **Settings:** an "Arc En Ciel API key" field alongside the existing Civitai key.
+- No Arc API-key setting for v1. If a later Link flow is added, it should ask for an
+  Arc Link Key (`lk_...`) and clearly label it as worker/queue auth, not API auth.
 
 ---
 
-## 5. Phase 0 — Arc API discovery (the honest unknown)
+## 5. Phase 0 — Arc API smoke probe
 
-**Why:** Arc has no docs; the two reference extensions use *different* auth models from
-*different* eras, and neither has been re-verified. We will not spec a download mechanism
-we can't confirm.
+**Why:** Arc has no public API docs. The v1 public pull contract has been verified once,
+but KNX should keep a tiny repeatable smoke probe so future Arc deploy changes are caught
+before users hit broken downloads.
 
-**What:** a small throwaway probe (run once, with the maintainer's approved account/key):
-1. `GET /models/search?...` — confirm open access + response shape.
+**What:** a small unauthenticated probe:
+1. `GET /models/search?...&status=available&compact=true&versionLimit=1` — confirm open
+   access + response shape.
 2. `GET /models/{id}/versions` — confirm file metadata: filename, size, SHA-256 field,
-   `externalDownloadUrl` vs `/…/download`, model_type/base-model taxonomy.
-3. Hit the **download** URL three ways and record what happens:
-   - no auth,
-   - API key as a header (`Authorization: Bearer …` and/or `x-api-key`),
-   - API key as a query param.
-   Record: `200` (direct file), `302` (redirect to a signed CDN URL), `401/403`
-   (needs session), and any `Set-Cookie`/`Location`/rate-limit headers.
+   `externalDownloadUrl` vs `filePath`, model type, base model, and `fileScanStatus`.
+3. `HEAD` the canonical Arc download URL and record status + final host:
+   - expected for Arc-hosted files: `302` to `uploads.arcenciel.io`, then `200`.
+   - expected for external-only files: adapter should use validated `externalDownloadUrl`.
+4. Confirm headers: `Content-Length`, `Accept-Ranges`, `Content-Disposition`, and any
+   `RateLimit-*` headers.
 
-**Output:** pins `ArcEnCielAdapter.resolve_download` + `_attach_auth`, and answers "is
-server-side pull viable, or is this login/Link-Key-only?" (which decides whether the
-desktop Link becomes *required* rather than optional for Arc).
+**Output:** pins `ArcEnCielAdapter.resolve_download`, redirect allowlist, filename logic,
+and hash verification fixtures. It should not require a maintainer account or API key.
 
 ---
 
 ## 6. Open Questions for Arc En Ciel / the Arc dev
 
-Grouped and prioritized. **[BLOCKER]** = needed before v1 download can be built.
+Grouped and prioritized. **[BLOCKER]** = needed before v1 ships.
 **[LATER]** = informs the future desktop Link, not v1.
 
-### Auth & download (blockers)
-1. **[BLOCKER]** Is there an **API key** usable from a server (no live browser session)?
-   Where is it generated (account settings?), and what form does it take?
-2. **[BLOCKER]** How is that key presented on a request — `Authorization: Bearer <key>`,
-   an `x-api-key` header, a query param, or something else?
-3. **[BLOCKER]** Does `GET /api/models/{id}/versions/{vid}/download` return the file
-   directly, or **302-redirect** to a signed/expiring CDN URL? If signed: does the
-   signed URL need auth too, or is it pre-authorized (fetchable by any client)?
-4. **[BLOCKER]** Is `externalDownloadUrl` present for *all* downloadable versions, or
-   only some (e.g. models hosted off-site)? When it's present, does it need auth?
-5. **[BLOCKER]** Do **gated / early-access / NSFW** models use a *different* download
-   path or permission than public ones?
+### v1 blockers
+1. **[BLOCKER]** Implement SHA-256 verification in KNX's download engine using Arc's
+   `sha256` field.
+2. **[BLOCKER]** Implement HTTPS-only redirect allowlisting:
+   `arcenciel.io`, `uploads.arcenciel.io`, and explicit external providers only.
+3. **[BLOCKER]** Treat compact search as non-downloadable. Always fetch detail/versions
+   before resolving a download.
+4. **[BLOCKER]** Respect version availability:
+   - only download `status=PUBLISHED` versions,
+   - scheduled/upcoming versions may appear in feeds but file fields can be redacted,
+   - block or surface a clear error for `fileScanStatus` values that Arc blocks.
+5. **[BLOCKER]** Sanitize filenames from `originalName || fileName || version-{id}` and
+   write via temp-file → hash verify → atomic move.
 
-### Metadata & taxonomy (blockers for correct routing)
-6. **[BLOCKER]** In `/models/{id}/versions`, which fields carry: file **name**, file
-   **size**, **SHA-256**, and file **format** (safetensors/ckpt/pt)?
-7. **[BLOCKER]** What are the possible `modelType` values (checkpoint, LoRA, VAE,
-   embedding, DiT/UNet, …)? We map these to download destinations.
-8. What `baseModel` / class values does `/models/classes` return (Illustrious, NoobAI,
-   Pony, SDXL, SD1.5, Flux, …)? Used for search filters.
+### Metadata & taxonomy
+6. Current version fields used by KNX:
+   `originalName`, `fileName`, `fileSizeKb`, `sha256`, `sha256webui`, `externalDownloadUrl`,
+   `filePath`, `baseModel`, `status`, `fileScanStatus`.
+7. Current Arc model types:
+   `LORA`, `CHECKPOINT`, `EMBEDDING`, `VAE`, `SEGMENTATION`, `OTHER`.
+8. `/models/classes` returns Arc base-model/class names such as Anima, Chenkin RF,
+   Chroma, Flux.1 D, Illustrious, NoobAI variants, Pony, etc.
 
-### Operational (good-to-know)
-9. Are there **rate limits** or a required **User-Agent** for API/download requests?
-10. Is there a **batch/bulk** endpoint, or should we iterate per-model?
-11. Any **API usage terms / attribution** we should honor for a first-party integration?
+### Operational
+9. Public API currently advertises a `1200` requests/minute rate-limit policy. Use
+   debounced search and backoff on `429`.
+10. There is no public source-side batch download endpoint needed for v1. KNX should
+    queue multiple adapter-resolved `DownloadSpec`s and process them per item.
+11. Use a clear `User-Agent` identifying KNX, and honor Arc model metadata/links in UI.
 
 ### Desktop Link — future (later)
-12. **[LATER]** For a desktop "Connect" integration, is the **Link Key (`lk_...`)** the
-    current recommended mechanism (vs the legacy API key)? What's the handshake?
-13. **[LATER]** The Link worker connects **outbound** to `link.arcenciel.io` over
-    websocket — is that correct, and would it work for a headless remote box (no browser
-    on the box) as long as it can reach Arc?
-14. **[LATER]** Is the download command over the Link channel a pre-signed URL the worker
-    then fetches (as it appears in FallenIncursio's client), or something else?
+12. **[LATER]** Arc Link uses Link Keys (`lk_...`) as the current worker credential.
+    Legacy API-key WebSocket auth is deprecated and may be rejected.
+13. **[LATER]** Worker connections are outbound to `link.arcenciel.io` over WebSocket,
+    which is the right shape for remote boxes if the box has outbound network access.
+14. **[LATER]** Existing Link REST endpoints already support queueing:
+    `POST /api/link/queue` and `POST /api/link/queue/bulk` with `x-link-key` and scope
+    `jobs`. `targetPath` must start with `models/<category>` or `embeddings`.
 
 ---
 
 ## 7. Testing
 
 - **Adapter unit tests** (mock Arc HTTP responses, GPU-free): search parsing, version
-  parsing, `resolve_download` for both `externalDownloadUrl` and `/download` cases,
-  `dest_type` → directory mapping.
-- **Engine**: already robust; add a SHA-256-mismatch test if not present.
-- **Phase 0 probe** is a manual, one-off script — not part of CI.
+  parsing, compact-search-no-download behavior, `resolve_download` for both
+  `externalDownloadUrl` and canonical Arc `/download` cases, blocked scan statuses,
+  scheduled/redacted versions, `dest_type` → directory mapping.
+- **Engine tests**: SHA-256 match/mismatch, temp-file cleanup, filename sanitization,
+  HTTPS-only redirect allowlist, disallowed redirect host, header redaction, resume.
+- **Phase 0 smoke probe** can be a manual script, but keep it checked in so maintainers
+  can re-run it when Arc changes.
 
 ---
 
@@ -272,11 +316,12 @@ Grouped and prioritized. **[BLOCKER]** = needed before v1 download can be built.
 
 | Phase | Deliverable |
 |---|---|
-| **0** | Arc API discovery probe → answers §6 blockers, pins auth/resolution |
-| **1** | `SourceAdapter` interface + registry + `ArcEnCielAdapter` (search + resolve) + FastAPI routes + wire to engine |
-| **2** | Frontend Browse & Download UI (source selector, batch, destination) + Arc API-key setting |
-| **3 (later)** | Civitai acquisition handed to LM; deprecate/remove KNX's Civitai downloader |
-| **4 (later)** | Desktop Link bridge (Axis 2) — outbound-WS worker, Link Key |
+| **0** | Arc API smoke probe → pins response shape, redirect allowlist, fixtures |
+| **1** | Engine hardening: SHA-256 verify, headers, HTTPS redirect allowlist, filename/temp-file safety |
+| **2** | `SourceAdapter` interface + registry + `ArcEnCielAdapter` (search + detail + resolve) + FastAPI routes + wire to engine |
+| **3** | Frontend Browse & Download UI (source selector, batch, destination) with no Arc API-key setting |
+| **4 (later)** | Civitai acquisition handed to LM; deprecate/remove KNX's Civitai downloader |
+| **5 (later)** | Desktop Link bridge (Axis 2) — outbound-WS worker, Link Key |
 
 ---
 
@@ -285,4 +330,5 @@ Grouped and prioritized. **[BLOCKER]** = needed before v1 download can be built.
 - Forking LoRA Manager (permanently off the table).
 - Touching or "fixing" the existing Civitai downloader.
 - The desktop Link bridge (designed-for, not built).
-- Any auth mechanism assumed without Phase-0 confirmation.
+- Arc API-key UX for v1 pull downloads.
+- Any credential-in-query-string flow.
