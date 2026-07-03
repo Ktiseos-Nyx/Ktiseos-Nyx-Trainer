@@ -11,6 +11,7 @@ temp/
 tmp/
 .temp/
 .tmp/
+.thumbcache/                # Dataset-Tools ported thumbnail cache (frontend/app/api/dataset-tools/thumbnail)
 *.tmp
 *.temp
 *.bak

@@ -237,7 +237,7 @@ app.prepare().then(() => {
       }
 
       // Handle Node.js API routes (new migration)
-      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/config', '/api/civitai', '/api/utilities', '/api/debug'];
+      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/dataset-tools', '/api/config', '/api/civitai', '/api/utilities', '/api/debug'];
       const nodeApiExact = ['/api/models/popular', '/api/models/list'];
       const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix)) || nodeApiExact.includes(pathname);
 
