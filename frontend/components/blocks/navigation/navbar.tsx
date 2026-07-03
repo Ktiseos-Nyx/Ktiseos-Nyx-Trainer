@@ -76,6 +76,9 @@ export function Navbar() {
                   <ListItem href="/dataset/tags" title="Tag Editor" icon={<Tags className="w-4 h-4" />}>
                     Manage image tags and captions
                   </ListItem>
+                  <ListItem href="/dataset-tools" title="Metadata Browser" icon={<FolderTree className="w-4 h-4" />}>
+                    Browse images, inspect AI metadata & safetensors
+                  </ListItem>
                 </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
