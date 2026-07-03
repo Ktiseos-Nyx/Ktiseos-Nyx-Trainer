@@ -101,8 +101,8 @@ export function DropZone({ onFileDrop }: DropZoneProps) {
         >
           <div className="flex flex-col items-center gap-4 text-muted-foreground pointer-events-none">
             <Upload className="w-16 h-16" />
-            <div className="text-xl font-semibold">Drop an image to browse its folder</div>
-            <div className="text-sm">The app will load all images from the same directory</div>
+            <div className="text-xl font-semibold">Drop an image to inspect its metadata</div>
+            <div className="text-sm">Reads one image&apos;s prompt, workflow, and settings — browse folders in the tree</div>
           </div>
         </div>
       )}
