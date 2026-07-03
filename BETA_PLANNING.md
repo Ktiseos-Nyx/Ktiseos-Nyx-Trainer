@@ -1215,7 +1215,9 @@ Dataset Tools is a **local-first image and model browser** with deep AI metadata
 
 **DT-1: Merge DT into the Trainer app (in-app)**
 - Bring DT's pages in under a namespaced route in the Trainer's `frontend/app/` (e.g. `app/dataset-tools/...`) and its components into `frontend/components/`.
-- **Namespace DT's API routes** to avoid collisions — both apps have `app/api/*` (DT has `app/api/fs`, `app/api/comfyui-nodes`, etc.; Trainer has `app/api/files`, `app/api/dataset`, etc.). Move DT's under e.g. `app/api/dataset-tools/*`.
+- **Namespace DT's API routes AND whitelist them in `server.js`** — the "API paths" gotcha, traced 2026-07-03. Both apps have `app/api/*`, with **direct collisions**: DT *and* the Trainer both define `/api/civitai` and `/api/settings` (both already in the Trainer's `server.js` `nodeApiPrefixes`). DT's other routes — `/api/fs`, `/api/metadata`, `/api/metadata-from-file`, `/api/metadata-write`, `/api/thumbnail`, `/api/image`, `/api/safetensors`, `/api/rules`, `/api/find-file`, `/api/comfyui-nodes`, `/api/health` — are unclaimed.
+  - **Fix (two parts, both required):** (1) move all DT API routes under `app/api/dataset-tools/*`; (2) add `'/api/dataset-tools'` to `nodeApiPrefixes` at `server.js:240`. Without (2), `server.js` routes those paths to its "proxy other `/api/*` to FastAPI:8000" branch (`server.js:257`) → FastAPI has none of them → 404. This is a **one-line whitelist entry**, not a ComfyUI-style separate-process proxy block — the "no `server.js` proxy block" note above still holds; this single `nodeApiPrefixes` line is the one exception.
+  - NB: the Trainer's own crop/convert Python endpoints (`/api/dataset/crop`, `/api/dataset/convert`) are **unaffected** — `next.config.js:52`'s `/api/:path*` → FastAPI rewrite proxies them through fine (verified 2026-07-03).
 - **Reconcile shared pieces:** dedupe `components/ui/*` (both shadcn — keep one set, watch for version drift), merge `next.config.js` (`serverExternalPackages` for `sharp`, etc.) and any provider/layout wrappers.
 - **Settings + thumbnail cache:** DT's settings system and `.thumbcache/` are self-contained — keep them namespaced so they don't clash with Trainer settings.
 - Net ops change: provisioning just builds the one app; no separate clone/build/start of a second repo, no port wiring. Code can be vendored/subtree'd from the Dataset-Tools repo or copied in — decide at implementation time.
@@ -1876,6 +1878,79 @@ App currently assumes NVIDIA/CUDA everywhere (local + VastAI + RunPod). Dusk wan
 - ZLUDA is Windows-only and a CUDA-translation layer — implications for the Linux VastAI/RunPod targets are different (ROCm is the Linux AMD path). Needs separate investigation per platform.
 - Unknowns to research before any commitment (training side first, since it's the viable one): does the vendored sd-scripts stack actually run under ZLUDA end-to-end? bitsandbytes / xformers / custom optimizers (CAME, etc.) AMD compatibility? onnxruntime tagging path on AMD?
 - Not a beta blocker. Parked as a forward-looking platform expansion.
+
+---
+
+## Section 21 — Dataset-Tools Integration & Theme Picker *(captured 2026-07-03)*
+
+### 21.1 Overview
+Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\Development\Dataset-Tools`) into Ktiseos-Nyx-Trainer. Dataset-Tools is a Next.js 16 app with OKLCH theming, AI image metadata parsing, and SafeTensors inspection — same tech stack as KNX (Next.js 16 + React 19 + shadcn/ui + Tailwind v4).
+
+**Cherry-pick, don't port the whole thing.** Dataset-Tools has its own API routes that conflict with KNX's FastAPI backend. Only port components and client-side logic.
+
+### 21.2 Theme Picker with OKLCH Accent Colors
+
+**Priority:** Medium (Beta polish)
+**Status:** ⏳ Not started
+
+**What Dataset-Tools has that KNX lacks:**
+- 7 accent colors: zinc (default), red, orange, green, blue, violet, pink
+- Each accent defines 8 CSS variables for light mode + 8 for dark mode (primary, accent, ring, sidebar variants) using OKLCH format
+- Applied via `[data-accent="red"]` attribute selectors on `<html>`
+- 6 customizer UI variants: Pill (floating), Bar, Sidebar, Dock, Corner, Toolbar
+- Settings persistence in localStorage with cross-tab sync via StorageEvent
+
+**What KNX currently has:**
+- Dark/light/system toggle only (no accent colors)
+- Purple-tinted default palette (primary = `oklch(0.468 0.272 279.601)`)
+- Duplicate `:root`/`.dark` blocks in `globals.css` that need consolidation
+
+**Integration plan:**
+1. Consolidate duplicate CSS variable blocks in `globals.css`
+2. Add `[data-accent]` override blocks for all 7 accent colors (from Dataset-Tools `globals.css` lines 118-281)
+3. Create `AccentColor` type + localStorage persistence + `useSettings` hook
+4. Add inline `<script>` in `layout.tsx` to read accent from localStorage before React hydration (prevents flash)
+5. Add Appearance section to settings page with color picker
+6. Adapt one customizer variant (Pill or Toolbar most practical)
+7. Fix Dataset-Tools bug: customizer sets `data-theme-color` but CSS uses `data-accent`
+
+**Files to port/adapt from Dataset-Tools:**
+- `components/ui/theme-customizer.tsx` (477 lines — 6 variants)
+- `components/ui/color-swatch.tsx` (120 lines)
+- `components/ui/color-swatch-selector.tsx` (81 lines)
+- `hooks/use-outside-click.tsx` (24 lines)
+- `types/settings.ts` (31 lines — AccentColor type)
+- `lib/settings.ts` (29 lines — localStorage persistence)
+- `hooks/use-settings.ts` (47 lines — cross-tab sync)
+
+**Dependencies:** Zero new npm packages needed. Everything (`next-themes`, `motion`, `lucide-react`, Radix, CVA) already installed.
+
+### 21.3 AI Image Metadata Parser
+
+**Priority:** High (needed for dataset inspection)
+**Status:** ⏳ Not started
+
+**What Dataset-Tools has:**
+- 1,832-line metadata parsing engine (`api/metadata/route.ts`)
+- PNG tEXt chunk reader/writer (`lib/png-metadata.ts`, 147 lines)
+- EXIF extraction (`exif-parser`)
+- ComfyUI workflow graph traversal (deterministic, 90% success rate)
+- A1111/Forge/NovelAI/Civitai format support
+- SafeTensors metadata viewer (`components/safetensors-panel.tsx`)
+- ComfyUI node registry lookup (`lib/comfyui-node-registry.ts`)
+
+**Integration approach:**
+- Metadata parser can run as Next.js API routes (already Node.js, no FastAPI conversion needed)
+- SafeTensors viewer + ComfyUI node registry are client-side components
+- Would add new `/api/metadata` route alongside existing KNX API routes
+
+### 21.4 Components NOT to Port
+
+- File tree, theme system base, settings management — already in KNX
+- Background/particle effects — KNX already has many
+- Glass notification — deferred (lower priority)
+- All Dataset-Tools API routes that do file system access — conflicts with FastAPI backend
+- `three.js` particles — heavy dep (~600KB) unless specifically wanted
 
 ---
 
