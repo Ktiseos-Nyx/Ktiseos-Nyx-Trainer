@@ -3,9 +3,10 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { datasetAPI, ImageWithTags } from '@/lib/api';
-import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon, Grid3x3, Grid2x2, LayoutGrid, Trash2 } from 'lucide-react';
+import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon, Grid3x3, Grid2x2, LayoutGrid, Trash2, ArrowRightLeft, Crop } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import {
   TagsInput,
@@ -230,6 +231,20 @@ export default function DatasetTagsPage() {
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               {saved ? 'Saved!' : 'Save All'}
             </Button>
+            <Link
+              href={`/dataset/${datasetName}/convert`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Convert Format
+            </Link>
+            <Link
+              href={`/dataset/${datasetName}/crop`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors"
+            >
+              <Crop className="w-4 h-4" />
+              Crop
+            </Link>
           </div>
         </div>
 

@@ -10,7 +10,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { validateDatasetPath } from '@/lib/node-services/path-validation';
 
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.jfif'];
 
 interface CalculatorRequest {
   dataset_path: string;

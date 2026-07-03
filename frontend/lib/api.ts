@@ -322,6 +322,88 @@ export interface PaginatedDatasetsResponse {
   page: number;
 }
 
+export interface ConvertFormatRequest {
+  dataset_dir: string;
+  target_format: 'webp' | 'jpg' | 'png' | 'bmp';
+  quality: number;
+  output_mode: 'new_dataset' | 'in-place';
+}
+
+export interface ConvertFormatResponse {
+  success: boolean;
+  job_id?: string;
+  message: string;
+  total_files: number;
+  converted_files?: number;
+  errors?: string[];
+}
+
+export interface ConvertJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  total_files: number;
+  converted_files: number;
+  current_file?: string;
+  logs: string[];
+  errors: string[];
+  result?: {
+    success: boolean;
+    converted: number;
+    total: number;
+    errors: string[];
+    output_dir: string;
+    target_format: string;
+    warning?: string;
+  };
+}
+
+// ========== Crop Types ==========
+
+export interface CropRegion {
+  filename: string;
+  source_x: number;
+  source_y: number;
+  source_width: number;
+  source_height: number;
+}
+
+export interface CropRequest {
+  dataset_dir: string;
+  target_width: number;
+  target_height: number;
+  output_mode: 'new_dataset' | 'in-place';
+  output_format: 'webp' | 'jpg' | 'png';
+  quality: number;
+  crops: CropRegion[];
+}
+
+export interface CropResponse {
+  success: boolean;
+  job_id?: string;
+  message: string;
+  total_files: number;
+}
+
+export interface CropJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  total_files: number;
+  cropped_files: number;
+  current_file?: string;
+  errors: string[];
+  result?: {
+    success: boolean;
+    cropped: number;
+    total: number;
+    errors: string[];
+    output_dir: string;
+    target_size: string;
+    warning?: string;
+  };
+}
+
 export const datasetAPI = {
   // ✅ Now uses Python backend
   list: async (): Promise<{ datasets: DatasetInfo[]; total: number }> => {
@@ -472,6 +554,109 @@ export const datasetAPI = {
 
   // HTTP polling for tagging logs (replaces WebSocket which breaks through Caddy)
   pollTaggingLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log });
+        }
+      },
+      (status, progress) => {
+        if (progress != null) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
+  },
+
+  // ========== Format Conversion ==========
+
+  /** Start a format conversion job. */
+  convertFormat: async (params: {
+    dataset_dir: string;
+    target_format: 'webp' | 'jpg' | 'png' | 'bmp';
+    quality: number;
+    output_mode: 'new_dataset' | 'in-place';
+  }) => {
+    const response = await fetch(`${API_BASE}/dataset/convert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get conversion job status and progress. */
+  getConvertStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/convert/status/${jobId}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running conversion job. */
+  stopConvert: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/convert/stop/${jobId}`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+
+  /** Poll conversion logs via HTTP. */
+  pollConvertLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log });
+        }
+      },
+      (status, progress) => {
+        if (progress != null) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
+  },
+
+  // ========== Batch Crop ==========
+
+  /** Start a batch crop job. */
+  cropImages: async (params: CropRequest) => {
+    const response = await fetch(`${API_BASE}/dataset/crop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get crop job status and progress. */
+  getCropStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/crop/status/${jobId}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running crop job. */
+  stopCrop: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/crop/stop/${jobId}`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+
+  /** Poll crop logs via HTTP. */
+  pollCropLogs: (
     jobId: string,
     onMessage: (data: WebSocketLogMessage) => void,
     onError?: (error: Error) => void,

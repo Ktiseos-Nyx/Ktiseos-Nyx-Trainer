@@ -17,7 +17,7 @@ class DeleteImageRequest(BaseModel):
     image_name: str
 
 # Import new services
-from services import dataset_service, tagging_service, caption_service
+from services import dataset_service, tagging_service, caption_service, convert_service, crop_service
 from services.core.exceptions import NotFoundError, ValidationError as ServiceValidationError
 from services.models.dataset import CreateDatasetRequest
 from services.models.tagging import TaggingConfig
@@ -28,6 +28,8 @@ from services.models.caption import (
     ReadCaptionRequest,
     WriteCaptionRequest,
 )
+from services.models.convert import ConvertFormatRequest
+from services.models.crop import CropRequest
 from fastapi.responses import FileResponse
 
 logger = logging.getLogger(__name__)
@@ -723,3 +725,71 @@ async def serve_dataset_image(dataset_name: str, filename: str):
 
     # 3. Serve the file with the explicit header
     return FileResponse(file_path, media_type=media_type)
+
+
+# ========== Format Conversion ==========
+
+@router.post("/convert")
+async def start_convert_format(request: ConvertFormatRequest):
+    """
+    Start an image format conversion job.
+
+    Converts all images in a dataset to the specified format (webp, jpg, png, bmp).
+    Returns a job_id for progress tracking.
+    """
+    result = await convert_service.start_conversion(request)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+    return result
+
+
+@router.get("/convert/status/{job_id}")
+async def get_convert_status(job_id: str):
+    """Get conversion job status and progress."""
+    status = await convert_service.get_status(job_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return status
+
+
+@router.post("/convert/stop/{job_id}")
+async def stop_convert(job_id: str):
+    """Cancel a running conversion job."""
+    stopped = await convert_service.stop_conversion(job_id)
+    if not stopped:
+        raise HTTPException(status_code=400, detail="Job not found or already stopped")
+    return {"success": True, "message": "Conversion stopped"}
+
+
+# ========== Batch Crop ==========
+
+@router.post("/crop")
+async def start_crop(request: CropRequest):
+    """
+    Start a batch crop job.
+
+    Crops images to the specified region and resizes to target dimensions.
+    Returns a job_id for progress tracking.
+    """
+    result = await crop_service.start_crop(request)
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+    return result
+
+
+@router.get("/crop/status/{job_id}")
+async def get_crop_status(job_id: str):
+    """Get crop job status and progress."""
+    status = await crop_service.get_status(job_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return status
+
+
+@router.post("/crop/stop/{job_id}")
+async def stop_crop(job_id: str):
+    """Cancel a running crop job."""
+    stopped = await crop_service.stop_crop(job_id)
+    if not stopped:
+        raise HTTPException(status_code=400, detail="Job not found or already stopped")
+    return {"success": True, "message": "Crop stopped"}

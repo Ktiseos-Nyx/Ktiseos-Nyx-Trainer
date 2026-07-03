@@ -15,6 +15,8 @@ class JobType(str, Enum):
     TRAINING = "training"
     TAGGING = "tagging"
     DOWNLOAD = "download"
+    CONVERSION = "conversion"
+    CROP = "crop"
 
 
 class JobStatusEnum(str, Enum):
