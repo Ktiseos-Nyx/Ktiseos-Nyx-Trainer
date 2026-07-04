@@ -161,7 +161,7 @@ class ModelService:
             watcher_task: Optional[asyncio.Task] = None
             if progress_callback is not None:
                 total_size = await asyncio.to_thread(
-                    self._get_total_size, download_url, config.api_token
+                    self._get_total_size, download_url, config.api_token, config.headers
                 )
                 if total_size:
                     stop_event = asyncio.Event()
@@ -182,6 +182,7 @@ class ModelService:
                     download_url,
                     staging_path,
                     config.api_token,
+                    config.headers,
                 )
             finally:
                 if stop_event is not None:
@@ -330,7 +331,12 @@ class ModelService:
 
         return url
 
-    def _get_total_size(self, url: str, api_token: Optional[str] = None) -> Optional[int]:
+    def _get_total_size(
+        self,
+        url: str,
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
+    ) -> Optional[int]:
         """
         Resolve the total download size via a HEAD request (following redirects).
 
@@ -351,6 +357,8 @@ class ModelService:
                 headers["Authorization"] = f"Bearer {api_token}"
             if is_hf_host and "/blob/" in download_url:
                 download_url = download_url.replace("/blob/", "/resolve/", 1)
+            if extra_headers:
+                headers.update(extra_headers)
 
             response = requests.head(
                 download_url, headers=headers, allow_redirects=True, timeout=15
@@ -475,10 +483,14 @@ class ModelService:
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> tuple[Optional[Path], Optional[DownloadMethod]]:
         """
         Try download methods in order until one succeeds.
+
+        ``extra_headers`` are caller-supplied request headers (e.g. from a source
+        adapter) forwarded to the direct-download methods.
 
         Returns:
             (destination_path, method_used) or (None, None) on failure
@@ -489,8 +501,13 @@ class ModelService:
         hostname = parsed_url.hostname or ""
         is_huggingface = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
 
+        # Log only header *keys* — values may contain secrets (redaction rule).
+        if extra_headers:
+            logger.debug("Applying %d custom header(s): %s", len(extra_headers), list(extra_headers))
+
         if is_huggingface:
             logger.info("HuggingFace URL detected - using hf_hub_download (hf_xet)")
+            # hf_hub_download authenticates via token, not arbitrary headers.
             if self._try_hf_hub_download(url, destination, api_token):
                 return destination, DownloadMethod.HF_XET
             # Normalize /blob/ page URLs to /resolve/ artifact URLs before falling
@@ -502,16 +519,16 @@ class ModelService:
 
         # aria2c for Civitai and other direct URLs
         if shutil.which("aria2c"):
-            if self._try_aria2c(url, destination, api_token):
+            if self._try_aria2c(url, destination, api_token, extra_headers):
                 return destination, DownloadMethod.ARIA2C
 
         # wget fallback
         if shutil.which("wget"):
-            if self._try_wget(url, destination, api_token):
+            if self._try_wget(url, destination, api_token, extra_headers):
                 return destination, DownloadMethod.WGET
 
         # Python requests (final fallback)
-        if self._try_requests(url, destination, api_token):
+        if self._try_requests(url, destination, api_token, extra_headers):
             return destination, DownloadMethod.REQUESTS
 
         return None, None
@@ -520,7 +537,8 @@ class ModelService:
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> bool:
         """Try downloading with aria2c."""
         logger.info("Attempting download with aria2c...")
@@ -551,6 +569,10 @@ class ModelService:
 
             if header:
                 command.extend(["--header", header])
+
+            # Caller-supplied headers (e.g. from a source adapter).
+            for key, value in (extra_headers or {}).items():
+                command.extend(["--header", f"{key}: {value}"])
 
             result = subprocess.run(
                 command,
@@ -679,7 +701,8 @@ class ModelService:
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> bool:
         """Try downloading with wget."""
         logger.info("Attempting download with wget...")
@@ -694,6 +717,10 @@ class ModelService:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 wget_args.extend(["--header", f"Authorization: Bearer {api_token}"])
+
+            # Caller-supplied headers (e.g. from a source adapter).
+            for key, value in (extra_headers or {}).items():
+                wget_args.extend(["--header", f"{key}: {value}"])
 
             wget_args.extend(["-U", BROWSER_UA])
             wget_args.append(download_url)
@@ -720,7 +747,8 @@ class ModelService:
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> bool:
         """Try downloading with Python requests (final fallback)."""
         logger.info("Attempting download with Python requests (final fallback)...")
@@ -737,6 +765,10 @@ class ModelService:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 headers["Authorization"] = f"Bearer {api_token}"
+
+            # Caller-supplied headers (e.g. from a source adapter) win over defaults.
+            if extra_headers:
+                headers.update(extra_headers)
 
             response = requests.get(download_url, headers=headers, stream=True)
             response.raise_for_status()
