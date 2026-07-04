@@ -316,7 +316,7 @@ Grouped and prioritized. **[BLOCKER]** = needed before v1 ships.
 
 | Phase | Deliverable |
 |---|---|
-| **0** | Arc API smoke probe → pins response shape, redirect allowlist, fixtures |
+| **0** | ✅ **DONE 2026-07-04** — `scripts/arc_api_probe.py`; contract verified live (unauth, 1200/min, all version fields, 302→`uploads.arcenciel.io`→200 w/ Content-Length + Accept-Ranges + Content-Disposition filename) |
 | **1** | Engine hardening: SHA-256 verify, headers, HTTPS redirect allowlist, filename/temp-file safety |
 | **2** | `SourceAdapter` interface + registry + `ArcEnCielAdapter` (search + detail + resolve) + FastAPI routes + wire to engine |
 | **3** | Frontend Browse & Download UI (source selector, batch, destination) with no Arc API-key setting |
