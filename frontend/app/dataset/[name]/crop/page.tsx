@@ -20,6 +20,8 @@ import {
   computeSourceRegion,
 } from '@/components/crop/cards/CropGridCard';
 import { CropProgressCard } from '@/components/crop/cards/CropProgressCard';
+import { Splitter, SplitterPanel } from '@/components/ui/splitter';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const MAX_LOGS = 500;
 
@@ -256,8 +258,9 @@ export default function CropPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-16">
-      <div className="container mx-auto px-4 max-w-7xl">
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Header */}
+      <div className="shrink-0 border-b border-border px-4 py-3">
         <Breadcrumbs
           items={[
             { label: 'Home', href: '/', icon: <Home className="w-4 h-4" /> },
@@ -270,108 +273,114 @@ export default function CropPage() {
             { label: 'Crop', icon: <Crop className="w-4 h-4" /> },
           ]}
         />
-
-        <div className="mb-8">
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-emerald-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent">
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-emerald-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent">
             Batch Crop
           </h1>
-          <p className="text-xl text-muted-foreground mt-4">
-            Crop images in <span className="font-mono">{datasetName}</span> — drag to position, scroll
-            to zoom
+          <p className="text-sm text-muted-foreground">
+            Crop images in <span className="font-mono">{datasetName}</span> — drag to position, scroll to zoom
           </p>
         </div>
+      </div>
 
-        {imagesLoading ? (
-          <div className="text-center py-12 text-muted-foreground">Loading images...</div>
-        ) : images.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">No images found in dataset</div>
-        ) : (
-          <>
-            {/* Settings + Progress Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <CropSettingsCard
-                targetResolution={targetResolution}
-                setTargetResolution={setTargetResolution}
-                aspectRatio={aspectRatio}
-                setAspectRatio={setAspectRatio}
-                outputMode={outputMode}
-                setOutputMode={setOutputMode}
-                outputFormat={outputFormat}
-                setOutputFormat={setOutputFormat}
-                quality={quality}
-                setQuality={setQuality}
-                disabled={isRunning}
-              />
+      {imagesLoading ? (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">Loading images...</div>
+      ) : images.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">No images found in dataset</div>
+      ) : (
+        <Splitter defaultSize={32} minSize={24} maxSize={55} className="flex-1 min-h-0">
+          {/* Left: Settings + Progress + Logs */}
+          <SplitterPanel>
+            <div className="flex h-full flex-col">
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="space-y-4 p-4">
+                  <CropSettingsCard
+                    targetResolution={targetResolution}
+                    setTargetResolution={setTargetResolution}
+                    aspectRatio={aspectRatio}
+                    setAspectRatio={setAspectRatio}
+                    outputMode={outputMode}
+                    setOutputMode={setOutputMode}
+                    outputFormat={outputFormat}
+                    setOutputFormat={setOutputFormat}
+                    quality={quality}
+                    setQuality={setQuality}
+                    disabled={isRunning}
+                  />
 
-              <CropProgressCard
-                isRunning={isRunning}
-                status={jobStatus}
-                logs={logs}
-                onStart={handleStart}
-                onStop={handleStop}
-                canStart={images.length > 0}
-              />
-            </div>
+                  <CropProgressCard
+                    isRunning={isRunning}
+                    status={jobStatus}
+                    logs={logs}
+                    onStart={handleStart}
+                    onStop={handleStop}
+                    canStart={images.length > 0}
+                  />
 
-            {/* Image Grid */}
-            <CropGridCard
-              images={images}
-              aspectRatio={aspectRatio}
-              targetResolution={targetResolution}
-              cropStates={cropStates}
-              onCropChange={handleCropChange}
-              onFrameSize={handleFrameSize}
-            />
-
-            {/* Logs */}
-            {logs.length > 0 && (
-              <div className="mt-6">
-                <div className="bg-card border border-border rounded-lg overflow-hidden">
-                  <div className="flex items-center bg-accent/50 hover:bg-accent">
-                    <Button
-                      variant="ghost"
-                      onClick={() => setLogsExpanded((v) => !v)}
-                      aria-expanded={logsExpanded}
-                      className="flex-1 px-6 py-4 justify-between h-auto"
-                    >
-                      <div className="flex items-center gap-2 font-semibold">
-                        <Terminal className="w-5 h-5" />
-                        Crop Logs{' '}
-                        {jobId && (
-                          <span className="text-xs text-muted-foreground">({jobId})</span>
-                        )}
+                  {/* Logs */}
+                  {logs.length > 0 && (
+                    <div className="bg-card border border-border rounded-lg overflow-hidden">
+                      <div className="flex items-center bg-accent/50 hover:bg-accent">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setLogsExpanded((v) => !v)}
+                          aria-expanded={logsExpanded}
+                          className="flex-1 px-4 py-3 justify-between h-auto"
+                        >
+                          <div className="flex items-center gap-2 font-semibold text-sm">
+                            <Terminal className="w-4 h-4" />
+                            Crop Logs{' '}
+                            {jobId && (
+                              <span className="text-xs text-muted-foreground">({jobId})</span>
+                            )}
+                          </div>
+                          {logsExpanded ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setLogs([])}
+                          className="mr-2"
+                          aria-label="Clear logs"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
                       </div>
-                      {logsExpanded ? (
-                        <ChevronUp className="w-5 h-5" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setLogs([])}
-                      className="mr-2"
-                      aria-label="Clear logs"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  {logsExpanded && (
-                    <div className="p-4 bg-black/50 font-mono text-sm text-green-400 max-h-96 overflow-y-auto">
-                      {logs.map((log, idx) => (
-                        <div key={idx} className="py-1">
-                          {log}
+                      {logsExpanded && (
+                        <div className="p-3 bg-black/50 font-mono text-xs text-green-400 max-h-64 overflow-y-auto">
+                          {logs.map((log, idx) => (
+                            <div key={idx} className="py-0.5">
+                              {log}
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              </ScrollArea>
+            </div>
+          </SplitterPanel>
+
+          {/* Right: image grid (un-squished, fills the panel) */}
+          <SplitterPanel>
+            <div className="h-full p-4">
+              <CropGridCard
+                images={images}
+                aspectRatio={aspectRatio}
+                targetResolution={targetResolution}
+                cropStates={cropStates}
+                onCropChange={handleCropChange}
+                onFrameSize={handleFrameSize}
+              />
+            </div>
+          </SplitterPanel>
+        </Splitter>
+      )}
     </div>
   );
 }

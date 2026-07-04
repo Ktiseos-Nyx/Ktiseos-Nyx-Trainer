@@ -125,8 +125,8 @@ export function CropGridCard({
   const hasMore = images.length > maxVisible;
 
   return (
-    <Card className="border-violet-500/30">
-      <CardHeader>
+    <Card className="border-violet-500/30 h-full flex flex-col">
+      <CardHeader className="shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
@@ -145,9 +145,9 @@ export function CropGridCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[600px]">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pr-4">
+      <CardContent className="flex-1 min-h-0">
+        <ScrollArea className="h-full">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pr-4">
             {visibleImages.map((img) => {
               const state = cropStates.get(img.image_name);
               const imgSrc = img.url || `/api/dataset/serve/${img.image_name}/${img.image_name}`;
@@ -182,7 +182,7 @@ export function CropGridCard({
                     />
                   </div>
                   <p
-                    className="text-[10px] text-muted-foreground truncate px-0.5"
+                    className="text-xs text-muted-foreground truncate px-0.5"
                     title={img.image_name}
                   >
                     {img.image_name}
