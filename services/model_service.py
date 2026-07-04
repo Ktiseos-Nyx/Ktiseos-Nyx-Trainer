@@ -16,7 +16,7 @@ import subprocess
 import logging
 from pathlib import Path
 from typing import Optional, Callable
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 import datetime
 import glob
 
@@ -125,7 +125,26 @@ class ModelService:
                     download_method=None
                 )
 
-            logger.info(f"Starting download: {validated_url}")
+            # When a caller supplies a redirect allowlist (Arc En Ciel), resolve
+            # the redirect chain up front — rejecting any non-HTTPS hop or a host
+            # outside the allowlist — and download the validated final URL.
+            # Civitai/HuggingFace (no allowlist set) keep their prior behaviour.
+            download_url = validated_url
+            if config.allowed_redirect_hosts:
+                resolved = await asyncio.to_thread(
+                    self._resolve_download_url,
+                    validated_url,
+                    config.allowed_redirect_hosts,
+                )
+                if not resolved:
+                    return DownloadResponse(
+                        success=False,
+                        message="Download blocked: redirect to a disallowed host or scheme",
+                        error="redirect allowlist violation",
+                    )
+                download_url = resolved
+
+            logger.info(f"Starting download: {download_url}")
 
             # Stage to a ".part" file in the same directory so a partial, corrupt,
             # or hash-mismatched download never appears under its real name. On
@@ -142,7 +161,7 @@ class ModelService:
             watcher_task: Optional[asyncio.Task] = None
             if progress_callback is not None:
                 total_size = await asyncio.to_thread(
-                    self._get_total_size, validated_url, config.api_token
+                    self._get_total_size, download_url, config.api_token
                 )
                 if total_size:
                     stop_event = asyncio.Event()
@@ -160,7 +179,7 @@ class ModelService:
             try:
                 result_path, method = await asyncio.to_thread(
                     self._download_with_fallback,
-                    validated_url,
+                    download_url,
                     staging_path,
                     config.api_token,
                 )
@@ -390,6 +409,54 @@ class ModelService:
                 await asyncio.wait_for(stop_event.wait(), timeout=1.0)
             except asyncio.TimeoutError:
                 pass
+
+    def _resolve_download_url(
+        self,
+        url: str,
+        allowed_hosts: list[str],
+        max_hops: int = 5,
+    ) -> Optional[str]:
+        """Follow a download's redirect chain, enforcing HTTPS + a host allowlist.
+
+        Every hop — the initial URL and each redirect target — must use https and
+        a hostname that is (or is a subdomain of) an entry in ``allowed_hosts``;
+        otherwise the download is refused. Returns the final resolved URL, or None
+        on any violation or resolution failure.
+
+        Only used when a caller supplies ``allowed_redirect_hosts`` (Arc En Ciel).
+        Civitai/HuggingFace downloads keep their previous redirect behaviour.
+        """
+        import requests
+        allowed = {h.lower() for h in allowed_hosts}
+        current = url
+        headers = {"User-Agent": BROWSER_UA}
+        for _ in range(max_hops):
+            parsed = urlparse(current)
+            if parsed.scheme != "https":
+                logger.error("Redirect allowlist: refusing non-HTTPS URL: %s", current)
+                return None
+            host = (parsed.hostname or "").lower()
+            if not any(host == a or host.endswith("." + a) for a in allowed):
+                logger.error("Redirect allowlist: host '%s' not permitted (%s)", host, current)
+                return None
+            try:
+                resp = requests.head(
+                    current, headers=headers, allow_redirects=False, timeout=15
+                )
+            except requests.RequestException as exc:
+                logger.warning("Redirect allowlist: HEAD failed for %s: %s", current, exc)
+                return None
+            if resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get("Location")
+                if not location:
+                    logger.error("Redirect allowlist: %s redirected with no Location", current)
+                    return None
+                current = urljoin(current, location)
+                continue
+            # Non-redirect response reached; its host was validated at loop top.
+            return current
+        logger.error("Redirect allowlist: too many redirects from %s", url)
+        return None
 
     def _compute_sha256(self, path: Path) -> str:
         """Return the lowercase hex SHA-256 of a file.
