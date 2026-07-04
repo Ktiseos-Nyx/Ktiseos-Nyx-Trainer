@@ -54,6 +54,24 @@ class DownloadConfig(BaseModel):
     model_id: Optional[int] = Field(None, description="Civitai model ID")
     version_id: Optional[int] = Field(None, description="Civitai version ID")
 
+    # Security / verification (Phase 1 engine hardening). All optional and default
+    # to None, so existing Civitai/HuggingFace callers are unaffected.
+    expected_sha256: Optional[str] = Field(
+        None,
+        description="Expected SHA-256 (hex). When set, the finished download is "
+                    "verified and rejected on mismatch (e.g. Arc En Ciel's sha256)."
+    )
+    headers: Optional[dict[str, str]] = Field(
+        None,
+        description="Extra request headers passed through to the download "
+                    "(sensitive values are redacted from logs)."
+    )
+    allowed_redirect_hosts: Optional[list[str]] = Field(
+        None,
+        description="Hostnames a redirect may target. When set, an HTTPS redirect "
+                    "to any other host is rejected."
+    )
+
 
 class DownloadResponse(BaseModel):
     """Response from download operation."""

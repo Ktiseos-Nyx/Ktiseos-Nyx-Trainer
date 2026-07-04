@@ -89,6 +89,7 @@ class ModelService:
         Returns:
             DownloadResponse with download result
         """
+        staging_path: Optional[Path] = None
         try:
             # Validate and normalize URL
             validated_url = self._validate_url(config.url)
@@ -126,9 +127,17 @@ class ModelService:
 
             logger.info(f"Starting download: {validated_url}")
 
-            # Best-effort progress: fetch total size, then poll the growing file on
-            # disk while the download runs. Decoupled from the download method so it
-            # works for aria2c, hf_hub_download, and requests alike.
+            # Stage to a ".part" file in the same directory so a partial, corrupt,
+            # or hash-mismatched download never appears under its real name. On
+            # success it is SHA-verified (when a hash is supplied) then atomically
+            # renamed into place; on any failure it is removed.
+            staging_path = destination_path.with_name(destination_path.name + ".part")
+            if staging_path.exists():
+                staging_path.unlink()  # clear a stale partial from a prior run
+
+            # Best-effort progress: fetch total size, then poll the growing staging
+            # file on disk while the download runs. Decoupled from the download
+            # method so it works for aria2c, hf_hub_download, and requests alike.
             stop_event: Optional[asyncio.Event] = None
             watcher_task: Optional[asyncio.Task] = None
             if progress_callback is not None:
@@ -139,7 +148,7 @@ class ModelService:
                     stop_event = asyncio.Event()
                     watcher_task = asyncio.create_task(
                         self._watch_progress(
-                            destination_path, total_size, progress_callback, stop_event
+                            staging_path, total_size, progress_callback, stop_event
                         )
                     )
 
@@ -152,7 +161,7 @@ class ModelService:
                 result_path, method = await asyncio.to_thread(
                     self._download_with_fallback,
                     validated_url,
-                    destination_path,
+                    staging_path,
                     config.api_token,
                 )
             finally:
@@ -161,26 +170,56 @@ class ModelService:
                 if watcher_task is not None:
                     await watcher_task
 
-            if result_path and result_path.exists():
-                file_size_mb = result_path.stat().st_size / (1024 * 1024)
-                logger.info(f"Download complete: {result_path} ({file_size_mb:.1f} MB) via {method}")
-                return DownloadResponse(
-                    success=True,
-                    message=f"Download complete via {method}",
-                    file_path=str(result_path),
-                    file_name=filename,
-                    size_mb=round(file_size_mb, 2),
-                    download_method=method
-                )
-            else:
+            if not (result_path and result_path.exists()):
+                if staging_path.exists():
+                    staging_path.unlink()
                 return DownloadResponse(
                     success=False,
                     message="All download methods failed",
                     error="Download failed after trying all methods"
                 )
 
+            # Verify the content hash before the file may take its final name. Arc
+            # En Ciel supplies sha256; skipped when no hash is given, so Civitai/HF
+            # downloads are unaffected.
+            if config.expected_sha256:
+                actual_sha = await asyncio.to_thread(self._compute_sha256, staging_path)
+                if actual_sha.lower() != config.expected_sha256.lower():
+                    staging_path.unlink()
+                    logger.error(
+                        "SHA-256 mismatch for %s (expected %s, got %s) - file rejected",
+                        filename, config.expected_sha256, actual_sha,
+                    )
+                    return DownloadResponse(
+                        success=False,
+                        message="Downloaded file failed SHA-256 verification",
+                        error="sha256 mismatch",
+                    )
+                logger.info("SHA-256 verified for %s", filename)
+
+            # Atomic move into place: staging is in the same directory as the
+            # destination (same filesystem), so os.replace can't leave a half file.
+            os.replace(str(staging_path), str(destination_path))
+
+            file_size_mb = destination_path.stat().st_size / (1024 * 1024)
+            logger.info(f"Download complete: {destination_path} ({file_size_mb:.1f} MB) via {method}")
+            return DownloadResponse(
+                success=True,
+                message=f"Download complete via {method}",
+                file_path=str(destination_path),
+                file_name=filename,
+                size_mb=round(file_size_mb, 2),
+                download_method=method
+            )
+
         except Exception as e:
             logger.exception(f"Download error: {e}")
+            if staging_path is not None:
+                try:
+                    if staging_path.exists():
+                        staging_path.unlink()
+                except OSError:
+                    pass
             return DownloadResponse(
                 success=False,
                 message="Download failed",
@@ -351,6 +390,19 @@ class ModelService:
                 await asyncio.wait_for(stop_event.wait(), timeout=1.0)
             except asyncio.TimeoutError:
                 pass
+
+    def _compute_sha256(self, path: Path) -> str:
+        """Return the lowercase hex SHA-256 of a file.
+
+        Read in 1 MB chunks so multi-GB model files are never loaded into memory
+        all at once.
+        """
+        import hashlib
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+        return digest.hexdigest()
 
     def _download_with_fallback(
         self,
