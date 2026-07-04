@@ -72,9 +72,17 @@ export default function CropPage() {
     datasetAPI
       .getImagesWithTags(datasetName)
       .then((res) => {
-        const unique = res.images.filter(
-          (img, idx, arr) => arr.findIndex((i) => i.image_path === img.image_path) === idx,
-        );
+        const unique = res.images
+          .filter(
+            (img, idx, arr) => arr.findIndex((i) => i.image_path === img.image_path) === idx,
+          )
+          .map((img) => ({
+            ...img,
+            // Serve images through the tag editor's proven route. CropGridCard's
+            // built-in fallback (/api/dataset/serve/...) points at a route that
+            // doesn't exist anywhere -> broken image icons.
+            url: img.url || `/api/files/image/${datasetName}/${img.image_name}`,
+          }));
         setImages(unique);
       })
       .catch((err) => {
