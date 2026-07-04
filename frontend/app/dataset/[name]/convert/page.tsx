@@ -6,7 +6,7 @@ import { Home, Database, ArrowRightLeft, Terminal, X, ChevronDown, ChevronUp } f
 import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
-import { datasetAPI, LogPoller } from '@/lib/api';
+import { datasetAPI } from '@/lib/api';
 import type { ConvertJobStatus } from '@/lib/api';
 import { ConvertSettingsCard } from '@/components/convert/cards/ConvertSettingsCard';
 import { ConvertProgressCard } from '@/components/convert/cards/ConvertProgressCard';
@@ -34,17 +34,15 @@ export default function ConvertPage() {
   const [result, setResult] = useState<ConvertJobStatus['result']>(null);
 
   // Logs
-  const [showLogs, setShowLogs] = useState(true);
+  const [showLogs] = useState(true);
   const [logsExpanded, setLogsExpanded] = useState(true);
   const [logs, setLogs] = useState<string[]>([]);
 
-  const logPollerRef = useRef<LogPoller | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (logPollerRef.current) logPollerRef.current.stop();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     };
   }, []);
@@ -58,7 +56,6 @@ export default function ConvertPage() {
 
   const stopPolling = useCallback(() => {
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-    if (logPollerRef.current) logPollerRef.current.stop();
   }, []);
 
   const startStatusPolling = useCallback((id: string) => {
@@ -70,6 +67,12 @@ export default function ConvertPage() {
         setProgress(status.progress);
         setConvertedFiles(status.converted_files);
         setCurrentFile(status.current_file || null);
+
+        // Logs come from the status poll (FastAPI) — the job lives there, not in
+        // the Node job store the old /api/jobs/{id}/logs poll hit (which 404'd).
+        if (status.logs && status.logs.length > 0) {
+          setLogs(status.logs.slice(-MAX_LOGS));
+        }
 
         if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
           stopPolling();
@@ -91,26 +94,6 @@ export default function ConvertPage() {
       }
     }, 1000);
   }, [stopPolling]);
-
-  const connectLogs = useCallback((id: string) => {
-    if (logPollerRef.current) logPollerRef.current.stop();
-    setShowLogs(true);
-
-    logPollerRef.current = datasetAPI.pollConvertLogs(
-      id,
-      (data) => {
-        if (data.type === 'log') {
-          setLogs((prev) => {
-            const next = [...prev, data.log];
-            return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
-          });
-        }
-      },
-      (error) => {
-        addLog(`⚠️ Log connection error: ${error.message}`);
-      },
-    );
-  }, [addLog]);
 
   const handleStart = async () => {
     if (!datasetName) return;
@@ -137,7 +120,6 @@ export default function ConvertPage() {
         setJobId(response.job_id);
         setTotalFiles(response.total_files);
         addLog(`Started conversion: ${response.message}`);
-        connectLogs(response.job_id);
         startStatusPolling(response.job_id);
       } else {
         addLog(`❌ Failed: ${response.message}`);

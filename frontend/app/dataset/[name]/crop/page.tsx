@@ -11,7 +11,6 @@ import {
   type ImageWithTags,
   type CropJobStatus,
   type CropRegion,
-  type LogPoller,
 } from '@/lib/api';
 import { CropSettingsCard, ASPECT_OPTIONS } from '@/components/crop/cards/CropSettingsCard';
 import {
@@ -56,13 +55,12 @@ export default function CropPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [logsExpanded, setLogsExpanded] = useState(true);
 
-  const logPollerRef = useRef<LogPoller | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFileRef = useRef<string | null>(null);
 
   // Cleanup
   useEffect(() => {
     return () => {
-      if (logPollerRef.current) logPollerRef.current.stop();
       if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
     };
   }, []);
@@ -95,7 +93,6 @@ export default function CropPage() {
 
   const stopPolling = useCallback(() => {
     if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
-    if (logPollerRef.current) logPollerRef.current.stop();
   }, []);
 
   const startStatusPolling = useCallback(
@@ -106,6 +103,14 @@ export default function CropPage() {
         try {
           const status: CropJobStatus = await datasetAPI.getCropStatus(id);
           setJobStatus(status);
+
+          // Crop's FastAPI status carries no logs array, so synthesise a live
+          // line per file from current_file. (The old /api/jobs/{id}/logs poll
+          // 404'd — that job lives in FastAPI, not the Node job store.)
+          if (status.current_file && status.current_file !== lastFileRef.current) {
+            lastFileRef.current = status.current_file;
+            addLog(`Cropping ${status.current_file} (${status.cropped_files}/${status.total_files})`);
+          }
 
           if (
             status.status === 'completed' ||
@@ -131,29 +136,7 @@ export default function CropPage() {
         }
       }, 1000);
     },
-    [stopPolling],
-  );
-
-  const connectLogs = useCallback(
-    (id: string) => {
-      if (logPollerRef.current) logPollerRef.current.stop();
-
-      logPollerRef.current = datasetAPI.pollCropLogs(
-        id,
-        (data) => {
-          if (data.type === 'log') {
-            setLogs((prev) => {
-              const next = [...prev, data.log];
-              return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next;
-            });
-          }
-        },
-        (error) => {
-          addLog(`⚠️ Log connection error: ${error.message}`);
-        },
-      );
-    },
-    [addLog],
+    [stopPolling, addLog],
   );
 
   const handleCropChange = useCallback(
@@ -183,6 +166,7 @@ export default function CropPage() {
     setIsComplete(false);
     setJobStatus(null);
     setLogs([]);
+    lastFileRef.current = null;
 
     // Compute source regions for all images
     const crops: CropRegion[] = [];
@@ -230,7 +214,6 @@ export default function CropPage() {
       if (response.success && response.job_id) {
         setJobId(response.job_id);
         addLog(`Started crop: ${response.message}`);
-        connectLogs(response.job_id);
         startStatusPolling(response.job_id);
       } else {
         addLog(`❌ Failed: ${response.message}`);
