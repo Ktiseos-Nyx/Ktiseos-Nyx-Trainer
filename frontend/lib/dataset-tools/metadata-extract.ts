@@ -15,24 +15,13 @@
 import crypto from 'crypto';
 import exifParser from 'exif-parser';
 import iconv from 'iconv-lite';
-
-// TODO(dataset-tools slice 2): restore the registry-backed classifier by
-// porting @/lib/comfyui-node-registry (extension-node-map + GitHub fallback)
-// and importing `classifyNodes` from it here — matches the STUB marker in
-// components/dataset-tools/metadata-panel.tsx. Until then this local type
-// only needs the shape classifyComfyUIWorkflow() below actually produces.
-type NodeLookupResult = {
-  classification: 'builtin' | 'custom' | 'unknown';
-  source?: string;
-  repo?: { repoUrl: string; repoName: string; title: string };
-};
+import { classifyNodes, type NodeLookupResult } from './comfyui-node-registry';
 
 /**
- * Classify every class_type in a ComfyUI workflow. Registry lookup
- * (extension-node-map + GitHub fallback) is stubbed for this slice — see the
- * TODO above — so classification currently relies solely on the workflow's
- * own embedded provenance (cnr_id/aux_id in the Workflow PNG chunk, ComfyUI
- * ≥1.26); everything else starts "unknown".
+ * Classify every class_type in a ComfyUI workflow against the extension-node-map
+ * registry (builtin/custom/unknown), then overlay the workflow's own embedded
+ * provenance (cnr_id/aux_id), which is authoritative. The GitHub code-search
+ * fallback for still-unknown nodes is deferred to a later dataset-tools slice.
  */
 // Node provenance extracted from the Workflow PNG chunk (ComfyUI ≥1.26).
 // Keys are class_type strings; values are the cnr_id / aux_id from node.properties.
@@ -79,11 +68,15 @@ async function classifyComfyUIWorkflow(
   }
   if (classTypes.size === 0) return null;
 
-  // Registry lookup stubbed this slice (see TODO above) — start everything
-  // "unknown" and let the local provenance overlay below promote what it can.
-  const classifications: Record<string, NodeLookupResult> = {};
-  for (const ct of classTypes) {
-    classifications[ct] = { classification: 'unknown' };
+  // Registry classification (extension-node-map + built-in set). Degrades to an
+  // empty map on network failure; the provenance overlay below still promotes
+  // what it can from the workflow's own cnr_id/aux_id.
+  let classifications: Record<string, NodeLookupResult>;
+  try {
+    classifications = await classifyNodes([...classTypes]);
+  } catch (err) {
+    console.error('[metadata] ComfyUI node classification failed:', err);
+    classifications = {};
   }
 
   // Overlay Workflow-chunk provenance — this is authoritative and avoids
