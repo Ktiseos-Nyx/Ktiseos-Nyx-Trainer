@@ -47,8 +47,10 @@ export function HeroAnimated({
   // Theme-based gradient classes with light/dark support
   const gradients = {
     'purple-blue': {
+      // Dark hero = pure black; the colored beams + purple glass card carry the
+      // color (option A: full-bleed beams over black). Light mode keeps its tint.
       bg: isDark
-        ? 'from-slate-950 via-purple-950 to-slate-950'
+        ? 'from-black via-black to-black'
         : 'from-purple-50 via-blue-50 to-indigo-50',
       text: isDark
         ? 'from-purple-400 via-blue-400 to-purple-400'
