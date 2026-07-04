@@ -236,6 +236,16 @@ app.prepare().then(() => {
         return comfyuiProxy(req, res);
       }
 
+      // FastAPI owns /api/dataset/crop* and /api/dataset/convert*, but they sit
+      // under the Node-whitelisted /api/dataset prefix AND collide with Next's
+      // app/api/dataset/[name] dynamic route (GET/DELETE only). Without this
+      // explicit carve-out every POST would be handled by [name] and 405. Route
+      // them to FastAPI before the Node whitelist runs.
+      const fastApiDatasetPaths = ['/api/dataset/crop', '/api/dataset/convert'];
+      if (fastApiDatasetPaths.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+        return apiAndWsProxy(req, res);
+      }
+
       // Handle Node.js API routes (new migration)
       const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/dataset-tools', '/api/config', '/api/civitai', '/api/utilities', '/api/debug'];
       const nodeApiExact = ['/api/models/popular', '/api/models/list'];
