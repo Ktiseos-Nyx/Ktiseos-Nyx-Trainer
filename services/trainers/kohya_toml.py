@@ -455,7 +455,6 @@ class KohyaTOMLGenerator:
         # Use .as_posix() for all paths to avoid Windows backslash escape issues in TOML
         args = {
             "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve().as_posix()),
-            "max_train_epochs": self.config.max_train_epochs,
             # "train_batch_size": self.config.train_batch_size, # Often handled in dataset.toml, but safe to keep here too
             "output_dir": str(Path(self.config.output_dir).resolve().as_posix()),
             "output_name": self.config.output_name,
@@ -602,8 +601,12 @@ class KohyaTOMLGenerator:
             args["sample_every_n_steps"] = self.config.sample_every_n_steps
 
         # Steps vs Epochs handling
+        # Kohya prefers epochs: if max_train_epochs is present it overrides steps.
+        # So only write one at a time — steps when > 0, otherwise epochs.
         if self.config.max_train_steps > 0:
             args["max_train_steps"] = self.config.max_train_steps
+        else:
+            args["max_train_epochs"] = self.config.max_train_epochs
 
         # Noise Settings
         # Gate on _enabled flag (consistent with ip_noise_gamma_enabled below).
