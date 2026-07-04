@@ -23,6 +23,8 @@ import {
   Upload,
   Wand2,
   ExternalLink,
+  Crop,
+  ArrowRightLeft,
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -78,6 +80,12 @@ export function Navbar() {
                   </ListItem>
                   <ListItem href="/dataset-tools" title="Metadata Browser" icon={<FolderTree className="w-4 h-4" />}>
                     Browse images, inspect AI metadata & safetensors
+                  </ListItem>
+                  <ListItem href="/dataset/crop" title="Crop" icon={<Crop className="w-4 h-4" />}>
+                    Crop & resize a dataset's images for training
+                  </ListItem>
+                  <ListItem href="/dataset/convert" title="Convert Format" icon={<ArrowRightLeft className="w-4 h-4" />}>
+                    Convert a dataset between JPEG / PNG / WEBP / JFIF
                   </ListItem>
                 </ul>
               </NavigationMenuContent>

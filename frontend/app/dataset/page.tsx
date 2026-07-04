@@ -7,7 +7,7 @@ import { Home, Database } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { toast } from 'sonner';
 import { datasetAPI, DatasetInfo } from '@/lib/api';
-import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Zap, Info, Loader2 } from 'lucide-react';
+import { FolderOpen, Image as ImageIcon, Tag, Trash2, RefreshCw, Zap, Info, Loader2, Crop, ArrowRightLeft } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -121,6 +121,40 @@ export default function DatasetPage() {
               >
                 <Tag className="w-4 h-4" />
                 Edit Tags
+              </Link>
+              <Link
+                href="/dataset/crop"
+                prefetch={false}
+                className={`px-4 py-2 ${datasets.length > 0
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+                } rounded-lg font-semibold transition-all shadow-lg flex items-center gap-2`}
+                onClick={(e) => {
+                  if (datasets.length === 0) {
+                    e.preventDefault();
+                    toast.info('Upload a dataset first to crop images');
+                  }
+                }}
+              >
+                <Crop className="w-4 h-4" />
+                Crop
+              </Link>
+              <Link
+                href="/dataset/convert"
+                prefetch={false}
+                className={`px-4 py-2 ${datasets.length > 0
+                  ? 'bg-gradient-to-r from-blue-500 to-sky-500 hover:from-blue-600 hover:to-sky-600 text-white'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+                } rounded-lg font-semibold transition-all shadow-lg flex items-center gap-2`}
+                onClick={(e) => {
+                  if (datasets.length === 0) {
+                    e.preventDefault();
+                    toast.info('Upload a dataset first to convert formats');
+                  }
+                }}
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                Convert
               </Link>
             </div>
             )}
