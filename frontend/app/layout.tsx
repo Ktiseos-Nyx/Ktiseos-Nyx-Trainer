@@ -16,14 +16,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Pre-hydration: apply accent color before React mounts to prevent flash */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{var a=localStorage.getItem('app-accent');if(a&&a!=='zinc'){document.documentElement.setAttribute('data-accent',a)}}catch(e){}`,
-          }}
-        />
-      </head>
       <body className="antialiased flex flex-col min-h-screen">
         <ThemeProvider
           attribute="class"
