@@ -229,6 +229,9 @@ docs/superpowers/
 wip_documentation/
 docs/archive/
 WIP_FEATURES.md
+.superpowers/
+.notes/
+frontend/.claude/skills/
 
 # Reference materials
 kohya-colab-main/

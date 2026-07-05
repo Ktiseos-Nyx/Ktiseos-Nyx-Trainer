@@ -1624,6 +1624,133 @@ export const modelsAPI = {
   },
 };
 
+// ========== Source Adapter Framework (Arc En Ciel etc.) ==========
+
+export interface SourceInfo {
+  name: string;
+  credential_kind: string;
+  base_model_classes: string[];
+}
+
+export interface SourceModelSummary {
+  source: string;
+  model_id: string;
+  title: string;
+  type?: string | null;
+  base_model?: string | null;
+  cover_url?: string | null;
+  nsfw: boolean;
+}
+
+export interface SourceModelVersion {
+  source: string;
+  model_id: string;
+  version_id: string;
+  name?: string | null;
+  base_model?: string | null;
+  model_type?: string | null;
+  status?: string | null;
+  file_name?: string | null;
+  original_name?: string | null;
+  file_size_kb?: number | null;
+  sha256?: string | null;
+  cover_url?: string | null;
+  dest_type: string;
+}
+
+export interface SourceModelDetail {
+  source: string;
+  model_id: string;
+  title: string;
+  type?: string | null;
+  base_model?: string | null;
+  cover_url?: string | null;
+  nsfw: boolean;
+  description?: string | null;
+  versions: SourceModelVersion[];
+}
+
+export interface SourceSearchResult {
+  source: string;
+  items: SourceModelSummary[];
+  page: number;
+  has_more: boolean;
+}
+
+export const sourcesAPI = {
+  list: async (): Promise<SourceInfo[]> => {
+    const response = await fetch(`${API_BASE}/sources`);
+    return handleResponse(response);
+  },
+
+  search: async (
+    name: string,
+    params: {
+      term?: string;
+      sort?: string;
+      page?: number;
+      limit?: number;
+      base_model?: string;
+      model_type?: string;
+    } = {},
+  ) => {
+    const queryParams = new URLSearchParams();
+    if (params.term) queryParams.append('term', params.term);
+    if (params.sort) queryParams.append('sort', params.sort);
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.base_model) queryParams.append('base_model', params.base_model);
+    if (params.model_type) queryParams.append('model_type', params.model_type);
+
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/search?${queryParams}`);
+    return handleResponse(response);
+  },
+
+  getModel: async (name: string, modelId: string): Promise<SourceModelDetail> => {
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/models/${encodeURIComponent(modelId)}`);
+    return handleResponse(response);
+  },
+
+  getVersions: async (name: string, modelId: string): Promise<SourceModelVersion[]> => {
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/models/${encodeURIComponent(modelId)}/versions`);
+    return handleResponse(response);
+  },
+
+  download: async (
+    name: string,
+    modelId: string,
+    versionId: string,
+    destination: 'training' | 'comfyui' = 'training',
+    comfyuiFolder?: string,
+  ) => {
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model_id: modelId,
+        version_id: versionId,
+        destination,
+        comfyui_folder: comfyuiFolder,
+      }),
+    });
+    const { job_id: jobId } = await handleResponse(response);
+
+    const POLL_INTERVAL_MS = 1500;
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      const statusResp = await fetch(`${API_BASE}/models/download/status/${jobId}`);
+      const status = await handleResponse(statusResp);
+
+      if (status.status === 'completed') {
+        return status.result ?? { success: true, message: 'Download complete' };
+      }
+      if (status.status === 'failed' || status.status === 'cancelled') {
+        throw new Error(status.error || status.result?.error || 'Download failed');
+      }
+    }
+  },
+};
+
 // ========== Civitai Browse ==========
 // ✅ MIGRATED: Browse/tags/model details use Node.js
 // Download stays on Python backend (uses model_service for file storage)

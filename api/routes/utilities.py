@@ -367,14 +367,14 @@ async def resize_lora(request: LoRAResizeRequest):
         # Security: input from any model dir; output always to output/
         try:
             _validate_model_input(request.input_path)
-            validate_output_path(request.output_path)
+            resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Convert to service request
         service_request = ServiceResizeRequest(
             input_path=request.input_path,
-            output_path=request.output_path,
+            output_path=str(resolved_output),
             target_dim=request.new_dim,
             device=request.device,
             save_precision=request.save_precision
@@ -420,7 +420,7 @@ async def merge_lora(request: LoRAMergeRequest):
         try:
             for lora in request.lora_inputs:
                 _validate_model_input(lora["path"])
-            validate_output_path(request.output_path)
+            resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
@@ -433,7 +433,7 @@ async def merge_lora(request: LoRAMergeRequest):
         # Convert to service request
         service_request = ServiceMergeRequest(
             lora_inputs=lora_inputs,
-            output_path=request.output_path,
+            output_path=str(resolved_output),
             model_type=request.model_type,
             device=request.device,
             save_precision=request.save_precision,
@@ -484,7 +484,7 @@ async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
                 _validate_model_input(lora["path"])
             if request.model_type == "anima" and request.text_encoder_path:
                 _validate_model_input(request.text_encoder_path)
-            validate_output_path(request.output_path)
+            resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
@@ -497,7 +497,7 @@ async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
             base_model_path=request.base_model_path,
             text_encoder_path=request.text_encoder_path,
             lora_inputs=lora_inputs,
-            output_path=request.output_path,
+            output_path=str(resolved_output),
             model_type=request.model_type,
             device=request.device,
             save_precision=request.save_precision,
@@ -585,7 +585,7 @@ async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
         for p in [request.model_a_path, request.model_b_path, request.model_c_path]:
             if p:
                 _validate_model_input(p)
-        validate_output_path(request.output_path)
+        resolved_output = validate_output_path(request.output_path)
 
         # Load models
         model_a = load_checkpoint(request.model_a_path, device=request.device)
@@ -624,14 +624,14 @@ async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
             raise HTTPException(status_code=400, detail=f"Unknown mode: {request.mode}")
 
         # Save
-        save_checkpoint(merged, request.output_path)
+        save_checkpoint(merged, str(resolved_output))
 
-        file_size_mb = os.path.getsize(request.output_path) / (1024 * 1024)
+        file_size_mb = os.path.getsize(str(resolved_output)) / (1024 * 1024)
 
         return {
             "success": True,
             "message": f"Block-weighted merge ({request.mode}) successful",
-            "output_path": request.output_path,
+            "output_path": str(resolved_output),
             "mode": request.mode,
             "file_size_mb": round(file_size_mb, 2),
         }
@@ -667,7 +667,7 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
         try:
             for cp in request.checkpoint_inputs:
                 _validate_model_input(cp["path"])
-            validate_output_path(request.output_path)
+            resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
@@ -680,7 +680,7 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
         # Convert to service request
         service_request = ServiceCheckpointMergeRequest(
             checkpoint_inputs=checkpoint_inputs,
-            output_path=request.output_path,
+            output_path=str(resolved_output),
             unet_only=request.unet_only,
             device=request.device,
             save_precision=request.save_precision,

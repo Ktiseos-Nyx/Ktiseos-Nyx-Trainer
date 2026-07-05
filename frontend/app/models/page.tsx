@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { modelsAPI, ModelFile, PopularModel, PopularModelsResponse } from '@/lib/api';
-import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search, Wand2 } from 'lucide-react';
+import { Download, Trash2, HardDrive, Loader2, ExternalLink, Home, Sparkles, Search, Wand2, Globe } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -174,12 +174,20 @@ export default function ModelsPage() {
                 Download base models and VAEs from HuggingFace or Civitai
               </p>
             </div>
-            <Button asChild className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
-              <Link href="/models/browse" prefetch={false}>
-                <Search className="w-5 h-5" />
-                Browse Civitai
-              </Link>
-            </Button>
+            <div className="flex gap-3">
+              <Button asChild className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap">
+                <Link href="/models/browse" prefetch={false}>
+                  <Search className="w-5 h-5" />
+                  Browse Civitai
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="flex items-center gap-2 whitespace-nowrap">
+                <Link href="/models/sources" prefetch={false}>
+                  <Globe className="w-5 h-5" />
+                  Arc En Ciel
+                </Link>
+              </Button>
+            </div>
           </div>
         </div>
 

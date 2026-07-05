@@ -45,6 +45,8 @@
     "@gammaui": "https://www.gammaui.com/r/{name}.json",
     "@aicanvas": "https://aicanvas.me/r/{name}.json",
     "@pulkitxm": "https://pulkitxm.com/components/{name}.json",
-    "@shadcnhooks": "https://shadcn-hooks.com/r/{name}.json"
+    "@shadcnhooks": "https://shadcn-hooks.com/r/{name}.json",
+    "@kaui": "https://kaui-shadcn-registry.vercel.app/r/{name}.json",
+    "@jalco": "https://ui.justinlevine.me/r/{name}.json"
   }
 }
