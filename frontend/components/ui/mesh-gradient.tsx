@@ -26,9 +26,8 @@ export function MeshGradientBackground({
   backgroundColor = "#030014",
   lightBackgroundColor = "#f8fafc",
 }: MeshGradientBackgroundProps) {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"))
   useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"))
     const observer = new MutationObserver(() => {
       setIsDark(document.documentElement.classList.contains("dark"))
     })

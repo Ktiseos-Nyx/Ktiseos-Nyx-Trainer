@@ -91,9 +91,9 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
   const borderClass = isDark ? 'border-white/15' : 'border-black/10'
   const cardRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [cursorAngle, setCursorAngle] = useState(45);
+  const [cursorAngle, setCursorAngle] = useState(() => animated ? 110 : 45);
   const [edgeProximity, setEdgeProximity] = useState(0);
-  const [sweepActive, setSweepActive] = useState(false);
+  const [sweepActive, setSweepActive] = useState(() => !!animated);
 
   const getCenterOfElement = useCallback((el: HTMLElement) => {
     const { width, height } = el.getBoundingClientRect();
@@ -134,17 +134,14 @@ const BorderGlow: React.FC<BorderGlowProps> = ({
 
   useEffect(() => {
     if (!animated) return;
-    const angleStart = 110;
     const angleEnd = 465;
-    setSweepActive(true);
-    setCursorAngle(angleStart);
 
     animateValue({ duration: 500, onUpdate: v => setEdgeProximity(v / 100) });
     animateValue({ ease: easeInCubic, duration: 1500, end: 50, onUpdate: v => {
-      setCursorAngle((angleEnd - angleStart) * (v / 100) + angleStart);
+      setCursorAngle((angleEnd - 110) * (v / 100) + 110);
     }});
     animateValue({ ease: easeOutCubic, delay: 1500, duration: 2250, start: 50, end: 100, onUpdate: v => {
-      setCursorAngle((angleEnd - angleStart) * (v / 100) + angleStart);
+      setCursorAngle((angleEnd - 110) * (v / 100) + 110);
     }});
     animateValue({ ease: easeInCubic, delay: 2500, duration: 1500, start: 100, end: 0,
       onUpdate: v => setEdgeProximity(v / 100),

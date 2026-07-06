@@ -164,13 +164,14 @@ export default function SourcesBrowsePage() {
       setHasMore(true);
       loadModels(1, false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSource, searchQuery, selectedSort, selectedBaseModel, selectedType, showNsfw]);
 
   useEffect(() => {
     if (page > 1) {
       loadModels(page, true);
     }
-  }, [page]);
+  }, [page, loadModels]);
 
   const handleSearch = () => {
     setSearchQuery(searchInput);
