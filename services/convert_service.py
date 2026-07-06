@@ -153,6 +153,7 @@ class ConvertService:
         converted = 0
         errors = []
         total = len(image_files)
+        job.total_images = total
         save_kwargs = FORMAT_SAVE_KWARGS.get(target_format, lambda q: {})(quality)
 
         for i, src_file in enumerate(image_files):
@@ -170,13 +171,13 @@ class ConvertService:
                     continue
 
                 # Open and convert
-                img = Image.open(src_file)
+                with Image.open(src_file) as img:
 
-                # Handle mode conversion (RGBA -> RGB for JPEG)
-                if img.mode == "RGBA" and target_format in ("jpg", "jpeg"):
-                    img = img.convert("RGB")
-                elif img.mode not in ("RGB", "RGBA", "L", "P"):
-                    img = img.convert("RGB")
+                    # Handle mode conversion (RGBA -> RGB for JPEG)
+                    if img.mode == "RGBA" and target_format in ("jpg", "jpeg"):
+                        img = img.convert("RGB")
+                    elif img.mode not in ("RGB", "RGBA", "L", "P"):
+                        img = img.convert("RGB")
 
                 # Save to temp file first, then replace (atomic-ish)
                 if output_mode == "in-place":

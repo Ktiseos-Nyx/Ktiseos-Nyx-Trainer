@@ -288,6 +288,8 @@ class ListLoraFilesRequest(BaseModel):
     sort_by: str = "name"
 
 
+MAX_LORA_LIST_FILES = 20000
+
 @router.post("/lora/list")
 async def list_lora_files(request: ListLoraFilesRequest):
     """List LoRA files in a directory"""
@@ -311,29 +313,37 @@ async def list_lora_files(request: ListLoraFilesRequest):
         # extensions like "safetensors,ckpt".
         suffixes = tuple(f".{ext.strip().lower()}" for ext in request.file_extension.split(","))
         files = []
-        seen = set()
+        visited_dirs = set()  # track realpath to detect symlink cycles
 
-        for root, _dirs, filenames in os.walk(directory, followlinks=True):
+        for root, dirs, filenames in os.walk(directory, followlinks=True):
+            real_root = os.path.realpath(root)
+            if real_root in visited_dirs:
+                dirs[:] = []  # skip this directory's children (cycle detected)
+                continue
+            visited_dirs.add(real_root)
+
             for fn in filenames:
                 if not fn.lower().endswith(suffixes):
                     continue
                 file_path = Path(root) / fn
-                key = str(file_path)
-                if key in seen:
-                    continue
-                seen.add(key)
                 try:
-                    stat = file_path.stat()  # follows symlink; skips broken links
+                    stat = file_path.stat()
                 except OSError:
                     continue
                 size_mb = round(stat.st_size / (1024 * 1024), 2)
                 files.append({
                     "name": file_path.name,
-                    "path": key,
+                    "path": str(file_path),
                     "size_mb": size_mb,
                     "size_formatted": f"{size_mb:.1f} MB",
-                    "modified": stat.st_mtime
+                    "modified": stat.st_mtime,
                 })
+                if len(files) >= MAX_LORA_LIST_FILES:
+                    dirs[:] = []
+                    break
+
+            if len(files) >= MAX_LORA_LIST_FILES:
+                break
 
         # Sort files
         if request.sort_by == "date":

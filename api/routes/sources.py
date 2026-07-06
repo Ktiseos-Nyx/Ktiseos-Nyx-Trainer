@@ -8,6 +8,7 @@ See ``docs/specs/2026-07-03-additive-download-system.md``.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Optional
@@ -211,7 +212,7 @@ async def search_source(
         nsfw=nsfw,
     )
     try:
-        result = adapter.search(query)
+        result = await asyncio.to_thread(adapter.search, query)
     except Exception as exc:
         logger.exception("Search failed for source '%s': %s", name, exc)
         raise HTTPException(status_code=502, detail=f"Search failed: {exc}")
@@ -225,7 +226,7 @@ async def get_source_model(name: str, model_id: str):
     if not adapter:
         raise HTTPException(status_code=404, detail=f"Unknown source: {name}")
     try:
-        detail = adapter.get_model(model_id)
+        detail = await asyncio.to_thread(adapter.get_model, model_id)
     except Exception as exc:
         logger.exception("Failed to get model '%s' from '%s': %s", model_id, name, exc)
         raise HTTPException(status_code=502, detail=f"Failed to get model: {exc}")
@@ -245,7 +246,7 @@ async def download_from_source(name: str, request: SourceDownloadRequest):
 
     # Resolve version metadata via the adapter.
     try:
-        versions = adapter.get_versions(request.model_id)
+        versions = await asyncio.to_thread(adapter.get_versions, request.model_id)
     except Exception as exc:
         logger.exception("Failed to get versions for '%s': %s", request.model_id, exc)
         raise HTTPException(status_code=502, detail=f"Failed to get versions: {exc}")
@@ -269,7 +270,7 @@ async def download_from_source(name: str, request: SourceDownloadRequest):
 
     # Resolve the concrete download URL + metadata.
     try:
-        spec = adapter.resolve_download(target)
+        spec = await asyncio.to_thread(adapter.resolve_download, target)
     except Exception as exc:
         logger.exception("Failed to resolve download for version '%s': %s", request.version_id, exc)
         raise HTTPException(status_code=502, detail=f"Failed to resolve download: {exc}")
@@ -292,7 +293,7 @@ async def download_from_source(name: str, request: SourceDownloadRequest):
     # Build LM-compatible .metadata.json sidecar data.
     metadata: Optional[dict] = None
     try:
-        detail = adapter.get_model(request.model_id)
+        detail = await asyncio.to_thread(adapter.get_model, request.model_id)
         tags = detail.tags if hasattr(detail, "tags") else []
         preview = detail.cover_url or target.cover_url or ""
         meta = build_metadata(
@@ -331,7 +332,7 @@ async def get_source_versions(name: str, model_id: str):
     if not adapter:
         raise HTTPException(status_code=404, detail=f"Unknown source: {name}")
     try:
-        versions = adapter.get_versions(model_id)
+        versions = await asyncio.to_thread(adapter.get_versions, model_id)
     except Exception as exc:
         logger.exception("Failed to get versions for '%s': %s", model_id, exc)
         raise HTTPException(status_code=502, detail=f"Failed to get versions: {exc}")

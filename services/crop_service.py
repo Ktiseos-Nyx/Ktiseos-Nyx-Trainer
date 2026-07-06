@@ -110,19 +110,26 @@ class CropService:
         output_mode: str,
     ) -> tuple[bool, str, str]:
         """Sync PIL crop+resize+save — runs in thread pool."""
-        src_file = dataset_path / crop.filename
+        # Prevent path traversal: strip any directory components from filename
+        safe_name = Path(crop.filename).name
+        src_file = (dataset_path / safe_name).resolve()
+        if not str(src_file).startswith(str(dataset_path.resolve())):
+            return False, crop.filename, "access denied"
         if not src_file.exists():
             return False, crop.filename, "file not found"
+        if src_file.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+            return False, crop.filename, "file type not allowed"
 
-        img = Image.open(src_file)
-        src_w, src_h = img.size
+        with Image.open(src_file) as img:
+            src_w, src_h = img.size
 
-        sx = max(0, min(crop.source_x, src_w))
-        sy = max(0, min(crop.source_y, src_h))
-        sw = max(1, min(crop.source_width, src_w - sx))
-        sh = max(1, min(crop.source_height, src_h - sy))
+            sx = max(0, min(crop.source_x, src_w))
+            sy = max(0, min(crop.source_y, src_h))
+            sw = max(1, min(crop.source_width, src_w - sx))
+            sh = max(1, min(crop.source_height, src_h - sy))
 
-        cropped_img = img.crop((sx, sy, sx + sw, sy + sh))
+            cropped_img = img.crop((sx, sy, sx + sw, sy + sh))
+
         cropped_img = cropped_img.resize(
             (target_width, target_height), Image.BICUBIC
         )
@@ -155,6 +162,7 @@ class CropService:
         """Background coroutine that performs the actual cropping — parallelized."""
         errors: List[str] = []
         total = len(crops)
+        job.total_images = total
         target_ext = FORMAT_EXTENSIONS[output_format]
         save_kwargs = FORMAT_SAVE_KWARGS.get(output_format, lambda q: {})(quality)
 
