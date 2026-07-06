@@ -1,10 +1,29 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
 import path from 'path';
 import mime from 'mime-types';
 import { assertWithinBase } from '@/lib/dataset-tools/base-path';
 
+const IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tiff', '.tif',
+  '.svg', '.ico', '.avif', '.heic', '.heif', '.jxl',
+]);
+
+function isAllowedImage(filePath: string): boolean {
+  return IMAGE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+}
+
+function isInternalRequest(request: Request): boolean {
+  if (process.env.NODE_ENV !== 'production') return true;
+  return request.headers.get('x-internal-request') === 'true';
+}
+
 export async function GET(request: Request) {
+  if (!isInternalRequest(request)) {
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const filePath = searchParams.get('path');
   const baseFolder = searchParams.get('baseFolder') || '.';
@@ -20,6 +39,11 @@ export async function GET(request: Request) {
     resolvedPath = assertWithinBase(target);
   } catch {
     return NextResponse.json({ error: 'Access denied - path outside project root' }, { status: 403 });
+  }
+
+  // Extension allowlist — reject non-image files
+  if (!isAllowedImage(resolvedPath)) {
+    return NextResponse.json({ error: 'File type not allowed' }, { status: 415 });
   }
 
   try {
@@ -40,10 +64,19 @@ export async function GET(request: Request) {
       });
     }
 
-    const file = await fs.readFile(resolvedPath);
     const contentType = mime.lookup(resolvedPath) || 'application/octet-stream';
 
-    return new NextResponse(file, {
+    // Stream the file instead of loading it entirely into memory
+    const nodeStream = createReadStream(resolvedPath);
+    const webStream = new ReadableStream({
+      start(controller) {
+        nodeStream.on('data', (chunk) => controller.enqueue(chunk));
+        nodeStream.on('end', () => controller.close());
+        nodeStream.on('error', (err) => controller.error(err));
+      },
+    });
+
+    return new NextResponse(webStream, {
       headers: {
         'Content-Type': contentType,
         'ETag': etag,

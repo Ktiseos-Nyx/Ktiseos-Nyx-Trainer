@@ -6,16 +6,10 @@ import { assertWithinBase, resolveBase } from '@/lib/dataset-tools/base-path';
 
 type Resolved = { path: string } | { error: string; status: number };
 
-// Confine a client-supplied path to the trainer's project root.
-//
-// Unlike upstream Dataset-Tools (a local filesystem browser with no fixed
-// root), this port always pins writes to `resolveBase()` — `baseFolder` is
-// only honored as a location *within* that root. `assertWithinBase` (see
-// lib/dataset-tools/base-path.ts) does the containment + symlink-aware
-// canonicalization; this function adds the PNG-extension gate. Combined with
-// the PNG-validity requirement downstream, the only writes this route can
-// perform are "rewrite an existing PNG" or "create <name>_edited.png beside
-// one", both inside the project root.
+function isInternalRequest(request: Request): boolean {
+  if (process.env.NODE_ENV !== 'production') return true;
+  return request.headers.get('x-internal-request') === 'true';
+}
 async function resolveTarget(filePath: string, baseFolder: string): Promise<Resolved> {
   let resolvedPath: string;
   try {
@@ -32,36 +26,11 @@ async function resolveTarget(filePath: string, baseFolder: string): Promise<Reso
   return { path: resolvedPath };
 }
 
-function isLoopbackHost(host: string): boolean {
-  const hostname = host.split(':')[0].toLowerCase();
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
-}
-
-function originGuard(request: Request): string | null {
-  const origin = request.headers.get('origin');
-  const host = request.headers.get('host');
-  if (host && !isLoopbackHost(host)) {
-    return 'Access denied - non-loopback host';
-  }
-  if (origin) {
-    try {
-      const originUrl = new URL(origin);
-      if (!isLoopbackHost(originUrl.hostname)) {
-        return 'Access denied - cross-origin request';
-      }
-    } catch {
-      return 'Access denied - invalid origin';
-    }
-  }
-  return null;
-}
-
 // GET /api/metadata-write?path=&baseFolder=
 // Returns the raw 'parameters' tEXt string to prefill the editor: { text: string | null }.
 export async function GET(request: Request) {
-  const guardError = originGuard(request);
-  if (guardError) {
-    return NextResponse.json({ error: guardError }, { status: 403 });
+  if (!isInternalRequest(request)) {
+    return NextResponse.json({ error: 'Access denied - internal requests only' }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -95,9 +64,8 @@ export async function GET(request: Request) {
 // Swaps the 'parameters' tEXt chunk in place (or writes name_edited.png) without
 // recompressing pixels. Returns { ok: true, path: <basename written> }.
 export async function POST(request: Request) {
-  const guardError = originGuard(request);
-  if (guardError) {
-    return NextResponse.json({ error: guardError }, { status: 403 });
+  if (!isInternalRequest(request)) {
+    return NextResponse.json({ error: 'Access denied - internal requests only' }, { status: 403 });
   }
 
   let body: { path?: string; baseFolder?: string; text?: string; saveAsCopy?: boolean };

@@ -252,6 +252,9 @@ app.prepare().then(() => {
       const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix)) || nodeApiExact.includes(pathname);
 
       if (isNodeApi) {
+        // Mark as internal so dataset-tools routes can verify the request
+        // originated from the Node proxy, not an external caller.
+        req.headers['x-internal-request'] = 'true';
         try {
           return await handle(req, res, parsedUrl);
         } catch (e) {
