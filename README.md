@@ -195,6 +195,8 @@ New tests go in `tests/`. Tests requiring a real GPU: mark with `@pytest.mark.sl
 ## Documentation
 
 - [Installation Guide](documentation/installation/INSTALLATION.md) — full platform setup, manual installation, troubleshooting
+- [Planning Docs](documentation/planning/BETA_PLANNING.md) — Bug Tracking and Beta Planning.
+- [Planning Docs](documentation/planning/INTEGRATION_STRATEGY.md) — Workflow Planning with Comfyui in mind. 
 - [Attribution](ATTRIBUTIONS.md) - Full Credits and Licenses.
 - [General Guides](documentation/guides/general/README.md) — usage documentation
 - [Training: General](documentation/guides/training/general/train_network.md)
