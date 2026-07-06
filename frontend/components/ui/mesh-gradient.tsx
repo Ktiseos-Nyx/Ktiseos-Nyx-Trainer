@@ -1,30 +1,49 @@
-import { cn } from "~/lib/utils"
+'use client';
+import { useEffect, useState } from "react"
+import { cn } from "@/lib/utils"
 
 export interface MeshGradientBackgroundProps {
   className?: string
   children?: React.ReactNode
-  /** Gradient colors */
+  /** Dark-mode gradient colors */
   colors?: string[]
+  /** Light-mode gradient colors */
+  lightColors?: string[]
   /** Animation speed multiplier */
   speed?: number
-  /** Background color */
+  /** Dark-mode background color */
   backgroundColor?: string
+  /** Light-mode background color */
+  lightBackgroundColor?: string
 }
 
 export function MeshGradientBackground({
   className,
   children,
   colors = ["#7c3aed", "#2563eb", "#06b6d4", "#8b5cf6"],
+  lightColors = ["#c4b5fd", "#93c5fd", "#67e8f9", "#a78bfa"],
   speed = 1,
   backgroundColor = "#030014",
+  lightBackgroundColor = "#f8fafc",
 }: MeshGradientBackgroundProps) {
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"))
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+    return () => observer.disconnect()
+  }, [])
+  const activeColors = isDark ? colors : lightColors
+  const activeBg = isDark ? backgroundColor : lightBackgroundColor
   const duration1 = 60 / speed
   const duration2 = 80 / speed
   const duration3 = 90 / speed
   const duration4 = 70 / speed
 
   return (
-    <div className={cn("fixed inset-0 overflow-hidden", className)} style={{ backgroundColor }}>
+    <div className={cn("fixed inset-0 overflow-hidden", className)} style={{ backgroundColor: activeBg }}>
       {/* Gradient orbs */}
       <div className="absolute inset-0">
         {/* Orb 1 - Top left */}
@@ -33,7 +52,7 @@ export function MeshGradientBackground({
           style={{
             left: "-10%",
             top: "-10%",
-            background: `radial-gradient(circle, ${colors[0]}40 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${activeColors[0]}40 0%, transparent 70%)`,
             filter: "blur(80px)",
             animation: `meshMove1 ${duration1}s ease-in-out infinite`,
           }}
@@ -45,7 +64,7 @@ export function MeshGradientBackground({
           style={{
             right: "-5%",
             top: "10%",
-            background: `radial-gradient(circle, ${colors[1]}35 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${activeColors[1]}35 0%, transparent 70%)`,
             filter: "blur(100px)",
             animation: `meshMove2 ${duration2}s ease-in-out infinite`,
           }}
@@ -57,7 +76,7 @@ export function MeshGradientBackground({
           style={{
             left: "20%",
             bottom: "-15%",
-            background: `radial-gradient(circle, ${colors[2]}30 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${activeColors[2]}30 0%, transparent 70%)`,
             filter: "blur(120px)",
             animation: `meshMove3 ${duration3}s ease-in-out infinite`,
           }}
@@ -69,7 +88,7 @@ export function MeshGradientBackground({
           style={{
             left: "40%",
             top: "30%",
-            background: `radial-gradient(circle, ${colors[3] || colors[0]}25 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${activeColors[3] || activeColors[0]}25 0%, transparent 70%)`,
             filter: "blur(90px)",
             animation: `meshMove4 ${duration4}s ease-in-out infinite`,
           }}

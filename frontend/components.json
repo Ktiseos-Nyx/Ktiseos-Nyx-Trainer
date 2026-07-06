@@ -47,6 +47,9 @@
     "@pulkitxm": "https://pulkitxm.com/components/{name}.json",
     "@shadcnhooks": "https://shadcn-hooks.com/r/{name}.json",
     "@kaui": "https://kaui-shadcn-registry.vercel.app/r/{name}.json",
-    "@jalco": "https://ui.justinlevine.me/r/{name}.json"
+    "@jalco": "https://ui.justinlevine.me/r/{name}.json",
+    "@einui": "https://ui.eindev.ir/r/{name}.json",
+    "@grootstudio": "https://grootstudio.vercel.app/r/{name}.json",
+    "@smoothui": "https://smoothui.dev/r/{name}.json"
   }
 }

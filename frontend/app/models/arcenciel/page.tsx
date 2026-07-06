@@ -15,6 +15,8 @@ import {
   Layers,
 } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import BorderGlow from '@/components/BorderGlow';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -34,6 +36,8 @@ import {
 import {
   Card,
   CardContent,
+  CardFooter,
+  CardHeader,
 } from '@/components/ui/card';
 import Image from 'next/image';
 
@@ -234,7 +238,7 @@ export default function SourcesBrowsePage() {
             Browse Models
           </h1>
           <p className="text-xl text-foreground">
-            Discover and download models from community sources
+            Discover and download models from Arc En Ciel creators
           </p>
         </div>
 
@@ -416,61 +420,75 @@ export default function SourcesBrowsePage() {
         {totalResults > 0 && (
           <div className="mb-4 text-sm text-muted-foreground">
             Showing {models.length} model{models.length !== 1 ? 's' : ''}
+			<span className="text-xs text-muted-foreground/60 leading-tight line-clamp-2">
+                  Click for version information & Downloads.
+                  </span>
           </div>
         )}
 
         {/* Model Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {models.map((model, index) => (
-            <Card
-              key={model.model_id}
-              ref={index === models.length - 1 ? lastModelRef : null}
-              className="bg-card/50 backdrop-blur-sm border-border overflow-hidden hover:border-purple-500/50 transition-all cursor-pointer"
-              onClick={() => handleModelClick(model)}
-            >
-              {/* Cover */}
-              <div className="relative aspect-[3/4] bg-input overflow-hidden">
-                {model.cover_url ? (
-                  <Image
-                    src={model.cover_url}
-                    alt={model.title}
-                    fill
-                    className="object-cover hover:scale-105 transition-transform duration-300"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                    <Layers className="w-12 h-12" />
-                  </div>
-                )}
-                {model.nsfw && (
-                  <div className="absolute top-2 right-2 px-2 py-1 bg-red-500/90 text-foreground text-xs font-bold rounded">
-                    NSFW
-                  </div>
-                )}
-                {model.type && (
-                  <div className="absolute top-2 left-2 px-2 py-1 bg-purple-500/90 text-foreground text-xs font-bold rounded">
-                    {model.type}
-                  </div>
-                )}
-              </div>
+            <BorderGlow key={model.model_id}>
+              <Card
+                ref={index === models.length - 1 ? lastModelRef : null}
+                className="bg-card/50 backdrop-blur-sm border-1 overflow-hidden border-purple-500/50 transition-all cursor-pointer flex flex-col py-0 gap-0"
+                onClick={() => handleModelClick(model)}
+              >
+                {/* Cover */}
+                <div className="bg-input overflow-hidden relative">
+                  <AspectRatio ratio={3 / 4}>
+                    {model.cover_url ? (
+                      <Image
+                        src={model.cover_url}
+                        alt={model.title}
+                        fill
+                        className="object-cover hover:scale-105 transition-transform duration-300"
+                        unoptimized
+                        loading="eager"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Layers className="w-12 h-12" />
+                      </div>
+                    )}
+                  </AspectRatio>
+                  {model.nsfw && (
+                    <div className="absolute top-2 right-2 px-2 py-1 bg-red-500/90 text-foreground text-xs font-bold rounded">
+                      NSFW
+                    </div>
+                  )}
+                  {model.type && (
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-purple-500/90 text-foreground text-xs font-bold rounded">
+                      {model.type}
+                    </div>
+                  )}
+                </div>
 
-              <CardContent className="p-3 space-y-1">
-                <h3 className="font-semibold text-foreground text-sm leading-tight line-clamp-2">
-                  {model.title}
-                </h3>
-                {model.base_model && (
-                  <p className="text-xs text-muted-foreground">
-                    {model.base_model}
+                <CardHeader className="px-3 pt-3 pb-2  ">
+                  
+                  <p className="text-xs text-foreground leading-tight truncate">
+                    {[model.base_model, model.type].filter(Boolean).join(" — ")}
                   </p>
-                )}
-                {model.uploader && (
-                  <p className="text-xs text-muted-foreground/60 truncate">
-                    by {model.uploader}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                </CardHeader>
+
+                <CardContent className="px-3 pt-3 pb-2 leading-tight line-clamp-2 min-h-[68px]">
+                  <span className="font-semibold text-foreground text-xs leading-tight line-clamp-2">
+                    {model.title}
+                  </span>
+				  
+				  {model.uploader && (
+                    <p className="text-xs text-foreground text-xs leading-tight line-clamp-2">
+                     {model.uploader}
+                    </p>
+                  )}
+                </CardContent>
+
+                <CardFooter className="px-3 pb-2 ">
+            
+                </CardFooter>
+              </Card>
+            </BorderGlow>
           ))}
         </div>
 
@@ -507,11 +525,16 @@ export default function SourcesBrowsePage() {
                 {selectedModel.uploader && (
                   <p className="text-sm text-muted-foreground/70">by {selectedModel.uploader}</p>
                 )}
-                {selectedModel.description && (
-                  <DialogDescription className="line-clamp-3">
+                {selectedModel.description && (selectedModel.description.includes('<') ? (
+                  <div
+                    className="line-clamp-5 text-sm text-muted-foreground [&_a]:text-purple-400 [&_a]:underline prose prose-sm max-w-none mt-2"
+                    dangerouslySetInnerHTML={{ __html: selectedModel.description }}
+                  />
+                ) : (
+                  <DialogDescription className="line-clamp-3 mt-2">
                     {selectedModel.description}
                   </DialogDescription>
-                )}
+                ))}
               </DialogHeader>
 
               {/* Model Info */}
