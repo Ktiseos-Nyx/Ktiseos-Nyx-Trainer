@@ -1964,6 +1964,7 @@ export interface PresetMetadata {
   name: string;
   description: string;
   model_type?: string;
+  training_type?: string;
   created_at?: number;
   is_builtin?: boolean;
 }
@@ -1987,6 +1988,7 @@ export const presetsAPI = {
     name: string;
     description?: string;
     model_type?: string;
+    training_type?: string;
     config: Partial<TrainingConfig>;
   }): Promise<{ success: boolean; id: string; message: string }> => {
     const response = await fetch(`${API_BASE}/config/presets`, {

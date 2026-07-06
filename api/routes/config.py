@@ -52,6 +52,7 @@ class PresetModel(BaseModel):
     name: str
     description: str
     model_type: Optional[str] = None
+    training_type: Optional[str] = None
     config: Dict[str, Any]
     created_at: Optional[int] = None
 
@@ -61,6 +62,7 @@ class SavePresetRequest(BaseModel):
     name: str
     description: str = ""
     model_type: Optional[str] = None
+    training_type: Optional[str] = None
     config: Dict[str, Any]
 
 
@@ -344,6 +346,7 @@ async def list_presets():
                         "name": preset_data.get("name", preset_file.stem),
                         "description": preset_data.get("description", ""),
                         "model_type": preset_data.get("model_type"),
+                        "training_type": preset_data.get("training_type"),
                         "created_at": preset_data.get("created_at"),
                         "is_builtin": preset_data.get("is_builtin", False)
                     })
@@ -424,6 +427,7 @@ async def save_preset(request: SavePresetRequest):
             "name": request.name,
             "description": request.description,
             "model_type": request.model_type,
+            "training_type": request.training_type,
             "config": request.config,
             "created_at": int(time.time() * 1000),  # milliseconds timestamp
             "is_builtin": False
