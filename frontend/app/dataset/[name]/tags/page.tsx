@@ -183,7 +183,7 @@ export default function DatasetTagsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background py-16 flex flex-col items-center justify-center">
+      <div className="min-h-screen py-16 flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Loading tags for "{datasetName}"...</p>
       </div>
@@ -191,7 +191,7 @@ export default function DatasetTagsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-16">
+    <div className="min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         <Breadcrumbs
           items={[

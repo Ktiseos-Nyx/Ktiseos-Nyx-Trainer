@@ -258,7 +258,7 @@ export default function AutoTagPage() {
   const canStart = !!form.watch('datasetDir') && datasets.length > 0;
 
   return (
-    <div className="min-h-screen bg-background py-16">
+    <div className="min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-5xl">
         <Form {...form}>
         <Breadcrumbs

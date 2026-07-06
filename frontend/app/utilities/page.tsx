@@ -19,7 +19,7 @@ import {
 
 export default function UtilitiesPage() {
   return (
-    <div className="min-h-screen bg-background py-16">
+    <div className="min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         <Breadcrumbs
           items={[

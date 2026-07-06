@@ -6,7 +6,7 @@ import { Sparkles, Settings } from 'lucide-react';
 const HeroAnimated = dynamic(() => import('@/components/blocks/hero/hero-animated').then(mod => ({ default: mod.HeroAnimated })), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-background/80">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="text-center space-y-4">
         <div className="animate-pulse text-6xl">✨</div>
         <p className="text-muted-foreground">Loading...</p>
