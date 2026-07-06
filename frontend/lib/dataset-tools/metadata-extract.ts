@@ -157,7 +157,7 @@ function parsePNGChunks(buffer: Buffer): Record<string, any> {
         // Skip compression flag, compression method, language tag, translated keyword
         let textStart = nullIndex + 1;
         const _compressionFlag = data[textStart++];
-        const compressionMethod = data[textStart++];
+        const _compressionMethod = data[textStart++];
 
         // Skip language tag (null-terminated)
         while (textStart < data.length && data[textStart] !== 0) textStart++;
@@ -692,7 +692,7 @@ function extractComfyUIParams(
 
     for (const [nodeId, nodeData] of Object.entries(workflow)) {
       const node = nodeData as any;
-      const classType = node.class_type || '';
+    const _classType = node.class_type || '';
       const inputs = node.inputs || {};
       if (mutedNodeIds.has(nodeId)) continue;
 

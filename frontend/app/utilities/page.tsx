@@ -378,7 +378,7 @@ function MergeCheckpointTab() {
       detectedArch === 'anima' ? bwPresetsAnima :
       detectedArch === 'sdxl' ? bwPresetsSdxl :
       bwPresets;
-    const weights = bwPreset ? getResolvedBlockWeights(bwPreset, presetsByArch) : null;
+    const weights = getResolvedBlockWeights(bwPreset, presetsByArch);
     const weightsC = bwPresetC ? getResolvedBlockWeights(bwPresetC, presetsByArch) : undefined;
 
     try {

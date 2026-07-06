@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useEffect } from 'react';
-import { Grid3x3, RotateCcw } from 'lucide-react';
+import { useMemo, useRef, useEffect } from 'react';
+import { Grid3x3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';

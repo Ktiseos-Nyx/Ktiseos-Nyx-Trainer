@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, FormEvent } from 'react';
-import { utilitiesAPI, type LoRAFile } from '@/lib/api';
+import { utilitiesAPI } from '@/lib/api';
 import { Upload, FolderOpen, CheckCircle, XCircle, Loader2, Minimize2, Home } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Input } from '@/components/ui/input';
