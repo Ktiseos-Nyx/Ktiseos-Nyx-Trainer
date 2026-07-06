@@ -168,6 +168,8 @@ class ArcEnCielAdapter:
         data = self._get("/models/search", params)
         raw = self._as_list(data, "models", "items", "data")
         items = [self._to_summary(m) for m in raw if isinstance(m, dict)]
+        if query.nsfw is not None:
+            items = [m for m in items if m.nsfw == query.nsfw]
         # Arc's compact search doesn't return a total; a full page implies more.
         has_more = len(items) >= query.limit
         return SearchResult(source=self.name, items=items, page=query.page, has_more=has_more)
@@ -189,6 +191,11 @@ class ArcEnCielAdapter:
             # fetched versions, whose covers were resolved from real image data.
             cover_url=next((v.cover_url for v in versions if v.cover_url), None),
             nsfw=bool(data.get("nsfw")),
+            uploader=(
+                data["uploader"]["username"]
+                if isinstance(data.get("uploader"), dict)
+                else data.get("uploader")
+            ),
             description=data.get("description"),
             versions=versions,
         )
@@ -239,6 +246,11 @@ class ArcEnCielAdapter:
             base_model=base_model,
             cover_url=self._cover_url(m),
             nsfw=bool(m.get("nsfw")),
+            uploader=(
+                m["uploader"]["username"]
+                if isinstance(m.get("uploader"), dict)
+                else m.get("uploader")
+            ),
         )
 
     def _to_version(self, model_id: str, v: dict) -> ModelVersion:

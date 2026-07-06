@@ -9,6 +9,7 @@ See ``docs/specs/2026-07-03-additive-download-system.md``.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -20,6 +21,7 @@ from services.models.job import JobStatus, JobStatusEnum, JobType, JobCreateResp
 from services.models.model_download import DownloadConfig, ModelType
 from services.sources import get_adapter, list_adapters
 from services.sources.base import DestType, SearchQuery
+from services.sources.metadata import build_metadata, write_metadata_json
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,7 @@ class SearchRequest(BaseModel):
     limit: int = 20
     base_model: Optional[str] = None
     model_type: Optional[str] = None
+    nsfw: Optional[bool] = None
 
 
 class SourceDownloadRequest(BaseModel):
@@ -128,6 +131,7 @@ async def _run_source_download_job(
     config: DownloadConfig,
     download_type: ModelType,
     job,
+    metadata: Optional[dict] = None,
 ) -> dict:
     """Coroutine body for a source-adapter download job."""
     def _on_progress(pct: int) -> None:
@@ -136,6 +140,17 @@ async def _run_source_download_job(
 
     resp = await model_service.download_model_or_vae(config, progress_callback=_on_progress)
     method = resp.download_method
+
+    if resp.success and resp.file_path and metadata:
+        try:
+            meta = dict(metadata)
+            meta["file_path"] = resp.file_path
+            if resp.size_mb:
+                meta["size"] = int(resp.size_mb * 1024 * 1024)
+            write_metadata_json(resp.file_path, meta)
+        except Exception:
+            logger.warning("Failed to write metadata sidecar for %s", resp.file_path, exc_info=True)
+
     return {
         "success": resp.success,
         "message": resp.message,
@@ -177,6 +192,7 @@ async def search_source(
     limit: int = Query(20),
     base_model: Optional[str] = Query(None),
     model_type: Optional[str] = Query(None),
+    nsfw: Optional[bool] = Query(None),
 ):
     """Search a model source.
 
@@ -192,6 +208,7 @@ async def search_source(
         limit=limit,
         base_model=base_model,
         model_type=model_type,
+        nsfw=nsfw,
     )
     try:
         result = adapter.search(query)
@@ -272,9 +289,33 @@ async def download_from_source(name: str, request: SourceDownloadRequest):
         model_type=download_type,
     )
 
+    # Build LM-compatible .metadata.json sidecar data.
+    metadata: Optional[dict] = None
+    try:
+        detail = adapter.get_model(request.model_id)
+        tags = detail.tags if hasattr(detail, "tags") else []
+        preview = detail.cover_url or target.cover_url or ""
+        meta = build_metadata(
+            file_name=os.path.splitext(os.path.basename(spec.filename or ""))[0],
+            file_path="",  # filled after download
+            size=0,        # filled after download
+            sha256=spec.sha256,
+            model_name=detail.title,
+            base_model=target.base_model,
+            model_type=detail.type,
+            cover_url=preview,
+            uploader=detail.uploader,
+            description=detail.description,
+            tags=tags,
+            activation_tags=target.activation_tags if hasattr(target, "activation_tags") else None,
+        )
+        metadata = meta
+    except Exception:
+        logger.debug("Could not fetch metadata for sidecar (download continues): %s", exc_info=True)
+
     job_id = job_manager.run_coroutine_job(
         JobType.DOWNLOAD,
-        lambda job: _run_source_download_job(config, download_type, job),
+        lambda job: _run_source_download_job(config, download_type, job, metadata=metadata),
     )
     return JobCreateResponse(
         job_id=job_id,

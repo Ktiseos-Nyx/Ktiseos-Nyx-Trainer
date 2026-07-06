@@ -38,6 +38,7 @@ class SearchQuery(BaseModel):
     limit: int = 20
     base_model: Optional[str] = None
     model_type: Optional[str] = None
+    nsfw: Optional[bool] = None
 
 
 class ModelSummary(BaseModel):
@@ -49,6 +50,7 @@ class ModelSummary(BaseModel):
     base_model: Optional[str] = None
     cover_url: Optional[str] = None
     nsfw: bool = False
+    uploader: Optional[str] = None
 
 
 class ModelVersion(BaseModel):

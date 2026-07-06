@@ -4,15 +4,13 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { sourcesAPI, SourceInfo, SourceModelSummary, SourceModelVersion, SourceModelDetail, API_BASE } from '@/lib/api';
+import { sourcesAPI, SourceModelSummary, SourceModelVersion, SourceModelDetail } from '@/lib/api';
 import {
   Download,
   Search,
   Filter,
-  X,
   Loader2,
   Home,
-  AlertTriangle,
   Globe,
   Layers,
 } from 'lucide-react';
@@ -40,7 +38,7 @@ import {
 import Image from 'next/image';
 
 const SOURCE_NAMES: Record<string, string> = {
-  arcienciel: 'Arc En Ciel',
+  arcenciel: 'Arc En Ciel',
 };
 
 function sourceDisplayName(name: string): string {
@@ -54,10 +52,11 @@ function formatSize(kb: number | null | undefined): string {
   return `${mb.toFixed(0)} MB`;
 }
 
+const SOURCE = 'arcenciel';
+const KNOWN_TYPES = ['CHECKPOINT', 'LORA', 'VAE', 'OTHER'];
+
 export default function SourcesBrowsePage() {
-  const [sources, setSources] = useState<SourceInfo[]>([]);
-  const [selectedSource, setSelectedSource] = useState<string>('');
-  const [sourcesLoading, setSourcesLoading] = useState(true);
+  const [selectedSource] = useState<string>(SOURCE);
 
   const [models, setModels] = useState<SourceModelSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,16 +66,17 @@ export default function SourcesBrowsePage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [selectedBaseModel, setSelectedBaseModel] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedBaseModel, setSelectedBaseModel] = useState<string>('all');
   const [selectedSort, setSelectedSort] = useState('newest');
   const [showFilters, setShowFilters] = useState(true);
 
+  const [showNsfw, setShowNsfw] = useState(true);
   const [downloadDestination, setDownloadDestination] = useState<'training' | 'comfyui'>('training');
   const [downloading, setDownloading] = useState<Set<string>>(new Set());
 
   const [baseModelOptions, setBaseModelOptions] = useState<string[]>([]);
-  const [modelTypeOptions, setModelTypeOptions] = useState<string[]>([]);
+  const [modelTypeOptions, setModelTypeOptions] = useState<string[]>([...KNOWN_TYPES]);
 
   // Version picker dialog
   const [selectedModel, setSelectedModel] = useState<SourceModelDetail | null>(null);
@@ -85,6 +85,11 @@ export default function SourcesBrowsePage() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    sourcesAPI.list().then((srcs) => {
+      if (srcs.length > 0) {
+        setBaseModelOptions(srcs[0].base_model_classes || []);
+      }
+    }).catch((err) => console.error('Failed to load source info:', err));
     return () => {
       abortControllerRef.current?.abort();
       observer.current?.disconnect();
@@ -106,26 +111,6 @@ export default function SourcesBrowsePage() {
     [loading, hasMore],
   );
 
-  useEffect(() => {
-    const loadSources = async () => {
-      try {
-        setSourcesLoading(true);
-        const srcs = await sourcesAPI.list();
-        setSources(srcs);
-        if (srcs.length > 0 && !selectedSource) {
-          setSelectedSource(srcs[0].name);
-          setBaseModelOptions(srcs[0].base_model_classes || []);
-        }
-      } catch (err) {
-        console.error('Failed to load sources:', err);
-        toast.error('Failed to load model sources');
-      } finally {
-        setSourcesLoading(false);
-      }
-    };
-    loadSources();
-  }, []);
-
   const loadModels = useCallback(async (pageNum: number, append: boolean = false) => {
     if (!selectedSource) return;
     abortControllerRef.current?.abort();
@@ -138,8 +123,9 @@ export default function SourcesBrowsePage() {
         sort: selectedSort,
         page: pageNum,
         limit: 20,
-        base_model: selectedBaseModel || undefined,
-        model_type: selectedType || undefined,
+        base_model: selectedBaseModel !== 'all' ? selectedBaseModel : undefined,
+        model_type: selectedType !== 'all' ? selectedType : undefined,
+        nsfw: showNsfw ? undefined : false,
       });
 
       if (result) {
@@ -152,6 +138,8 @@ export default function SourcesBrowsePage() {
           });
         } else {
           setModels(items);
+          const types = [...new Set([...KNOWN_TYPES, ...items.map((m: SourceModelSummary) => m.type).filter(Boolean)])] as string[];
+          setModelTypeOptions(types.sort());
         }
         setTotalResults(items.length);
         setHasMore(result.has_more);
@@ -163,7 +151,7 @@ export default function SourcesBrowsePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSource, searchQuery, selectedSort, selectedBaseModel, selectedType]);
+  }, [selectedSource, searchQuery, selectedSort, selectedBaseModel, selectedType, showNsfw]);
 
   useEffect(() => {
     if (selectedSource) {
@@ -172,28 +160,13 @@ export default function SourcesBrowsePage() {
       setHasMore(true);
       loadModels(1, false);
     }
-  }, [selectedSource, searchQuery, selectedSort, selectedBaseModel, selectedType]);
+  }, [selectedSource, searchQuery, selectedSort, selectedBaseModel, selectedType, showNsfw]);
 
   useEffect(() => {
     if (page > 1) {
       loadModels(page, true);
     }
   }, [page]);
-
-  const handleSourceChange = async (name: string) => {
-    setSelectedSource(name);
-    setModels([]);
-    setPage(1);
-    setHasMore(true);
-    setSearchInput('');
-    setSearchQuery('');
-    setSelectedType('');
-    setSelectedBaseModel('');
-    setSelectedSort('newest');
-
-    const src = sources.find((s) => s.name === name);
-    setBaseModelOptions(src?.base_model_classes || []);
-  };
 
   const handleSearch = () => {
     setSearchQuery(searchInput);
@@ -242,21 +215,10 @@ export default function SourcesBrowsePage() {
     }
   };
 
-  const modelTypes = ['', 'CHECKPOINT', 'LORA', 'VAE', 'EMBEDDING'];
 
-  if (sourcesLoading) {
-    return (
-      <div className="min-h-screen bg-background py-16 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading model sources…</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-background py-16">
+    <div className="min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         <Breadcrumbs
           items={[
@@ -276,26 +238,12 @@ export default function SourcesBrowsePage() {
           </p>
         </div>
 
-        {/* Source Selector */}
-        <div className="mb-6">
-          <label id="source-select-label" className="block text-sm font-medium text-foreground mb-2">
-            Model Source
-          </label>
-          <Select value={selectedSource} onValueChange={handleSourceChange}>
-            <SelectTrigger aria-labelledby="source-select-label" className="w-full sm:w-72">
-              <SelectValue placeholder="Select a source…" />
-            </SelectTrigger>
-            <SelectContent>
-              {sources.map((src) => (
-                <SelectItem key={src.name} value={src.name}>
-                  <span className="flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    {sourceDisplayName(src.name)}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Source Badge */}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-sm text-purple-300">
+            <Globe className="w-4 h-4" />
+            {sourceDisplayName(selectedSource || '')}
+          </div>
         </div>
 
         {/* Downloading Indicator */}
@@ -349,7 +297,7 @@ export default function SourcesBrowsePage() {
         {/* Filters Panel */}
         {showFilters && (
           <div className="mb-6 bg-card/50 backdrop-blur-sm border border-border rounded-lg p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Model Type */}
               <div>
                 <label id="filter-type-label" className="block text-sm font-medium text-foreground mb-2">
@@ -360,8 +308,8 @@ export default function SourcesBrowsePage() {
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
-                    {modelTypes.filter(Boolean).map((type) => (
+                    <SelectItem value="all">All Types</SelectItem>
+                    {modelTypeOptions.map((type) => (
                       <SelectItem key={type} value={type}>
                         {type}
                       </SelectItem>
@@ -380,7 +328,7 @@ export default function SourcesBrowsePage() {
                     <SelectValue placeholder="All Base Models" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Base Models</SelectItem>
+                    <SelectItem value="all">All Base Models</SelectItem>
                     {baseModelOptions.map((bm) => (
                       <SelectItem key={bm} value={bm}>
                         {bm}
@@ -433,6 +381,33 @@ export default function SourcesBrowsePage() {
                   </Button>
                 </div>
               </div>
+
+              {/* NSFW Toggle */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  NSFW Content
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={showNsfw ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setShowNsfw(true)}
+                  >
+                    Show
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={!showNsfw ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setShowNsfw(false)}
+                  >
+                    Hide
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -480,13 +455,18 @@ export default function SourcesBrowsePage() {
                 )}
               </div>
 
-              <CardContent className="p-4">
-                <h3 className="font-bold text-foreground text-lg mb-2 line-clamp-2">
+              <CardContent className="p-3 space-y-1">
+                <h3 className="font-semibold text-foreground text-sm leading-tight line-clamp-2">
                   {model.title}
                 </h3>
                 {model.base_model && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {model.base_model}
+                  </p>
+                )}
+                {model.uploader && (
+                  <p className="text-xs text-muted-foreground/60 truncate">
+                    by {model.uploader}
                   </p>
                 )}
               </CardContent>
@@ -524,6 +504,9 @@ export default function SourcesBrowsePage() {
             <>
               <DialogHeader>
                 <DialogTitle className="text-2xl">{selectedModel.title}</DialogTitle>
+                {selectedModel.uploader && (
+                  <p className="text-sm text-muted-foreground/70">by {selectedModel.uploader}</p>
+                )}
                 {selectedModel.description && (
                   <DialogDescription className="line-clamp-3">
                     {selectedModel.description}

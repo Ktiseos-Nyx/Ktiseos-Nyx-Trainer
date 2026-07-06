@@ -1640,6 +1640,7 @@ export interface SourceModelSummary {
   base_model?: string | null;
   cover_url?: string | null;
   nsfw: boolean;
+  uploader?: string | null;
 }
 
 export interface SourceModelVersion {
@@ -1666,6 +1667,7 @@ export interface SourceModelDetail {
   base_model?: string | null;
   cover_url?: string | null;
   nsfw: boolean;
+  uploader?: string | null;
   description?: string | null;
   versions: SourceModelVersion[];
 }
@@ -1692,6 +1694,7 @@ export const sourcesAPI = {
       limit?: number;
       base_model?: string;
       model_type?: string;
+      nsfw?: boolean;
     } = {},
   ) => {
     const queryParams = new URLSearchParams();
@@ -1701,6 +1704,7 @@ export const sourcesAPI = {
     if (params.limit) queryParams.append('limit', params.limit.toString());
     if (params.base_model) queryParams.append('base_model', params.base_model);
     if (params.model_type) queryParams.append('model_type', params.model_type);
+    if (params.nsfw !== undefined) queryParams.append('nsfw', params.nsfw.toString());
 
     const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/search?${queryParams}`);
     return handleResponse(response);

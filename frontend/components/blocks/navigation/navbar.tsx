@@ -157,10 +157,10 @@ export function Navbar() {
                   <ListItem href="/models" title="Models" icon={<HardDrive className="w-4 h-4" />}>
                     Manage downloaded models and VAEs
                   </ListItem>
-                  <ListItem href="/models/browse" title="Civitai Downloader" icon={<Download className="w-4 h-4" />}>
+                  <ListItem href="/models/civitai" title="Civitai Downloader" icon={<Download className="w-4 h-4" />}>
                     Download models from Civitai
                   </ListItem>
-                  <ListItem href="/models/sources" title="Arc En Ciel Browser" icon={<Globe className="w-4 h-4" />}>
+                  <ListItem href="/models/arcenciel" title="Arc En Ciel Browser" icon={<Globe className="w-4 h-4" />}>
                     Browse & download from Arc En Ciel
                   </ListItem>
                   <ListItem href="/huggingface-upload" title="HuggingFace Upload" icon={<Upload className="w-4 h-4" />}>
