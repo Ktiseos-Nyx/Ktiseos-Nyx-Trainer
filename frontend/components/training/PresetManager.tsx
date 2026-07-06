@@ -404,7 +404,7 @@ export default function PresetManager({
     reader.readAsText(file);
   };
 
-  const matchesType = (p: PresetMetadata) => !trainingType || !p.training_type || p.training_type === trainingType;
+  const matchesType = (p: PresetMetadata) => !trainingType || p.training_type === trainingType;
   const builtins = serverPresets.filter(p => p.is_builtin && matchesType(p));
   const userServer = serverPresets.filter(p => !p.is_builtin && matchesType(p));
   const builtinGroups = groupByModelType(builtins, p => p.model_type, p => p.name);
