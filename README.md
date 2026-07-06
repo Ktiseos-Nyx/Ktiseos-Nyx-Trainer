@@ -1,12 +1,15 @@
 # Ktiseos Nyx Trainer
 
-**Train, tag, and generate — a full LoRA & checkpoint training suite with ComfyUI built in.**
-
-A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many model types (SDXL, Flux, SD3, Lumina, Anima…), then generate and test results in a bundled ComfyUI workspace. Runs locally on Windows/Linux or on cloud GPUs (VastAI, RunPod).
 
 | Python | License | Deploy | Discord | Twitch | Support | Quality |
 |---|---|---|---|---|---|---|
 | ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Deploy on VastAI](https://img.shields.io/badge/Deploy-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer) [![Deploy on RunPod](https://img.shields.io/badge/Deploy-RunPod-673AB7?style=for-the-badge&logo=runpod)](https://console.runpod.io/deploy?template=2kkfdbmlcc&ref=yx1lcptf) | [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![Twitch](https://img.shields.io/badge/Twitch-Follow-9146FF?logo=twitch&style=for-the-badge)](https://twitch.tv/duskfallcrew) | <a href="https://ko-fi.com/duskfallcrew"><img src="https://img.shields.io/badge/Ko--Fi-Support-FF5E5B?style=for-the-badge&logo=kofi" alt="Ko-fi"></a> | [![DeepScan grade](https://deepscan.io/api/teams/29397/projects/31347/branches/1015145/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=29397&pid=31347&bid=1015145) |
+
+---
+
+**Train, tag, and generate — a full LoRA & checkpoint training suite with ComfyUI built in.**
+
+A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many model types (SDXL, Flux, SD3, Lumina, Anima…), then generate and test results in a bundled ComfyUI workspace.  
 
 ---
 
@@ -23,18 +26,6 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 - [Support](#support)
 - [Credits](#credits--acknowledgements)
 
----
-
-## Status
-
-**Approaching beta — May 2026.** Core training is verified on VastAI, RunPod, and local GPU.
-
-**Confirmed working:** SDXL, Illustrious, Pony, NoobAI, Flux, Anima
-
-**Known gaps:**
-- Compass, LPFAdamW, RMSProp optimizers are wired but not yet in the UI dropdown
-- Rex and CosineAnnealing schedulers vendored but not exposed in UI
-- Preset list needs an organization pass
 
 ---
 
@@ -42,7 +33,7 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 
 ### Hardware
 
-- **GPU:** NVIDIA with CUDA 12.1+ (12 GB VRAM minimum; 24 GB recommended for SDXL/Flux). Local installs target CUDA 12.1; the VastAI/RunPod deploy templates run CUDA 12.4.
+- **GPU:** NVIDIA with CUDA 12.1+ 
 - **Disk:** 50 GB+ free space
 
 | GPU | Status |
@@ -51,6 +42,8 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 | AMD (ROCm) | Community supported — see [PyTorch ROCm docs](https://pytorch.org/get-started/locally/) |
 | NVIDIA via ZLUDA | Community supported — see [ZLUDA](https://github.com/vosen/ZLUDA) |
 | CPU-only | Not recommended for training; tagging/captioning will work |
+
+Vram requirements may vary, people have various ways of training on lower v-ram. 
 
 ### Software
 
@@ -84,9 +77,11 @@ Both scripts will prompt about creating a virtual environment. Pass `--venv` or 
 
 **ComfyUI** (image generation) installs by default — including on cloud. To skip it, pass `--no-comfyui` (e.g. `install.bat --no-comfyui`, `./install.sh --no-comfyui`, or `python installer.py --no-comfyui` on a remote instance).
 
-**Cloud:** Use the VastAI or RunPod deploy buttons above. Both auto-configure on launch.
+**Cloud:** Use the VastAI or RunPod deploy buttons. Both auto-configure on launch.
 
-> New to RunPod? [Sign up here](https://runpod.io?ref=yx1lcptf) for bonus credits.
+ [![Deploy on VastAI](https://img.shields.io/badge/Deploy-VastAI-FF6B6B?style=for-the-badge&logo=nvidia)](https://cloud.vast.ai/?ref_id=70354&creator_id=70354&name=Ktiseos-Nyx-NextJS-Trainer) 
+ 
+ [![Deploy on RunPod](https://img.shields.io/badge/Deploy-RunPod-673AB7?style=for-the-badge&logo=runpod)](https://console.runpod.io/deploy?template=2kkfdbmlcc&ref=yx1lcptf) 
 
 ---
 
@@ -104,6 +99,12 @@ start_services_local.bat --port 4000 --backend-port 9000
 # Quick restart without reinstall
 restart.bat     # Windows
 ./restart.sh    # Linux
+
+# Restart with Reinstall + Restart supervisory process (Remote only)
+
+bash force-restart.sh
+./force-restart.sh 
+
 ```
 
 **URLs:**
@@ -194,6 +195,7 @@ New tests go in `tests/`. Tests requiring a real GPU: mark with `@pytest.mark.sl
 ## Documentation
 
 - [Installation Guide](documentation/installation/INSTALLATION.md) — full platform setup, manual installation, troubleshooting
+- [Attribution](ATTRIBUTIONS.md) - Full Credits and Licenses.
 - [General Guides](documentation/guides/general/README.md) — usage documentation
 - [Training: General](documentation/guides/training/general/train_network.md)
 - [Training: SDXL](documentation/guides/training/SDXL/sdxl_train_network.md)
@@ -220,14 +222,22 @@ diagnose.bat      # Windows
 
 ## Credits & Acknowledgements
 
-- **[Kohya-ss SD Scripts](https://github.com/kohya-ss/sd-scripts)** — foundational training scripts
-- **[Derrian-Distro's Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** — core training backend and LyCORIS fork
+- **[Kohya-ss](https://github.com/kohya-ss/sd-scripts)** — foundational training scripts
+- **[KohakuBlueLeaf](https://github.com/KohakuBlueleaf)** - Lycoris Foundational scripts 
+- **[CirclestoneLabs](https://huggingface.co/circlestone-labs/Anima/)** - Anima Model, training scripts 
+- **[Derrian-Distro's Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** — core training backend
+- **[Bluvoll](https://github.com/bluvoll)** - Advanced rectified flow scripts, training methods
+- **[67372a](https://github.com/67372a)** - Vendored forks of Derrian Distro, bleeding edge features. 
+- **[LodestoneRock](https://github.com/lodestone-rock/)** - Ramtorch, CHROMA Creator. 
+- **[ComfyUI](https://github.com/Comfyanonymous/ComfyUI/)** - Generation inference. 
+- **[Joel Trauger aka Quadmoon](https://github.com/traugdor)** - ComfyUI node support, educational foundation, FFXIV glam nerd and all around best supervisor.  
 - **[Jelosus2](https://github.com/Jelosus2/Lora_Easy_Training_Colab)** — original Colab inspiration
-- **[HoloStrawberry](https://github.com/holostrawberry)** — training techniques and Colab notebooks
-- **[Linaqruf](https://github.com/Linaqruf)** — training methods
+- **[HoloStrawberry](https://github.com/holostrawberry)** — training techniques and Colab notebooks, tagging system design
+- **[Linaqruf](https://github.com/Linaqruf)** — training methods, OG colab notebooks
 - **[LyCORIS Team](https://github.com/67372a/LyCORIS)** — advanced LoRA methods (DoRA, LoKr)
-- **[ArcEnCiel](https://arcenciel.io/)** — support, testing, and open source models
+- **[ArcEnCiel](https://arcenciel.io/)** — Model hub, Support, Testing 
 - **[Civitai](https://civitai.com/)** — inspiration for the tag editor UX
+- **[LoraManager](https://github.com/willmiao/ComfyUI-Lora-Manager)** Advanced ComfyUI based Lora Manager 
 - **AndroidXXL, Jelosus2** — accessible LoRA training contributions
 
 ---

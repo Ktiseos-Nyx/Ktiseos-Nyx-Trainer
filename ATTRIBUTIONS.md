@@ -22,6 +22,16 @@ This project includes adapted training presets from bmaltais/kohya_ss (`presets/
 
 Full license text: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 
+
+---
+
+## Lora Easy Training Scripts Backend (FORK) 
+**Repository** [67372a](https://github.com/67372a/LoRA_Easy_Training_scripts_Backend)
+**License** GPL 3.0
+**Useage** Consistent Vendored fork of Derrian Distro & SD Scripts/Lycoris. 
+**Copyright:** Copyright (c) 2022 kohya-ss for SD Scripts and Kohaku Blueleaf for Lycoris - 2023/2024 for the Derrian Distro front/backend 
+
+
 ---
 
 ## Kohya Scripts (sd-scripts)
@@ -166,9 +176,27 @@ Detection/segmentation models for the Impact-Pack adetailer nodes are pulled fro
 - **Holostrawberry** - Colab, Tagging Scripts.
 - **Naoki Yoshida** - Father of the FFXIV Community, his produced game has kept Duskfallcrew sane through this project.
 - **Masayoshi Soken** - Composer, Amazing Nerd. FFXIV music that keeps some of us going.
-- **Anthropic** - Vibe Coding Capabilities using Claude.
-- **Google** - Vibe Coding via Gemini.
-- **Qwen** - Vibe coding via Qwen code, Qwen web.
+- **Anthropic** - Capabilities using Claude.
+- **Google** - Gemini.
+- **Qwen** - Qwen code, Qwen web.
+
+## Acknowledgements
+
+- **[CirclestoneLabs](https://huggingface.co/circlestone-labs/Anima/)** - Anima Model, training scripts 
+- **[Derrian-Distro's Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** — core training backend
+- **[Bluvoll](https://github.com/bluvoll)** - Advanced rectified flow scripts, training methods
+- **[67372a](https://github.com/67372a)** - Vendored forks of Derrian Distro, bleeding edge features. 
+- **[LodestoneRock](https://github.com/lodestone-rock/)** - Ramtorch, CHROMA Creator. 
+- **[ComfyUI](https://github.com/Comfyanonymous/ComfyUI/)** - Generation inference. 
+- **[Joel Trauger aka Quadmoon](https://github.com/traugdor)** - ComfyUI node support, educational foundation, FFXIV glam nerd and all around best supervisor.  
+- **[Jelosus2](https://github.com/Jelosus2/Lora_Easy_Training_Colab)** — original Colab inspiration
+- **[HoloStrawberry](https://github.com/holostrawberry)** — training techniques and Colab notebooks, tagging system design
+- **[Linaqruf](https://github.com/Linaqruf)** — training methods, OG colab notebooks
+- **[LyCORIS Team](https://github.com/67372a/LyCORIS)** — advanced LoRA methods (DoRA, LoKr)
+- **[ArcEnCiel](https://arcenciel.io/)** — Model hub, Support, Testing 
+- **[Civitai](https://civitai.com/)** — inspiration for the tag editor UX
+- **[LoraManager](https://github.com/willmiao/ComfyUI-Lora-Manager)** Advanced ComfyUI based Lora Manager 
+- **AndroidXXL, Jelosus2** — accessible LoRA training contributions
 
 
 ## Modifications
@@ -202,14 +230,15 @@ This project complies with all upstream license requirements by:
 
 When contributing to this project, please ensure:
 
-1. New dependencies are compatible with Apache License 2.0
+1. You read the License file. We use MIT for base, but all scripts are different.
 2. Proper attribution is added to this file
 3. License headers are preserved in all vendored code
 4. Modifications to upstream code are clearly documented
+5. No commercial use of this software for monetary profit.
 
 ---
 
-**Last Updated:** 2026-06-28
-**Maintained By:** Ktiseos-Nyx-Trainer Project
+**Last Updated:** 2026-07-07
+**Maintained By:** Ktiseos-Nyx / Under Rug Swept Misfits
 
 If you believe any attribution is missing or incorrect, please open an issue or pull request.

@@ -23,42 +23,8 @@ Technical reference for all supported platforms.
 
 ---
 
-## Platform Support
-
-| Platform | Training | Installer | Start script |
-|----------|----------|-----------|--------------|
-| Windows 10/11 (NVIDIA) | ✅ | `install.bat` | `start_services_local.bat` |
-| Linux (NVIDIA) | ✅ | `install.sh` | `start_services_local.sh` |
-| VastAI | ✅ | `vastai_setup.sh` (auto) | Supervisor (auto) |
-| RunPod | ✅ | `provision_runpod.sh` (auto) | `start_services_runpod.sh` |
-| macOS | ❌ training / ✅ UI only | manual | `start_services_local.sh` |
-| AMD (ROCm) | community | manual PyTorch ROCm | `start_services_local.sh` |
-| CPU-only | not recommended | — | — |
-
-AMD ROCm and ZLUDA are not tested by the core team. They should work given Kohya SS supports them; see [PyTorch ROCm docs](https://pytorch.org/get-started/locally/) and [ZLUDA](https://github.com/vosen/ZLUDA) for setup.
-
----
 
 ## Requirements
-
-### Hardware
-
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| GPU | NVIDIA 12 GB VRAM, CUDA 12.1+ | NVIDIA 24 GB VRAM |
-| RAM | 16 GB | 32 GB |
-| Disk | 50 GB free | 100 GB free |
-
-VRAM guidance by model type:
-
-| Model | Minimum VRAM | Notes |
-|-------|-------------|-------|
-| SD 1.5 | 8 GB | Small batches |
-| SDXL / Pony / Illustrious / NoobAI | 16 GB | 24 GB for batch > 1 |
-| Flux.1 dev/schnell | 24 GB | fp8 base helps on 16 GB |
-| Anima | 24 GB | 40 GB for large batches |
-
-### Software
 
 | Dependency | Required version | Notes |
 |------------|-----------------|-------|
@@ -72,11 +38,29 @@ Python downloads: [python.org](https://www.python.org/downloads/)
 Node.js downloads: [nodejs.org](https://nodejs.org/)  
 Git (Windows): [git-scm.com](https://git-scm.com/download/win)
 
+
+### Platform Support
+
+| Platform | Training | Installer | Start script |
+|----------|----------|-----------|--------------|
+| Windows 10/11 (NVIDIA) | ✅ | `install.bat` | `start_services_local.bat` |
+| Linux (NVIDIA) | ✅ | `install.sh` | `start_services_local.sh` |
+| VastAI | ✅ | `vastai_setup.sh` (auto) | Supervisor (auto) |
+| RunPod | ✅ | `provision_runpod.sh` (auto) | `start_services_runpod.sh` |
+| macOS | ❌ training / ✅ UI only | manual | `start_services_local.sh` |
+| AMD (ROCm) | community | manual PyTorch ROCm | `start_services_local.sh` |
+| CPU-only | not recommended | — | — |
+
+AMD ROCm and ZLUDA are not tested by the core team. They should work given Kohya SS supports them; see [PyTorch ROCm docs](https://pytorch.org/get-started/locally/) and [ZLUDA](https://github.com/vosen/ZLUDA) for setup.
+
+MacOS is untested, and likely only works for SILICON not INTEL macs. 
+
+
+
 ---
 
 ## Installation — Windows
 
-**Supported:** Windows 10 21H2+ and Windows 11, NVIDIA GPU with CUDA 12.1+.
 
 **Install location:** Use a path under your user directory (e.g. `C:\Users\YourName\Projects\`). Paths under `C:\`, `Program Files`, `Program Files (x86)`, `Windows`, network drives, OneDrive, Dropbox, and Google Drive will cause permission errors.
 
@@ -107,7 +91,7 @@ The installer:
 
 ## Installation — Linux
 
-**Supported:** Ubuntu 20.04+, Debian 11+, and most systemd distros with NVIDIA GPU.
+**Supported:** Ubuntu 20.04+, Debian 11+, and most systemd distros with NVIDIA GPU. ZLUDA/ROCm untested but community supported. 
 
 ```bash
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
@@ -121,9 +105,9 @@ The installer uses `requirements_linux.txt` instead of `requirements_windows.txt
 
 ---
 
-## Installation — macOS (UI only)
+## Installation — macOS  
 
-Training is not supported on macOS — Kohya SS requires CUDA. The web UI and API will run for development purposes.
+Training is not supported on macOS — as well as highly untested. 
 
 ```bash
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
@@ -152,7 +136,6 @@ Start:
 
 **Manual setup on a custom VastAI instance:**
 
-Recommended instance spec: NVIDIA RTX 3090 or better, 24 GB+ VRAM, 100 GB disk, Ubuntu 22.04 + CUDA 12.1 image.
 
 ```bash
 git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
