@@ -52,6 +52,9 @@ const nextConfig = {
       // dynamic route (→ 405 on POST); `beforeFiles` runs before filesystem
       // routes, so these reach FastAPI. Mirrors the server.js carve-out for prod.
       beforeFiles: [
+        // Route dataset-tools to Next.js API routes (not FastAPI)
+        { source: '/api/dataset-tools/:path*', destination: '/api/dataset-tools/:path*' },
+        // Crop/convert must reach FastAPI (they collide with [name] dynamic route)
         { source: '/api/dataset/crop', destination: `${backendUrl}/api/dataset/crop` },
         { source: '/api/dataset/crop/:path*', destination: `${backendUrl}/api/dataset/crop/:path*` },
         { source: '/api/dataset/convert', destination: `${backendUrl}/api/dataset/convert` },
