@@ -235,7 +235,6 @@ When contributing to this project, please ensure:
 3. License headers are preserved in all vendored code
 4. Modifications to upstream code are clearly documented
 5. No commercial use of this software for monetary profit.
-
 ---
 
 **Last Updated:** 2026-07-07

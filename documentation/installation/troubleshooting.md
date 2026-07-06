@@ -83,12 +83,11 @@ start_services_local.bat --port 4000 --backend-port 9000
 Supervisor manages the services. Check status:
 ```bash
 supervisorctl status
-supervisorctl restart all
+bash fetch-restart.sh
+./fetch-restart.sh 
 ```
 
-### node_modules in project root (Windows)
 
-If you see a `node_modules/` directory in the project root (not in `frontend/`), it was created by a shadcn CLI command running in the wrong directory. It is safe to delete.
 
 ---
 

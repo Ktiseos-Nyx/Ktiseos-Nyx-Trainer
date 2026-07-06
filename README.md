@@ -1,5 +1,6 @@
 # Ktiseos Nyx Trainer
 
+---
 
 | Python | License | Deploy | Discord | Twitch | Support | Quality |
 |---|---|---|---|---|---|---|
@@ -24,7 +25,7 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 - [Testing](#testing)
 - [Documentation](#documentation)
 - [Support](#support)
-- [Credits](#credits--acknowledgements)
+
 
 
 ---
@@ -39,11 +40,11 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 | GPU | Status |
 |-----|--------|
 | NVIDIA (CUDA 12.1+) | Fully supported |
-| AMD (ROCm) | Community supported — see [PyTorch ROCm docs](https://pytorch.org/get-started/locally/) |
+| AMD (ROCm) | Community supported — see [AMD ROCm docs](https://github.com/ROCm/rocm) |
 | NVIDIA via ZLUDA | Community supported — see [ZLUDA](https://github.com/vosen/ZLUDA) |
 | CPU-only | Not recommended for training; tagging/captioning will work |
 
-Vram requirements may vary, people have various ways of training on lower v-ram. 
+While baseline VRAM requirements can be high, the community has figured out plenty of workarounds to train on constrained hardware
 
 ### Software
 
@@ -57,7 +58,7 @@ Vram requirements may vary, people have various ways of training on lower v-ram.
 
 ## Installation
 
-> **Windows:** Install to a path you own (e.g. `C:\Users\YourName\Projects\`). Restricted system directories (`C:\`, `Program Files`, OneDrive folders) will cause permission errors.
+> **Windows Users:** Install to a path you own (e.g. `C:\Users\YourName\Projects\`). Restricted system directories (`C:\`, `Program Files`, OneDrive folders) will cause permission errors.
 
 **Windows:**
 ```bat
@@ -102,8 +103,8 @@ restart.bat     # Windows
 
 # Restart with Reinstall + Restart supervisory process (Remote only)
 
-bash force-restart.sh
-./force-restart.sh 
+bash fetch-restart.sh
+./fetch-restart.sh 
 
 ```
 
@@ -152,7 +153,9 @@ python clean_slate.py --nuclear
 
 **Models:**
 - Civitai browser: search, filter, and download directly into local model folders
-- HuggingFace upload after training
+- Arc En Ciel browser: search, filter, and download directly into local model folders
+- HuggingFace model downloads for popular training inference. 
+- LoRA Manager for batch downloading from Civitai and Hugggingface securely via Python or Aria2.
 
 **Image generation (ComfyUI):**
 - Bundled ComfyUI workspace, installed by default (local and cloud) — generate images to test your trained models without leaving the app
@@ -161,6 +164,7 @@ python clean_slate.py --nuclear
 **Utilities:**
 - LoRA merge, resize, and metadata editing
 - Checkpoint merge
+- HuggingFace upload after training
 
 ---
 
@@ -195,8 +199,8 @@ New tests go in `tests/`. Tests requiring a real GPU: mark with `@pytest.mark.sl
 ## Documentation
 
 - [Installation Guide](documentation/installation/INSTALLATION.md) — full platform setup, manual installation, troubleshooting
-- [Planning Docs](documentation/planning/BETA_PLANNING.md) — Bug Tracking and Beta Planning.
-- [Planning Docs](documentation/planning/INTEGRATION_STRATEGY.md) — Workflow Planning with Comfyui in mind. 
+- [Beta-Planning](documentation/planning/BETA_PLANNING.md) — Bug Tracking and Beta Planning.
+- [Integration Strategy](documentation/planning/INTEGRATION_STRATEGY.md) — Workflow Planning with Comfyui in mind. 
 - [Attribution](ATTRIBUTIONS.md) - Full Credits and Licenses.
 - [General Guides](documentation/guides/general/README.md) — usage documentation
 - [Training: General](documentation/guides/training/general/train_network.md)
@@ -220,27 +224,6 @@ diagnose.bat      # Windows
 ./diagnose.sh     # Linux
 ```
 
----
-
-## Credits & Acknowledgements
-
-- **[Kohya-ss](https://github.com/kohya-ss/sd-scripts)** — foundational training scripts
-- **[KohakuBlueLeaf](https://github.com/KohakuBlueleaf)** - Lycoris Foundational scripts 
-- **[CirclestoneLabs](https://huggingface.co/circlestone-labs/Anima/)** - Anima Model, training scripts 
-- **[Derrian-Distro's Backend](https://github.com/derrian-distro/LoRA_Easy_Training_scripts_Backend)** — core training backend
-- **[Bluvoll](https://github.com/bluvoll)** - Advanced rectified flow scripts, training methods
-- **[67372a](https://github.com/67372a)** - Vendored forks of Derrian Distro, bleeding edge features. 
-- **[LodestoneRock](https://github.com/lodestone-rock/)** - Ramtorch, CHROMA Creator. 
-- **[ComfyUI](https://github.com/Comfyanonymous/ComfyUI/)** - Generation inference. 
-- **[Joel Trauger aka Quadmoon](https://github.com/traugdor)** - ComfyUI node support, educational foundation, FFXIV glam nerd and all around best supervisor.  
-- **[Jelosus2](https://github.com/Jelosus2/Lora_Easy_Training_Colab)** — original Colab inspiration
-- **[HoloStrawberry](https://github.com/holostrawberry)** — training techniques and Colab notebooks, tagging system design
-- **[Linaqruf](https://github.com/Linaqruf)** — training methods, OG colab notebooks
-- **[LyCORIS Team](https://github.com/67372a/LyCORIS)** — advanced LoRA methods (DoRA, LoKr)
-- **[ArcEnCiel](https://arcenciel.io/)** — Model hub, Support, Testing 
-- **[Civitai](https://civitai.com/)** — inspiration for the tag editor UX
-- **[LoraManager](https://github.com/willmiao/ComfyUI-Lora-Manager)** Advanced ComfyUI based Lora Manager 
-- **AndroidXXL, Jelosus2** — accessible LoRA training contributions
 
 ---
 
