@@ -156,7 +156,7 @@ function parsePNGChunks(buffer: Buffer): Record<string, any> {
         const key = data.toString('latin1', 0, nullIndex);
         // Skip compression flag, compression method, language tag, translated keyword
         let textStart = nullIndex + 1;
-        const compressionFlag = data[textStart++];
+        const _compressionFlag = data[textStart++];
         const compressionMethod = data[textStart++];
 
         // Skip language tag (null-terminated)
@@ -813,7 +813,7 @@ function extractComfyUIParams(
         queue.push(...nextQueue);
       }
 
-      if (isNegative && text) {
+      if (isNegative) {
         extracted.negative_prompt = text;
         break; // Found it
       }

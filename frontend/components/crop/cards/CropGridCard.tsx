@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useRef, useEffect } from 'react';
 import { Grid3x3, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ImageCropper, type ImageCropperCrop } from '@/components/ui/image-cropper';
