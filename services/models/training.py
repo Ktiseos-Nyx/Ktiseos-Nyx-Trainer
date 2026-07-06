@@ -64,6 +64,10 @@ class OptimizerType(str, Enum):
     COMPASS = "Compass"
     LPFADAMW = "LPFAdamW"
     RMSPROP = "RMSProp"
+    # New custom optimizers (vendored LoraEasyCustomOptimizer, synced from 67372a 2026-06-22)
+    AMUSE = "AMUSE"
+    MODA = "MODA"
+    SODA = "SODA"
     # Schedule-free optimizers (schedulefree package)
     ADAMW_SCHEDULE_FREE = "AdamWScheduleFree"
     SGD_SCHEDULE_FREE = "SGDScheduleFree"
@@ -201,6 +205,7 @@ class TrainingConfig(BaseModel):
     text_encoder_lr: float = Field(1e-5, ge=0, description="Text encoder learning rate (0 = freeze)")
     lr_scheduler: LRScheduler = Field(LRScheduler.COSINE_WITH_RESTARTS, description="LR scheduler type")
     lr_scheduler_number: int = Field(3, ge=0, description="Scheduler-specific parameter (num_cycles for cosine_with_restarts)")
+    lr_scheduler_gamma: float = Field(1.0, description="Peak-LR decay per restart for the vendored warm-restart schedulers (cosine_annealing/rex). 1.0 = no decay (matches stock CosineAnnealingWarmRestarts).")
     lr_warmup_ratio: float = Field(0.0, ge=0.0, le=1.0, description="Warmup ratio (fraction of total steps)")
     lr_warmup_steps: int = Field(0, ge=0, description="Warmup steps (0 = use lr_warmup_ratio instead)")
     lr_power: float = Field(1.0, description="Power for polynomial scheduler")

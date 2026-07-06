@@ -23,6 +23,9 @@ import {
   Upload,
   Wand2,
   ExternalLink,
+  Crop,
+  ArrowRightLeft,
+  Globe,
 } from "lucide-react"
 import {
   NavigationMenu,
@@ -76,6 +79,15 @@ export function Navbar() {
                   <ListItem href="/dataset/tags" title="Tag Editor" icon={<Tags className="w-4 h-4" />}>
                     Manage image tags and captions
                   </ListItem>
+                  <ListItem href="/dataset-tools" title="Metadata Browser" icon={<FolderTree className="w-4 h-4" />}>
+                    Browse images, inspect AI metadata & safetensors
+                  </ListItem>
+                  <ListItem href="/dataset/crop" title="Crop" icon={<Crop className="w-4 h-4" />}>
+                    Crop & resize a dataset's images for training
+                  </ListItem>
+                  <ListItem href="/dataset/convert" title="Convert Format" icon={<ArrowRightLeft className="w-4 h-4" />}>
+                    Convert a dataset between JPEG / PNG / WEBP / JFIF
+                  </ListItem>
                 </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
@@ -98,10 +110,12 @@ export function Navbar() {
               </NavigationMenuContent>
             </NavigationMenuItem>
 
-            {/* Generate (ComfyUI) - Top level */}
+            {/* Generate - Top level. Our Next.js page lives at /generate; /comfyui is
+                the ComfyUI reverse-proxy passthrough (don't point this here or the proxy
+                shadows our page — see BETA_PLANNING GEN-1). */}
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
-                <Link href="/comfyui" prefetch={false} className={navigationMenuTriggerStyle()}>
+                <Link href="/generate" prefetch={false} className={navigationMenuTriggerStyle()}>
                   <Wand2 className="w-4 h-4 mr-2" />
                   Generate
                 </Link>
@@ -143,13 +157,16 @@ export function Navbar() {
                   <ListItem href="/models" title="Models" icon={<HardDrive className="w-4 h-4" />}>
                     Manage downloaded models and VAEs
                   </ListItem>
-                  <ListItem href="/models/browse" title="Civitai Downloader" icon={<Download className="w-4 h-4" />}>
+                  <ListItem href="/models/civitai" title="Civitai Downloader" icon={<Download className="w-4 h-4" />}>
                     Download models from Civitai
+                  </ListItem>
+                  <ListItem href="/models/arcenciel" title="Arc En Ciel Browser" icon={<Globe className="w-4 h-4" />}>
+                    Browse & download from Arc En Ciel
                   </ListItem>
                   <ListItem href="/huggingface-upload" title="HuggingFace Upload" icon={<Upload className="w-4 h-4" />}>
                     Upload LoRAs to HuggingFace Hub
                   </ListItem>
-                  <ListItem href="/comfyui/" title="LoRA Manager" icon={<ExternalLink className="w-4 h-4" />} external>
+                  <ListItem href="/comfyui/loras" title="LoRA Manager" icon={<ExternalLink className="w-4 h-4" />} external>
                     Browse & download models in ComfyUI
                   </ListItem>
                 </ul>

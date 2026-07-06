@@ -3,6 +3,7 @@ Utilities API Routes
 Handles calculator, LoRA utilities, and HuggingFace uploads via new service layer.
 """
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -22,6 +23,7 @@ from services.models.lora import (
     LoRAResizeRequest as ServiceResizeRequest,
     HuggingFaceUploadRequest as ServiceHFRequest,
     LoRAMergeRequest as ServiceMergeRequest,
+    LoRAToCheckpointRequest as ServiceLoRAToCheckpointRequest,
     CheckpointMergeRequest as ServiceCheckpointMergeRequest,
     LoRAInput,
     CheckpointInput,
@@ -29,6 +31,67 @@ from services.models.lora import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _comfyui_model_dirs() -> dict[str, Path]:
+    """
+    Resolve ComfyUI's model subdirectories for use in merge/bake file listings
+    and input path validation.
+
+    Scans the standard base-model folders (checkpoints/, diffusion_models/, unet/)
+    plus loras/, returning e.g.
+    ``{"comfyui_checkpoints": Path, "comfyui_diffusion_models": Path, ...}``.
+
+    Scanning several base-model folders (not just checkpoints/) means the merge
+    and bake pickers still find a model even when it landed in a different folder
+    than expected — e.g. a DiT/Anima base in diffusion_models/ (where it belongs),
+    or a checkpoint misplaced by LoRA Manager. The merge engine auto-detects
+    architecture per file, so listing them together is safe.
+
+    If none of the standard subfolders exist under the ComfyUI models root, the
+    root itself is returned as a fallback so users on custom setups still see files.
+    """
+    from api.routes.settings import get_comfyui_models_path
+
+    dirs: dict[str, Path] = {}
+    base = get_comfyui_models_path()
+    if not base:
+        return dirs
+    base_path = Path(base)
+    found = False
+    for key, sub in (
+        ("comfyui_loras", "loras"),
+        ("comfyui_checkpoints", "checkpoints"),
+        ("comfyui_diffusion_models", "diffusion_models"),
+        ("comfyui_unet", "unet"),
+    ):
+        candidate = base_path / sub
+        if candidate.is_dir():
+            dirs[key] = candidate
+            found = True
+    if not found and base_path.is_dir():
+        dirs["comfyui_checkpoints"] = base_path
+        dirs["comfyui_loras"] = base_path
+    return dirs
+
+
+def _model_input_dirs() -> list[Path]:
+    """
+    Allowed source directories for merge/resize *inputs*: the trainer's
+    ``output/`` and ``pretrained_model/`` plus any present ComfyUI model dirs.
+    Merge *outputs* stay confined to ``OUTPUT_DIR`` — we never write into a
+    model source directory.
+    """
+    return [OUTPUT_DIR, MODELS_DIR, *_comfyui_model_dirs().values()]
+
+
+def _validate_model_input(user_path: str) -> Path:
+    """Validate a merge/resize *input* path is within an allowed model directory."""
+    resolved = Path(user_path).resolve()
+    for d in _model_input_dirs():
+        if resolved == d or resolved.is_relative_to(d):
+            return resolved
+    raise ValidationError("Access denied: path outside allowed directories")
 
 
 # ========== Calculator Endpoints (Kept from original) ==========
@@ -171,20 +234,42 @@ class LoRAResizeRequest(BaseModel):
     input_path: str
     output_path: str
     new_dim: int
-    new_alpha: Optional[int] = None
     device: Literal["cpu", "cuda"] = "cpu"
     save_precision: Literal["float", "fp16", "bf16"] = "fp16"
 
 
 @router.get("/directories")
 async def get_directories():
-    """Get project directory paths for use with the file listing API."""
-    return {
+    """Get project directory paths for use with the file listing API.
+
+    Includes ComfyUI loras/checkpoints dirs when present so the merge tools
+    can list models from the ComfyUI ecosystem, not just the trainer dirs.
+    """
+    dirs = {
         "output": str(OUTPUT_DIR),
         "datasets": str(DATASETS_DIR),
         "pretrained_model": str(MODELS_DIR),
         "vae": str(VAE_DIR),
     }
+    for key, path in _comfyui_model_dirs().items():
+        dirs[key] = str(path)
+    return dirs
+
+
+@router.get("/block-weight-presets")
+async def get_block_weight_presets():
+    """
+    Return named block-weight (LBW/MBW) presets for the merge tools, keyed by
+    architecture: 'sd' presets are 26 values, 'sdxl' are 20, 'anima' are 35
+    (28 DiT + 6 LLM-adapter + 1 unlayered).
+    """
+    presets_file = PROJECT_ROOT / "presets" / "block_weights.json"
+    try:
+        with open(presets_file, encoding="utf-8") as f:
+            data = json.load(f)
+        return {"sd": data.get("sd", {}), "sdxl": data.get("sdxl", {}), "anima": data.get("anima", {})}
+    except (FileNotFoundError, ValueError):
+        return {"sd": {}, "sdxl": {}, "anima": {}}
 
 
 @router.get("/lora/resize-dimensions")
@@ -203,6 +288,8 @@ class ListLoraFilesRequest(BaseModel):
     sort_by: str = "name"
 
 
+MAX_LORA_LIST_FILES = 20000
+
 @router.post("/lora/list")
 async def list_lora_files(request: ListLoraFilesRequest):
     """List LoRA files in a directory"""
@@ -212,33 +299,51 @@ async def list_lora_files(request: ListLoraFilesRequest):
 
         directory = Path(request.directory)
 
-        # Security: confine to output or pretrained_model directory
+        # Security: confine to trainer output/pretrained_model or ComfyUI model dirs
         try:
-            directory = validate_path_within(str(directory), [OUTPUT_DIR, MODELS_DIR])
+            directory = _validate_model_input(str(directory))
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Create directory if it doesn't exist
         directory.mkdir(parents=True, exist_ok=True)
 
-        # Find files recursively (supports comma-separated extensions like "safetensors,ckpt")
-        extensions = [ext.strip() for ext in request.file_extension.split(",")]
+        # Walk the whole tree, following symlinked subdirs (LoRA Manager symlinks its
+        # download folders in — plain rglob skips them). Supports comma-separated
+        # extensions like "safetensors,ckpt".
+        suffixes = tuple(f".{ext.strip().lower()}" for ext in request.file_extension.split(","))
         files = []
-        seen = set()
+        visited_dirs = set()  # track realpath to detect symlink cycles
 
-        for ext in extensions:
-            for file_path in directory.rglob(f"*.{ext}"):
-                if file_path.is_file() and str(file_path) not in seen:
-                    seen.add(str(file_path))
+        for root, dirs, filenames in os.walk(directory, followlinks=True):
+            real_root = os.path.realpath(root)
+            if real_root in visited_dirs:
+                dirs[:] = []  # skip this directory's children (cycle detected)
+                continue
+            visited_dirs.add(real_root)
+
+            for fn in filenames:
+                if not fn.lower().endswith(suffixes):
+                    continue
+                file_path = Path(root) / fn
+                try:
                     stat = file_path.stat()
-                    size_mb = round(stat.st_size / (1024 * 1024), 2)
-                    files.append({
-                        "name": file_path.name,
-                        "path": str(file_path),
-                        "size_mb": size_mb,
-                        "size_formatted": f"{size_mb:.1f} MB",
-                        "modified": stat.st_mtime
-                    })
+                except OSError:
+                    continue
+                size_mb = round(stat.st_size / (1024 * 1024), 2)
+                files.append({
+                    "name": file_path.name,
+                    "path": str(file_path),
+                    "size_mb": size_mb,
+                    "size_formatted": f"{size_mb:.1f} MB",
+                    "modified": stat.st_mtime,
+                })
+                if len(files) >= MAX_LORA_LIST_FILES:
+                    dirs[:] = []
+                    break
+
+            if len(files) >= MAX_LORA_LIST_FILES:
+                break
 
         # Sort files
         if request.sort_by == "date":
@@ -269,19 +374,18 @@ async def resize_lora(request: LoRAResizeRequest):
     Uses Kohya's resize_lora.py script from vendored backend.
     """
     try:
-        # Security: confine paths to output directory
+        # Security: input from any model dir; output always to output/
         try:
-            validate_path_within(request.input_path, [OUTPUT_DIR])
-            validate_path_within(request.output_path, [OUTPUT_DIR])
+            _validate_model_input(request.input_path)
+            resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
         # Convert to service request
         service_request = ServiceResizeRequest(
             input_path=request.input_path,
-            output_path=request.output_path,
+            output_path=str(resolved_output),
             target_dim=request.new_dim,
-            target_alpha=request.new_alpha,
             device=request.device,
             save_precision=request.save_precision
         )
@@ -322,11 +426,11 @@ async def merge_lora(request: LoRAMergeRequest):
     Uses Kohya's merge scripts from vendored backend.
     """
     try:
-        # Security: confine all paths to output directory
+        # Security: inputs from any model dir; output always to output/
         try:
             for lora in request.lora_inputs:
-                validate_path_within(lora["path"], [OUTPUT_DIR])
-            validate_path_within(request.output_path, [OUTPUT_DIR])
+                _validate_model_input(lora["path"])
+            resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
@@ -339,11 +443,11 @@ async def merge_lora(request: LoRAMergeRequest):
         # Convert to service request
         service_request = ServiceMergeRequest(
             lora_inputs=lora_inputs,
-            output_path=request.output_path,
+            output_path=str(resolved_output),
             model_type=request.model_type,
             device=request.device,
             save_precision=request.save_precision,
-            precision=request.precision
+            precision=request.precision,
         )
 
         response = await lora_service.merge_lora(service_request)
@@ -360,6 +464,192 @@ async def merge_lora(request: LoRAMergeRequest):
         raise
     except Exception as e:
         logger.error(f"LoRA merge error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class LoRAToCheckpointRequest(BaseModel):
+    """Request model for baking LoRA(s) into a base checkpoint."""
+    base_model_path: str
+    text_encoder_path: Optional[str] = None  # Required for Anima
+    lora_inputs: list[dict]  # [{path: str, ratio: float}, ...]
+    output_path: str
+    model_type: Literal["sd", "sdxl", "anima"] = "sdxl"
+    device: Literal["cpu", "cuda"] = "cpu"
+    save_precision: Literal["float", "fp16", "bf16"] = "fp16"
+    precision: Literal["float", "fp16", "bf16"] = "float"
+
+
+@router.post("/lora/merge-to-checkpoint")
+async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
+    """
+    Bake one or more LoRAs into a base SD/SDXL checkpoint, producing a full
+    standalone checkpoint (the "LoRA -> checkpoint" merge).
+    Uses Kohya's merge scripts (--sd_model) from the vendored backend.
+    """
+    try:
+        # Security: base + LoRA inputs + text encoder from any model dir; output always to output/
+        try:
+            _validate_model_input(request.base_model_path)
+            for lora in request.lora_inputs:
+                _validate_model_input(lora["path"])
+            if request.model_type == "anima" and request.text_encoder_path:
+                _validate_model_input(request.text_encoder_path)
+            resolved_output = validate_output_path(request.output_path)
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
+        lora_inputs = [
+            LoRAInput(path=lora["path"], ratio=lora.get("ratio", 1.0))
+            for lora in request.lora_inputs
+        ]
+
+        service_request = ServiceLoRAToCheckpointRequest(
+            base_model_path=request.base_model_path,
+            text_encoder_path=request.text_encoder_path,
+            lora_inputs=lora_inputs,
+            output_path=str(resolved_output),
+            model_type=request.model_type,
+            device=request.device,
+            save_precision=request.save_precision,
+            precision=request.precision,
+        )
+
+        response = await lora_service.merge_lora_to_checkpoint(service_request)
+
+        return {
+            "success": response.success,
+            "message": response.message,
+            "output_path": response.output_path,
+            "merged_count": response.merged_count,
+            "file_size_mb": response.file_size_mb,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LoRA-to-checkpoint merge error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Block-Weighted Checkpoint Merge ==========
+
+class BlockWeightedMergeRequest(BaseModel):
+    """Request model for block-weighted (MBW) checkpoint merge."""
+    model_a_path: str
+    model_b_path: str
+    model_c_path: Optional[str] = None  # Required for Add/Triple/Twice
+    output_path: str
+    mode: Literal["weight", "add", "triple", "twice"] = "weight"
+    block_weights: list[float]  # 26 values for SD1.5, 20 for SDXL
+    block_weights_c: Optional[list[float]] = None  # Second curve for Triple/Twice
+    base_alpha: float = 0.5
+    base_alpha_c: Optional[float] = None  # Second base_alpha for Twice
+    device: Literal["cpu", "cuda"] = "cpu"
+
+
+class DetectArchRequest(BaseModel):
+    """Request to detect checkpoint architecture."""
+    checkpoint_path: str
+
+
+@router.post("/checkpoint/detect-arch")
+async def detect_checkpoint_arch(request: DetectArchRequest):
+    """Detect architecture of a safetensors checkpoint and return block info."""
+    try:
+        from services.block_weight_merge import load_checkpoint, detect_architecture, arch_block_count, arch_block_names
+
+        _validate_model_input(request.checkpoint_path)
+        sd = load_checkpoint(request.checkpoint_path, device="cpu")
+        arch = detect_architecture(list(sd.keys()))
+        return {
+            "arch": arch,
+            "block_count": arch_block_count(arch),
+            "block_names": arch_block_names(arch),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/checkpoint/merge-weighted")
+async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
+    """
+    Block-weighted (MBW) checkpoint merge — like SuperMerger.
+
+    Modes:
+      - weight:   A·(1−α) + B·α
+      - add:      A + (B − C)·α  (requires model C)
+      - triple:   A·(1−α−β) + B·α + C·β  (requires model C + block_weights_c)
+      - twice:    merge(A, B) → merge(AB, C)  (requires model C + block_weights_c)
+
+    block_weights are per-block blend values (26 for SD1.5, 20 for SDXL).
+    base_alpha controls non-UNet keys (TE, VAE).
+    """
+    try:
+        from services.block_weight_merge import (
+            load_checkpoint, save_checkpoint,
+            detect_architecture, arch_block_count,
+            merge_weight, merge_add, merge_triple, merge_twice,
+        )
+
+        # Validate all input paths
+        for p in [request.model_a_path, request.model_b_path, request.model_c_path]:
+            if p:
+                _validate_model_input(p)
+        resolved_output = validate_output_path(request.output_path)
+
+        # Load models
+        model_a = load_checkpoint(request.model_a_path, device=request.device)
+        model_b = load_checkpoint(request.model_b_path, device=request.device)
+
+        arch = detect_architecture(list(model_a.keys()))
+
+        # Validate block weight count matches detected architecture
+        expected_blocks = arch_block_count(arch)
+        if len(request.block_weights) != expected_blocks:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Detected architecture '{arch}' expects {expected_blocks} block weights, got {len(request.block_weights)}"
+            )
+
+        # Dispatch merge
+        if request.mode == "weight":
+            merged = merge_weight(model_a, model_b, request.block_weights, request.base_alpha, arch)
+        elif request.mode == "add":
+            if not request.model_c_path:
+                raise HTTPException(status_code=400, detail="model_c_path required for 'add' mode")
+            model_c = load_checkpoint(request.model_c_path, device=request.device)
+            merged = merge_add(model_a, model_b, model_c, request.block_weights, request.base_alpha, arch)
+        elif request.mode == "triple":
+            if not request.model_c_path or not request.block_weights_c:
+                raise HTTPException(status_code=400, detail="model_c_path and block_weights_c required for 'triple' mode")
+            model_c = load_checkpoint(request.model_c_path, device=request.device)
+            merged = merge_triple(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, arch)
+        elif request.mode == "twice":
+            if not request.model_c_path or not request.block_weights_c:
+                raise HTTPException(status_code=400, detail="model_c_path and block_weights_c required for 'twice' mode")
+            model_c = load_checkpoint(request.model_c_path, device=request.device)
+            bc = request.base_alpha_c or 0.5
+            merged = merge_twice(model_a, model_b, model_c, request.block_weights, request.block_weights_c, request.base_alpha, bc, arch)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown mode: {request.mode}")
+
+        # Save
+        save_checkpoint(merged, str(resolved_output))
+
+        file_size_mb = os.path.getsize(str(resolved_output)) / (1024 * 1024)
+
+        return {
+            "success": True,
+            "message": f"Block-weighted merge ({request.mode}) successful",
+            "output_path": str(resolved_output),
+            "mode": request.mode,
+            "file_size_mb": round(file_size_mb, 2),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Block-weighted merge error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -383,11 +673,11 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
     Uses Kohya's merge_models.py script from vendored backend.
     """
     try:
-        # Security: inputs from output/ or pretrained_model/; output always to output/
+        # Security: inputs from any model dir (incl. ComfyUI); output always to output/
         try:
             for cp in request.checkpoint_inputs:
-                validate_path_within(cp["path"], [OUTPUT_DIR, MODELS_DIR])
-            validate_path_within(request.output_path, [OUTPUT_DIR])
+                _validate_model_input(cp["path"])
+            resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
@@ -400,7 +690,7 @@ async def merge_checkpoint(request: CheckpointMergeRequest):
         # Convert to service request
         service_request = ServiceCheckpointMergeRequest(
             checkpoint_inputs=checkpoint_inputs,
-            output_path=request.output_path,
+            output_path=str(resolved_output),
             unet_only=request.unet_only,
             device=request.device,
             save_precision=request.save_precision,

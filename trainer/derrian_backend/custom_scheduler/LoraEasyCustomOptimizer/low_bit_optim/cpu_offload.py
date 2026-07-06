@@ -8,7 +8,14 @@ from typing import Type
 import torch
 from torch.optim.optimizer import Optimizer, ParamsT
 
-from torchao.utils import TORCH_VERSION_AT_LEAST_2_4, get_available_devices
+from torchao.utils import get_available_devices
+
+# torchao 0.16+ removed TORCH_VERSION_AT_LEAST_2_4 from torchao.utils; derive it
+# from torch so this stays decoupled from torchao's shifting internal helpers.
+# (get_available_devices is still a stable torchao.utils export.)
+TORCH_VERSION_AT_LEAST_2_4 = tuple(
+    int(p) for p in torch.__version__.split("+")[0].split(".")[:2]
+) >= (2, 4)
 
 
 # NOTE: We make this inherit Optimizer so it works with PyTorch's built-in LR

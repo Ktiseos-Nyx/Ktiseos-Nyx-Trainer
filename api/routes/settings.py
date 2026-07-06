@@ -15,8 +15,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Settings file location
-SETTINGS_DIR = os.path.join(os.getcwd(), "user_config")
+# Settings file location — anchored on the project root (file-relative), NOT os.getcwd().
+# The Next.js settings UI writes user_settings.json to <project_root>/user_config (anchored via
+# process.cwd()/.. in settings-service.ts). Reading it from os.getcwd()/user_config here meant
+# that when the FastAPI process's working dir wasn't the project root, the UI's saved settings
+# (incl. comfyui_models_path) landed in a DIFFERENT file than this resolver read — so the merge
+# tools silently fell back / saw stale config. Same getcwd class of bug as a94854f.
+# parents: settings.py -> routes -> api -> <project_root>.
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SETTINGS_DIR = os.path.join(_PROJECT_ROOT, "user_config")
 SETTINGS_FILE = os.path.join(SETTINGS_DIR, "user_settings.json")
 
 
@@ -146,27 +153,47 @@ def get_comfyui_models_path() -> str:
     """
     Return the filesystem path to ComfyUI's models directory.
 
-    Resolution order:
-      1. COMFYUI_MODELS_PATH environment variable
-      2. comfyui_models_path field in user_settings.json
-      3. Fallback: {project_root}/ComfyUI/models
-         (ComfyUI is cloned directly inside the project root by the installer)
+    Resolution order — the trainer's OWN bundled ComfyUI wins first, so a stale env
+    var or saved setting can never shadow the models the installer actually put on
+    disk:
+      1. {project_root}/ComfyUI/models — used whenever it exists on disk. The installer
+         clones ComfyUI directly inside the project root, so on a normal box this IS the
+         answer, and it is authoritative.
+      2. COMFYUI_MODELS_PATH environment variable (if it is a real directory) — fallback
+         for setups that have no bundled ComfyUI and run one elsewhere.
+      3. comfyui_models_path field in user_settings.json (if it is a real directory) —
+         same escape hatch, from the settings UI.
+      4. {project_root}/ComfyUI/models — bare anchored string when nothing above exists
+         on disk; callers still validate that the directory is present.
 
-    Returns an empty string if no configured path exists and the
-    fallback directory is also missing — callers must validate.
+    Why bundled-first: the previous order consulted the env/setting BEFORE the anchored
+    path. A stale value that pointed at an existing-but-wrong directory (e.g. a leftover
+    "/workspace/ComfyUI/models" from an old template) passed the is_dir() guard and got
+    returned, so _comfyui_model_dirs() scanned a foreign/empty tree — the bug where the
+    merge/bake pickers listed only pretrained_model/ even though checkpoints and
+    diffusion_models sat right there in the trainer's ComfyUI. Anchoring first is
+    cwd-independent (services.core.validation.PROJECT_ROOT is Path(__file__)-based), so
+    it's stable on Windows / VastAI / RunPod.
     """
     import os as _os
+    from services.core.validation import PROJECT_ROOT
+
+    anchored = str((PROJECT_ROOT / "ComfyUI" / "models").resolve())
+    # The trainer manages its own ComfyUI here; when present it is authoritative and a
+    # stale/wrong override must not win over the models the user actually has.
+    if _os.path.isdir(anchored):
+        return anchored
+
     env_path = _os.environ.get("COMFYUI_MODELS_PATH", "")
-    if env_path:
+    if env_path and _os.path.isdir(env_path):
         return env_path
 
     settings = load_settings()
     settings_path = settings.get("comfyui_models_path", "")
-    if settings_path:
+    if settings_path and _os.path.isdir(settings_path):
         return settings_path
 
-    fallback = _os.path.abspath(_os.path.join(_os.getcwd(), "ComfyUI", "models"))
-    return fallback
+    return anchored
 
 
 def mask_token(token: Optional[str]) -> Optional[str]:

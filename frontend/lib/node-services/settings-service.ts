@@ -26,6 +26,11 @@ export interface UserSettings {
    * Falls back to ../../ComfyUI/models relative to project root if unset.
    */
   comfyui_models_path?: string;
+  /**
+   * Civitai domain to use for API requests.
+   * "https://civitai.com" (default, blue) or "https://civitai.red" (red).
+   */
+  civitai_base_url?: string;
 }
 
 export interface SettingsResponse {
@@ -39,6 +44,7 @@ export interface SettingsResponse {
     extra_vae_dirs: string[];
     comfyui_url: string;
     comfyui_models_path: string;
+    civitai_base_url: string;
   };
   message?: string;
   error?: string;
@@ -173,6 +179,7 @@ export class SettingsService {
           extra_vae_dirs: settings.extra_vae_dirs ?? [],
           comfyui_url: settings.comfyui_url ?? 'http://localhost:8188',
           comfyui_models_path: settings.comfyui_models_path ?? '',
+          civitai_base_url: settings.civitai_base_url ?? 'https://civitai.com',
         },
       };
     } catch (error) {
@@ -235,6 +242,10 @@ export class SettingsService {
 
       if (updates.comfyui_models_path !== undefined) {
         currentSettings.comfyui_models_path = updates.comfyui_models_path || undefined;
+      }
+
+      if (updates.civitai_base_url !== undefined) {
+        currentSettings.civitai_base_url = updates.civitai_base_url || undefined;
       }
 
       const saved = await this.saveSettings(currentSettings);

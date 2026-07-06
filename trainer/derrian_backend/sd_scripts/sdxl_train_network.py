@@ -7,7 +7,7 @@ from library.device_utils import init_ipex, clean_memory_on_device
 
 init_ipex()
 
-from library import sdxl_model_util, sdxl_train_util, strategy_base, strategy_sd, strategy_sdxl, train_util
+from library import model_util, sdxl_model_util, sdxl_train_util, strategy_base, strategy_sd, strategy_sdxl, train_util
 import train_network
 from library.utils import setup_logging
 
@@ -59,6 +59,9 @@ class SdxlNetworkTrainer(train_network.NetworkTrainer):
         self.load_stable_diffusion_format = load_stable_diffusion_format
         self.logit_scale = logit_scale
         self.ckpt_info = ckpt_info
+
+        if args.vae_reflection_padding:
+            vae = model_util.use_reflection_padding(vae)
 
         # モデルに xformers とか memory efficient attention を組み込む
         train_util.replace_unet_modules(unet, args.mem_eff_attn, args.xformers, args.sdpa)

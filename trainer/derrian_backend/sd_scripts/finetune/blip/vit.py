@@ -13,10 +13,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
 
-from timm.models.vision_transformer import _cfg, PatchEmbed
-from timm.models.registry import register_model
-from timm.models.layers import trunc_normal_, DropPath
-from timm.models.helpers import named_apply, adapt_input_conv
+# KNX compat shim (keep on upstream sync): timm relocated these symbols in 0.9/1.0
+# (timm.models.layers -> timm.layers; registry/helpers/hub -> private _* modules).
+# BLIP was written against the 0.6.x layout; try the modern path first, fall back to
+# the legacy one so captioning runs on whichever timm the environment resolved.
+try:  # timm >= 0.9
+    from timm.layers import trunc_normal_, DropPath, PatchEmbed
+except ImportError:  # timm 0.6.x
+    from timm.models.layers import trunc_normal_, DropPath
+    from timm.models.vision_transformer import PatchEmbed
+from timm.models.vision_transformer import _cfg
+try:  # register_model is re-exported at the package root on modern timm
+    from timm.models import register_model
+except ImportError:  # timm 0.6.x
+    from timm.models.registry import register_model
+try:  # timm >= 0.9 moved these into the private _manipulate module
+    from timm.models._manipulate import named_apply, adapt_input_conv
+except ImportError:  # timm 0.6.x
+    from timm.models.helpers import named_apply, adapt_input_conv
 
 from fairscale.nn.checkpoint.checkpoint_activations import checkpoint_wrapper
 

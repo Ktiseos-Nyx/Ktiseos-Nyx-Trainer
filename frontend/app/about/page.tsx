@@ -6,7 +6,7 @@ import { GradientCard } from '@/components/effects';
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-background py-16">
+    <div className="min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Breadcrumbs */}
         <Breadcrumbs

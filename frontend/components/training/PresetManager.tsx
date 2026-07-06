@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { Fragment, useState, useEffect } from 'react';
@@ -150,12 +149,14 @@ interface PresetManagerProps {
   currentConfig: Partial<TrainingConfig>;
   onLoadPreset: (config: Partial<TrainingConfig>) => void;
   onSavePreset?: (preset: CustomPreset) => void;
+  trainingType?: string;
 }
 
 export default function PresetManager({
   currentConfig,
   onLoadPreset,
   onSavePreset,
+  trainingType,
 }: PresetManagerProps) {
   // ✅ FIX: Initialize empty list first (Server Safe)
   const [customPresets, setCustomPresets] = useState<CustomPreset[]>([]);
@@ -254,6 +255,7 @@ export default function PresetManager({
         name: newPresetName,
         description: newPresetDescription || 'Custom preset',
         model_type: currentConfig.model_type,
+        training_type: trainingType || currentConfig.training_mode,
         config: filteredConfig,
       });
 
@@ -401,8 +403,9 @@ export default function PresetManager({
     reader.readAsText(file);
   };
 
-  const builtins = serverPresets.filter(p => p.is_builtin);
-  const userServer = serverPresets.filter(p => !p.is_builtin);
+  const matchesType = (p: PresetMetadata) => !trainingType || p.training_type === trainingType;
+  const builtins = serverPresets.filter(p => p.is_builtin && matchesType(p));
+  const userServer = serverPresets.filter(p => !p.is_builtin && matchesType(p));
   const builtinGroups = groupByModelType(builtins, p => p.model_type, p => p.name);
   const userServerGroups = groupByModelType(userServer, p => p.model_type, p => p.name);
   const browserGroups = groupByModelType(customPresets, p => p.config.model_type, p => p.name);

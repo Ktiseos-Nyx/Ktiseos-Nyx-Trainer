@@ -3,9 +3,10 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { datasetAPI, ImageWithTags } from '@/lib/api';
-import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon, Grid3x3, Grid2x2, LayoutGrid } from 'lucide-react';
+import { Tag, Save, Loader2, CheckCircle, Home, Database, ImageIcon, Grid3x3, Grid2x2, LayoutGrid, Trash2, ArrowRightLeft, Crop } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import {
   TagsInput,
@@ -17,6 +18,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { TagViewer, BLANK_TAG } from '@/components/dataset/TagViewer';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 type CardSize = 'small' | 'medium' | 'large';
 
@@ -45,6 +57,7 @@ export default function DatasetTagsPage() {
   const [saved, setSaved] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [cardSize, setCardSize] = useState<CardSize>('medium');
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('tag-editor-card-size');
@@ -133,6 +146,21 @@ export default function DatasetTagsPage() {
     });
   }, [selectedTags, localImages]);
 
+  /** Delete an image and its caption from the dataset, then drop it from local and saved state. */
+  const handleDeleteImage = async (imageName: string) => {
+    setDeleting(imageName);
+    try {
+      await datasetAPI.deleteImage(datasetName, imageName);
+      setLocalImages(prev => prev.filter(img => img.image_name !== imageName));
+      setImages(prev => prev.filter(img => img.image_name !== imageName));
+      toast.success(`Deleted ${imageName}`);
+    } catch (err) {
+      toast.error('Failed to delete image');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const handleSaveAll = async () => {
     setSaving(true);
     setSaved(false);
@@ -155,7 +183,7 @@ export default function DatasetTagsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background py-16 flex flex-col items-center justify-center">
+      <div className="min-h-screen py-16 flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 animate-spin text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Loading tags for "{datasetName}"...</p>
       </div>
@@ -163,7 +191,7 @@ export default function DatasetTagsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-16">
+    <div className="min-h-screen py-16">
       <div className="container mx-auto px-4 max-w-7xl">
         <Breadcrumbs
           items={[
@@ -203,6 +231,20 @@ export default function DatasetTagsPage() {
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               {saved ? 'Saved!' : 'Save All'}
             </Button>
+            <Link
+              href={`/dataset/${datasetName}/convert`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              Convert Format
+            </Link>
+            <Link
+              href={`/dataset/${datasetName}/crop`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors"
+            >
+              <Crop className="w-4 h-4" />
+              Crop
+            </Link>
           </div>
         </div>
 
@@ -233,7 +275,7 @@ export default function DatasetTagsPage() {
         ) : (
           <div className={`grid ${SIZE_CONFIG[cardSize].gridClasses}`}>
             {filteredImages.map(img => (
-              <div key={img.image_path} className="border rounded-lg overflow-hidden bg-card">
+              <div key={img.image_path} className="border rounded-lg overflow-hidden bg-card group">
                 <AspectRatio ratio={SIZE_CONFIG[cardSize].aspectRatio} className="bg-muted">
                   <img
                     src={img.url || `/api/files/image/${datasetName}/${img.image_name}`}
@@ -245,8 +287,39 @@ export default function DatasetTagsPage() {
                   />
                 </AspectRatio>
                 <div className="p-3">
-                  <div className="text-xs text-muted-foreground mb-2 truncate">
-                    {img.image_name}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-muted-foreground truncate flex-1">
+                      {img.image_name}
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                          disabled={deleting === img.image_name}
+                        >
+                          {deleting === img.image_name ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete image</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete <span className="font-mono">{img.image_name}</span> and its caption file.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={() => handleDeleteImage(img.image_name)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                   <TagsInput
                     value={img.tags}

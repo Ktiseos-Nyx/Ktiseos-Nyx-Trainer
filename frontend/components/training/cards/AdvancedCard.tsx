@@ -139,7 +139,7 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
         </div>
 
         {/* Loss Functions */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Loss Functions</p>
           <p className="text-xs text-gray-400">Advanced loss calculation methods and weighting (all models)</p>
 
@@ -179,7 +179,7 @@ export function AdvancedCard({ form, onSave }: AdvancedCardProps) {
         </div>
 
         {/* Timestep Settings */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Timestep Settings</p>
           <p className="text-xs text-gray-400">Control diffusion timestep range (all models)</p>
 

@@ -13,6 +13,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
 
 
 def get_python_command():
@@ -94,9 +95,58 @@ class RemoteInstaller:
         self.logger.info("Verbose mode: %s", "Enabled" if self.verbose else "Disabled")
 
     def detect_package_manager(self):
-        """Use pip for package installation"""
-        self.logger.info("Using pip for package installation")
-        return {"name": "pip", "install_cmd": [self.python_cmd, "-m", "pip", "install"], "available": True}
+        """
+        Prefer uv for remote (Linux) installs; fall back to pip.
+
+        uv installs are faster and cached, cutting GPU-rental time burned on the
+        provisioning cascade. Remote/Linux only as a conservative default —
+        local stays on the known-good pip path. uv on local is unverified (not
+        forbidden): an old-notebook-era report of *something* triggering a Rust
+        source build on Windows was never root-caused (numpy? safetensors? uv
+        itself? unknown), so we don't switch local installs onto uv on a hunch.
+        uv reads our existing requirements_*.txt unchanged; --index-strategy
+        unsafe-best-match resolves torch-coupled deps (e.g. torchao) against the
+        already-installed torch. Any bootstrap failure silently returns pip, so
+        provisioning can never be worse off.
+        """
+        pip_pm = {"name": "pip", "install_cmd": [self.python_cmd, "-m", "pip", "install"], "available": True}
+
+        if platform.system() != "Linux":
+            self.logger.info("Non-Linux platform — using pip for package installation")
+            return pip_pm
+
+        try:
+            subprocess.run(
+                [self.python_cmd, "-m", "pip", "install", "-U", "uv"],
+                check=True, capture_output=True, text=True, timeout=300,
+            )
+        except (subprocess.SubprocessError, OSError) as exc:
+            self.logger.warning("uv bootstrap failed (%s) — using pip", exc)
+            return pip_pm
+
+        # Resolve a runnable uv: module form first, then a PATH binary.
+        uv_invocation = None
+        for candidate in ([self.python_cmd, "-m", "uv"], ["uv"]):
+            try:
+                subprocess.run(candidate + ["--version"], check=True, capture_output=True, text=True, timeout=60)
+                uv_invocation = candidate
+                break
+            except (subprocess.SubprocessError, OSError):
+                continue
+
+        if uv_invocation is None:
+            self.logger.warning("uv not runnable after bootstrap — using pip")
+            return pip_pm
+
+        self.logger.info("Using uv for package installation (remote)")
+        return {
+            "name": "uv",
+            "install_cmd": uv_invocation + [
+                "pip", "install", "--python", self.python_cmd,
+                "--index-strategy", "unsafe-best-match",
+            ],
+            "available": True,
+        }
 
     def get_install_command(self, *args):
         """Get package installation command with current package manager"""
@@ -279,6 +329,14 @@ class RemoteInstaller:
         install_cmd = self.get_install_command("-r", requirements_file)
         success = self.run_command(install_cmd, f"Installing Python packages with {self.package_manager['name']}")
 
+        # If uv hits a flag/resolver quirk, don't brick the deploy — retry the
+        # same requirements with pip before giving up.
+        if not success and self.package_manager["name"] == "uv":
+            self.logger.warning("uv install failed — retrying with pip")
+            print("   uv install failed — retrying with pip...")
+            pip_cmd = [self.python_cmd, "-m", "pip", "install", "-r", requirements_file]
+            success = self.run_command(pip_cmd, "Installing Python packages with pip (fallback)")
+
         if success:
             self.verify_onnx_runtime()
 
@@ -319,16 +377,21 @@ class RemoteInstaller:
 
             if system == "linux":
                 is_root = os.geteuid() == 0 if hasattr(os, "geteuid") else False
-                sudo_prefix = "" if is_root else "sudo "
+                sudo_prefix = "" if is_root else "sudo -E "
 
-                # Try different package managers
-                # Use shell=True with proper string commands
+                # apt-get with a lock timeout rides out the boot-time
+                # unattended-upgrades dpkg lock instead of hanging on it forever;
+                # DEBIAN_FRONTEND=noninteractive stops debconf from blocking on
+                # stdin that never comes in a non-TTY provisioning context.
+                apt_opts = "-o DPkg::Lock::Timeout=300"
                 package_managers = [
-                    (["apt", "--version"], "%sapt update && %sapt install -y aria2" % (sudo_prefix, sudo_prefix)),
+                    (["apt-get", "--version"],
+                     "%sapt-get %s update && %sapt-get %s install -y aria2" % (sudo_prefix, apt_opts, sudo_prefix, apt_opts)),
                     (["yum", "--version"], "%syum install -y aria2" % sudo_prefix),
                     (["dnf", "--version"], "%sdnf install -y aria2" % sudo_prefix),
                 ]
 
+                apt_env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
                 for pm_cmd, install_cmd in package_managers:
                     try:
                         subprocess.run(pm_cmd, capture_output=True, check=True)
@@ -336,13 +399,24 @@ class RemoteInstaller:
                         self.logger.info("Found package manager: %s", pm_name)
                         print(f"     Installing with {pm_name}...")
 
-                        result = subprocess.run(install_cmd, shell=True, capture_output=True, text=True, check=True)
+                        # timeout is a hard backstop: aria2c is optional, so a
+                        # stuck package manager must never wedge the whole install.
+                        result = subprocess.run(
+                            install_cmd, shell=True, capture_output=True, text=True,
+                            check=True, env=apt_env, timeout=420,
+                        )
                         if result.returncode == 0:
                             self.logger.info("Successfully installed aria2c with %s", pm_name)
                             print("     Successfully installed aria2c")
                             break
                         else:
                             self.logger.warning("Failed to install with %s: %s", pm_name, result.stderr)
+                    except subprocess.TimeoutExpired:
+                        self.logger.warning(
+                            "aria2c install via %s timed out — skipping (optional; downloads fall back)", pm_cmd[0]
+                        )
+                        print("     aria2c install timed out — skipping (optional)")
+                        break
                     except (subprocess.CalledProcessError, FileNotFoundError):
                         continue
                 else:
@@ -401,12 +475,33 @@ class RemoteInstaller:
             )
         else:
             self.logger.info("Cloning ComfyUI into %s", comfyui_dir)
-            success = self.run_command(
-                ["git", "clone", "https://github.com/comfyanonymous/ComfyUI.git", comfyui_dir],
-                "Cloning ComfyUI",
-            )
+            # Shallow clone (--depth 1) skips ComfyUI's large history so far less
+            # data crosses the wire — full clones intermittently fail mid-transfer
+            # on flaky cloud hosts. Retry with backoff covers transient blips, and
+            # each attempt clears any partial clone the previous failure left behind.
+            clone_cmd = [
+                "git", "clone", "--depth", "1",
+                "https://github.com/comfyanonymous/ComfyUI.git", comfyui_dir,
+            ]
+            success = False
+            for attempt in range(1, 4):
+                if os.path.isdir(comfyui_dir):
+                    shutil.rmtree(comfyui_dir, ignore_errors=True)
+                success = self.run_command(
+                    clone_cmd,
+                    f"Cloning ComfyUI (attempt {attempt}/3)",
+                    allow_failure=True,
+                )
+                if success:
+                    break
+                if attempt < 3:
+                    self.logger.warning(
+                        "ComfyUI clone attempt %d/3 failed — retrying in %ds...",
+                        attempt, attempt * 5,
+                    )
+                    time.sleep(attempt * 5)
             if not success:
-                self.logger.warning("ComfyUI clone failed — skipping custom nodes.")
+                self.logger.warning("ComfyUI clone failed after 3 attempts — skipping custom nodes.")
                 return False
 
         # Install ComfyUI Python requirements
@@ -498,28 +593,53 @@ class RemoteInstaller:
         # Paths use ".." which is relative to ComfyUI/ and therefore points at the
         # project root — works identically on Windows, VastAI, and RunPod.
         extra_paths_file = os.path.join(comfyui_dir, "extra_model_paths.yaml")
-        if not os.path.exists(extra_paths_file):
-            extra_paths_content = (
-                "# Extra model paths auto-generated by Ktiseos-Nyx-Trainer installer.\n"
-                "# Relative paths here are relative to the ComfyUI/ directory.\n"
-                "# Do not remove — ComfyUI reads this at startup to find trainer models.\n"
-                "\n"
-                "ktiseos_trainer:\n"
-                "    base_path: ..\n"
-                "    # Trained LoRAs appear in ComfyUI's LoRA pickers automatically.\n"
-                "    loras: output\n"
-                "    # Base models used for training are also available for generation.\n"
-                "    checkpoints: pretrained_model\n"
-                "    # Shared VAE folder.\n"
-                "    vae: vae\n"
-            )
+        extra_paths_content = (
+            "# Extra model paths auto-generated by Ktiseos-Nyx-Trainer installer.\n"
+            "# Relative paths here are relative to the ComfyUI/ directory.\n"
+            "# Do not remove — ComfyUI reads this at startup to find trainer models.\n"
+            "\n"
+            "ktiseos_trainer:\n"
+            "    base_path: ..\n"
+            "    # Trained LoRAs appear in ComfyUI's LoRA pickers automatically.\n"
+            "    loras: output\n"
+            "    # All-in-one checkpoints (SDXL etc.) used as training bases.\n"
+            "    checkpoints: pretrained_model\n"
+            "    # Diffusion-transformer bases (Anima etc.) load via UNETLoader from\n"
+            "    # diffusion_models/; 'unet' is the older ComfyUI name for the same folder.\n"
+            "    diffusion_models: pretrained_model\n"
+            "    unet: pretrained_model\n"
+            "    # Standalone text encoders (Anima's Qwen TE etc.) load via CLIPLoader\n"
+            "    # from text_encoders/; 'clip' is the older ComfyUI name for it.\n"
+            "    text_encoders: pretrained_model\n"
+            "    clip: pretrained_model\n"
+            "    # VAEs may sit in the dedicated vae/ folder or be bundled with a base\n"
+            "    # model in pretrained_model/, so search both.\n"
+            "    vae: |\n"
+            "        vae\n"
+            "        pretrained_model\n"
+        )
+
+        # Self-heal: write when absent, and upgrade older auto-generated files that
+        # predate the diffusion_models/text_encoders mappings (Anima/UNET models were
+        # invisible to ComfyUI without them). The "diffusion_models" sentinel means the
+        # file already carries the new schema, so a correct file is never clobbered.
+        existing = ""
+        if os.path.exists(extra_paths_file):
+            with open(extra_paths_file, "r", encoding="utf-8") as f:
+                existing = f.read()
+
+        if existing and "diffusion_models" in existing:
+            self.logger.info("extra_model_paths.yaml already has diffusion_models mapping — skipping.")
+            print("   extra_model_paths.yaml already up to date — skipping.")
+        else:
             with open(extra_paths_file, "w", encoding="utf-8") as f:
                 f.write(extra_paths_content)
-            self.logger.info("Written extra_model_paths.yaml → ComfyUI can now see output/, pretrained_model/, vae/")
-            print("   ✅ extra_model_paths.yaml written — trainer models shared with ComfyUI.")
-        else:
-            self.logger.info("extra_model_paths.yaml already exists — not overwriting.")
-            print("   extra_model_paths.yaml already present — skipping.")
+            if existing:
+                self.logger.info("Upgraded extra_model_paths.yaml → added diffusion_models/text_encoders mappings.")
+                print("   ✅ extra_model_paths.yaml upgraded — Anima/UNET models now visible to ComfyUI.")
+            else:
+                self.logger.info("Written extra_model_paths.yaml → ComfyUI can now see output/, pretrained_model/, vae/.")
+                print("   ✅ extra_model_paths.yaml written — trainer models shared with ComfyUI.")
 
         self.logger.info("ComfyUI installation complete.")
         print("   ComfyUI installation complete.")
@@ -693,17 +813,16 @@ class RemoteInstaller:
                 print(f"{error_msg}")
                 return False
 
-            if not self.check_system_dependencies():
-                error_msg = "System dependency check failed."
-                self.logger.error(error_msg)
-                print(f"{error_msg}")
-                return False
-
             if not self.install_dependencies():
                 error_msg = "Halting installation due to dependency installation failure."
                 self.logger.error(error_msg)
                 print(f"{error_msg}")
                 return False
+
+            # aria2c is an optional download accelerator used later for model
+            # downloads, so it runs AFTER pip and is never fatal — a missing or
+            # slow package manager must not block the app from coming up.
+            self.check_system_dependencies()
 
             if not self.apply_special_fixes_and_installs():
                 warning_msg = "Some special fixes or editable installs failed."

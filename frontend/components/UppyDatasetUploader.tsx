@@ -6,6 +6,7 @@ import { Dashboard } from '@uppy/react';
 import XHRUpload from '@uppy/xhr-upload';
 import { API_BASE } from '@/lib/api';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 // Uppy styles
 import '@uppy/core/dist/style.css';
@@ -185,10 +186,10 @@ export default function UppyDatasetUploader() {
         </div>
 
         {/* Dataset Name Input */}
-        <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-6">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+        <div className="bg-muted/50 rounded-lg border border-border p-6">
+          <Label className="mb-2 block">
             Dataset Name
-          </label>
+          </Label>
           <Input
             type="text"
             value={datasetName}

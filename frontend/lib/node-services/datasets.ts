@@ -6,7 +6,7 @@ import fsSync from 'fs';
 import path from 'path';
 
 /** Image extensions recognized across all dataset routes. */
-export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.jfif'];
 
 /**
  * Resolve the datasets root directory by checking an ordered set of locations.

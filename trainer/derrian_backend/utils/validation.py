@@ -4,7 +4,6 @@ import json
 from library.train_util import BucketManager
 from PIL import Image
 import math
-from LoraEasyCustomOptimizer import OPTIMIZERS
 
 
 def validate(args: dict) -> tuple[bool, bool, list[str], dict, dict]:
@@ -335,6 +334,12 @@ def validate_save_tags(dataset: dict) -> dict:
 
 def validate_optimizer(args: dict) -> None:
     opt_type_lower = args["optimizer_type"].lower()
+
+    # Lazy import: OPTIMIZERS pulls in all custom optimizer modules including
+    # low_bit_optim (which imports TorchAO). Only importing when a custom
+    # optimizer is actually selected avoids TorchAO flagging for standard
+    # optimizers (AdamW, SGD, etc.).
+    from LoraEasyCustomOptimizer import OPTIMIZERS
 
     if opt_type_lower in OPTIMIZERS:
         args["optimizer_type"] = f"{OPTIMIZERS[opt_type_lower].__module__}.{OPTIMIZERS[opt_type_lower].__qualname__}"

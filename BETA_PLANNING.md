@@ -2,7 +2,7 @@
 
 **Current Version:** Alpha (v0.1.0-dev)
 **Target:** Beta Release
-**Last Updated:** 2026-04-30
+**Last Updated:** 2026-05-30
 
 ---
 
@@ -76,18 +76,22 @@ Visual tag editing per image: show tags as badge chips with X to remove, textare
 
 ### 1.5 Delete Image from Tag Editor (NEW FEATURE)
 **Priority:** Medium (Beta QOL)
-
-Let users delete an image directly from the tag editor (remove a mistakenly-added pic). Three pieces:
-- New `/api/dataset/delete-image` route — takes dataset + image name, uses the existing `validateDatasetPath` guard, deletes the image **and its sibling `.txt` caption**.
-- `datasetAPI.deleteImage(...)` client method.
-- Per-image delete button in the editor behind an AlertDialog confirm (the Models-page pattern, never native `confirm()`), then drop the image from state.
-
-Estimate: ~1–2 hrs, low-to-moderate — path-safety helper and the `name.txt` caption convention already exist, so the risky parts are easy.
+**Status:** ✅ Done (already implemented — full stack: backend endpoint, API client, frontend button with toast confirm and state removal).
 
 ### 1.6 Breadcrumbs on Tag Editor / Dataset Sub-Pages
 **Priority:** Low (Beta QOL)
 
 The dataset sub-pages (`/dataset/[name]/tags`, `/auto-tag`, `/tag-processing`) lack a breadcrumb trail (e.g. Home › Dataset › [name] › Tags). Bigger than it looks: requires threading the dataset name + current sub-page context through these routes rather than a single static breadcrumb.
+
+### 1.7 Auto-Tagger Page Redesign — Match LoRA-Card Structure
+**Priority:** Medium (UX — long-intended, never executed)
+**Status:** Done (Unsure when, but it's done)
+
+The **auto-tagger** page (`frontend/app/dataset/[name]/auto-tag/page.tsx`) — the batch WD14/BLIP/GIT tagging interface — was always meant to be fleshed back out to mirror the **LoRA/training card structure** (the shadcn `Card`-based layout in `frontend/components/training/cards/*.tsx`), but never got it. This is the **auto-tagger**, NOT the tag editor (`tags/page.tsx`, §1.1–1.6, done).
+
+**Approach — rip-and-replace, not iterate.** If reformatting the existing page into the card structure is awkward, **don't** — delete it and build a fresh card-based page. The prior "that's too much work to format over time" read was wrong: the cost lives in *iterating on a bad base*, not in a clean rebuild. Greenfield it.
+
+**Target:** same `Card` / `CardHeader` / `CardContent` componentry and visual rhythm as the training cards, so the auto-tagger reads as part of the same app instead of an older flat form.
 
 ---
 
@@ -110,11 +114,12 @@ Checkpoint training (full fine-tune) IS implemented in the backend:
 
 ### 2.2 Known Issues - Checkpoint Training
 
-**Issue CT-1: No checkpoint-specific validation**
-- **Severity:** Medium
+**Issue CT-1: No checkpoint-specific validation** — 🚫 **WON'T DO (2026-06-10)**
+- **Severity:** Medium → **Rejected**
 - **Location:** `api/routes/training.py:33-253`
-- **Problem:** No validation specific to checkpoint mode (e.g., VRAM warnings, learning rate ranges differ from LoRA)
-- **Fix:** Add checkpoint-specific validation in `validate_training_config_extended()`
+- **Problem:** Proposed VRAM warnings and LR range checks for checkpoint mode
+- **Rationale:** This is conventional-wisdom nannying — exactly the bias pattern rejected in **LT-7** (removed DatasetCard VRAM warning) and **LT-5** (rejected algorithm-specific LR hints). Users on 48GB cards know their VRAM; LR ranges are empirical, not rules. "Warning" = quiet should = bias by suggestion.
+- **Non-biased validation that DOES belong:** structural/hard errors only (missing required files, invalid enums, path traversal, negative/zero where structurally impossible). Everything else → docs/wiki.
 
 **Issue CT-2: No UI indication of checkpoint mode limitations**
 - **Severity:** Low
@@ -129,6 +134,7 @@ Checkpoint training (full fine-tune) IS implemented in the backend:
 - **Fix:** Verify script existence, add runtime check
 
 **Issue CT-4: Anima missing from checkpoint script map**
+- **Status:** ✅ **Done — verified in code 2026-06-06.** `kohya.py:301` now maps `ModelType.ANIMA: "anima_train.py"` in the CHECKPOINT `script_map`. No longer falls back to `fine_tune.py`.
 - **Severity:** High (bug)
 - **Location:** `services/trainers/kohya.py:299`
 - **Problem:** `script_map` for CHECKPOINT mode doesn't include Anima. It falls back to `fine_tune.py` (SD1.5 script) which is the wrong script. `anima_train.py` exists but isn't mapped.
@@ -176,57 +182,151 @@ Both LoRA and Checkpoint merging are implemented:
 - **Location:** `services/lora_service.py:98-101`
 - **Problem:** Frontend allows setting `newAlpha` but `resize_lora.py` doesn't support `--new_alpha`. Alpha is auto-calculated from SVD rank. User thinks they're controlling alpha but it's ignored.
 - **Fix:** Either remove alpha input from frontend with explanation, or show it as read-only "will be auto-calculated"
+- **Status:** ✅ Fixed (2026-07-02) — removed `target_alpha` from `LoRAResizeRequest` service model + API model, cleaned commented-out code, removed `new_alpha` from frontend result display
 
 **Issue MG-2: Parameter naming inconsistency**
 - **Severity:** Medium (confusion)
 - **Location:** `services/lora_service.py:298` vs `services/lora_service.py:400`
 - **Problem:** LoRA merge uses `--save_precision` but checkpoint merge uses `--saving_precision` (different Kohya scripts expect different arg names). This is correct behavior but confusing in the codebase.
 - **Fix:** Add comments explaining the naming difference is intentional per-script
+- **Status:** ✅ Fixed (2026-07-02) — annotated every `--save_precision` / `--saving_precision` usage with the target script name
 
 **Issue MG-3: No subprocess timeout**
 - **Severity:** Medium (reliability)
 - **Location:** `services/lora_service.py:320-327, 428-435`
 - **Problem:** `await process.communicate()` has no timeout. A hung merge process blocks the worker indefinitely.
 - **Fix:** Use `asyncio.wait_for(process.communicate(), timeout=3600)` with proper cleanup
+- **Status:** ✅ Fixed (2026-07-02) — all subprocess calls wrapped in `wait_for` with timeouts (1800s resize, 3600s merge)
 
 **Issue MG-4: No CUDA availability check**
 - **Severity:** Medium
 - **Location:** `services/lora_service.py:312, 420`
 - **Problem:** If user requests `device: "cuda"` but no GPU is available, the merge script will fail with an unhelpful error.
 - **Fix:** Check `torch.cuda.is_available()` before passing cuda device, return clear error
+- **Status:** ✅ Fixed (already had `_validate_device()` which checks `torch.cuda.is_available()`, verified 2026-07-02)
 
 **Issue MG-5: SD3 merge not exposed**
 - **Severity:** Low (missing feature)
 - **Location:** `trainer/derrian_backend/sd_scripts/tools/merge_sd3_safetensors.py` exists but isn't wired up
 - **Problem:** SD3 users can't merge models via the web UI
 - **Fix:** Add SD3 merge option to the API and frontend
+- **Note:** Deferred — `merge_sd3_safetensors.py` is a parts-to-full compositor (DiT + VAE + CLIP-L/G + T5XXL → single file), not a checkpoint averaging tool. Needs its own UI tab. Not a quick patch.
 
 **Issue MG-6: Stdout not logged during merges**
 - **Severity:** Low (observability)
 - **Location:** `services/lora_service.py:320-327`
 - **Problem:** Subprocess stdout is captured but never logged or surfaced
 - **Fix:** Log at debug level, optionally stream to frontend for progress
+- **Status:** ✅ Fixed (2026-07-02) — all 4 subprocess calls log stdout via `logger.debug()` after completion
 
 **Issue MG-7: No merge progress reporting**
 - **Severity:** Low (UX)
 - **Problem:** Large checkpoint merges (2-7GB each) can take minutes with no progress indicator beyond a spinner
 - **Fix:** Parse stdout for progress info, send via job status polling
+- **Note:** Deferred — would need converting from `communicate()` to stdout streaming + job-system integration. ~1-2 day feature, not a quick patch.
 
 **Issue MG-8: Missing output file existence check**
 - **Severity:** Low
 - **Location:** `services/lora_service.py:334`
 - **Problem:** Reads file size without verifying output file actually exists
 - **Fix:** Add `output_path.exists()` check before stat()
+- **Status:** ✅ Fixed (2026-07-02) — `output_path.is_file()` check after all subprocess calls
 
-**Issue MG-9: LoRA → Checkpoint merging (bake LoRA into base model)** *(feature request — 2026-05-28)*
+**Issue MG-9: LoRA → Checkpoint merging (bake LoRA into base model)** *(feature request — 2026-05-28)* — **FIRST SLICE when picked up**
 - **Severity:** Feature request (backlog)
-- **Problem:** No path to bake a LoRA's weights directly into a base checkpoint and save a standalone merged model. Current "LoRA merge" combines LoRAs; "Checkpoint merge" is a checkpoint↔checkpoint weighted merge. Kohya's `networks/merge_lora.py` / `sdxl_merge_lora.py` can apply a LoRA onto the base model and save a full checkpoint.
-- **Fix:** Expose a "merge LoRA into checkpoint" mode (LoRA + base ckpt → merged ckpt) in the API + UI. Dusk has implementation context to add when this is picked up.
+- **Problem:** No path to bake a LoRA's weights directly into a base checkpoint and save a standalone merged model. Current "LoRA merge" combines LoRAs; "Checkpoint merge" is a checkpoint↔checkpoint weighted merge.
+- **Backend status (verified in source 2026-05-30, NOT yet run):** the capability already exists. `networks/merge_lora.py` and `networks/sdxl_merge_lora.py` have `merge_to_sd_model()` which applies a LoRA onto the base model and saves a full checkpoint. This is an *expose-existing-capability* job, not a new feature.
+- **Fix:** Add a "merge LoRA into checkpoint" mode (LoRA + base ckpt → merged ckpt) in the API + UI. Wire `merge_to_sd_model` path. See §3.3 for the agreed shape.
+- **Status:** 🔧 **Built 2026-06-16 — wired, NOT yet run.** Full stack: `LoRAToCheckpointRequest/Response` (`services/models/lora.py`), `lora_service.merge_lora_to_checkpoint()` (clones `merge_lora()` + passes `--sd_model` → `merge_to_sd_model()` saves a full checkpoint; SD1.5 + SDXL only), route `POST /utilities/lora/merge-to-checkpoint` (`api/routes/utilities.py`), `utilitiesAPI.mergeLoraToCheckpoint()` (`api.ts`), and a new **"LoRA → Checkpoint"** tab (base-ckpt picker + LoRA multi-select w/ ratios + sd/sdxl toggle, sourced from trainer + ComfyUI dirs). py_compile/tsc/eslint clean. **Needs a real GPU run to verify the bake produces a valid checkpoint** (Dusk's test). MBW/`--lbws` (MG-10) still deferred.
 
 **Issue MG-10: Block-weight (LBW-style) control for LoRA merge** *(feature request — 2026-05-28)*
 - **Severity:** Feature request (backlog)
 - **Problem:** No per-block (layer block weight) control when merging LoRAs — only a single global model/clip strength. Block weighting tunes individual UNet blocks (IN/MID/OUT) for finer style vs. likeness control.
-- **Fix:** Add per-block weight inputs to the LoRA merge flow. Dusk has implementation context to add later.
+- **Backend status (verified in source 2026-05-30, NOT yet run):** the LBW engine already exists. `networks/sdxl_merge_lora.py` accepts `--lbws`; `networks/svd_merge_lora.py` holds the machinery — `format_lbws`, `get_lbw_block_index`, and presets at **12/17/20/26 blocks** (`ACCEPTABLE = [12, 17, 20, 26]`; 26 = full `BASE/IN00-11/M00/OUT00-11` SuperMerger MBW layout). The frontend currently sends only a global strength and discards this. SD1.5 path (`merge_lora.py`) lacks `--lbws` — route SD1.5 block merges through the SVD path.
+- **Fix:** Expose `--lbws` in the merge flow, **presets first** (see §3.3).
+- **Status:** ❌ **Superseded/removed 2026-06-23.** Block weights are a *checkpoint-merge* concept, not a LoRA one (Dusk's call): the MBW presets encode an A↔B per-block blend, meaningless on a single LoRA. LBW removed from Merge-LoRAs + LoRA→Checkpoint. The real work moves to **MG-11** (clean-room checkpoint MBW). Dead `block_weights` fields + `BlockWeightPicker` component cleaned 2026-07-02.
+
+**Issue MG-11: Block-weighted (MBW) checkpoint merge — clean-room SuperMerger port** *(2026-06-23)*
+- **Why:** Block weights belong ONLY on the Merge Checkpoints tab (per-block A/B/C blend). MG-10 misplaced them on LoRA merge/bake — removed.
+- **License constraint (HARD):** SuperMerger (`hako-mikan/sd-webui-supermerger`) is **AGPL-3.0**; this repo is **MIT**. Do NOT copy its source — that forces the whole project to AGPL. **Clean-room only:** read it to understand the algorithm, reimplement fresh in our style. Safe to lift as *data*: preset weight arrays (already in `block_weights.json`) and the `BLOCKID`/`BLOCKIDXL` name lists (facts/tables). Credit hako-mikan in `ATTRIBUTIONS.md` (courtesy). Reference: `mergers/mergers.py` — `blockfromkey`, modes list `["Weight","Add","Triple","Twice"]`, per-key blend loop. (Dusk has a local clone; path in memory.)
+- **Reuse our kohya:** SuperMerger bundles its own kohya (`scripts/kohyas/`); we already vendor kohya in `derrian_backend/sd_scripts`. Build on ours; don't duplicate.
+- **Target (full feature set, all exposed — no "advanced drawer" rationing; only genuinely-hard bits are *sequenced*, never hidden):**
+  - Faithful `blockfromkey`: SD1.5 (26 = BASE/IN00-11/M00/OUT00-11) and SDXL (20 + VAE), `base_alpha` as element 0. NOTE the real mapping: SD1.5 `time_embed`→IN00, `.out.`→OUT11, unmatched→BASE (not what a naive guess gives — verify against SuperMerger output).
+  - Modes: Weight `A·(1−α)+B·α`, Add `A+(B−C)·α`, Triple `A·(1−α−β)+B·α+C·β`, Twice (sequential). Triple/Twice need a second per-block curve (β for C) → second picker in UI for those modes.
+  - calcmodes (cosine A/B, train-difference, extract, tensor/self), deep/elemental merge, block exclusions.
+- **Build order (forced by dependency, not by hiding):** (1) own credited module: load/save via our kohya + faithful `blockfromkey` + Weight/Add/Triple/Twice + `base_alpha` + existing presets, wired to MergeCheckpointTab (mode selector, up to 3 model slots, 1–2 block pickers). (2) calcmodes. (3) deep/elemental/exclusions. Each layer ships exposed as it lands.
+- **Verify gate:** merge-correctness — every layer needs a real GPU merge + generation check (Dusk) before "done"; cross-check block mapping against a known SuperMerger result.
+- **Status:** 🔧 Phase 1 done (block weights removed from LoRA flows, `ae0e922`). **Foundation (step 1) built 2026-07-02** — `services/block_weight_merge.py` (clean-room, Weight/Add/Triple/Twice modes, `blockfromkey` for SD1.5/SDXL, preset support, `base_alpha`), `POST /checkpoint/merge-weighted` endpoint, frontend MergeCheckpointTab now has Basic/Block-Weighted toggle with mode selector, 2-3 model slots, dual preset pickers, and alpha sliders. Dead `block_weights` fields cleaned from LoRA merge APIs.
+
+**🔴🔴 BUG MG-12 — EXTREMELY IMPORTANT (flagged 2026-06-24): Merge Checkpoints tab doesn't list ComfyUI checkpoints**
+- **Symptom:** Merge Checkpoints shows only `pretrained_model/` models, NOT the ComfyUI checkpoints — even though they exist on disk and the page throws no error.
+- **Established — DO NOT re-derive (Claude burned a session on wrong theories):** the ComfyUI checkpoints folder is HEALTHY. `ls -la {ComfyUI}/models/checkpoints/` showed a normal dir with 4 real checkpoints (`T3RR4KNXN30NSKRUNKLE_v05`, `naiComicsNAIXL_v10`, `ultraComix_v20`, `virtualDiffusion_v20`) + the `put_checkpoints_here` placeholder. **NOT a symlink, not missing, not a perms issue.** `/api/utilities/directories` returns JSON with no error. The "Jupyter can't open the folder" symptom is a SEPARATE Jupyter-sandbox quirk — IRRELEVANT (the merge tab uses the FastAPI backend, not Jupyter). The symlink / `is_dir()` / broken-FS / cwd theories were all WRONG.
+- **TWO facts needed to localize — GET THESE FIRST, do not theorize without them:**
+  1. Does the `/api/utilities/directories` JSON contain a `comfyui_checkpoints` key (and what path)?
+  2. Do the 4 checkpoints actually render in the Merge Checkpoints UI list?
+- **Maps cleanly:**
+  - key present + UI empty → the *listing* step (`loadModelFiles` → `utilitiesAPI.listLoraFiles(dir, 'safetensors,ckpt', …)`) or a frontend filter is dropping them (backend found the folder fine).
+  - key absent → backend `_comfyui_model_dirs()` didn't include it despite the folder existing → base/cwd path mismatch.
+- **Code pointers:** `api/routes/utilities.py` → `_comfyui_model_dirs()` (~L36) + `get_directories()` (~L241); `api/routes/settings.py` → `get_comfyui_models_path()` (~L145, fallback `{cwd}/ComfyUI/models`); frontend `frontend/app/utilities/page.tsx` → `loadModelFiles()` (~L93) + `MergeCheckpointTab`.
+- **ROOT CAUSE FOUND + FIXED 2026-06-24 (`a94854f`) — pure code asymmetry, no box data needed:** trainer dirs (`MODELS_DIR` etc.) come from `services.core.validation.PROJECT_ROOT` = `Path(__file__)...resolve()` (cwd-independent → `pretrained_model` always showed), but `get_comfyui_models_path()`'s fallback used `os.getcwd()`. When the backend's working dir ≠ project root, `{cwd}/ComfyUI/models/checkpoints` resolved wrong → `is_dir()` False → `_comfyui_model_dirs()` silently dropped `comfyui_checkpoints`/`comfyui_loras`. Fix: fallback now anchors on `PROJECT_ROOT`. NOT zustand (merge page has no store), NOT settings, NOT the filesystem (folder was healthy). **Verify the 4 checkpoints list on next deploy.**
+- **Sibling latent bug (NOT fixed):** `settings.py:19` `SETTINGS_DIR = os.path.join(os.getcwd(), "user_config")` has the SAME `os.getcwd()` fragility → wrong settings dir if backend cwd ≠ project root. Anchor on `PROJECT_ROOT` when convenient.
+- **Status:** ✅ Fixed (`a94854f`), pending deploy verification.
+
+**🟠 MG-13 — De-bias the model-merging page copy (flagged 2026-06-24):** the merge page reads as AI-marketing-algo speak and ignores what Dusk's actually been asking for for *months*. Needs a copy/UX de-biasing pass — strip the marketing tone, align with his real merge workflow. **Spell the "months" asks out WITH Dusk before doing — don't guess them.** Ties to welcoming-not-corporate + the "don't write bias into the UI" rule.
+- **Status:** ✅ Done (2026-07-02) — stripped marketing fluff from header, LoRA→Checkpoint banner, and resize info box. Functional/no-nonsense tone throughout.
+
+**Issue MG-14: LoRA → Checkpoint bake for Anima (DiT)** *(feature request — 2026-06-29)*
+- **Problem:** MG-9's bake path covers SD/SDXL only (`lora_service.merge_lora_to_checkpoint` is gated to `sd`/`sdxl`). Anima is a DiT (loaded via `UNETLoader`, with a separate Qwen text encoder + VAE), so there's no path to bake an Anima LoRA into a standalone diffusion-model checkpoint.
+- **Backend status (verified in source 2026-06-29):** the merge engine already exists in the vendored backend — this is an *expose-existing-capability* job like MG-9, not new math, and needs no clean-room port or external tool (it's upstream's own Anima code, Apache-2):
+  - `networks/lora_anima.py` → `LoRAInfModule.merge_to` (~L150): per-module bake, `weight += multiplier * (up @ down) * scale` (linear + conv variants), written back in-place.
+  - `networks/lora_anima.py` → `LoRANetwork.merge_to(text_encoders, unet, weights_sd)` (~L603): bakes a whole LoRA into the loaded model in-place, routing `lora_unet_*`→DiT / `lora_te_*`→TE.
+  - `networks/lora_anima.py` → `create_network_from_weights` (~L342): builds the network sized from the LoRA file.
+  - The only genuinely new code is the write-out: `save_weights` saves the LoRA, not the baked base, so the merged checkpoint must be saved from the model's own `state_dict`.
+- **Fix (4 steps):**
+  1. Read `load_dit_model` (`anima_minimal_inference.py:221`) + `create_network_from_weights` (`lora_anima.py:342-378`) bodies to lock exact args.
+  2. Add `custom/anima_merge_lora.py`: load DiT → `create_network_from_weights` → `network.merge_to` → `save_file(dit.state_dict())`. CLI `--base --models --ratios --save_to`, mirroring `sdxl_merge_lora.py`.
+  3. Add an `anima` lane to `lora_service.merge_lora_to_checkpoint` (currently gated `sd`/`sdxl`), invoking the script via subprocess.
+  4. Test: bake a real Anima LoRA into the Anima base, confirm it loads in ComfyUI `UNETLoader`.
+- **Output:** save in the base's own key format so the result loads wherever the base did (no key conversion).
+- **UI:** surface as a tab in the existing tabbed-card merge UI (`frontend/app/utilities/page.tsx`), LoRA → Checkpoint with model-type Anima.
+- **Status:** 🔧 Built (2026-07-02) — `custom/anima_merge_lora.py` (load DiT → `create_network_from_weights` → `network.merge_to` → `save_anima_model` for DiT + separate TE save). Wired into `lora_service.merge_lora_to_checkpoint` as `anima` lane. API model accepts `"anima"` + `text_encoder_path`. Frontend LoRAToCheckpointTab shows 3-way arch toggle (SD1.5 / SDXL / Anima) with TE path input when Anima selected. **Needs a real GPU run.**
+
+### 3.3 SuperMerger-lite Vision *(captured 2026-05-30)*
+
+North star: a merge experience inspired by A1111 **SuperMerger** + the batteriesincluded merger, scoped to what a training tool can do safely. Guiding rule from Dusk: **"mix the best of proven tools, borrow presets that already work, never invent untested merge math."** Homegrown merge algorithms silently corrupt models — only wire proven paths.
+
+**Decided scope:**
+- ✅ **Presets-first block weights.** Ship named block presets (GRAD_V/FLAT/COSINE-style) as the entry point. Full 26-block manual entry is an opt-in *Advanced* mode added later. Easy first, difficult later. (Dusk personally uses presets; power users will want full manual eventually.)
+- ✅ **First slice = MG-9** (bake LoRA → checkpoint). Backend ready.
+- ✅ **Then MG-10** block-weight LoRA merge (presets), backend ready via `--lbws`.
+- ❌ **Out, permanently:** merge-in-RAM and live gen/test (Dusk finds it confusing; also would need a ComfyUI bridge). Do not build.
+- ❌ **XY/grid ratio plots** — out (needs a gen pipeline). Future only, would pair with a ComfyUI bridge.
+- ❌ **SD3 (MG-5)** — **perma-deferred** (SD3 **deprecated per Stability AI**; also deprecated on Civitai + licensing uncertainty). No SD3 work unless a user explicitly asks. Don't rip out existing SD3/SD3.5 enum entries — just no new investment.
+
+**Preset/merge-mode references (borrow proven values from these, don't reinvent):**
+
+*Tier 1 — canonical preset sources (lift preset definitions from here):*
+- `bbc-mc/sdweb-merge-block-weighted-gui` — **the canonical 25-block MBW GUI.** Provides all the named presets: GRAD_V, GRAD_A, FLAT, WRAP, MID12_50, OUT07/12, RING, SMOOTHSTEP, COSINE, cubic Hermite. `base_alpha` controls TE/VAE separately from UNet. 25 comma-separated values input. **Primary source for preset arrays.**
+- `Faildes/Chattiori-Model-Merger` — CLI merger, ships a ready-made **`mbwpresets_master.txt`** (readable preset dictionary). 24+ modes (WS/SIG/GEO/MAX, Add/Smooth-Add/Multiply/Similarity/Train Difference, Triple/Tensor Sum, Sum Twice, DARE, Orthogonalized Delta, Sparse Top-k, cosine structure modes). 19/25-length block weights + elemental syntax. CPU-default, supports Flux. **Architecturally closest to how we call Kohya scripts (CLI/subprocess).**
+
+*Tier 1.5 — Anima-relevant:*
+- `kiygskr/sd-webui-supermerger-forgeneo-anima` — SuperMerger fork with **Anima + ForgeNeo support** (relevant to our Anima work). Caveat per its README: changes mostly authored by Codex, correctness unverified — reference only, don't trust blindly.
+
+*Tier 2 — architecture / mode references:*
+- `Ktiseos-Nyx/sdwebui-batteriesincluded-merger` — Dusk's own fork. 15 merge modes (Weight-Sum, Triple/Quad Sum, Sum Twice, Add/Multiply/Train Difference, DARE Power-up, Extract, interpolation variants), per-block weights, regex layer filtering, YAML weight editor.
+- `silveroxides/sd-webui-untitledmerger` — fork of groinge's merger; roadmap includes "block weights reformatted for SuperMerger preset compatibility." Calc reuse for fast merges. References sd-webui-supermerger, safetensors-merge-supermario, MergeLM.
+- `wkpark/sd-webui-model-mixer` — modern; sequential merge of up to 5 models, block-level rebasin, LoRA/LyCORIS↔checkpoint, no mandatory save. Good architecture model.
+- `ddPn08/maji-merger` — JSON per-key alpha + longest-key-match targeting. Pattern reference for a future Advanced/elemental mode (early repo, ~2 commits).
+
+*Parked — out of agreed scope (need a generation/scoring pipeline; revisit only with a ComfyUI bridge):*
+- `s1dlx/sd-webui-bayesian-merger` — auto-tunes the 26 block params + base_alpha by generating & scoring images (Bayesian optimization). Same category as the cut live-gen/XY features. Future-only.
+- `ashen-sensored/stable-diffusion-webui-vae-merger` — VAE-only merging (up to 3 VAEs, per-key alpha). Self-described experimental. Possible niche side-feature someday, not core.
+
+- ⚠️ Several references are **AGPL-3.0** — reimplementing preset *values*/arrays is fine; copying source needs license care. (`bbc-mc`'s preset arrays and Chattiori's `mbwpresets_master.txt` are the safest lifts as data, not code.)
+- ⚠️ **Confirmed 2026-06-23:** SuperMerger is **AGPL-3.0**, this repo is **MIT** → **clean-room reimplementation only** (see MG-11); never paste their source. Dusk is open to relicensing to (A)GPL *eventually* if enough copyleft deps accumulate — at which point direct source ports would become possible, but that's a deliberate future decision, not now.
+- *(A third repo — a fork of Dusk's batteriesincluded-merger with extra presets — was sought but not located.)*
+
+**Note:** none of the §3.2 backend findings have been *run* — all "backend ready" claims are verified-in-source only. First implementation step is a manual smoke test of `merge_to_sd_model` and `--lbws` before building UI on top.
 
 > **Note (2026-05-28):** the merge-tool fixes in commit `80144fd` (paths, `size_formatted`, dirs) are **not yet verified** — needs a fetch-restart + manual run before MG items are re-audited as done.
 
@@ -259,30 +359,57 @@ LoRA training pipeline is solid (~99% functional). Audit performed on:
 - **Location:** `services/trainers/kohya_toml.py:110`
 - **Problem:** `dataset["enable_bucket"] = True # Force bucketing enabled` - hard-coded, ignores `self.config.enable_bucket`. Users can't disable bucketing even if they want to (e.g., for fixed-resolution datasets).
 - **Fix:** Replace with `dataset["enable_bucket"] = self.config.enable_bucket`
+- **Status:** ✅ **Done — verified in code 2026-05-30.** `kohya_toml.py:111` now reads `dataset["enable_bucket"] = self.config.enable_bucket`; the old hardcode survives only as a commented line (95) in the `general` block.
 
 **Issue LT-3: network_train_unet_only added in checkpoint mode**
 - **Severity:** Medium
 - **Location:** `services/trainers/kohya_toml.py:346`
 - **Problem:** `network_train_unet_only` is added to args unconditionally in `_get_training_arguments()`, but it's a LoRA-only parameter. For checkpoint/fine-tune training (`fine_tune.py`, `sdxl_train.py`, etc.) this argument is invalid and may cause Kohya to error out or warn.
 - **Fix:** Wrap in `if self.config.training_mode != TrainingMode.CHECKPOINT:` like the network args section already does at line 184.
+- **Status:** ✅ **Done — verified in code 2026-05-30.** `kohya_toml.py:384` now reads `if self.config.training_mode != TrainingMode.CHECKPOINT and self.config.network_train_unet_only:` — properly guarded against checkpoint mode.
 
 **Issue LT-4: "Full" LoRA type semantic confusion**
 - **Severity:** Low (UX/conceptual)
 - **Location:** `services/models/training.py:36`, `services/trainers/kohya_toml.py:270-272`
 - **Problem:** `LoRAType.FULL = "Full"` is exposed as a LoRA algorithm option (mapped to `lycoris.kohya` with `algo=full`), but "Full" means native fine-tuning (DreamBooth) which conceptually belongs in checkpoint training mode. Users selecting `training_mode=lora` + `lora_type=Full` get an unusual config that may conflict with `network_train_unet_only=True`.
-- **Fix:** Either (a) auto-switch to checkpoint mode when Full is selected, (b) add validation warning, or (c) document clearly that Full is a LyCORIS algorithm distinct from `training_mode=checkpoint`.
+- **Fix:** ~~(a) auto-switch to checkpoint mode~~ (rejected — there is **no** training-mode toggle on the LoRA tab; checkpoint training is a separate page `/checkpoint-training`, and Dusk confirms there should NOT be a checkpoint switch on the LoRA tab). ~~(b) add validation warning~~ (rejected — bias, see LT-5). **Decision (Dusk, 2026-05-30): (c) relabel for clarity — label change only, keep `algo=full` available.**
+- **Status:** ✅ **Done — verified (tsc clean) 2026-06-06.** `LoRAStructureCard.tsx` `Full` description (line ~49) and `TYPE_HINTS.Full` (line ~55) rewritten: now "Full-rank LyCORIS network (algo=full) … still outputs a LoRA-format file — NOT a standalone checkpoint … For native checkpoint fine-tuning, use the Checkpoint Training page." No more "DreamBooth-style" checkpoint misread; `algo=full` still available.
+- **Bonus (LT-5 applied to existing hints):** while in this file, pulled the **value-range nudges** from `TYPE_HINTS` — `IA3` ("requires 5e-3–1e-2 LR") and `DyLoRA` ("rank 64+") removed entirely; `Diag-OFT`/`BOFT` **trimmed** to keep the genuine disambiguation ("orthogonal — different from LoRA") and drop the "keep rank 4–16" nudge. Kept the disambiguation/behavioural-fact hints (`Full`, `TLoRA`). The IA3 hint was verified to be half-true lore (not in `lycoris/modules/ia3.py`, contradicted by `lora_ia3-sd15.json` LR 1.0 + Prodigy) — see CLAUDE.md "Empirical Lore — Interrogate It."
 
 **Issue LT-5: No LyCORIS algorithm-specific validation**
 - **Severity:** Low (UX)
 - **Location:** `api/routes/training.py:33-253`
 - **Problem:** No validation warns users about algorithm-specific learning rate ranges (e.g., IA3 needs 5e-3 to 1e-2, much higher than standard LoRA), or about unused parameters (e.g., `conv_dim`/`conv_alpha` only apply to LoCon/LoHa, `factor` only to LoKR).
-- **Fix:** Add per-algorithm warnings in `validate_training_config_extended()`.
+- **Status:** 🚫 **WON'T DO in the UI — confirmed (Dusk, 2026-06-06).** Re-examined: not just LR-range *warnings* but **even purely informational UI hints** are out. Two parts considered:
+  - **(a) per-algorithm LR scale** (IA3 ~5e-3–1e-2, etc.) — algorithm-intrinsic *fact*, not opinion, so it isn't "bias" in the strict sense. **But** as a UI hint it still sends the wrong signal: a "typical: X" next to a field reads as a quiet *should* and nudges behavior — bias-by-suggestion. Out.
+  - **(b) no-op-parameter hints** (`conv_dim`/`conv_alpha` only for LoCon/LoHa; `factor` only for LoKR) — knowable from LyCORIS source, but same verdict: more UI hints clutter and confuse more than they help.
+- **Where this info SHOULD live:** the project's **own docs/wiki** — reference material users go *find*, not in-form nudges. Deferred to the documentation re-jig (no date). Principle: a *few* good UI hints help; layering on more is net-negative. Generalizes [[feedback-stop-forcing-bias]] — the form must not editorialize, even with true facts.
 
 **Issue LT-6: network_module field is misleading**
 - **Severity:** Low (API clarity)
 - **Location:** `services/models/training.py:197-199`
 - **Problem:** `network_module` is a writable field with default `"networks.lora"` but its docstring says "derived from lora_type". The TOML generator always overrides it via `_get_network_config()`. API users who set this field will see it silently ignored.
-- **Fix:** Either remove the field, make it computed/read-only, or actually respect user overrides.
+- **Status:** ✅ **Resolved via documentation — verified in code 2026-05-30.** `training.py:210-212` now carries an explicit comment: *"network_module is always derived from lora_type… This default is for serialization only; the user-set value is not used in TOML generation."* No longer a silent trap. (Field is still writable-but-ignored by design; could be made read-only later if desired, but no longer misleading.)
+
+**Issue LT-7: Conventional-wisdom value caps & precision limits baked into training UI/validation** *(Dusk, 2026-06-05)*
+- **Severity:** Medium (violates the project's own bleeding-edge rule; blocks legitimate expert values)
+- **Background:** A pile of academic/"safe-range" guardrails (the Furkan-flavored kind that leaked in from LLM training data, **not** added by us deliberately) are baked into the training form and Zod schema. They directly contradict `CLAUDE.md` → *"Bleeding Edge — Non-Standard Parameters Are Intentional"* (no artificial min/max/step on training params; use `step="any"`; only validate hard errors). This is the same class already rejected in **LT-5** — generalize that decision across the whole form.
+- **Symptom Dusk hit (2026-06-05):** on the **Advanced tab**, the **noise** fields can't take precise values like `.357` — they snap because of `step={0.01}`. Confirmed: `AdvancedCard.tsx` `noise_offset` (line 75, `step={0.01}`), and siblings `adaptive_noise_scale` (86) and `multires_noise_discount` (124) same. Separately, **Min SNR gamma won't go above 20** (`min_snr_gamma .max(20)`) — the arbitrary ceiling.
+- **Offenders — hard value caps (`frontend/lib/validation.ts`):**
+  - `min_snr_gamma` `.max(20)` (the "can't burn it" cap) — line ~292
+  - `unet_lr` / `text_encoder_lr` `.max(1, 'seems too high')` — ~189-197
+  - `network_dim` / `network_alpha` `.max(1024)` **and `network_alpha` `.int()`** (rejects fractional alpha, which is legitimate) — ~214-216
+  - `lr_power` `.max(10)`, `weight_decay` `.max(1)`, `max_grad_norm` `.max(10)`, `clip_skip` `.max(12)`, `guidance_scale` `.max(30)`, `lr_scheduler_number` `.max(100)`, `network_dropout`/`rank_dropout`/`module_dropout` `.max(1)`, etc.
+- **Offenders — precision-limiting UI props:** ~137 `min=`/`max=`/`step=` props across the 9 cards in `frontend/components/training/cards/` (AdvancedCard 56, LoRAStructureCard 18, LearningRateCard 13, CaptionCard 12, DatasetCard 11, AugmentationCard 9, OptimizerCard 8, SavingCard 6, MemoryCard 4). The `step={0.01}`/`step={0.1}` ones are what block 3-decimal precision.
+- **Offenders — value-judgment nags (remove):** `frontend/components/training/cards/DatasetCard.tsx:103` — *"⚠️ This batch size may exceed your VRAM! Consider reducing to 1-2."* That's conventional-wisdom nagging, not a hard error.
+- **NOT bias — keep these:** destructive-action confirms are safety, not bias — `TrainingMonitor.tsx:298` (stop training), `PresetManager.tsx:337` (delete preset), `TrainingDefaults.tsx:48` (reset defaults). Leave them (though the raw `confirm()` calls should become shadcn `AlertDialog` per the a11y rule — separate concern). The `(recommended)` labels in dropdowns are soft informational defaults, not blocks — lower priority, audit only if they read as pushy.
+- **Fix:** (1) In `validation.ts`, drop the value-range `.max()`/`.min()` opinions on training params; keep only structural/required checks (non-empty paths, correct type, divisible-by-64 resolution, enum membership). Remove `.int()` from `network_alpha`. (2) In the cards, switch numeric training fields to `step="any"` and remove artificial `max`/`min` (keep `min={0}`/`min={1}` only where a negative/zero is genuinely structurally invalid). (3) Delete the DatasetCard VRAM batch-size warning.
+- **Cross-ref:** LT-5 (same anti-bias precedent, already accepted), `CLAUDE.md` Bleeding Edge section, `5.0.95` (validation single-source-of-truth — coordinate so the enum schemas aren't disturbed while loosening the numeric ones).
+- **Status:** ✅ **Done — verified (tsc clean) 2026-06-06.** Three parts landed:
+  1. **`validation.ts`** — stripped every conventional-range `.max()` ceiling on training params (min_snr_gamma, unet/text_encoder_lr, network_dim/alpha, conv_dim/alpha, dropouts, weight_decay, max_grad_norm, clip_skip, guidance_scale, lr_power, lr_scheduler_number, repeats/epochs/batch/grad_accum, bucket/token caps, etc.); removed `.int()` from `network_alpha`/`conv_alpha` (fractional alpha is legit); made `noise_offset`/`adaptive_noise_scale` bare numbers (negatives are legit). Kept only structural floors (≥1 epoch/batch/repeat, positive LR, divisible-by-64 resolution), enum membership, and required paths.
+  2. **`FormFields.tsx` `NumberFormField`** (single choke point for all ~138 numeric fields) — decimal `step` props (0.01/0.1/0.00001) that forced 1–2 decimal places are now upgraded to `step="any"` for full precision (fixes the `.357` snap); whole-number structural steps ≥1 (e.g. resolution's `step={64}`) are still honored; `max` is accepted-but-ignored (documented).
+  3. **`DatasetCard.tsx`** — deleted the "⚠️ batch size may exceed your VRAM, reduce to 1-2" nag (kept the neutral VRAM estimate in the field description).
+- **Follow-up (cosmetic, low priority):** the now-inert `max={…}` props still sit on ~138 call sites (ignored by the component, documented). A mechanical sweep to delete them would tidy the cards but changes no behavior.
 
 ### 4.3 Training Dataset Features (backlog)
 
@@ -296,6 +423,18 @@ These are new capabilities (not bugs) for how datasets feed a LoRA run.
 - **Priority:** Medium (Beta)
 - Support multiple subfolders within one dataset, each with its **own activation/trigger tag and `num_repeats`**, mapping to Kohya's multi-`subset` dataset config. Touches three layers: the dataset uploader/structure (create + manage subfolders), the TOML generator (emit one `[[datasets.subsets]]` per folder with its `class_tokens`/caption + repeats), and the training UI (per-folder trigger + repeats inputs). Larger than it looks because it changes the dataset → TOML shape, not just one field.
 
+**LT-FEAT-3: Progress bar for ZIP uploads** *(Dusk, 2026-06-28)*
+- **Priority:** Low–Medium (Beta polish)
+- Image uploads show a progress bar; ZIP uploads don't. Mirror the image uploader's XHR `upload.onprogress` for the **upload** phase (% of bytes sent). The server-side **extraction** phase (`dataset_service.upload_zip`) only returns on completion, so after upload hits 100% show an indeterminate "Extracting…" state rather than faking extraction %. (Real per-file extraction progress would need the service to stream events — out of scope for v1.) Pairs with the existing image-upload progress UI.
+
+**LT-FEAT-4: Preserve captions (and optionally latent caches) from an uploaded ZIP** *(Dusk, 2026-06-28)*
+- **Priority:** Medium (Beta)
+- Today `dataset_service.upload_zip` extracts **images only** — any `.txt` captions (and `.npz` caches) in the archive are silently skipped (`"Not an image file, skipped"`, dataset_service.py:339-340), so a user who zips a captioned dataset loses their captions **without warning**. Add an opt-in prompt on upload: *"This ZIP includes N caption files — import them too?"*
+  - **`.txt` captions:** the common, wanted case → offer, default **on**. Pair to images by stem.
+  - **`.npz` latent/TE caches:** offer separately, default **off**, with a note they're model/resolution/sd-scripts-version specific — stale caches can silently corrupt a run.
+- **Security: not a concern in this flow (verified 2026-06-28).** The extractor flattens every entry to its basename (`dataset_path / file_path.name`, dataset_service.py:343), so there's no Zip Slip / path-traversal vector for any file type, captions included. The backend only streams bytes to disk — it never `np.load`s uploaded files, so the one real `.npz` danger (`numpy.load(allow_pickle=True)` → code execution) doesn't apply (sd-scripts reads latent `.npz` with `allow_pickle=False` at train time). Adding `.txt`/`.npz` to the allowlist is just "write more bytes to a validated dir."
+- **Real gotcha — collision rename breaks pairing:** the current dedup renames a colliding image to `name_1.jpg` (lines 344-350) but would **not** rename its sibling `.txt`. If captions are imported, the rename must move the image **and** its `.txt` together (by stem) or caption→image pairing silently breaks.
+
 ### 4.4 torchao Optional Dependency (vendored optimizers)
 
 **Priority:** Low (decision needed)
@@ -306,236 +445,78 @@ Verified: `orthograd`/`torchao` appear **only** in the vendored backend — noth
 
 **Decision:** add `torchao` (enables the low-bit/torchao optimizers + orthograd auto-detect, silences the warning) vs. leave it out (heavy, torch-version-coupled dep that CAME doesn't need). If added: pin to our torch version and test on Windows + VastAI + RunPod first. This is ours to own — the vendored backend carries **our own patches** (applied ~Mar–May 2026 after pulled upstream updates broke things), so don't wait on upstream.
 
+**Code findings (verified in `library/train_util.py:prepare_optimizer`, ~line 7589–7650, on 2026-05-30):**
+- **orthograd does NOT depend on torchao.** `apply_orthograd` is detected (line 7646) and applied at the **network/param level** via `network.prepare_optimizer_params(..., apply_orthograd=...)`; the implementation `_paper_orthograd` is pure torch (imported from `LoraEasyCustomOptimizer/.utils`). The torchao ImportError only makes `inspect.signature(optimizer_class.__init__)` fail → fallback to `{}` (line 7642–7644) → can't auto-detect an orthograd *default* from the signature. Explicit `use_orthograd=True` still applies. So **orthograd is a red herring for the torchao decision.**
+- **What torchao actually unlocks: `state_storage_dtype`** (line 7648+) — low-bit/quantized **optimizer-state storage** (8/4-bit, fp8). This is precisely the `state_storage_dtype=bfloat16 state_storage_device=cuda` that 4070-class **CAME** users need for VRAM (cross-ref the Anima §7.2 note + PR-1). Without torchao the low_bit_optim chain (`subclass_8bit/4bit/fp8`) can't import.
+- **Why torchao surfaces — NOT a CAME dependency (clarified 2026-06-06):** `came.py` imports only torch + pytorch_optimizer; CAME is kozistr-based (`came.py:1-3`) + neggles stochastic rounding. torchao gets pulled in purely because the vendored `LoraEasyCustomOptimizer` collection's **eager `__init__`** imports its whole roster, including AO low-bit optimizers (copied from pytorch/ao) that hard-import torchao. That eager `__init__` is **67372a's fork's** (`refresh` branch); derrian's *original* had an **empty `__init__`** and never pulled torchao. So it's not derrian's packaging, not CAME — it's the fork's roster.
+- **Per research (2026-06-06): the upstream we vendor has already moved on.** 67372a migrated installs pip→**uv** and now installs torchao via `--index-strategy unsafe-best-match` (2026-05-30) — resolving it against the installed torch instead of a hard pin, neutralizing the version-coupling risk. Our vendored snapshot is simply **behind**; the `No module named 'torchao'` warning is a *staleness artifact*, not a real problem (training proceeds; it's caught at `train_util.py:7639-7643` during orthograd-default introspection).
+- **DECISION (Dusk, 2026-06-06) — SUPERSEDED 2026-06-22 (torchao WAS added standalone as `torchao==0.7.0`; see Status below): do NOT add torchao standalone / by hand.** Chasing torchao via more hand-vendoring is the exact "chase vendored updates by hand" pain we're trying to escape. **The right answer is the submodule strategy → see Section 20.** Submodule the backend and we inherit torchao (and everything else 67372a ships) naturally, far more often, **and align better with GPL-3.0 licensing** (reference upstream rather than copy GPL source into our tree). torchao's fate is folded into the §20 backend-delivery decision — resolved there, not here. The earlier "add it for CAME VRAM" lean is **withdrawn** (it also fought the CAME bf16-state NaN guard at `kohya_toml.py:515`).
+- **Status:** ✅ **ADDED standalone (2026-06-22) as `torchao==0.7.0` in `requirements_base.txt`.** Supersedes the 2026-06-06 "won't add / fold into §20" decision: the submodule (§20) is now PARKED, and patch-update is the chosen delivery method (§20 revised 2026-06-22), so adding torchao directly IS the sanctioned path — not the hand-chasing it was once feared to be. **Why 0.7.0 specifically:** earliest version exposing both `torchao.utils.TorchAOBaseTensor` + `get_available_devices` (both on the eager import path via `adam.py → low_bit_optim → cpu_offload`); hard-pinned because unpinned grabs latest (0.17+, needs torch≥2.6, breaks on our torch 2.4.1 base = the "too high" install failure). **Cross-platform verified:** Linux=manylinux wheel, Windows/Mac=`py3-none-any` pure-Python wheel; torch-2.4.1-safe because its `_C` load is `try/except`'d and we use only the pure-Python `torchao.utils`. Zero torch dependency → never drags/pins torch. **Usage:** `state_storage_dtype`/`state_storage_device` via the freeform `optimizer_args` field (not auto-injected — CAME bf16-state NaN guard at `kohya_toml.py:515` stands).
+
+### 4.5 Custom Optimizer Audit — Wiring Solid, Pins Drift *(Dusk, 2026-06-05)*
+
+Full trace of the schedule-free / CAME / custom-optimizer chain on 2026-06-05. **Headline: the wiring is complete and correct end-to-end; the only real gap is dependency-pin hygiene.**
+
+**✅ Verified solid (no action):**
+- **Schedule-free fully wired:** frontend dropdown → `validation.ts` `OPTIMIZER_VALUES` → backend `OptimizerType` (`services/models/training.py:68-70`) → `CUSTOM_OPTIMIZER_PATHS` (`services/trainers/kohya_toml.py:236-238`) → vendored native support (`train_util.py:5454-5468`). (Supersedes the stale "schedule-free backlogged, needs enum/path entries" note — that work is done.)
+- **The SF saved-LoRA gotcha is handled:** native schedule-free optimizers must switch to `.eval()` before save/sample or the saved weights are the wrong (train-mode) iterate. `train_network.py` calls `optimizer_eval_fn()` before every save/sample (lines 1880, 2080, 2217, 2264) and `optimizer_train_fn()` after (1889, 2132, 2248). Same pattern in `flux_train.py` / `anima_train.py`. SDXL/SD15 SF training produces correct weights.
+- **CAME NaN guard present:** `kohya_toml.py:449-450` deliberately does not inject `state_storage_dtype/device` for CAME (bf16 state → NaN; fp32 default is correct). See §4.4 tension note above.
+
+**⚠️ LT-OPT-1: Dependency pins disagree across three requirements files**
+- **Severity:** Low–Medium (reproducibility / CLAUDE.md "pin versions" rule)
+- **Background:** the installer editable-installs the vendored dirs (`installer.py:606-612`) and installs `requirements_base.txt` — so **`requirements_base.txt` is the file that actually sets versions**; the pins inside `sd_scripts/requirements.txt` and `lycoris/requirements-kohya.txt` are effectively decorative (the vendored backend was never a real submodule, so those loose `.txt` pins don't drive the install). CodeRabbit recently added pins (good) — finish making them consistent.
+- **Drift (effective = `requirements_base.txt`):**
+  - `came-pytorch` — **unpinned** in base; vendored says `~=0.1.3`. Pin base to `~=0.1.3`. (A breaking release would silently break installs.)
+  - `schedulefree` — base `==1.4`, vendored `~=1.4.1`; we install the *older* one than the code targets. Bump base to `~=1.4.1`.
+  - `pytorch_optimizer` — base/sd_scripts `3.10.0`, but `lycoris/requirements-kohya.txt` carries a **stale `==3.1.2` pin + comment** ("init_group abstract method added in 3.6.0") implying LyCORIS wanted `<3.6.0`. We run 3.10.0 and `sd_scripts` agrees, so the fork was presumably updated — but the stale pin/comment is a trap. Confirm LyCORIS runs clean on 3.10.0, then delete the stale pin/comment.
+- **Unconfirmed (1-line check):** assumed `pip install -e` ignores the vendored `.txt` pins (reads `setup.py`/`pyproject` `install_requires` instead). Confirm LyCORIS's `setup.py` doesn't `-r requirements-kohya.txt` before relying on "base wins."
+- **Status:** ✅ **Done — verified 2026-06-06.** `requirements_base.txt`: `came-pytorch` → `came-pytorch~=0.1.3` (was unpinned), `schedulefree==1.4` → `schedulefree~=1.4.1` (matches vendored). **Stale LyCORIS pin resolved by confirmation, not edit:** `lycoris/setup.py:13` declares `install_requires=["torch", "einops", "toml", "tqdm"]` and does NOT read `requirements-kohya.txt`, so that file's `pytorch_optimizer==3.1.2` pin is **decorative** (pip never sees it on editable install) — "base wins" confirmed. Left the vendored file untouched (it's overwritten on every upstream sync; editing it is pointless + against the don't-touch-vendored rule). `pytorch_optimizer==3.10.0` in base stands.
+
+**🟡 LT-OPT-2: Schedule-free scheduler default (optional, low priority)**
+- Schedule-free optimizers self-schedule and want a `constant` LR scheduler; the frontend default is `cosine_with_restarts` with no smart default. **Per the bleeding-edge/anti-bias rule (LT-7, LT-5): a smart *default* when an SF optimizer is selected is acceptable; a *warning/block* is not.** Also note `flux_train_network.md:580` — validation loss is unsupported with SF optimizers, so that UI combo silently no-ops. Low priority; smart-default only, never a nag.
+
+**🟢 LT-OPT-3: Auto-populate optimizer dropdown from a single source (low priority, Dusk 2026-06-22)**
+- Today adding an optimizer is a TWO-file edit: `OPTIMIZER_VALUES` (`validation.ts`) for the schema/type, AND the hardcoded `{ value, label, description }` list in `OptimizerCard.tsx` (constrained via `satisfies` but not generated). The "only change needed" comment was doc-rot — fixed 2026-06-22.
+- **Refactor:** make `OPTIMIZER_VALUES` an array of `{ value, label, description }` objects; derive the Zod enum (`z.enum(values.map(v => v.value))`) AND the dropdown from it. Not free because the labels/descriptions carry real UX value and must relocate, not vanish. Clean afternoon job, behind trainer correctness.
+
+**🟡 LT-OPT-4: Wire the 3 deferred schedule-free/wrapper optimizers (Dusk 2026-06-22)**
+- `AdamWScheduleFreePlus`, `NorMuonScheduleFree`, `SODAWrapper` were pulled from 67372a + staged in-tree (commit `f479989`) but NOT exposed. (`AMUSE`/`MODA`/`SODA` — standard — shipped exposed in `2e7a156`.)
+- **The dispatch problem:** kohya detects schedule-free by name → routes to the external `schedulefree` package (`train_util.py:5454`); `NorMuonScheduleFree`'s name would misroute, and SF opts need the `optimizer_eval_fn()`/`optimizer_train_fn()` train/eval toggle that native SF gets (see §4.5 line re: `train_network.py` save/sample eval calls) — custom-path resolution may not provide it → saved weights would be the wrong train-mode iterate. Verify/handle that toggle for custom-path SF before exposing, or they train silently wrong. `SODAWrapper` purpose still unconfirmed (possibly SF too).
+
 ---
 
 ## 5. Miscellaneous Bug Fixes for Beta
 
 ### 5.0 WandB / Logging UI Missing Entirely
 
-**Issue UI-1: WandB and logging fields have no UI in the training form**
-- **Severity:** Medium (feature exists in backend but is invisible to users)
-- **Location:** `frontend/components/training/cards/*.tsx` (none render these fields)
-- **Affected fields (all defined in schema, validation, defaults, presets, but no input UI):**
-  - `wandb_key` (`hooks/useTrainingForm.ts:167`, `lib/validation.ts:138`)
-  - `wandb_run_name` (`hooks/useTrainingForm.ts:175`, `lib/validation.ts:371`)
-  - `log_with` (tensorboard/wandb backend selector)
-  - `log_tracker_name`
-  - `log_tracker_config`
-  - `log_prefix`
-  - `logging_dir`
-- **Problem:** The fields exist throughout the entire data layer (Zod schema, defaults, types, preset save/load, frontend API client, backend Pydantic model) but no training tab component actually renders an input for them. Users have no way to configure W&B or even basic tensorboard logging from the UI - they'd have to manually edit a saved preset JSON to set these values. This is also why issue LT-1 (`wandb_key` not being read by backend) hasn't been noticed - nobody can set it in the first place.
-- **Fix:** Add a "Logging" section to one of the existing cards (probably `SavingCard.tsx` or a new `LoggingCard.tsx`):
-  - Dropdown: `log_with` (None / TensorBoard / WandB)
-  - Text input: `logging_dir`
-  - Text input: `log_prefix`
-  - When `log_with === "wandb"`, conditionally show:
-    - Password input: `wandb_key` (with link to https://wandb.ai/authorize)
-    - Text input: `wandb_run_name`
-    - Text input: `log_tracker_name` (project name)
-- **Related:** Must be paired with LT-1 fix (wire wandb_key into the trainer env vars), otherwise the UI will exist but still won't actually log to W&B.
+**Issue UI-1: WandB and logging fields have no UI in the training form** — ✅ **Done 2026-05-25**
+- **Status:** `LoggingCard.tsx` added; WandB/logging fields configurable in UI. Paired with LT-1 (wandb_key wired to env).
 
----
+### 5.0.5 Dashboard — Bulldoze + Rebuild
 
-### 5.0.5 Dashboard Redesign - Missing Pages and Generic Look
-
-**Issue UI-2: Dashboard incomplete and looks AI-generated**
-- **Severity:** Medium (discoverability + first impression)
+**Issue UI-2: Dashboard is a first-day, zero-context wrapper artifact** — ⏳ **Not started (later — ~2 months)**
+- **Severity:** Low (current dashboard is acceptable/cleaner now — just incomplete, not blocking)
 - **Location:** `frontend/app/dashboard/page.tsx`
-- **Problem:** The dashboard only links to 9 pages but the project has 14+ user-facing routes. The visual design is also a generic "9 cards in a grid" layout that feels boilerplate. The navbar at `frontend/components/blocks/navigation/navbar.tsx` already groups routes into proper categories - the dashboard should mirror that organization.
-
-**Pages currently on dashboard (9):**
-`/models`, `/files`, `/dataset`, `/training`, `/calculator`, `/utilities`, `/settings`, `/docs`, `/about`
-
-**Pages MISSING from dashboard:**
-- `/checkpoint-training` - distinct from LoRA training
-- `/dataset/auto-tag` - WD14/BLIP/GIT auto-tagging interface
-- `/dataset/tags` - tag editor with gallery
-- `/dataset-uppy` - alternate Uppy-based uploader
-- `/huggingface-upload` - HF upload page
-- `/changelog`
-- `/models/browse` - Civitai downloader
-
-**Visual design issues:**
-- Flat 3-column grid with no hierarchy or grouping
-- All cards look identical (same size, same layout) - no visual distinction between primary workflow vs settings
-- Random rainbow icon colors (`text-cyan-400`, `text-pink-400`, etc.) without semantic meaning
-- "Quick Start" section at the bottom is just a numbered list - could be a visual workflow diagram
-- No indication of what's currently in progress (active jobs, recent datasets, etc.)
-
-**Proposed redesign directions** (pick one or combine):
-
-1. **Workflow-grouped layout (matches navbar structure):**
-   - **Dataset Prep** section: Upload, Auto-Tag, Tag Editor, File Manager
-   - **Training** section: LoRA Training, Checkpoint Training, Calculator
-   - **Models** section: Download Models, Civitai Browser, HuggingFace Upload
-   - **Tools** section: Merge/Resize Utilities, Settings
-   - **Help** section: Docs, About, Changelog
-   - Each section has a header, then its cards. More scannable than 9 random tiles.
-
-2. **Workflow-driven hero section:**
-   - Top of page: large "Start Training Workflow" with numbered visual steps (Dataset → Tag → Configure → Train → Upload), each clickable
-   - Below: secondary cards for tools, settings, help
-   - Treats the dashboard as a launcher for the primary workflow rather than an undifferentiated link grid
-
-3. **Live status dashboard:**
-   - Top: "Active Jobs" widget (any running training/tagging jobs with progress)
-   - "Recent Datasets" widget (last 5 datasets, click to jump back in)
-   - "Recent Models" widget (last 5 trained LoRAs, with quick HF upload action)
-   - Below: traditional navigation cards
-   - Makes the dashboard feel "alive" rather than static
-
-4. **Sidebar nav + main content (most app-like):**
-   - Dashboard becomes a real "home page" with actionable widgets
-   - Persistent left sidebar replaces the navbar dropdown menus
-   - Less reliant on the dashboard for discoverability since the sidebar always shows everything
-
-**Recommended:** Combine #1 (workflow grouping) with a small version of #3 (active jobs widget at top). This is the lowest effort high-impact change - keeps the existing card pattern but groups them semantically and adds one "alive" element.
-
-**Queue compatibility note:** Design the Active Jobs widget to show 1-or-N jobs from day one (a list, not a single slot). The job queue system (Phase 1 Beta, Section 5.1) will slot in as a backend change — the widget won't need to be redesigned. If the widget only handles one job at launch, adding queue support later requires a UI rewrite. The contract is: widget takes `Job[]`, renders each with progress + cancel; today that array has one item, later it has many.
-
-**Components to use** (per `frontend/CLAUDE.md`):
-- `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` from shadcn
-- `Separator` between sections
-- `Badge` for status indicators on the active jobs widget
-- Existing semantic colors (`text-primary`, `text-muted-foreground`) instead of arbitrary rainbow
-
----
+- **Plan:** Don't patch — **rebuild from scratch.** Current dashboard predates real project context; incremental fixes aren't worth it.
+- **Rebuild requirements (carry forward):**
+  - Surface all real routes — currently missing: `/checkpoint-training`, `/dataset/auto-tag`, `/dataset/tags`, `/dataset-uppy`, `/huggingface-upload`, `/changelog`, `/models/browse`.
+  - If it includes an Active Jobs widget: take `Job[]` from day one (one job now, many once §5.1 queue lands) — single-slot = a UI rewrite later.
+- **Blocked by:** backend work finished + a database layer landing first. Sequence after those.
 
 ### 5.0.7 Listener/Request Cancellation Console Noise
 
-**Issue UI-3: "Listener cancelled" / AbortError messages on page navigation**
-- **Severity:** Low (mostly cosmetic, but masks real issues)
-- **Locations:**
-  - `frontend/lib/api.ts:121-188` - `pollJobLogs()`
-  - `frontend/components/training/TrainingMonitor.tsx:115-133` - polling interval + visibilitychange listener
-  - `frontend/components/DatasetUploader.tsx:231-232, 308-309` - upload AbortControllers (10min timeout)
-  - `frontend/app/models/browse/page.tsx:93-148` - in-flight request cancellation
-  - `frontend/hooks/useSettings.ts:80-81` - storage event listener
-- **Problem:** When users navigate between pages, several legitimate cleanup paths fire:
-  1. Polling intervals (`setInterval`/`setTimeout` recursion) get cleared
-  2. AbortControllers cancel in-flight fetch requests, throwing `AbortError`
-  3. `window`/`document` event listeners get removed
-  4. The `pollJobLogs()` function uses a `stopped` boolean flag instead of AbortController, so the fetch continues to completion before its result is discarded - wasteful but not buggy
-- **Why this is mostly fine:** All of these are CORRECT React cleanup behavior on unmount. The errors don't propagate to the UI. They're just console noise.
-- **Why it's worth fixing:**
-  1. Console noise hides REAL errors. Users can't tell signal vs noise.
-  2. **Subtle potential bug in `pollJobLogs`:** If a fetch errors out (network blip) right as the user navigates away, the `catch` block checks `stopped` BEFORE deciding to call `onError`, but there's a tiny race window. If `onError` fires on an unmounted component, React logs "Can't perform a state update on an unmounted component" - harmless but ugly.
-  3. The 10-minute upload timeout in `DatasetUploader.tsx` won't actually trigger normally, but if the page unmounts mid-upload the AbortError gets logged.
-
-**Fixes:**
-1. **Use AbortController in `pollJobLogs()`** instead of (or in addition to) the `stopped` flag:
-   ```typescript
-   const controller = new AbortController();
-   // In poll(): fetch(url, { signal: controller.signal })
-   // In stop(): controller.abort(); stopped = true;
-   ```
-   Then in the catch block, ignore `AbortError` explicitly:
-   ```typescript
-   catch (err) {
-     if (err.name === 'AbortError') return; // Expected, no-op
-     if (!stopped && onError) onError(err);
-   }
-   ```
-
-2. **Same pattern for `DatasetUploader.tsx`** - cancel uploads on unmount via existing AbortController
-
-3. **`TrainingMonitor.tsx` polling** - already correct, just verify the cleanup runs before any pending poll resolves
-
-4. **Optional: Add a global fetch wrapper** that silently swallows `AbortError` to prevent any future occurrences from leaking to the console
-
-**User-reported behavior:** "Listener things that cancel" appearing in console on page navigation. Not extension-based, page-based. Doesn't seem to cause UI issues but is concerning noise.
-
----
+**Issue UI-3: "Listener cancelled" / AbortError messages on page navigation** — ✅ **Done 2026-05-20**
+- **Status:** Resolved — AbortController refactor landed, errors caught and suppressed. Residual noise attributed to low-RAM thrashing (not reproduced on adequate RAM). Won't chase further.
 
 ### 5.0.8 Training Log Polling - Updates Feel Inconsistent
 
-**Issue UI-4: Training logs only update "when they feel like it"**
-- **Severity:** Medium (core monitoring UX)
-- **Locations:**
-  - `frontend/lib/api.ts:840-907` - `trainingAPI.pollLogs()`
-  - `frontend/components/training/TrainingMonitor.tsx:136-186` - log polling effect
-  - `frontend/components/training/TrainingMonitor.tsx:99-133` - status polling effect (for comparison)
-- **User-reported behavior:** "The training log section works in the training tabs page -- just that it doesn't tend to update as often it as it should as more of a 'I only poll when i feel like it'"
-- **Problem:** Several issues conspire to make log updates feel sporadic:
-  1. **Hardcoded 1000ms interval** at `api.ts:895` (`setTimeout(poll, 1000)`) - not configurable
-  2. **Sequential, not interval-based:** the next poll only schedules AFTER the previous fetch completes. If the backend is slow (e.g. 800ms response), effective polling rate becomes ~1.8s per cycle. If the backend stalls, polling stalls with it.
-  3. **No tab visibility check** in log polling - unlike the status polling (`TrainingMonitor.tsx:102` correctly checks `document.hidden`), the log poller in `api.ts:pollLogs` keeps polling when the tab is hidden. Browsers will then aggressively throttle background `setTimeout` calls (up to once per minute in Chrome), so when the user comes back to the tab, logs appear "frozen" until the next throttled poll fires.
-  4. **Backend log buffering:** Python subprocess stdout is line-buffered by default, but Kohya/accelerate may buffer further. Even if the frontend polls perfectly, logs may not appear in the backend's log file until a buffer flushes.
-  5. **Line-index pagination:** uses `?since=nextSince` - works fine, but if a poll fails partway through, lines can be missed (no retry of failed range)
-- **Why it "feels inconsistent":** combination of #2 (no fixed cadence) + #3 (background throttling) + #4 (backend buffer flushes) means logs arrive in unpredictable bursts rather than a steady stream.
-
-**Fixes (in order of impact):**
-
-1. **Add visibility-aware polling to `pollLogs`:**
-   ```typescript
-   const poll = async () => {
-     if (stopped) return;
-     if (typeof document !== 'undefined' && document.hidden) {
-       // Skip this poll, but reschedule so we resume when tab is focused
-       timeoutId = setTimeout(poll, 1000);
-       return;
-     }
-     // ... existing fetch logic
-   };
-   // Also wire up a visibilitychange listener to immediately poll on focus:
-   document.addEventListener('visibilitychange', () => {
-     if (!document.hidden && !stopped) poll();
-   });
-   ```
-
-2. **Use fixed-cadence polling instead of sequential:** Replace recursive `setTimeout` with `setInterval`, OR keep `setTimeout` but record poll start time and schedule next from that:
-   ```typescript
-   const start = Date.now();
-   await fetch(...);
-   const elapsed = Date.now() - start;
-   timeoutId = setTimeout(poll, Math.max(0, 1000 - elapsed));
-   ```
-   This guarantees ~1s cadence even if a poll takes 800ms.
-
-3. **Make poll interval configurable** - accept an optional `intervalMs` parameter so the training monitor can poll faster (e.g. 500ms) for active jobs and slow down (5s) for queued ones.
-
-4. **Backend log flushing:** Ensure the Kohya subprocess wrapper in `services/trainers/kohya.py` runs Python with `-u` (unbuffered) and/or sets `PYTHONUNBUFFERED=1` in the env. This is the single biggest "why don't I see logs?" cause.
-
-5. **Long-term: switch to Server-Sent Events (SSE):** A `GET /api/training/logs/{jobId}/stream` endpoint that streams new lines as they arrive would eliminate polling entirely. Works through Caddy proxies (unlike WebSockets per CT-7) since SSE is just chunked HTTP. The client side would use `EventSource` with automatic reconnect.
-
-6. **Combine UI-4 fix with UI-3 fix:** The AbortController refactor in UI-3 should land in the same PR, since both touch `pollLogs`.
-
-**Acceptance criteria:**
-- New log lines appear within 1-1.5s of being written (when tab is focused)
-- Polling pauses when tab hidden, resumes immediately on focus
-- No "frozen" log feeling after returning from another tab
-- Console shows no AbortError noise on page navigation (combined with UI-3)
-
----
+**Issue UI-4: Training logs only update "when they feel like it"** — ✅ **Done 2026-04-30**
+- **Status:** Fixed-cadence + visibility-aware polling implemented in `api.ts:pollLogs()`. Backend uses Python `-u` flag. Residual sporadicity = backend emit cadence (Kohya/accelerate buffering), not poller. Re-check only if regresses.
 
 ### 5.0.9 Training Monitor — tqdm ETA and Step Progress Parsing
 
-**Issue UI-5: No ETA, step count, or percentage in the training monitor**
-- **Severity:** Medium (long-term imperative — fine for short runs, painful for multi-hour ones)
-- **Location:** `frontend/components/training/TrainingMonitor.tsx` + log polling
-- **User-reported:** Epoch numbers show but ETA/step progress don't. Fine for a 32-image 4090 run, a problem for anything longer.
-
-**Why it's missing:** Kohya outputs timing via tqdm progress bars in stdout. A typical line looks like:
-
-```
-steps: 100%|██████████| 320/320 [08:23<00:00,  1.57s/it]
-```
-
-The `[elapsed<remaining, it/s]` is all the data we need but we currently pass log lines through as raw text without parsing them.
-
-**Fix:** Add a tqdm line parser to the log polling pipeline:
-- Regex to detect tqdm progress lines: `/(\d+)%\|.*\|\s*(\d+)\/(\d+)\s*\[(\d+:\d+)<(\d+:\d+),\s*([\d.]+)it\/s\]/`
-- Extract: current step, total steps, elapsed, remaining (ETA), it/s
-- Surface in TrainingMonitor as: progress bar, ETA countdown, steps/s throughput
-- Epoch lines (`Epoch X/Y`) already parse fine — keep those, add step-level detail alongside
-
-**Implementation notes:**
-- Parser lives in a utility function, tested independently
-- TrainingMonitor gets a new "progress" state slot separate from raw log lines
-- tqdm output format is consistent across Kohya versions — safe to rely on
-- Only activate the parser when a training job is active (don't waste cycles on idle log polling)
-
----
+**Issue UI-5: No ETA, step count, or percentage in the training monitor** — ✅ **Done 2026-05-30**
+- **Status:** Backend parses tqdm → `step_progress` events; `TrainingMonitor.tsx` consumes them with `getTimeRemaining()`. Minor residual: progress "bursts at end" (drain logic, 15s window) — expected, low priority.
 
 ### 5.0.95 Validation Schema / UI Dropdown Single Source of Truth
 
@@ -544,7 +525,7 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 - **Flagged by:** CodeRabbit on PR #370
 - **Problem:** `OptimizerSchema` and `LRSchedulerSchema` in `validation.ts` are separate string arrays from the dropdown options in `OptimizerCard.tsx`. Every time a new optimizer/scheduler is added to the UI, it must be manually added to the schema too — and that drift is exactly what broke CAME/Compass/schedule-free optimizers before PR #370.
 - **Fix:** Export `OPTIMIZER_VALUES` and `LRSCHEDULER_VALUES` as `as const` tuples from `validation.ts`. Build the Zod schemas from those constants. `OptimizerCard.tsx` dropdown keeps its own labels/descriptions but TypeScript can enforce values only come from `OPTIMIZER_VALUES`. Future additions require touching one place.
-- **Status:** ⏳ This week (deferred from PR #370 — GPU was off)
+- **Status:** ✅ **Done — verified 2026-06-06.** `validation.ts` exports `OPTIMIZER_VALUES` + `LR_SCHEDULER_VALUES` as `as const` tuples and builds both Zod enums from them (`OptimizerSchema`/`LRSchedulerSchema`). Both dropdowns are typed against those tuples — `OptimizerCard.tsx:70` `satisfies Array<{ value: OptimizerValue }>` and `LearningRateCard.tsx:95` `satisfies Array<{ value: LRSchedulerValue }>` — so any drift between a dropdown and the schema is a **compile error**. Single-source-of-truth confirmed.
 
 ---
 
@@ -555,7 +536,35 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 - **Background:** Most built-in presets were imported from bmaltais's Kohya SS gradio scripts. They use legacy field names (`optimizer`, `epoch`, `learning_rate`, `batch_size`, `lr_warmup`, `max_resolution`, `dataset_repeats`) nested under a `config:` block — a completely different schema from the current `TrainingConfig`.
 - **Current state:** PR #370 added `normalizeLegacyPresetFields()` so these presets now *load* correctly via the mapping layer. But the files themselves are still in the old format, which is fragile.
 - **Fix:** Audit all presets in `presets/` and convert any still using the old nested format to the flat format used by newer presets (e.g. `lora_SDXL - Illustrious-XL CAME Conservative v1.0.json`). Remove obsolete fields, fix legacy field names, ensure types are correct (strings → numbers where needed).
-- **Status:** ⏳ Not started — low urgency since the mapping layer handles it, but good hygiene before beta
+- **Status:** 🟡 **Partially done — verified 2026-06-06.** The `normalizeLegacyPresetFields()` shim (PR #370) is present, so legacy presets **load** correctly. BUT the migration deliverable itself isn't done: **31 preset files still use the nested `config:{}` legacy format** (e.g. `lora_SDXL - LoRA AI_characters standard v1.0.json`, the `EDG_*` set, `lora_lokr-sd15.json`, …). They work only via the shim. **Outstanding:** convert those 31 files to flat format (mechanical, low-risk, no GPU) so they don't depend on the compatibility layer. Not done in this session to keep the PR focused.
+
+---
+
+### 5.0.97 Categorical Preset Library Expansion — Peer-LoRA Study *(Dusk, 2026-06-09)*
+
+**Goal: add new *categorical* presets covering training patterns that are common across real-world peer LoRAs but that our `presets/` folder doesn't represent yet.**
+- **Severity:** Low (library enrichment, not a bug) — but high *value* for users picking a starting point.
+- **Status:** ⏳ Parked — corpus read + tooling built, the actual gap-walk and preset authoring are not started. (Captured on a flat-brain day; resume fresh.)
+
+**Method — IMPORTANT, this is the part that's easy to get wrong:**
+- **Dusk leads, section by section, qualitatively.** The empirical layer is *his knowledge of what each LoRA actually is* (subject, what worked, output quality) — the metadata can't see that. He walks a section, names the gap.
+- **The metadata stats are BACKING, not the driver.** They sanity-check a hunch; they don't lead and they shouldn't clog the flow. No aggregate tables / histograms unless explicitly asked — that's what derailed the first pass.
+- **Authority order:** Dusk's hands-on training results > paper-reading of preset fields. Community experts (Novowels, Citron, kudou-reira) are authoritative — don't second-guess their values.
+- **Presets don't pin training outcome:** repeats are dataset-side, steps are derived, batch matters — so matching another LoRA's LR/dim does **not** make a new preset redundant. Coverage is about *kind of recipe*, not exact numbers.
+
+**Tooling already built (local scratch in `temp/`, header-only, no deps):**
+- `read_loras.py` — reads safetensors `__metadata__` header-only; emits per-file summary + `lora_study_full.csv`.
+- `lora_study_full.csv` — all 123 peer LoRAs, one row each (optimizer / dim·alpha / unet_lr / scheduler / network).
+- `preset_gaps.py` — flags optimizer×model combos peers use that our `presets/` has **no** preset for (the new-preset hunt). Backing only.
+- `provenance.py` — checks whether a cluster (e.g. the Adafactor-fixed group) is one source or many.
+
+**Corpus:** 123 peer LoRAs at `C:\Users\dusk\Downloads\Loras to study for Claude`.
+
+**Candidate clusters spotted as starting backing (NOT conclusions — Dusk's read decides):**
+- **Adafactor-fixed workhorse** — `dim32 / a16 / lr 5e-4 / cosine_with_restarts`, plain `lora` on SDXL/Illustrious. Most common signature in the corpus; likely one tool/author (that's what `provenance.py` is for). Check coverage vs `finetune_adafactor.json` / `folk_horror_style_adafactor.json`.
+- **Flux/Chroma low-dim** — `dim2 / a16 / lr 5e-4 / cosine_restarts`, `lora_flux`. Distinctive high alpha:dim. Check vs `chroma_style_experimental.json` / `flux_*`.
+- **Prodigy Illustrious/PDXL** — `lr 1.0` adaptive, dim 8–32, cosine/constant. Check vs `kudou-reira_prodigy.json` / `faetastic_sdxl_prodigy.json`.
+- **CAME NoobAI** — `dim8 / a4 / lr ~3–6e-5 / cosine` — likely already covered by `came_character_*`.
 
 ---
 
@@ -563,6 +572,7 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 
 **Issue PR-1: optimizer_args field picks up general training args from community presets**
 - **Severity:** Medium (causes cryptic training failures)
+- **Status:** ✅ **Done — verified 2026-06-06.** Inspected every `optimizer_args` value across all presets — none carry contaminated training-level args anymore (no `state_storage_dtype=`/`state_storage_device=`/`mixed_precision=`/`fp8_base=` etc.); all values are legitimate optimizer args (`weight_decay`, `betas`, `eps`, `decouple`, `d0`, `d_coef`, `scale_parameter`, …). The Citron-style precision/device contamination is gone. (Tokenizer robustness for *parsing* those args is tracked separately in PR-1b.)
 - **User-reported:** Citron's Adafactor preset stuffed precision/device args (`state_storage_dtype=bfloat16 state_storage_device=cuda` style) into `optimizer_args`. Adafactor then threw `ValueError: not enough values to unpack` because those aren't valid optimizer args.
 - **Root cause:** Community presets (and possibly our own) miscategorise general training args as optimizer_args. These are actually top-level training fields (`mixed_precision`, `fp8_base`, etc.) that got bundled into the freetext `optimizer_args` blob.
 - **Workaround:** Manually clear `optimizer_args` before training if switching optimizers or loading community presets.
@@ -573,28 +583,79 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 3. **Validation** — before training starts, validate that `optimizer_args` entries look like actual optimizer args (key=value pairs that the selected optimizer recognises), not training-level settings
 4. **Community preset naming** — if a preset bundles optimizer-specific args, the name should make that clear (e.g. "Citron Adafactor - SDXL" not just "Citron")
 
+**Issue PR-1b: optimizer_args copied from LoRA metadata crash the trainer** *(Dusk, 2026-06-06)*
+- **Status:** ✅ **Done — verified 2026-06-06.**
+- **Trigger:** copying optimizer args from a reference LoRA's metadata to emulate its training style. Metadata formats them **comma-separated** with **spaces inside tuple values** — e.g. `weight_decay=0.08,betas=(0.99, 0.999, 0.99995)`. Our generator tokenised with `shlex.split` (whitespace-only), which shattered the tuple into fragments lacking exactly one `=`, so the vendored parser (`train_util.py:7610`, `key, value = arg.split("=")`) crashed with `ValueError: ... unpack`. Same crash *class* as PR-1, different *trigger* (metadata paste, not preset contamination) — so the earlier fix didn't cover it.
+- **Fix (BOTH config generators — Python and Node):** a paren-aware tokenizer that splits on commas/whitespace only at the **top level** (separators inside `()`/`[]`/`{}` are preserved), then strips inner whitespace → clean `key=value` tokens. Handles metadata-style (comma + spaces) AND Kohya CLI-style (space, no inner spaces); clean presets unchanged. Structural-hard-error hardening, not bias.
+  - **Python:** `services/trainers/kohya_toml.py` — new `_tokenize_optimizer_args()` replaces `shlex.split`; removed the now-unused `import shlex`.
+  - **Node:** `frontend/lib/node-services/config-service.ts` (the "ported from kohya_toml.py" training-config generator) had the **same bug** — `config.optimizer_args.trim().split(/\s+/)` shattered tuples AND its `weight_decay`-injection check then ran on the fragments. New `tokenizeOptimizerArgs()` (line-for-line port of the Python one) replaces it.
+- **`network_args` checked, NOT affected:** verified on both backends — it's built from hardcoded per-algo lists (`['algo=…']`) + individually-typed conv/block fields, never a freetext paste blob, so it can't hit this crash. No fix needed (corrected an earlier guess that it was a freetext blob).
+- **Regression caught during PR re-validation (2026-06-06):** the first cut of the tokenizer (paren-aware only) would have **broken two existing preset formats** that the old `shlex.split` handled — **quoted args** (`"weight_decay=0.1" "betas=0.9,0.99"`) and **paren-less comma tuples** (`betas=0.9,0.99`). Revised the tokenizer to also be **quote-aware** (strip quotes, never split inside them) and to **merge `=`-less fragments** back into the preceding token (re-joining paren-less comma tuples). Both Python (`kohya_toml.py`) and Node (`config-service.ts`) updated to match.
+- **Verified:** tested the real Python function against a **13-case matrix of actual preset formats** (quoted, paren tuple, bracket tuple, bare-comma tuple, AdaFactor flags, the metadata paste, empty) — all produce clean `key=value` tokens AND survive the simulated vendored `arg.split("=")` + `ast.literal_eval`. Node tokenizer parity-tested against the same cases + `tsc --noEmit` clean. ⏳ **Not yet run end-to-end on a real CAME job** — that's Dusk's to run (only he can launch CAME training).
+
 ---
 
 ### 5.1 HuggingFace Upload - Form State Doesn't Persist
 
-**Issue HF-1: HF upload form loses all data on page navigation**
-- **Severity:** Medium (significant UX pain point)
-- **Location:** `frontend/app/huggingface-upload/page.tsx:11-25`
-- **Problem:** The HF upload page uses `useState` for all form fields (token, owner, repo name, repo type, commit message, remote folder, etc.). When the user navigates away from the page and back, all data is lost. Users uploading multiple LoRAs/models in a session have to re-enter the same information repeatedly (token, owner, etc.) - reportedly 20+ times.
-- **Fix:** Migrate form state to a Zustand store with `persist` middleware (or use localStorage directly), at minimum for:
-  - `hfToken` (consider security: maybe sessionStorage instead of localStorage)
-  - `owner`
-  - `repoType`
-  - `commitMessage` (default)
-  - `createPR` preference
-- **Note:** `selectedFiles` and `uploading`/`uploadResult` should NOT persist (they're per-upload state)
-- **Security consideration:** HF tokens are sensitive. Consider:
-  - Using sessionStorage (clears on browser close) instead of localStorage
-  - Adding a "Remember token" opt-in checkbox
-  - Or storing the token via the existing settings management system that already handles HF tokens (per STATUS.md, settings management is "Working")
-- **Better approach:** The existing settings page already manages HF tokens. The upload page should READ the token from settings rather than asking for it again. Only fields like owner/repo would need their own persistence.
+**Issue HF-1: HF upload form loses all data on page navigation** — ✅ **Done 2026-04-30**
+- **Status:** Form state migrated to Zustand persist; token pre-filled from settings; owner/repoType persist in localStorage.
 
----
+### 5.2 Cross-Tab Form Persistence — App-Wide Gap
+
+**Issue FP-1: Most forms lose their state on navigation (broader than HF-1)** — ⏳ **Not started**
+- **Severity:** Medium (recurring UX pain across the app)
+- **Problem:** HF-1 fixed HF upload page, but ComfyUI Generate, training form, dataset/auto-tag, batch/util forms still lose state on navigation.
+- **Approach:** Standardize Zustand `persist` pattern per-form (matching HF-1). Storage per field: localStorage for convenience defaults; sessionStorage/settings for sensitive; never persist per-run transient state.
+- **Priority:** ComfyUI Generate persistence most-wanted.
+
+### 5.3 SyntaxWarning Log Noise — Escape Sequences *(Dusk, 2026-06-05)*
+
+**Issue SW-1: `invalid escape sequence` warnings flood training/tagging logs** — ✅ **Done 2026-06-06**
+- **SW-1a:** `tag_images_by_wd14_tagger.py:881` → raw string; `python -W error::SyntaxWarning -m py_compile` clean.
+- **SW-1b:** `kohya.py:_build_env()` sets `PYTHONWARNINGS=ignore::SyntaxWarning` for training subprocess only (vendored silenced, ours still surface). No vendored patches.
+
+### 5.4 Generate Tab Falls Back to Literal ComfyUI *(Dusk, 2026-06-05)*
+
+**Issue GEN-1: Generate page route collides with ComfyUI proxy prefix** — ✅ **Done 2026-06-06**
+- **Root cause:** `/comfyui` route shadowed by `server.js` proxy exact-match.
+- **Fix:** `app/comfyui/page.tsx` → `app/generate/page.tsx` (route `/generate`), navbar link updated. LoRA Manager links and proxy rules unchanged. `tsc` clean.
+- **Follow-up:** tighten `COMFYUI_ROOT_PREFIXES` (`/checkpoints`, etc.) so generic names can't shadow future routes.
+
+### 5.5 Form State & Field-Linkage Bugs *(Dusk, 2026-06-28)*
+
+**Issue PRESET-1: Preset load is non-deterministic — sticky omits + wrong clears** — ✅ **Fixed 2026-07-02**
+- **Severity:** Medium (recurring config-correctness pain; can silently ship a run with hyperparameters the user didn't choose)
+- **Problem (bidirectional):** loading a preset (1) does **not clear** fields the preset omits → stale values ride along (e.g. the "Train UNet Only" tick stays set; a `lr_warmup_ratio` set by one preset persists when you next load one that omits it), AND (2) **does clear** some fields it shouldn't — **confirmed live: swapping to a CAME preset wipes the user's pre-selected base model (Illustrious/NAI)**, a job field that should survive the load. Compounded by `useTrainingForm.ts` hydrating last-saved state from localStorage (falling back to server) on mount (`readStoredConfig` ~L211, hydration `useEffect` ~L294), so the "default" a user sees is their **persisted prior state**, not `defaultConfig` (L49). Net effect: the warmup/optimizer/unet-only values feel "sticky" and un-attributable.
+- **Root cause:** `loadPreset` (`useTrainingForm.ts:348`) merges a *partial* preset over current values — there is no model of what a preset owns vs job/user state.
+- **Fix (no runtime dirty-tracking needed):** statically classify each `TrainingConfig` field as **recipe** (preset owns: LR, optimizer, scheduler, warmup, dim/alpha, dropout, …) or **job** (this-run: dataset/model/output paths, project name, trigger words). Preset load = reset **recipe** fields to `(defaultConfig → then preset overrides)`, leave **job** fields untouched. Deterministic; kills both failure modes at once. (v1 deliberately does not preserve a manual recipe tweak across a preset swap — overriding recipe edits is expected when loading a recipe.)
+- **Files:** `frontend/hooks/useTrainingForm.ts` (loadPreset, defaultConfig, hydration effect), `frontend/components/training/PresetManager.tsx`.
+
+**Issue SCHED-1: `cosine_annealing` & `rex` schedulers hide their restart-count field** — ✅ **Fixed 2026-07-02**
+- **Severity:** Low–Medium (silent loss of UI control over a real hyperparameter)
+- **Repro:** pick **Cosine Annealing (Warm Restarts)** or **Rex (Warm Restarts)** in the LR scheduler dropdown → the "Number of Restarts" field disappears, so the user can't set it and is stuck with whatever `lr_scheduler_number` is already in the config (default 3 / stale).
+- **Root cause:** `LearningRateCard.tsx:99` gates the `lr_scheduler_number` field on `scheduler === 'cosine_with_restarts' || scheduler === 'polynomial'` only — it omits the two vendored warm-restart schedulers. But `kohya_toml.py:409` passes `lr_scheduler_num_cycles = lr_scheduler_number` for **every** scheduler, and `rex`/`cosine_annealing` are restart-based (`CUSTOM_SCHEDULER_PATHS`, kohya_toml.py:291-294), so they DO consume the cycle count.
+- **Fix:** add `'cosine_annealing'` and `'rex'` to the `LearningRateCard.tsx:99` conditional and extend the label/description branch (L103-104) to read "Number of Restarts" for them. Confirm the vendored `CosineAnnealingWarmRestarts` / `RexAnnealingWarmRestarts` consume `num_cycles` (strongly implied by the unconditional pass at L409).
+- **Files:** `frontend/components/training/cards/LearningRateCard.tsx`; verify `trainer/derrian_backend/.../LoraEasyCustomOptimizer/{CosineAnnealingWarmRestarts,RexAnnealingWarmRestarts}.py`.
+
+### 5.6 ComfyUI Generate — Checkpoints Not Found (single-source discovery) *(Dusk, 2026-06-28)*
+
+**Issue GEN-CKPT-1: Generate UI lists LoRAs but not checkpoints** — ⏳ **Not started**
+- **Severity:** Medium-High — blocks generation (no base model selectable) after any `extra_model_paths` / folder change.
+- **Symptom:** the Next.js Generate UI finds **loras** but **not checkpoints**, even though ComfyUI's **LoRA Manager *can* see the checkpoints**. The gen checkpoints live in the training dir `pretrained_model/`, surfaced to ComfyUI via `extra_model_paths.yaml` (`installer.py:591`); a recent folder/path change broke that mapping. (There is NO ComfyUI `/object_info` call here — discovery is via `/models/{folder}`.)
+- **Root cause:** asymmetric discovery in `frontend/lib/comfy/useComfyModels.ts:86-94`. **LoRAs have TWO sources** — `safe('loras')` (ComfyUI `/models/loras`) **+ `comfyClient.getLmLoras()`** (LoRA Manager cache via `/api/lm/loras/list`, which indexes every `extra_model_paths` root incl. training dirs). **Checkpoints have ONE** — only `safe('checkpoints')` (ComfyUI `/models/checkpoints`). When the yaml/path breaks, ComfyUI's checkpoint folder returns empty and checkpoints have **no LM-cache fallback** like loras do. LM has them indexed; the frontend just never asks LM for checkpoints. (The "we broke it recently" = the LM fallback was added for loras but never mirrored for checkpoints.)
+- **Fix (mirror the loras path):**
+  1. `client.ts`: add `getLmCheckpoints()` mirroring `getLmLoras()` (`client.ts:117`), hitting LoRA Manager's checkpoint endpoint.
+  2. `useComfyModels.ts`: fetch checkpoints from **both** `safe('checkpoints')` and `getLmCheckpoints()`, merge+dedupe, and have the consumer fall back to the LM source when ComfyUI's is empty — the exact `loraModels` / `lmLoraModels` pattern already in the hook.
+- **One unknown to confirm FIRST (don't guess a ComfyUI endpoint):** LoRA Manager's exact checkpoint route — likely `/api/lm/checkpoints/list?page_size=9999` mirroring the loras endpoint; confirm from the running LM API or LM's source.
+- **Files:** `frontend/lib/comfy/client.ts`, `frontend/lib/comfy/useComfyModels.ts`. ~15 lines once the endpoint string is confirmed.
+
+**ACTUAL ROOT CAUSE found via live testing (2026-06-28) — separate from the frontend fallback above:**
+- LoRA Manager *does* see `pretrained_model` (checkpoints) + `output` (loras) — it indexes the yaml mappings; SDXL workflows (LM checkpoint loader) work fine.
+- **guy90 (Anima) uses `UNETLoader` (comfy-core), which loads from the `diffusion_models/` folder — and `extra_model_paths.yaml` maps `checkpoints`/`loras`/`vae` but has NO `diffusion_models` line.** So `UNETLoader` can't find the Anima base (`anima-base-v1.0`) sitting in `pretrained_model/`. SDXL (CheckpointLoaderSimple → `checkpoints`, mapped) works; Anima (`UNETLoader` → `diffusion_models`, unmapped) doesn't. Same gap hits our Generate UI's diffusion_models list (`useComfyModels.ts:87`, `safe('diffusion_models')`).
+- **Root cause = a MISSING yaml mapping, not a stale scan or single-source frontend.** Anima/UNET models simply have no folder mapping.
+- **Fix (the real unblock):** add `diffusion_models: pretrained_model` (and `unet: pretrained_model` for older ComfyUI naming) to `extra_model_paths.yaml` — live on the box AND permanently in **`installer.py:591`** (the yaml generator) so every install ships it. Then `supervisorctl restart comfyui`.
+- The `getLmCheckpoints` frontend hardening above is still worth doing, but **this yaml line is the actual fix for "ComfyUI can't see the Anima models."**
+- **Why LM "saw" it but guy90 didn't (Dusk, 2026-06-28):** LoRA Manager categorizes *everything* as "checkpoints" — it dumps the Anima diffusion model AND its text encoder into the checkpoints folder, so LM-based loaders find it. But Anima is a **diffusion-transformer, not an all-in-one checkpoint**; its correct loaders are `UNETLoader` → `diffusion_models/` (base) + a CLIP/TE loader → `text_encoders/` or `clip/` (text encoder). guy90 uses the *correct* `UNETLoader`. So the yaml fix likely also needs **`text_encoders: pretrained_model`** (and/or `clip: pretrained_model`) if guy90 loads Anima's TE from `pretrained_model/` separately — confirm from the guy90 workflow's loader nodes before finalizing the `installer.py:591` yaml template. Net: the yaml only maps the SDXL-style folders (`checkpoints`/`loras`/`vae`); the Anima/DiT folders (`diffusion_models`, `text_encoders`/`clip`) were never added.
 
 ## 6. Feature Priority Matrix (Beta)
 
@@ -605,7 +666,7 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 | Fix network_train_unet_only in checkpoint mode (LT-3) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
 | Wire up wandb_key environment variable (LT-1) | Bug Fix | Tiny | ✅ Done (confirmed 2026-05-25) |
 | Add WandB/Logging UI section (UI-1) | New Feature | Small | ✅ Done — LoggingCard.tsx (confirmed 2026-05-25) |
-| Dashboard redesign with all routes (UI-2) | UX | Medium | 🔵 Design work, deferred |
+| Dashboard redesign with all routes (UI-2) | UX | Medium | ⏳ Not started |
 | HF upload form persistence (HF-1) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
 | Tag Viewer with frequency counts | New Feature | Medium | ✅ Done — tags/page.tsx frequency chips with counts (confirmed in UI 2026-05-25) |
 | Bulk tag remove/replace | New Feature | Medium | ✅ Done — tags/page.tsx Actions menu (2026-05-25) |
@@ -618,30 +679,30 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
 | 3-way overwrite mode for tagging | Enhancement | Small | ✅ Done 2026-05-25 |
-| Checkpoint-specific validation (CT-1) | Enhancement | Small | ⏳ Not started |
+| Checkpoint-specific validation (CT-1) | Enhancement | Small | 🚫 **WON'T DO** (bias/nannying — rejected per LT-5/LT-7) |
 | Hide LoRA fields in checkpoint mode (CT-2) | UX | Medium | 🚫 N/A — separate pages, no unified form |
 | Merge progress reporting (MG-7) | UX | Medium | ⏳ Not started |
-| SD3 merge support (MG-5) | Feature | Small | ⏳ Deferred (part of #342) |
+| SD3 merge support (MG-5) | Feature | Small | 🚫 Perma-deferred — SD3 deprecated per Stability AI; revisit only on explicit user request |
 | Clean up redundant TOML generation (CT-6) | Tech Debt | Small | ⏳ Not started |
 | Respect enable_bucket user setting (LT-2) | Bug Fix | Tiny | ✅ Done 2026-04-30 |
-| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | ⏳ Not started |
-| Clarify "Full" LoRA type semantics (LT-4) | UX | Small | ⏳ Not started |
+| LyCORIS algorithm-specific validation (LT-5) | Enhancement | Medium | 🚫 **WON'T DO** (bias — rejected per LT-5/LT-7) |
+| Clarify "Full" LoRA type semantics (LT-4) | UX | Small | ✅ Done 2026-06-06 (label/description rewrite) |
 | Silence AbortError console noise (UI-3) | Polish | Small | ✅ Done 2026-05-20 |
 | Fix training log polling cadence + visibility (UI-4) | UX/Bug Fix | Small | ✅ Done 2026-04-30 |
 | Add PYTHONUNBUFFERED to Kohya subprocess (UI-4 part) | Bug Fix | Tiny | ✅ Done (via -u flag in kohya.py:124) |
 | MG-2: Document save_precision naming difference | Code Clarity | Tiny | ✅ Done 2026-04-30 |
 
 ### Nice to Have (Beta+)
-| Feature | Category | Effort |
-|---------|----------|--------|
-| Per-image visual tag editor | New Feature | Large |
-| Caption editor with search highlighting | Enhancement | Medium |
-| Merge presets/templates | UX | Medium |
-| Merge dry-run/preview mode | Feature | Medium |
-| EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small |
-| Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) |
-| Batch Downloader (BD-1) | New Feature | Medium |
-| Training monitor tqdm ETA parsing (UI-5) | Enhancement | Small |
+| Feature | Category | Effort | Status |
+|---------|----------|--------|--------|
+| Per-image visual tag editor | New Feature | Large | ✅ Done — it's the inline badge-chip editor (shipped 2026-05-25, §1); minor tweaks may follow. NOT a separate unstarted feature. |
+| Caption editor with search highlighting | Enhancement | Small | 🟡 Partial — **tag** editing is the chip editor (§1, done). Natural-language **captions** (BLIP/GIT) don't fit chips → current fallback is the text editor. **Fix: add a caption/textarea *mode toggle* to the existing `tags/page.tsx`** (same .txt file, chips ↔ textarea+search-highlight view) — NOT a new page. Per the "extend existing surfaces, don't spawn a page per feature" preference. Smaller than the old "Medium" implied. |
+| Merge presets/templates | UX | Medium | ⏳ Not started — **sequenced after** the core SuperMerger work (MG-* block-weight merging) is sorted; presets sit on top of that. |
+| Merge dry-run/preview mode | Feature | Medium | ⏳ Not started |
+| EQ VAE support - SDXL (VAE-EQ-1) | Advanced Feature | Small | ⏳ Not started — deferred ("too hard in the moment, soon"). Niche/edge-case but **wanted** — important to *allow* it (bleeding-edge philosophy). Port of the SDXL EQ-VAE / reflection-padding work **by Anzhc & Bluvoll** (we obtained the code *via* Jelosus2's fork — integration source, NOT author); our vendored backend lacks it. **Credit Anzhc & Bluvoll in `ATTRIBUTIONS.md` when implemented.** |
+| Qwen-Image VAE reflection padding - Anima (VAE-EQ-2) | Advanced Feature | Small (needs research) | ⏳ Not started — **different VAE entirely — NOT a port of VAE-EQ-1.** The Anzhc & Bluvoll EQ-VAE / reflection-padding work targets the **SDXL VAE**. Anima uses the **Qwen-Image VAE** — a separate autoencoder, not SDXL's — so this is the open question of whether equivalent EQ / reflection-padding treatment exists or applies for the Qwen-Image VAE *at all*, answered in the Qwen/Anima VAE code. (SDXL VAE ≠ Qwen VAE — don't conflate.) |
+| Batch Downloader (BD-1) | New Feature | Medium | ⏳ Not started — **= the batchlinks tool (§6.5)**. Same item; see §6.5 for the full spec. |
+| Training monitor tqdm ETA parsing (UI-5) | Enhancement | Small | ⏳ Not started |
 
 ---
 
@@ -649,8 +710,9 @@ The `[elapsed<remaining, it/s]` is all the data we need but we currently pass lo
 
 **Issue BD-1: Model sourcing is fragile and region-dependent**
 - **Priority:** Beta+ (nice to have, but solves a real accessibility problem)
-- **Status:** Not started
-- **Motivation:** Civitai's API geoblocks certain regions (UK datacenter IPs get 451'd due to UK Online Safety Act compliance). Users shouldn't need a working Civitai API to download models — they should be able to paste any link and have it work.
+- **Status:** Design LOCKED 2026-06-27 — implementation not started (see "v1 Design" below)
+- **Motivation (1 — accessibility):** Civitai's API geoblocks certain regions (UK datacenter IPs get 451'd due to UK Online Safety Act compliance). Users shouldn't need a working Civitai API to download models — they should be able to paste any link and have it work.
+- **Motivation (2 — escape LM's download UX, added 2026-06-22):** LoRA Manager's built-in download/manage flow is clunky and over-coupled to "how Civitai works" (Dusk: "the worst thing ComfyUI could've slapped in"). Batchlinks should **take over *downloading*** (paste any link, our routing) while **LM stays purely the *loader/browser*** (Dusk firmly keeps the `Lora Loader (LoraManager)` node — see §11). Coexistence hinge: after batchlinks writes a gen model into the ComfyUI folder, **trigger an LM rescan via its API** so the LM loader node sees it (same "force rescan" fix §802 found for HF-downloaded-checkpoint 400s). Net: delete LM's download flow from the user's life without losing LM's loading.
 
 ### Concept
 
@@ -679,12 +741,44 @@ Inspired by the A1111 `BatchLinks` extension which used `#destination` hashtag s
 
 **Reality check (2026-05-25):** the current `/models` download UI is just a card of links, NOT this paste-and-route batch tool. BD-1 is genuinely not started.
 
+### v1 Design (LOCKED 2026-06-27 — supersedes the older FastAPI/SSE sketch in Implementation notes)
+
+**Scope:** sources = public HF (`hf_hub_download`, tokenless) + Civitai (existing token) + direct HTTP via aria2c. B-tier (Google Drive / MEGA / magnet) deferred — the hashtag-routing design makes them cheap add-ons later. **No gated/private HF auth** (Dusk keeps his unreleased models on PUBLIC HF — can't get gated working and doesn't need to).
+
+**Placement (IA):** standalone page under **File Management** nav. Rationale: it's a general file-getter (the *tool* is file-management even though its *content* is gen-flavored). Batchlinks ≠ the `/models` link-card — additive, doesn't touch it. **Separate sibling task:** relocate the *existing single-model downloader* under **Training** (those are training base models; nav/IA move, ships independently).
+
+**Orchestration:** the **jobs system** (same machinery as tagging/captioning), NOT a bespoke FastAPI/SSE stream. A `batch_download` job runner loops items and **reuses the existing `ModelService.download_model_or_vae()`** (`services/model_service.py` — already routes HF→hf_hub_download+xet, Civitai/direct→aria2c+token, tracks bytes for progress) — **no new download code**. Per-item progress streams over the existing job WebSocket. **Per-item error isolation:** one bad link logs its error and the batch continues — never aborts the whole run.
+
+**Flow:** textarea paste → [frontend] parse each line → `{url, type}` + live preview (counts per type, flag unparseable lines BEFORE submit) → start `batch_download` job → [runner] resolve `type → dir`, download via `ModelService`, emit progress lines → after all gen-model items, **one LM rescan** → per-item ✅/❌ summary.
+
+**Hashtag → destination** (backend owns path resolution, PROJECT_ROOT-anchored via the just-fixed `get_comfyui_models_path()` / `a94854f` so it's correct on local/Vast/RunPod — frontend only sends the `type`):
+
+| Tag | Destination | LM rescan? |
+|-----|-------------|-----------|
+| `#model` / `#checkpoint` | ComfyUI checkpoints | ✅ |
+| `#lora` | ComfyUI loras | ✅ |
+| `#vae` | ComfyUI vae | ✅ |
+| `#dataset` | trainer dataset dir | ❌ |
+| `#output` | trainer output dir | ❌ |
+| *(untagged)* | global-default dropdown | per-type |
+
+**LM coexistence (reframed 2026-06-27):** LM CAN already see HF-downloaded files — it just needs a rescan or a settings tick. So batchlinks **automates that rescan** after gen-model writes (one call at end of batch), saving the manual step. **This is automating a working manual flow, not working around a broken one.** Confirm LM's actual rescan endpoint against a RUNNING LM before wiring (ask-don't-assume). LM stays purely the loader for the SDXL + Guy90s anima workflows. (Updates the older "LM is bad at HF" framing.)
+
+**Logging:** each download + the rescan call logged to the backend logs (also feeds the in-app log-viewer goal).
+
+**Frontend:** `frontend/app/batch-download/page.tsx`, **shadcn only** (`Textarea`, `Select` for the global default, `Button`, progress list reusing the existing job-progress display). Parser is a pure fn → unit-testable.
+
+**Out of scope (v1):** B-tier sources, gated/private HF auth, torrent indexing, replacing the `/models` card, cross-session resume.
+
+**Testing:** parser unit tests (hashtag routing, untagged→default, junk lines); a dry-run that resolves routing without downloading; one small real download per source (HF / Civitai / direct).
+
 ### Implementation notes
-- Backend: new `POST /api/utilities/batch-download` endpoint that accepts a list of `{url, destination}` objects, spawns aria2c/hf-cli/gdown as appropriate per URL, streams progress back
+- Backend: **jobs-system `batch_download` runner reusing `ModelService.download_model_or_vae`** (see v1 Design above) — NOT a standalone FastAPI/SSE endpoint (that earlier sketch superseded 2026-06-27)
 - Frontend: new page at `frontend/app/batch-download/page.tsx`
 - aria2c already present on instances — no new provisioning needed
 - gdown may need `pip install gdown` added to requirements
 - No torrent tracker/indexer integration — users provide their own links. Completely neutral technology.
+- **LM coexistence (per Motivation 2):** for gen-model destinations (`#lora`/`#checkpoint`/`#vae` → ComfyUI folders), after the download completes, call LoRA Manager's rescan/refresh API so the new file is indexed and selectable in the `Lora Loader (LoraManager)` node without a manual ComfyUI restart. Confirm LM's actual rescan endpoint before wiring (ask-don't-assume — check while LM is running). Trainer-model destinations (`#dataset`/training output) don't touch LM.
 
 ---
 
@@ -767,76 +861,18 @@ During an Anima support audit, the following bug was found and **fixed**:
 
 ## 7.9 Hardcoded Presets Not Wired Into Training Submit Flow
 
-**Priority:** High — blocks actual training  
-**Status:** Confirmed broken 2026-04-30  
-
-### What we know
-
-Presets hardcoded in `frontend/hooks/useTrainingForm.ts` (Citron's Illustrious, Citron's PDXL, Citron's Anima etc.) populate form fields visually but do NOT properly hook into the training submit flow. When you load one and hit Train:
-
-- No request reaches FastAPI
-- No logs appear (backend is completely silent)
-- No 422, no 500, nothing — complete silence
-- The button appears to work but nothing happens
-
-This is NOT a backend config field mismatch issue — it's the frontend never actually sending the training request at all.
-
-### Why it happened
-
-Presets were hardcoded into `useTrainingForm.ts` as a quick solution ("we needed it to work RIGHT NOW") rather than going through the proper preset save/load system. The values populate the form display but don't correctly feed into whatever the submit handler reads to build the training payload.
-
-### Fix needed
-
-- Audit how `useTrainingForm.ts` applies hardcoded preset values to form state vs how the submit handler reads form state
-- Either: fix the wiring so hardcoded presets properly update the form state the submit handler uses
-- Or better: migrate all hardcoded presets out of `useTrainingForm.ts` into proper JSON files in `presets/` and use the existing preset load system
-- The JSON migration is the RIGHT fix — hardcoding presets in a hook is the root cause of this whole class of bugs
-
-### Related
-
-- PR-1 (optimizer_args contamination) — same root cause, presets in wrong place
-- Preset UX architecture filtering (in MEMORY.md backlog) — filter by model_type, only possible once presets are proper JSON
-
----
+**Priority:** ~~High — blocks actual training~~  
+**Status:** ✅ **RESOLVED 2026-05-30** — presets fixed; loading a preset and hitting Train submits correctly.
+- **Root cause:** Hardcoded presets in `useTrainingForm.ts` populated form visually but didn't wire to submit handler.
+- **Fix applied:** Migrated to proper JSON preset system in `presets/`.
 
 ## 8. Anima Deep Dive — Research Session Needed
 
-**Priority:** Beta (before Anima is considered properly supported)  
-**Status:** Attempted training, hit size mismatch error — config fields not properly understood  
-
-### What we know
-
-- `networks.lora_anima` is correctly wired (fixed previously)
-- Training script exists in sd-scripts
-- Attempted a real training run — failed with: `size mismatch for layers.27.mlp.gate_proj.weight: copying a param with shape torch.Size([3072, 1024]) from checkpoint, the shape in current model is torch.Size([22016, 4096])`
-- This suggests something is being loaded as an LLM/text encoder that is the wrong size or wrong architecture entirely
-
-### What we don't know
-
-- Exactly which files Anima's training script expects and from where
-- Whether the LLM component is embedded in the base model or must be provided separately
-- Whether our UI fields map correctly to what `anima_train.py` actually expects
-- Whether `clip_skip`, `gemma2`, and other fields are being passed/ignored correctly for Anima
-
-### Research plan for next dedicated session
-
-1. Read `trainer/derrian_backend/sd_scripts/anima_train.py` argument list in full
-2. Find a real working Anima training config from the community (Circlestone Labs discord, ArcEnCiel community)
-3. Map actual required args → our UI fields → fix any mismatches
-4. Document the correct file structure for an Anima training setup (base model, VAE, text encoder, tokenizer configs)
-5. Add Anima-specific validation to catch wrong file types before training starts
-
-### Note on `ARCHITECTURE.md`
-
-Future Claude needs context it currently has to re-derive every session. A dedicated session to document the backend config fields per model type would save significant time. Proposed: `docs/ARCHITECTURE.md` covering:
-- What each model type (SD15, SDXL, Flux, SD3, Lumina, Anima) actually requires
-- Which UI fields map to which CLI args in Kohya
-- Which fields are model-type-specific vs universal
-- Known gotchas per model type
-
-This file gets `grep`ped at session start instead of guessing from training data.
-
----
+**Priority:** ~~Beta (before Anima is considered properly supported)~~  
+**Status:** ✅ **RESOLVED 2026-05-30** — Anima works now (confirmed by Dusk). Historical context preserved in git history.
+- **Issue was:** `size mismatch` on `layers.27.mlp.gate_proj.weight` — wrong LLM/text encoder loaded.
+- **Resolution:** Correct file wiring + `networks.lora_anima` already in place.
+- **ARCHITECTURE.md** still a good idea for future context — track separately.
 
 ## 8. Session Notes (2026-04-30) — Priority for Next Week
 
@@ -875,18 +911,13 @@ High priority — confirmed blocks training silently. Migrate all presets from `
 
 ## 9. Attribution Requirements
 
-When implementing features inspired by Civitai's codebase, add to `ATTRIBUTIONS.md`:
+When implementing Civitai-inspired features, add to `ATTRIBUTIONS.md`:
 
 ```markdown
 ## Civitai
 **Repository:** [civitai/civitai](https://github.com/civitai/civitai)
 **License:** Apache License 2.0
-**Usage:** Tag viewer UI patterns, bulk tag operation workflows, and auto-label configuration UX
-
-The following features were inspired by Civitai's training interface:
-- Tag frequency viewer with search and multi-select
-- Bulk tag remove/replace operations
-- 3-way overwrite mode (ignore/append/overwrite) for auto-labeling
+**Usage:** Tag viewer UI patterns, bulk tag operations, 3-way overwrite mode for auto-labeling
 ```
 
 ---
@@ -895,104 +926,41 @@ The following features were inspired by Civitai's training interface:
 
 ### 2026-05-25 — ComfyUI Generate UI polish + doc reconciliation
 
-**Shipped to `dev`:**
-- ComfyUI Generate UI: queue-runs field (1–8), cleaner 400 error parsing (extracts `node_errors[*].details`), navbar "LoRA Manager" link → ComfyUI:8188, removed misplaced model-picker footer link, stripped author/fork attribution from UI strings (belongs in README).
-- `extra_model_paths.yaml` written by installer: `output/`→loras, `pretrained_model/`→checkpoints, `vae/`→vae. Relative `..` paths, works local/VastAI/RunPod.
-- ZIP upload fix: removed `keepalive:true` (Fetch spec caps keepalive bodies at 64 KiB → 10 MB chunks failed with "Failed to fetch"). Chunking itself solves the original 300 MB-into-RAM problem.
-- Models page delete → shadcn AlertDialog (replaced raw `window.confirm()`).
+**Shipped:** ComfyUI Generate UI improvements (queue-runs, 400 error parsing, navbar LoRA Manager link), `extra_model_paths.yaml` installer support, ZIP upload chunking fix, Models page delete → AlertDialog.
 
-**Findings (sdxl-knx / ComfyUI):**
-- `Checkpoint Loader (LoraManager)` is willmiao's LoRA Manager node, NOT fearnworks (the `cnr_id` in KNX's workflow JSON was wrong). It validates `ckpt_name` against `scanner.get_cached_data()` filtered by `sub_type == "checkpoint"`. A checkpoint not in that cache → `value_not_in_list` / 400 (the "must use retirementMix" bug).
-  - **CORRECTION (verified in source):** `sub_type` is set by **file LOCATION during scan**, not metadata — `_create_default_metadata()` stamps `sub_type="checkpoint"` locally with NO CivitAI lookup. So the gate is "has LoRA Manager *scanned* this file into its cache," NOT "has CivitAI metadata." retirementMix was scanned (→ sidecars + cache entry + validates); NoobAI was dropped in after the last scan (→ no cache entry → fails). ComfyUI restart reloads the stale cache, doesn't rebuild it.
-  - **Real fix:** force a **rescan/refresh inside LoRA Manager** (not a CivitAI fetch, not a ComfyUI restart). Earlier "fetch CivitAI metadata" advice was wrong.
-  - Dusk chose to keep the node (NOT swap to `CheckpointLoaderSimple` — stock SaveImage isn't Civitai-compatible anyway) and to solve the brittleness properly via the in-app model manager direction below.
+**Findings:** LoRA Manager `Checkpoint Loader` validates against scanned cache (not CivitAI metadata). Fix = force rescan in LoRA Manager. Decision: build in-app model manager hooking LoRA Manager API (fold into Civitai downloader page), add ArcEnCiel source.
 
-**Doc reconciliation (statuses were stale):**
-- **Section 1 (Tag/Caption) is 100% done** — 1.1 frequency chips, 1.2 bulk remove/replace, 1.3 3-way overwrite (auto-tag Select), 1.4 per-image inline editor. "Per-Image Visual Tag Editor" was just claude-speak for the inline editor already shipped.
-- **WandB (LT-1/UI-1) done** — LoggingCard.tsx.
-- **Merging tool is half-done** — core works (LoRA/ckpt/resize) but MG-5 (SD3 not wired), MG-6 (stdout not logged), MG-7 (no progress on multi-GB merges), MG-8 (no output-exists check) all still open.
-- **BD-1 Batch Downloader not started** — current `/models` UI is just a link card. Vision corrected: keep BatchLinks-style hashtag routing (`#model <url>`), dropdown only as default.
-- Reflow violations (memory): possibly low-RAM, not a confirmed code bug — don't chase until it reproduces.
+**Doc reconciliation:** §1 Tag/Caption 100% done; WandB/LoggingCard done; Merging tool half-done; BD-1 not started; Reflow violations likely low-RAM environmental.
 
-**New idea — post-training "Test in ComfyUI →" button:**
-After a training run finishes, offer a button to jump straight to testing the new LoRA in ComfyUI. KEY: `extra_model_paths.yaml` already maps `output/`→ComfyUI loras, so the trained LoRA is **already visible** in ComfyUI's picker — no file copy needed. Implement as a deep-link to the Generate page (ideally pre-filling the LoRA), not a copy operation. Small frontend job.
-
-**Considering — forking / KNX-inspired custom ComfyUI nodes:**
-- Currently the Save Image node in the sdxl-knx workflow is willmiao's **Save Image (LoraManager)** (saves CivitAI info + thumbnails + workflow — genuinely great).
-- Open question (Dusk): can we embed a custom **"software" tag** identifying this trainer into saved images WITHOUT writing our own node?
-- Hoped-for free path: ComfyUI's **`extra_pnginfo`** mechanism. We *already* pass `extra_data.extra_pnginfo.workflow` on submit (see `templateInjector.ts`); a spec-compliant SaveImage iterates ALL keys and embeds each as a PNG text chunk.
-- **VERIFIED (2026-05-25) — does NOT work with the LoraManager node.** Reading willmiao's `py/nodes/save_image.py`, it writes at most two chunks: a `"parameters"` chunk (A1111-style string built internally from the metadata collector) and `"workflow"` from `extra_pnginfo["workflow"]` only. It explicitly ignores every other `extra_pnginfo` key. So a custom `software` tag is node-level, confirming Dusk's instinct.
-- **Key constraint (Dusk, 2026-05-25):** the stock ComfyUI SaveImage is **NOT A1111/Civitai compatible** — it writes the `workflow` chunk but no A1111-style `parameters` string, so Civitai can't auto-read generation params from its output. The LoraManager node's entire value is that `parameters` chunk (`pnginfo.add_text("parameters", metadata)`). So the save node MUST stay A1111/Civitai compatible.
-- **Options to add a software tag:**
-  1. **Fork / KNX-inspired save node (the real path)** — start from the LoraManager save logic (keep the A1111 `parameters` chunk + thumbnails + CivitAI info), add a `software` text chunk (and any other KNX metadata). Only option that keeps Civitai compat AND adds the tag.
-  2. ~~Switch to stock SaveImage~~ — REJECTED: gives a free `extra_pnginfo` tag but loses A1111/Civitai compatibility (no `parameters` chunk). Dealbreaker.
-  3. Post-save server-side PNG text injection — awkward, fights ComfyUI's flow; would also have to re-implement the A1111 string. Skip.
-- **Conclusion: forked/KNX-inspired save node is the only viable path** — and it's the natural anchor for the broader "fork or build KNX-inspired nodes" direction.
-
-**DIRECTION (Dusk, 2026-05-25) — build our OWN in-app model manager that hooks into LoRA Manager's API, instead of linking out to its UI:**
-- **Why linking out fails:** LoRA Manager's UI serves assets at root-absolute paths (`/loras_static`, `/locales`, `/example_images_static`, WS `/ws/fetch-progress` etc.) that don't survive our `/comfyui/` proxy prefix. AND on VastAI the frontend is tunneled separately from the exposed 8188 port, so we can't derive ComfyUI's public URL from the frontend hostname (`hostname:8188` points at the wrong host). Per-instance URL setting was considered but rejected in favour of this.
-- **The better approach:** LoRA Manager's **API already works through our `/comfyui/` proxy** (`/comfyui/api/lm/...` → ComfyUI `/api/lm/...`). Build our own model-manager page in the trainer that calls those endpoints. Benefits:
-  - Rides the frontend's existing tunnel — no 8188 exposure, no per-instance URL, no asset-path proxying.
-  - Matches our app theme instead of LoRA Manager's separate styling.
-  - **Lets us trigger LoRA Manager indexing / CivitAI metadata fetch from inside our app** — directly solves the "raw checkpoint won't validate until indexed" problem (the NoobAI 400). "Drop a checkpoint → click index → use it" becomes a real flow.
-  - Natural home for the Batch Downloader (BD-1) and the post-training "Test in ComfyUI" button.
-- **Scope:** proper project, ~next few days, part of the broader fork/inspired-nodes direction (NOT tonight). Needs: new page, wire up LoRA Manager API endpoints (list / scan / metadata fetch), and handle their progress WebSockets (`/ws/fetch-progress`, `/ws/download-progress`, `/ws/init-progress` — root-path, likely need proxy handling in server.js).
-- **REFINED SCOPE (Dusk, 2026-05-25):** do NOT clone the whole LoRA Manager (no separate tab, no stats dashboards, none of "all that shit"). Instead **fold lightweight model management into the existing Civitai downloader page** (`/models/browse` / `models/page.tsx`). Keep it to what's useful: browse local models, trigger indexing/metadata, download. The Civitai downloader is the natural anchor — already a model-acquisition surface.
-- **Add ArcEnCiel as a source** (see Section 16 — ArcEnCiel Model Browser) at some stage, alongside Civitai in that same downloader surface. Multi-source model browse/download in one place.
-- **LoRA Manager UI access is now FIXED** (commit 1f1836c, verified 2026-05-25): server.js proxies LoRA Manager's root-absolute paths (`/loras`, `/loras_static`, `/locales`, `/api/lm`, `/api/view`) to ComfyUI, so `/comfyui/loras` loads fully through the tunnel. So the in-app manager is no longer *blocking* — it's a QOL/ergonomics improvement now, not a "can't access models at all" fix. (Earlier tonight the `:8188` direct-link approach was reverted as wrong for VastAI before this proper proxy fix landed.)
+**New ideas:** Post-training "Test in ComfyUI" button (deep-link, no copy); KNX-inspired save node for `software` PNG tag (fork LoraManager save logic).
 
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
-**Completed this session:**
-- **PR #375** — Reflow violations (#374): TrainingMonitor auto-scroll fully deferred into rAF with cancelAnimationFrame on cleanup; auto-tag SelectContent → `position="item-aligned"` (removes Floating UI getBoundingClientRect on mousedown); 4 raw `<button>` elements → shadcn `<Button>`; `MAX_LOGS` 1000→500; `aria-label`, `gap-2`, `type="button"` added per CodeRabbit review.
-- **PR #376** — Log stream cutout bug: `Job.logs` is a `deque(maxlen=1000)`. Once full, `get_logs(since)` always returned `[]` because it used a buffer-relative index — `since` reached `maxlen` and `start >= len(logs)` was permanently true. Root cause of the 5-7 minute log cutout on a 4090. Fixed with `total_lines_written` absolute counter; same bug fixed in `stream_logs` WebSocket path. `deque` maxlen raised to 2000. 13 regression tests added.
-- **BETA_PLANNING.md §11.1** — ComfyUI architecture finalised: submodule approach, B2 workflow-template state model, extension system (workflow templates + node packages), LoRA Manager button → new tab, ANIMA ↔ SDXL switcher.
-- **UI-3** confirmed done — AbortError caught and suppressed in both `pollLogs` paths in `api.ts`.
-- **UI-4 PYTHONUNBUFFERED** confirmed done — achieved via `-u` flag in `kohya.py:124`.
+**Completed:**
+- **PR #375** — Reflow fixes: TrainingMonitor rAF scroll, SelectContent positioning, raw buttons → shadcn, MAX_LOGS 500.
+- **PR #376** — Log stream cutout: `deque` buffer-relative index bug → `total_lines_written` absolute counter, maxlen 2000, 13 regression tests.
+- **§11.1** ComfyUI architecture finalised (submodule, B2 workflow templates, extension system).
+- UI-3 (AbortError) and UI-4 (PYTHONUNBUFFERED via `-u`) confirmed done.
 
-**Status check findings:**
-- PR-0 (OptimizerSchema single source of truth) — still genuinely pending. No `OPTIMIZER_VALUES as const` in `validation.ts`.
-- LT-1 + UI-1 (WandB logging UI) — still pending.
-
-**Up next:**
-- Merge PR #375 (reflow) → PR #376 (log stream) onto main
-- LT-1 + UI-1 (#343): WandB key env var + LoggingCard
-- PR-0: Export OPTIMIZER_VALUES/LRSCHEDULER_VALUES as `as const` from validation.ts
-
----
+**Pending:** PR-0 (OptimizerSchema single source), LT-1+UI-1 (WandB) — both since resolved.
 
 ### 2026-04-30 — Beta Bug Bash
 
-**Completed this session (commits on `dev`):**
-- Next.js 15 → 16 upgrade (PR #355, merged to main)
-- PostCSS CVE-2026-41305 patch
-- Dev-branch provisioning scripts for VastAI and RunPod
-- CT-5: CheckpointTrainingConfig TypeScript type now includes SD35/CHROMA/ANIMA
-- MG-1: Removed deceptive alpha input from LoRA resize (resize_lora.py auto-calculates it)
-- MG-2: Commented the --save_precision vs --saving_precision naming difference
-- MG-3: asyncio.wait_for() timeouts on all merge/resize subprocesses (resize=30min, merges=1hr)
-- MG-4: _validate_device() CUDA availability check before any subprocess gets --device cuda
-- UI-4 (#346): pollLogs fixed-cadence + visibility-aware polling + visibilitychange listener
-- HF-1 (#344): HF upload page pre-fills token from saved settings; owner/repoType persist in localStorage
-- LT-2: enable_bucket now reads from config instead of hardcoded True
+**Completed (dev branch):**
+- Next.js 15 → 16 upgrade, PostCSS CVE patch, provisioning scripts
+- CT-5: CheckpointTrainingConfig types include SD35/CHROMA/ANIMA
+- MG-1: Removed deceptive alpha input (auto-calculated)
+- MG-2: Documented --save_precision vs --saving_precision difference
+- MG-3: Subprocess timeouts (resize=30min, merges=1hr)
+- MG-4: CUDA availability check before --device cuda
+- UI-4: pollLogs fixed-cadence + visibility-aware + visibilitychange
+- HF-1: HF upload token from settings; owner/repoType persist localStorage
+- LT-2: enable_bucket reads from config (not hardcoded)
 - LT-3: network_train_unet_only guarded to False in checkpoint mode
 
-**Up next:**
-- LT-1 + UI-1 (#343): Wire wandb_key as WANDB_API_KEY env var + add LoggingCard to training form
-- PYTHONUNBUFFERED=1 on Kohya subprocess (UI-4 backend part)
-- MG-5: SD3 merge (deferred but part of #342)
-- #349: Upload progress indicator (needs XHR refactor, waiting a few days)
-- Tag Viewer + Bulk tag ops (larger feature work)
-
-**Ease assessments (2026-05-07):**
-- **#349 upload progress** — Easy. Infrastructure already exists (progress state, file status tracking). Two steps: (1) swap remote zip upload from `fetch` to `XMLHttpRequest` for `onprogress` events, (2) add `<Progress>` component to the UI. ~30-40 lines. Deferred, not tonight.
-- **#343 WandB logging UI** — Easy-Medium. Entire data layer exists (Zod schema, types, defaults, validation, API client, backend Pydantic). Only missing: rendered inputs. Add a `LoggingCard` with `log_with` dropdown + conditional WandB fields. One focused session. Pair with LT-1 backend wire-up.
-- **#340 tag viewer + bulk ops** — Medium. Part 1 (tag viewer): new `GET /api/dataset/{name}/tag-summary` endpoint + frontend chip/badge component. Logic is simple (`flatMap` → `reduce` → sort). Part 2 (bulk ops) builds directly on Part 1. Larger than 343 but very well scoped. Good candidate for a web session.
-- **#347 dashboard redesign** — Large. Visual design decisions + missing pages + workflow grouping hierarchy. Needs a dedicated focused session with component work. Not a quick fix — confirmed big lift.
-
-**CT-2 closed as N/A:** `/training` and `/checkpoint-training` are already separate pages — no unified form exists where LoRA fields would need to be hidden.
-
----
+**Since resolved:** LT-1+UI-1 (wandb_key + LoggingCard), PYTHONUNBUFFERED (via `-u` flag).
+**Deferred:** MG-5 (SD3 merge), #349 (upload progress — easy, ~30-40 lines), Tag Viewer + Bulk ops.
+**CT-2 closed N/A:** Separate pages already.
 
 ## 10. Notes (Original)
 
@@ -1011,8 +979,10 @@ The goal is a healthy, interconnected set of tools running on the same VastAI/Ru
 
 ### 11.1 ComfyUI Frontend Integration
 
-**Priority:** Beta+ (after core beta bugs closed)  
-**Status:** Architecture finalised 2026-05-20. **Shipping decision: all-in-one.**
+**🧭 North star (Dusk, 2026-06-22):** *Re-make what made A1111/Forge easy, on top of ComfyUI.* ComfyUI is the right **engine** (graph-as-JSON + API-first is what makes our programmatic template injection / BYO-template possible — Forge couldn't host that); its cost is the lost OOTB ergonomics. So the Generate-UI roadmap is **rebuilding Forge/A1111 comfort as a layer on top of ComfyUI**, not switching back. Every Generate-side feature (detailer dropdowns, batchlinks §6.5, future selection rework) gets one test: *does this make it feel more Forge-easy?* Incremental ergonomic bricks are encouraged (don't over-defer waiting for a grand "rethink"); the bigger rethink = workflow-dependent / BYO-template selection, tracked separately.
+
+**Priority:** ~~Beta+ (after core beta bugs closed)~~ — **superseded: it's BUILT.** No longer a future/post-beta item.  
+**Status:** ✅ **IMPLEMENTED & shipping (as of 2026-06-22).** Generate UI is live, bundled all-in-one: ANIMA + SDXL templates, model/VAE/LoRA dropdowns, LoRA Manager loader integration, 4-detailer Adetailer chains with per-detailer model pickers, UltimateSDUpscale. COMFY-1..4 shipped 2026-05-23; architecture finalised 2026-05-20. Now in **active Forge-ergonomic improvement** per the north star above — NOT "post-beta, not built." Remaining work is incremental (batchlinks §6.5, the selection rework) and tracked individually, not a release blocker.
 **Source:** v0-generated template, repo at `duskfallcrew/KNX-ComfyUI`, used as reference — not dropped in wholesale. Code lives in the main trainer repo.
 
 #### Shipping decision (2026-05-09)
@@ -1030,7 +1000,9 @@ ComfyUI tab ships **bundled in the main app**. No install flag, no optional clon
 - Settings page has a "ComfyUI URL" field (default: `http://localhost:8188`) so users who already have ComfyUI running somewhere can point the app at it — no re-install needed
 - Connection status badge on the tab so it's obvious at a glance whether it's live
 
-#### ComfyUI backend: submodule (2026-05-20)
+#### ComfyUI backend: submodule (2026-05-20) — ⚠️ SUPERSEDED by COMFY-8 (direct clone everywhere, decided 2026-05-23)
+
+> **Stale — kept for history only. ComfyUI is NOT a submodule;** it's direct-cloned by all install paths (see COMFY-8). The text below reflects the abandoned submodule plan.
 
 ComfyUI the Python backend ships as a **git submodule** in the trainer repo. It runs co-located on `localhost:8188` — always same machine, no SSH, no remote ComfyUI. Multi-GPU / remote-ComfyUI is explicitly future scope.
 
@@ -1052,7 +1024,7 @@ We wrap ComfyUI's API — we do not re-implement node logic. Source of truth is 
 **Architecture switcher (ANIMA ↔ SDXL):**
 - Switcher in the UI header swaps which template is loaded — same resizable-panel UI, different workflow JSON + node map underneath
 - ANIMA template is first (reference: `guy90sVerySimpleAndEasyTo_v10.json`, tested and verified 2026-05-19 — AuraFlow model sampling node, UNET/CLIP/VAE separate loaders, KSampler, Adetailer, Ultimate SD Upscale)
-- SDXL template is the second built-in; in progress, not blocking ANIMA shipping
+- SDXL template — ✅ **shipped** (`sdxl-knx-v13pt5.json`: 4-detailer chains face/eye/hand/mouth, per-detailer model dropdowns, detailer denoise tuned 0.05→0.35 on 2026-06-22). The earlier "in progress" is done.
 
 **Extension model:**
 - Community contributions come in two forms: **workflow templates** (new architecture support) and **node packages** (new node type → UI control bindings)
@@ -1144,12 +1116,11 @@ The bundled SDXL workflow (`guy90sVerySimpleAndEasyTo_v10.json`, adapted from Gu
 
 The `GenerateUI` architecture switcher (header toggle) will call `buildAnimaWorkflow` vs `buildTxt2ImgWorkflow` depending on user selection — same resizable panel, different builder underneath. This is tracked in the architecture switcher todo below.
 
-**COMFY-6 (long-horizon): Custom node plugin system**
-- Custom node packs map to UI component "plugins" — similar to A1111's extension system
-- Installing a custom node pack (e.g. ControlNet, Impact Pack) surfaces a friendly UI panel for it rather than raw node inputs
-- Foundation already exists: `lib/comfy/types.ts` has full ComfyUI API typing to build node→component mapping on
-- Research: Dataset-Tools already has `lib/comfyui-node-registry.ts` and `lib/comfyui-github-search.ts` — may be the starting point
-- **Do not design this until COMFY-1 through COMFY-4 are shipped and stable**
+**COMFY-6 (evolving): Custom workflow templates**
+- Users drop a workflow JSON into a `workflows/custom/` folder → it appears as a generation mode in the architecture dropdown
+- Requires component coverage for the nodes used in the template (added over time as we encounter new node types)
+- NOT a plugin system — no extension API, no dynamic node→component mapping
+- Priority: low. Add template UI slots as we build workflows. No up-front abstraction effort.**
 
 **COMFY-5 (dream feature): "Test in ComfyUI" post-training shortcut**
 - When a training job completes, show a "Open in ComfyUI" button on `TrainingMonitor`
@@ -1215,8 +1186,8 @@ Lives in its own GitHub repo (`Ktiseos-Nyx/knx-nodes` or similar) so the provisi
 
 ### 11.2 Dataset Tools Integration
 
-**Priority:** Beta+ (after COMFY-1 proxy pattern is proven)  
-**Status:** App is working and maintained — integration plan drafted  
+**Priority:** Beta+ (NOT gated on COMFY-1 — different mechanism; see architecture below)  
+**Status:** ⏳ Not started — integration plan drafted (architecture corrected 2026-05-30: in-app merge, NOT a proxied separate process)  
 **Source:** `C:\Users\dusk\Development\Dataset-Tools` / [Ktiseos-Nyx/Dataset-Tools](https://github.com/Ktiseos-Nyx/Dataset-Tools) (same org)  
 
 #### What it is
@@ -1240,14 +1211,22 @@ Dataset Tools is a **local-first image and model browser** with deep AI metadata
 
 #### Integration architecture
 
-Same proxy approach as ComfyUI (section 11.1). Dataset Tools runs as a second Next.js process on its own port; the Trainer's `server.js` proxies `/dataset-tools/*` to it.
+**Corrected approach (Dusk, 2026-05-30): direct in-app integration — NOT a proxied separate process.** ComfyUI uses a proxy because it's a Python app on its own port; Dataset Tools is the **same Next.js 16 + React 19 + shadcn stack as the Trainer**, so it slots straight into the single app as additional routes/components. **No second Next.js process, no `DATASET_TOOLS_PORT`, no `server.js` proxy block, no extra startup/provisioning steps.** One app, one build, one process.
 
-**DT-1: Proxy layer**
-- `frontend/server.js` — add `/dataset-tools` HTTP proxy block, pointing to `http://127.0.0.1:${DATASET_TOOLS_PORT}`
-- Env var: `DATASET_TOOLS_PORT=3001` (add to all startup scripts)
-- `start_services_vastai.sh` — start Dataset Tools process (`cd /workspace/Dataset-Tools && npm start`)
-- Same for `start_services_runpod.sh` and `restart.sh`
-- Add to provisioning scripts: `git clone` + `npm install` + `npm run build` of Dataset-Tools repo
+**DT-1: Merge DT into the Trainer app (in-app)**
+- Bring DT's pages in under a namespaced route in the Trainer's `frontend/app/` (e.g. `app/dataset-tools/...`) and its components into `frontend/components/`.
+- **Namespace DT's API routes AND whitelist them in `server.js`** — the "API paths" gotcha, traced 2026-07-03. Both apps have `app/api/*`, with **direct collisions**: DT *and* the Trainer both define `/api/civitai` and `/api/settings` (both already in the Trainer's `server.js` `nodeApiPrefixes`). DT's other routes — `/api/fs`, `/api/metadata`, `/api/metadata-from-file`, `/api/metadata-write`, `/api/thumbnail`, `/api/image`, `/api/safetensors`, `/api/rules`, `/api/find-file`, `/api/comfyui-nodes`, `/api/health` — are unclaimed.
+  - **Fix (two parts, both required):** (1) move all DT API routes under `app/api/dataset-tools/*`; (2) add `'/api/dataset-tools'` to `nodeApiPrefixes` at `server.js:240`. Without (2), `server.js` routes those paths to its "proxy other `/api/*` to FastAPI:8000" branch (`server.js:257`) → FastAPI has none of them → 404. This is a **one-line whitelist entry**, not a ComfyUI-style separate-process proxy block — the "no `server.js` proxy block" note above still holds; this single `nodeApiPrefixes` line is the one exception.
+  - NB: the Trainer's own crop/convert Python endpoints (`/api/dataset/crop`, `/api/dataset/convert`) are **unaffected** — `next.config.js:52`'s `/api/:path*` → FastAPI rewrite proxies them through fine (verified 2026-07-03).
+- **Reconcile shared pieces:** dedupe `components/ui/*` (both shadcn — keep one set, watch for version drift), merge `next.config.js` (`serverExternalPackages` for `sharp`, etc.) and any provider/layout wrappers.
+- **Settings + thumbnail cache:** DT's settings system and `.thumbcache/` are self-contained — keep them namespaced so they don't clash with Trainer settings.
+- Net ops change: provisioning just builds the one app; no separate clone/build/start of a second repo, no port wiring. Code can be vendored/subtree'd from the Dataset-Tools repo or copied in — decide at implementation time.
+
+**Framing (Dusk, 2026-05-30): this is a full combination, bidirectional — not a one-way bolt-on.** The two apps are the same stack, so treat it as unifying them and **bringing DT's optimizations forward into the combined app** (and vice versa). Concretely harvest:
+- **UI components** — DT's glassmorphism/glow/cursor/card/tabs set + theme system (already flagged as the §14 unjankification goldmine). Porting these *is* a big chunk of §14.
+- **Performance work** — any perf optimizations DT already made (thumbnail caching/`sharp` pipeline, metadata parsing, list virtualization, etc.) apply directly to the Trainer's equivalent pain points (e.g. the dataset gallery / file manager reflow issues).
+- **Reusable subsystems** — DT's ComfyUI integration (`comfyui-node-registry.ts`, `comfyui-github-search.ts`, `ComfyUIWorkflowViewer.tsx`) may feed the Trainer's ComfyUI tab directly (cross-ref §11.1).
+- Decide which is canonical when both apps have a version of the same thing (shadcn components, settings patterns) and keep the better one. The merge is the opportunity to consolidate, not duplicate.
 
 **DT-2: Navbar link**
 - Add "Dataset Tools" entry to the trainer navbar under a new "Ecosystem" section (or alongside "Files")
@@ -1258,7 +1237,7 @@ Same proxy approach as ComfyUI (section 11.1). Dataset Tools runs as a second Ne
 - **"Inspect LoRA"** on training completion — opens the trained `.safetensors` directly in Dataset Tools' safetensors panel
 - **"View reference metadata"** in the dataset image gallery — opens a selected image in Dataset Tools' metadata panel
 
-These handoffs are URL-based (no shared state stores), keeping the projects loosely coupled.
+With the in-app merge these become **same-app navigation** (Next router/`<Link>` to the namespaced `app/dataset-tools/...` routes) — simpler than the old cross-app deep-link idea. Can still pass the target via URL params (e.g. `?path=`/`?file=`) and even share state directly if wanted, since it's one app now.
 
 **DT-4: Shared folder awareness**
 - Dataset Tools has a `settings.currentFolder` that the user sets manually
@@ -1278,7 +1257,7 @@ Tags both ends of the same ecosystem with one consistent name.
 - Dataset Tools has its own settings system and thumbnail cache — these are self-contained, no conflict with Trainer settings
 - The Python `dataset_tools/` CLI is a separate tool; ignore it for web integration
 - Dataset Tools' `app/api/fs/route.ts` restricts file access to a configured base folder — on VastAI the default base should be `/workspace`
-- `.thumbcache/` directory generates WebP thumbnails via `sharp` — on VastAI this lives inside the Dataset-Tools repo directory, which is fine
+- `.thumbcache/` directory generates WebP thumbnails via `sharp` — with the in-app merge it lives within the single Trainer app; just pick a stable location and ensure `sharp` is in the merged `serverExternalPackages`
 - **Dataset-Tools already has ComfyUI integration:** `ComfyUIWorkflowViewer.tsx`, `app/api/comfyui-nodes/route.ts`, `lib/comfyui-node-registry.ts`, `lib/comfyui-github-search.ts`. These may be reusable directly in the trainer's ComfyUI tab — check before building from scratch.
 - **UI component goldmine:** glassmorphism components (`glass-notification`, `glass-popover`), glowing effects (`glowing-effect`, `glowingbordercard`), `smooth-cursor`, `vercel-card`, `vercel-tabs`, `kokonutui/ai-loading`. All Next.js 16 + shadcn/ui — direct transplant candidates for the UI unjankification work (Section 14).
 
@@ -1295,7 +1274,33 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 ---
 
-### 11.4 Priority Matrix — Ecosystem Features
+### 11.5 SDXL Workflow — Eye Detailer Pass (COMFY-14)
+
+**Status:** 🔧 **Workflow BUILT, UI wiring pending (updated 2026-06-09).** Dusk has already built + tested a **4-pass** Adetailer in `sdxl-knx-v13pt5.json` — Face (`bbox/face_yolov8n`), Eyes (`segm/Anzhc Eyes -seg-hd`), Hands (`segm/PitHandDetailer-v1b-seg`), Mouth (`bbox/adetailer2dMouth_v10`). Remaining work is **exposing the full control surface** in the Generate UI — NOT building or hiding a single auto-fix pass. (The single-eye-pass framing below is superseded; kept only for the bbox-vs-segm wiring reference, which is still accurate.)
+
+**Problem:** Eyes are frequently poorly drawn even with the current detailer. **Root cause is NOT GPU or model** — the workflow only has a *face* detailer (`face_yolov8m`). A face detailer crops the whole face and re-renders it as one region, so the eyes get only a tiny fraction of the new resolution. The fix is a dedicated **eye detailer pass** (standard intermediate SDXL setup; Forge's ADetailer did this by just adding a second tab with an eye model).
+
+**Models:** Dusk already has Anzhc's anime detection models; some are **`-seg-` (segmentation)** models. (Alt refs if needed: "Eyeful" / SnowyYukino eye models on Civitai.) Models live in `ComfyUI/models/ultralytics/{bbox,segm}/` — ties to COMFY-12 (these aren't auto-downloaded).
+
+**Key gotcha — bbox vs segm wire differently (this is the part that wasn't obvious):**
+- **bbox model** → rectangle → needs SAM → routes through `Simple Detector (SEGS)` (what the existing *face* chain uses).
+- **segm `-seg-` model** → outputs the mask shape directly, **no SAM** → routes through **`SEGM Detector (SEGS)`** (`SegmDetectorSEGS`) using the detector's **SEGM_DETECTOR** output. *(The harmless little red X on the face detector's segm port is just that output being unused on a bbox model — normal, not a bug.)*
+
+**Wiring for the (segm) eye pass:**
+```
+UltralyticsDetectorProvider (Anzhc eye -seg-) ── SEGM_DETECTOR ──▶ SEGM Detector (SEGS) ──▶ DetailerForEach (eyes)
+```
+- Splice **after** the face DetailerForEach (#74), **before** Save (#65): face first, then eyes on the cleaned face. (Find what currently feeds Save's image input; insert the eye chain between.)
+- DetailerForEach eye inputs: same MODEL/CLIP/VAE/positive/negative as the face pass.
+- **Settings:** `guide_size` 256–512 (biggest lever — gives tiny eyes real resolution); `denoise` ~0.4 (redraw without changing eye color/shape/style); SEGM threshold ~0.5 (lower if it misses an eye).
+
+**Design intent (corrected 2026-06-09 — kill the simplify-and-hide bias):** the extra detail passes ARE the feature for this audience, not surface to hide. Phase 1 (wire + tune live) is **done** — v13.5 ships 4 tuned passes. Phase 2 is **expose the full control surface** in the Generate UI:
+- **Per-pass on/off** for each detail pass (independent bypass — today's single `adetailerEnabled` only covers ONE of four; that's the correctness bug to fix first).
+- **Per-pass detector model** picker, **bbox/segm-aware** so a segm model routes to `SEGM Detector (SEGS)` and a bbox model to `Simple Detector (SEGS)` (the wiring reference above stays authoritative).
+- **Per-pass settings** users want to reach (guide_size / denoise / detection threshold) — exposed **inline**, NOT behind an "Advanced drawer." A drawer is *more* machinery (build the show/hide abstraction, decide what's "advanced," manage its state) AND it buries the feature. Inline is both less work and the honest default for this audience.
+- **Add/remove passes** beyond the built-in set (see build note — the one genuinely open scope question).
+
+**Do NOT** re-frame this as "auto-fix that hides the wiring" or "one body part at a time, future optional." Dusk already built all four; the job is *surfacing* control, not rationing it. (Recurring bias to resist — see CLAUDE.md "Bleeding Edge" + "Empirical Lore." Past sessions kept writing "nobody needs the extra surface" into this doc and leaving Dusk to force-agree. Stop.)
 
 | Feature | Category | Effort | Status |
 |---------|----------|--------|--------|
@@ -1311,7 +1316,8 @@ As more tools are integrated, these rules keep things from becoming a mess:
 | COMFY-11: Model download to ComfyUI folder (from HuggingFace/Civitai) | Feature | Medium | ✅ Done 2026-05-24 |
 | COMFY-12: Auto-download Ultralytics bbox/segm models for Impact-Pack | Infrastructure | Tiny | ⏳ Not started |
 | COMFY-13: Gallery image popup — show + copy generation metadata (prompt/seed/sampler/settings) from the lightbox in `GenerateUI.tsx` | Feature | Small | ⏳ Not started |
-| DT-1: server.js proxy + startup scripts for Dataset Tools | Infrastructure | Small | ⏳ Not started |
+| COMFY-14: Full Adetailer control surface — 4 passes (face/eyes/hands/mouth) built+tested in `sdxl-knx-v13pt5.json`; expose per-pass on/off + bbox/segm model picker + settings in Generate UI (see §11.5) | Feature | Medium | 🔧 Workflow done, UI pending |
+| DT-1: Merge DT routes/components into the app (namespace API routes, dedupe `components/ui`, merge `next.config`) | Infrastructure | Medium | ⏳ Not started |
 | DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
 | DT-3: Handoff buttons (inspect LoRA, view reference, files) | Feature | Small | ⏳ Not started |
@@ -1321,52 +1327,17 @@ As more tools are integrated, these rules keep things from becoming a mess:
 
 ## Section 12 — Security Review Backlog
 
-### 12.1 CWE-23 Path Traversal (Snyk removed, low urgency, not today)
+### 12.1 CWE-23 Path Traversal (Snyk removed, low urgency)
 
-> **2026-05-07 note:** Snyk has been removed from the project (rules were SaaS-calibrated noise for a local tool). Path traversal sanitisation is a *good idea in principle* but is **not imperative right now** — this is a single-user local tool, not a public web app. We could add it for belt-and-suspenders safety, but it's firmly in "yeah we should, but not today" territory. DeepScan is still active on the JS side; Bandit is noted as a future candidate for Python security scanning if we ever want coverage again.
+**Status:** ⏳ Not started | **Priority:** Low (pre-public-release gate)
 
-~~Snyk flags~~ Path traversal (CWE-23) exists across several Python service files. Partially false-positive for a single-user local tool, but worth a sanitisation pass before any public/multi-user deployment.
+Snyk removed (SaaS-calibrated noise). Path traversal sanitisation is good practice but not imperative — single-user local tool, private tunnel. `files.py` already protected; `config.py` preset paths need `is_relative_to(presets_dir)` guard; service paths need configurable `WORKSPACE_ROOT` validation.
 
-**Current state:**
-- `api/routes/files.py` — already protected: `is_safe_path()`, `ALLOWED_DIRS`, `is_relative_to()` used before every `open()`. Snyk false-positive here.
-- `services/lora_service.py`, `services/caption_service.py`, `services/tagging_service.py` — user-supplied paths go straight to `Path()`. Intended behaviour (user specifies their own model/dataset paths) but technically traversable.
-- `api/routes/config.py` — preset file paths from API requests, no allowlist check. Lowest-hanging real concern.
+### 12.2 CWE-78 Command Injection (Snyk — mostly false positives)
 
-**Why it's low risk now:** App is single-user, accessed via private tunnel on VastAI/RunPod. Path traversal = user accessing their own files, which they already can.
+**Status:** ⏳ Not started | **Priority:** Low
 
-**Why it matters eventually:** If the app ever supports multiple users, shared instances, or public access, these become real attack surfaces.
-
-**Investigation items (SEC-1):**
-- Check if service-layer paths can be validated against a configurable `WORKSPACE_ROOT` without breaking VastAI/RunPod users who store files outside the project directory
-- Consider `Path.resolve()` + `is_relative_to(WORKSPACE_ROOT)` pattern in services — only viable if `WORKSPACE_ROOT` is user-configurable in settings (default: `/workspace` on cloud, `PROJECT_ROOT` locally)
-- `api/routes/config.py` preset paths — add same `is_relative_to(presets_dir)` guard that `files.py` already uses for a quick partial win
-
-**Effort:** Small–Medium | **Priority:** Low (pre-public-release gate) | **Status:** ⏳ Not started
-
----
-
-### 12.2 CWE-78 Command Injection (Snyk, medium — mostly false positives)
-
-Snyk flags command injection (CWE-78) in Python files that pass user-controlled values into subprocess calls.
-
-**Current state:**
-- All subprocess calls use `asyncio.create_subprocess_exec` or list-form `subprocess.run` — neither passes through a shell. OS `exec()` does not interpret shell metacharacters, so these are not injectable regardless of argument content.
-- No `shell=True`, `os.system()`, or `os.popen()` anywhere in `api/` or `services/`. The one `shell=True` in `job_manager.py` was removed in commit `ab2fb6b`.
-- `model_service.py` — aria2c and wget calls build arg lists from user-supplied URLs and API tokens. List-form, not shell-interpolated. Safe.
-- `services/trainers/`, `lora_service.py`, `captioning_service.py` etc. — training/processing commands built as lists with user-supplied paths. Same pattern, safe.
-
-**Why Snyk flags it:** Static analysis sees user-controlled values flowing into subprocess args and flags conservatively, even when list-form exec is used. It cannot always prove the list won't later be joined into a shell string.
-
-**Why it's low real risk:** List-form exec is the correct mitigation for CWE-78. No shell is invoked, no metacharacter interpretation occurs.
-
-**Investigation items (SEC-2):**
-- Audit that no call site ever does `" ".join(args)` and passes the result to a shell-based subprocess — this would re-introduce the vulnerability
-- Verify `model_service.py` wget/aria2c header args (`Authorization: Bearer {token}`) are never shell-interpreted if the download backend is swapped in future
-- Consider adding a lint rule or comment convention to flag any future `shell=True` additions at review time
-
-**Effort:** Tiny (audit only, no fixes expected) | **Priority:** Low | **Status:** ⏳ Not started
-
----
+All subprocess calls use `asyncio.create_subprocess_exec` / list-form `subprocess.run` — no shell, not injectable. Snyk flags conservatively. Audit: no `" ".join(args)` → shell; verify `model_service.py` headers never shell-interpreted.
 
 ---
 
@@ -1374,24 +1345,13 @@ Snyk flags command injection (CWE-78) in Python files that pass user-controlled 
 
 ### 13.1 Integrate upstream docs + remove hand-holding bias
 
-**Priority:** Low (post-in-house-testing)
-**Status:** ⏳ Not started
+**Priority:** Low (post-in-house-testing) | **Status:** ⏳ Not started | **Effort:** Medium
 
-The in-app `/docs` section needs a proper cleanup pass before beta. Two things to tackle together:
+**Pull in:** LyCORIS docs (params/network types), sd-scripts docs (flags/optimizers/schedulers). Strip outdated/contradicted content.
 
-**Source material to pull in:**
-- LyCORIS documentation — copy relevant parameter/network type explanations into the in-app docs
-- sd-scripts documentation — training flags, optimizer notes, scheduler behaviour etc.
-- Strip anything that's already outdated or contradicted by our vendored versions
+**Remove bias:** Hardware requirement nags on pages user already chose; Claude over-explanation/hedging. Changelog page: populate from git history or delete route.
 
-**Bias/tone cleanup:**
-- Remove hand-holdy warnings that assume the user doesn't know what they're doing (e.g. hardware requirement nags on pages where the user has already made the choice to be there)
-- "Unbiasify" any Claude-written docs that over-explain or hedge excessively
-- Changelog page (`app/changelog/`) exists but is removed from nav — either populate it from git history or delete the route entirely
-
-**Note:** Do not tackle this during active testing phases. Brain goes to FF9 Quina frog-catching, docs rot. Schedule for a dedicated docs sprint.
-
-**Effort:** Medium | **Blocked by:** Stable alpha + in-house testing complete
+**Blocked by:** Stable alpha + in-house testing complete.
 
 ---
 
@@ -1491,10 +1451,10 @@ This is iterative, not a big-bang redesign. Work page by page, card by card:
 | Toast copy pass | Tiny | Medium | ⏳ Not started |
 | Nav: active states + ecosystem group | Small | Medium | ⏳ Not started |
 | Semantic color pass (icons, badges) | Small | Medium | ⏳ Not started |
-| **Slate purge:** Training cards (`SavingCard`, `MemoryCard`, `LoRAStructureCard`, `LoggingCard`, `CaptionCard`, `AdvancedCard`, `AugmentationCard`) — `border-slate-700` dividers → `border-border` | Tiny | Medium | ⏳ Not started |
-| **Slate purge:** `DatasetUploader.tsx` + `UppyDatasetUploader.tsx` — raw HTML form elements + `bg-slate-800`/`border-slate-600` → shadcn components + CSS vars | Medium | High | ⏳ Not started |
+| **Slate purge:** Training cards (`SavingCard`, `MemoryCard`, `LoRAStructureCard`, `LoggingCard`, `CaptionCard`, `AdvancedCard`, `AugmentationCard`) — `border-slate-700` dividers → `border-border` | Tiny | Medium | ✅ Done 2026-06-16 (all 7 cards: `border-slate-700`→`border-border`, `bg-slate-800/50`→`bg-muted/50`) |
+| **Slate purge:** `DatasetUploader.tsx` + `UppyDatasetUploader.tsx` — raw HTML form elements + `bg-slate-800`/`border-slate-600` → shadcn components + CSS vars | Medium | High | ✅ Done 2026-06-16 (4 raw `<input>`→shadcn `<Input>`, `<label>`→`<Label>`, slate divs→`bg-muted`/`border-border`; validation borders kept as semantic yellow/red; tsc clean) |
 | **Custom → shadcn audit:** `components/effects/` custom cards/borders/buttons — identify which can be replaced by installed shadcn components, retire the rest. Root cause: went custom early before knowing what shadcn had. | Small | Medium | ⏳ Not started |
-| **Hero slate:** `hero-animated.tsx` gradient strings bake in `slate-950` — make theme-aware or replace with CSS var equivalents | Tiny | Low | ⏳ Not started |
+| **Hero slate:** `hero-animated.tsx` gradient strings bake in `slate-950` — make theme-aware or replace with CSS var equivalents | Tiny | Low | ⏳ Held for visual call (2026-06-16) — the `slate-950` gradients are ALREADY behind `isDark ? dark : light` ternaries (not a theme bug; deliberate dark base). Swapping to `bg-background`/`bg-muted` would change the designed dark hero. Also two raw `<button>` CTAs here (lines ~150/163) — pairs with the a11y raw-button→shadcn pass. Needs Dusk's eye, not a mechanical swap. |
 | **a11y: numeric inputs for Steps & CFG** — on the Generate page (`GenerateUI.tsx`) Steps and CFG are slider-only; add paired numeric `<Input>` (like width/height/seed already have) so values are typeable, precise, and exposed to keyboard/assistive-tech users. | Tiny | Medium | ⏳ Not started |
 | **a11y sweep (whole app)** — dedicated pass at some stage (not urgent): keyboard nav, `focus-visible` states, ARIA labels, slider-only controls, color contrast, form-label associations. Audit + fix per page. | Medium | High | ⏳ Not started |
 
@@ -1791,9 +1751,9 @@ Florence-2 requires `flash_attn` for best performance but falls back cleanly to 
 
 | Item | Effort | Impact | Status |
 |------|--------|--------|--------|
-| **Fix Next-16 lint** — `package.json` lint script is `next lint`, but Next 16 removed the `lint` subcommand (misfires, treats `lint` as a directory). `npx eslint` also fails with `minimatch: expand is not a function` (broken dep). Migrate to ESLint flat config (`eslint.config.mjs`) + repair the dep. Gate frontend changes with `npx tsc --noEmit` until fixed. | Small | High | ⏳ Not started |
+| **Fix Next-16 lint** — ✅ **Done 2026-06-16.** Two fixes: (1) `lint` script `next lint` → `eslint .` (Next 16 removed the subcommand); (2) the `minimatch: expand is not a function` crash was the `brace-expansion` override `>=2.0.3` floating to **v5.0.5**, which moved to ESM named exports and broke `minimatch@3`'s CJS `require()` (eslint's own `@eslint/config-array` + import/jsx-a11y/react plugins all use `minimatch@3`). Capped the override to `>=2.0.3 <3.0.0` (highest CJS, CVE-patched v2 = 2.1.1). Flat config already present (`eslint.config.js` spreads `eslint-config-next@16`'s flat array); removed the dead legacy `.eslintrc.json`. `npm run lint` now runs across the whole project; `tsc --noEmit` still clean. **Follow-up (separate cleanup, NOT the tooling fix):** lint surfaces 71 pre-existing problems (47 errors / 24 warnings) — 21 `react/no-unescaped-entities` (cosmetic), 26 React-Compiler hook rules (`react-hooks/refs`, `preserve-manual-memoization`, `set-state-in-effect`) from eslint-config-next@16's strict defaults, rest warnings. Triage/disable-vs-fix is a content decision, tracked here not done. | Small | High | ✅ Done (tooling) |
 | **Frontend unit tests** — no React/Next test runner exists (`tests/` is Python only). Recommend Vitest + React Testing Library (Next 16 / React 19 fit). Would let us unit-test things like the gallery keyboard accessibility instead of relying on manual visual checks. Ties into the existing "smoke tests" intent. | Medium | Medium | ⏳ Not started |
-| **LyCORIS re-sync** — vendored LyCORIS is at 67372a `dev16` (synced 2026-05-05); upstream `dev` HEAD adds 4 newer algos not yet vendored: PiSSA, RaLoRA, GoRA, LoRA². Wholesale re-sync per the methodology, then register in `modules/__init__.py` + `config.py` and (optionally) the frontend LoRA-type dropdown. Nothing is broken without them. See §11.1. | Small | Low | ⏳ Not started |
+| **LyCORIS re-sync** — vendored LyCORIS is at 67372a `dev16` (synced 2026-05-05); upstream `dev` adds 7 files not yet vendored (assessed 2026-06-22) that split into TWO wiring patterns: **(a) new modules** — `lora2.py` (`LoRA2Module(LoConModule)`), `ortholora.py`, `tsm.py` (`LycorisBaseModule`) → register in `modules/__init__.py` + algo dict, then LoRAType enum + `_map_lora_type_to_network` (`kohya_toml.py:338`) + frontend dropdown, same `algo=X` pattern as ABBA/TLoRA; **(b) init / gradient-hook methods** — `pissa_utils.py` (SVD init), `ralora_utils.py` + `gora_utils.py` (gradient hooks) → NOT new types, exposed as network_args options (need exact LyCORIS arg names + which base algos accept them). Do as a wholesale re-sync per the methodology (preserve our patches). NOT "Small" — the init-method half is fiddly. Nothing breaks without them; TLoRA/ABBA already work (modules vendored). See §11.1. | Medium | Low | ⏳ Not started |
 | **`train_llm_adapter` wiring (Anima)** — the arg exists in the vendored backend (sd_scripts `lora_anima.py` + LyCORIS) and is documented, but is NOT exposed in the config flow (`api.ts` / `validation.ts` / `config-service.ts` / `kohya_toml.py` / presets / UI). Currently defaults `False` with no way to enable. Mind the Anima (`networks.lora_anima`) vs LyCORIS network_args path difference. | Small | Low | ⏳ Not started |
 | **Preset audit + rename** — review presets for what's actually useful; rename misleading names (e.g. the Illustrious preset labelled "Conservative" that's actually a fast/clean config). Distinct from the format-migration audit (§5.0.96) and optimizer-args contamination (§5.1) — this is a content/naming pass. | Small | Medium | ⏳ Not started |
 | **`.jsx` → `.tsx` conversion** (deferred from CR on #386) — convert remaining plain-JSX components to TypeScript per the frontend TS-only policy. `ClickSpark.jsx` is in active use (GenerateUI) so it must be *converted*, not deleted; type the canvas refs, `Spark[]`, and pointer/mouse handlers. (`BorderGlow.jsx` is exempt — slated for deletion via the §14.6 "Custom → shadcn audit".) | Small | Low | ⏳ Not started |
@@ -1804,6 +1764,18 @@ Florence-2 requires `flash_attn` for best performance but falls back cleanly to 
 
 - The hand-built `components/effects/*` (and `components/BorderGlow.jsx`) are confirmed duplicates of installed shadcn/registry components (`shiny-button`, `shine-border`, `hover-border-gradient`, `rainbow-button`, `backlight`, `spotlightcard`, …). Retiring them is already tracked as the "Custom → shadcn audit" row in §14.6.
 - Root cause of the duplication (per §14.6): components were built custom early, before knowing what shadcn/the installed registries already provided. Rule going forward: use the installed component; only hand-build when nothing installed/installable fits.
+
+### 18.3 Handoff & delegation discipline *(2026-06-22)*
+
+Work hands off cleanly to **anyone** — DeepSeek (≈ peer-tier LLM, run via **opencode** in the same terminal, no PowerShell friction), a future human coder, or a cold-started Claude — **when the context is externalized**, not held in one session's head. Capability was never the gate (framing DeepSeek as "limited to safe scraps" is bias, not analysis). The two tools that externalize context are ones we already use:
+- **Docstrings as we go** (never a deferred pass) — the local "what/why" context.
+- **BETA_PLANNING context** — the cross-system "how it fits / why it's sequenced this way" context.
+
+**Honest current gap:** it's NOT all externalized yet ("hand this to someone tomorrow and they'd get lost"). So *keeping docstring + planning coverage current IS the delegation enabler* — and it serves DeepSeek, future humans, and cold-Claude identically. You never hand anything off cold to any coder; you hand off the context with it.
+
+**The one real gate — about *verifiability*, not who's coding:** silent breakage that needs a GPU / ground-truth to confirm — training correctness, optimizer dispatch (schedule-free train/eval), ComfyUI runtime behavior. DeepSeek can absolutely *write* these; they just need **Dusk-verified before merge** (a verification step, not a capability wall). Hand ComfyUI work its ground truth (`tools/dump-workflow.js`) up front so it's not guessing the graph.
+
+**Pre-PR review = mutual peer review** (DeepSeek ↔ Claude) before Dusk's PR mode + CodeRabbit. Two independent LLM passes over a diff catch more than one — neither is the "junior."
 
 ---
 
@@ -1832,8 +1804,153 @@ Every relocation breaks references that must be updated **and re-tested on all t
 Do it **incrementally** (one group per PR), re-test each platform, update docs in the same PR.
 
 ### 19.4 Quick-win cleanup (independent of the reorg)
-- `.snyk` — Snyk was removed from the project; this file is almost certainly dead → verify + delete.
-- `find_fences.py` — looks like a one-off debug script; confirm unused → delete.
+- `.snyk` — ✅ **Deleted 2026-06-16** (Snyk removed; policy file was dead).
+- `find_fences.py` — ✅ **Deleted 2026-06-16** (one-off code-fence scanner, zero references).
+
+---
+
+## Section 20 — Backend Delivery & Vendoring Strategy *(decision captured 2026-06-06)*
+
+**Status (REVISED 2026-06-22): vendored + patch-update — CHOSEN. Submodule (former Option A) REVERSED to parked ("too-hard basket, temporarily" — revisit only if update cadence ever justifies the cloud-wiring cost).**
+
+**Decision (2026-06-22): keep the backend VENDORED; switch the update *method* from wholesale flush → targeted patch (cherry-pick the specific upstream files a given feature/fix needs).** Two assumptions the 2026-06-09 submodule lock rested on were falsified this session: (1) "pure consumer / no patch-set" is **FALSE** — we carry live fixes (SDXL-NaN `d39d249`, 5 optimizer crashes `a3b7361`, min_snr/cross-attn `65cb90d`), verified still absent from upstream `sd3-upstream@457914d`, so a fork was needed *either way*; (2) the submodule's real cost — every clone site (`vastai_setup.sh`, `provision_runpod.sh`, both `_dev` variants, installers, docs) must pass `--recurse-submodules` or the backend comes up **EMPTY on cloud** — lands on the most fragile, least-debuggable path. Vendoring keeps the backend as plain in-repo files (cannot come up empty), needs no fork hygiene, keeps `AGENTS.md` "no submodules" honest, and the cherry-pick labor is the assistant's, not Dusk's. Patch-update fits the actual cadence (event-driven — a new model/optimizer/fix — not weekly). **Weakness accepted:** big multi-week catch-up jumps are painful via cherry-pick → reserve a deliberate flush-and-re-apply-patches for those rare cases. (Original Option A reasoning preserved in 20.2/20.3 below as the record of *why* it was once leading.)
+
+- **Correction to an earlier assumption:** ComfyUI does **not** currently prove a submodule-on-cloud pattern here — `.gitmodules` is **empty** and ComfyUI is **direct-cloned** (see COMFY-8 / §11 "ComfyUI backend is directly cloned"). So Option A *pioneers* the submodule-on-cloud pattern in this repo — which is why the 20.4 wiring smoke-check on a real box still matters (the pattern is new *here*), even though the decision itself is settled.
+- **Two submodule targets:** (a) the **training backend** → our clean tracking fork of 67372a; (b) **ComfyUI** (currently direct-cloned — intermittent clone failures motivate pinning + one uniform `--recursive` pull for both).
+- **Hinge FALSIFIED (2026-06-22):** the "pure consumer / no patch-set" claim was wrong — we DO carry a live patch-set (see 2026-06-22 decision above). A clean tracking fork was never actually on the table, which is a primary reason the submodule lost its edge. Plan: **carry our patches in the vendored tree indefinitely — NO upstream PR** (decided 2026-06-22: 67372a is solo-maintained and a PR would likely sit unmerged forever, so it can't be relied on to shrink the patch-set). On each patch-update, preserve the patch-set (see `upstream_sync_methodology.md`); the set is small (SDXL-NaN + 5 optimizer one-liners, mostly cold files) so the carry cost is low.
+- **Robustness is a separate lever (don't conflate):** submodules fix update-cleanliness + pinning, **NOT** clone fragility — a submodule update is still a git fetch. The clone-fragility fix is shallow `--depth 1` + retry, **landed 2026-06-09** in `installer.py` / `installer_windows_local.py` for the direct ComfyUI clone; carry the same `shallow = true` into the submodule. True elimination of clone fragility still needs Docker (Option B, parked).
+
+**Vendored-backend code patches are UN-PAUSED (2026-06-22)** — the submodule swap they were being held for is parked, so patching the vendored tree is again the normal, sanctioned workflow (it IS the chosen delivery method now). Re-apply discipline: before any wholesale flush, preserve our patch-set first (see `upstream_sync_methodology.md`).
+
+### 20.1 The reframe — backend currency is the steady state, not an edge case
+Kill the "updating the ML backend is a rare edge case" bias. 67372a ships ~weekly (1,226 commits; our vendored snapshot is ~a month stale as of 2026-06-06). ML moves constantly, so the design criterion is **"updating to latest is trivial, frequent, and low-risk"** — NOT "minimize how often we touch it." Generalizes the project anti-bias rule from training params to process/architecture (cross-ref CLAUDE.md "Bleeding Edge" + "Empirical Lore — Interrogate It").
+
+### 20.2 What's wrong with each delivery mechanism
+- **Vendoring (current):** hand-copy slog, no version marker, perpetual drift — "weird/messy." This is the pain we're escaping.
+- **Plain `git clone`:** stupidly fragile on cloud (network blips, the documented install cascade).
+- **pip-install-from-git — REJECTED:** it's a git fetch at deploy time, so it's the **same fragility class as clone** (Dusk's call, correct). It would only clean up *updates*, not *robustness* — not worth pretending otherwise.
+
+### 20.3 Options
+**(A) Submodule → OUR fork of 67372a — *leaning, for now*.**
+- Update = bump a pinned SHA (purpose-built for constant change).
+- **Licensing alignment (GPL-3.0):** 67372a is GPL-3.0. A submodule *references* their code (clean attribution, no relicensing/propagation question); vendoring *copies* GPL source into our tree — murkier. Submodule is the cleaner GPL posture. (Third reason it wins, alongside update-cleanliness and matching upstream's own pattern.)
+- **Machinery is partly present, but the pattern is UNPROVEN here:** `.gitmodules` exists (though **empty**), and `--recursive` covers nesting (67372a itself submodules `sd_scripts @ 457914d`). **Correction (2026-06-09):** ComfyUI is **direct-cloned, not a submodule** — the earlier "ComfyUI backend: submodule (2026-05-20)" note was *superseded* by COMFY-8. So Option A **pioneers** the submodule-on-cloud pattern in this repo rather than widening a proven one — which is why the 20.4 wiring smoke-check on a real box is worth doing (the pattern is new *here*): a wiring confirmation, not a reason to doubt the decision.
+- **Honest boundary:** fixes *update cleanliness*, NOT *clone robustness* — still git-clone-based. Clone fragility stays parked until (B).
+- **Precedent ≠ proof:** the ComfyUI submodule path is itself still pending live cloud verification.
+- **HINGE QUESTION — RESOLVED (2026-06-09):** we were never carrying a private patch-set; the pain was *chasing upstream by hand*, not maintaining divergent patches. So we're effectively a **pure consumer** → the submodule points at our **clean tracking fork** of 67372a (a stable pin we control + the base to PR fixes back upstream), staying close to upstream and low-maintenance. Not a fork to hold patches.
+
+**(B) Pre-baked Docker image — *long-term, deliberately parked*.**
+- The only option that truly fixes clone fragility (backend pre-installed → no runtime clone/install cascade).
+- Parked by Dusk's explicit call (2026-06-06): **not because it's wrong** — it's the gold standard — but a hands-on **knowledge gap** (Docker + service offloading + security layers he hasn't worked with directly). Revisit when he's ready. **Do not push it.**
+
+**(C) Status-quo vendoring — *fallback*.** Just clones, freely patchable, but the staleness/drift is exactly the pain. Keep only if (A) proves too fragile in the de-risk test.
+
+### 20.4 Wiring smoke-check before flipping main (NOT a referendum on the decision)
+The decision is made — submodule beats vendoring, full stop (it ends the hand-chasing; pinning + shallow make it *less* fragile, not more). This is **not a test of whether the approach works** — it's a one-box confirmation that the **provisioning scripts wire `--recurse-submodules` + `shallow = true` correctly** for both targets (backend fork + ComfyUI) on a real cloud host. We're catching a wiring typo, not re-litigating the approach. The old submodule burn was cloud-execution competence, not the mechanism. Verify GUI-first: read the install log via file-browser/Jupyter (`/workspace/Ktiseos-Nyx-Trainer/logs/`), open the app, run a tiny job — no SSH needed for the happy path.
+
+### 20.5 Why staying current matters — what 67372a shipped since our ~2026-05-05 snapshot
+New optimizers (SODA/MODA/AMUSE, AdamWScheduleFreePlus, nor_muon_schedulefree, OCGOptV2, fftdescent); adaptive non-uniform timestep sampling (arXiv:2411.09998); Weight Noising; Latent Wavelet Diffusion masking; `min_snr_gamma_soft` + Min-SNR-gamma for flow-matching models; ICC-aware color (`to_srgb()` replacing `.convert('RGB')`); LyCORIS T-LoRA via LoCon/ortholora; Anima leco + addift; flash-attn guard for < CUDA sm_80; REX scheduler fixes. We're missing all of it.
+
+### 20.6 Related — torchao is now installed upstream (cross-ref §4.4)
+67372a migrated installs pip→**uv** and added torchao via `--index-strategy unsafe-best-match` (2026-05-30) — upstream resolves torchao against the *installed* torch instead of a hard pin, which solves the version-coupling risk that argued against adding it standalone. **RESOLVED 2026-06-22:** with the submodule parked and patch-update chosen, torchao was added standalone as `torchao==0.7.0` in `requirements_base.txt` (see §4.4 Status) — cross-platform + torch-2.4.1-safe via the pure-Python `torchao.utils` path. The old "decide as part of the sync" framing is moot.
+
+### 20.7 uv for provisioning installs *(implemented 2026-06-23, remote only)*
+**Goal:** use **uv** for **remote/cloud** dependency installs (provisioning), keep **pip on local** — never uv on local.
+
+- **Why remote:** uv installs are faster + parallel + cached → less GPU-rental time burned on the provisioning cascade (literal $ saved while the rented GPU idles during setup). Also matches 67372a's own pip→uv migration, and uv's resolver (`--index-strategy unsafe-best-match`) handles torch-coupled deps cleanly (the exact trick that resolves torchao against the *installed* torch).
+- **Why local = pip (conservative default, NOT a proven uv limitation):** local stays on the known-good pip path because uv-on-local is **unverified**, not because it's broken. There's an **unrooted anecdote** from the old Jupyter-notebook era of *something* trying to install a **Rust toolchain** on Windows during deps — never pinned down which package (numpy? safetensors? uv itself? other). So we don't flip local (Windows) installs onto uv on a hunch. (Note: local Windows users are end users running the trainer, not developers — don't conflate "local" with "dev.") If anyone ever wants uv locally, it's worth actually testing rather than assuming it breaks. `detect_package_manager()` gates uv on `platform.system() == "Linux"`; everything else stays pip.
+- **Zero conflict with current state:** uv reads our existing `requirements_*.txt` (`uv pip install -r ...`), so the `torchao==0.7.0` pin and all other pins work unchanged. Nothing to re-spec.
+- **How it shipped (defensive, no container test):** implemented in `installer.py` `detect_package_manager()` (the abstraction was already scaffolded "uv → pip fallback" but returned pip). Bootstraps uv (`pip install -U uv`), resolves a runnable invocation (`python -m uv`, then PATH `uv`), routes every install site through `uv pip install --python <interp> --index-strategy unsafe-best-match`. Two safety nets so it can never make provisioning worse: (1) any uv bootstrap failure silently returns pip; (2) if a uv install still fails, `install_dependencies()` retries the same requirements with pip. `requirements_cloud.txt` carries no torch (base image pre-installs it), so the cu121-extra-index quirk doesn't bite here.
+- **Live-confirmed 2026-06-23:** uv engaged on a real dev deploy and made provisioning **noticeably faster** — `--python <interp>` worked on the base image, no pip fallback needed. (The original aria2 hang that prompted this was likely *partly* a host/container condition — boot-time dpkg lock / slow host — which the aria2 fix now rides out regardless.)
+- **Status:** ✅ **Implemented + live-verified (remote only).** Speedup confirmed. Still nice-to-have: a clean wall-clock pip-vs-uv comparison number, and confirm editable (`-e`) installs under uv on a deploy that exercises them.
+
+---
+
+## Section 20 — AMD GPU Support (ZLUDA) — Research *(captured 2026-05-30)*
+
+### 20.1 Interest
+App currently assumes NVIDIA/CUDA everywhere (local + VastAI + RunPod). Dusk wants to scope eventual **AMD GPU support**. Reference: `patientx/ComfyUI-Zluda` — a Windows-only ComfyUI distribution that uses **ZLUDA** to run CUDA workloads on AMD GPUs, with install paths for RX 400/500 through RDNA4 9000-series.
+
+### 20.2 Scope notes (research-only, not committed)
+- **Split reality (per Dusk 2026-05-30):** the two halves of the app have very different AMD outlooks:
+  - **Training (sd-scripts):** *should* work on ZLUDA hardware — this is the realistic AMD path. (Unconfirmed end-to-end, but the expected-viable side.)
+  - **ComfyUI / generation side:** currently effectively **NVIDIA-only** — this is the blocker, not training.
+- ZLUDA is Windows-only and a CUDA-translation layer — implications for the Linux VastAI/RunPod targets are different (ROCm is the Linux AMD path). Needs separate investigation per platform.
+- Unknowns to research before any commitment (training side first, since it's the viable one): does the vendored sd-scripts stack actually run under ZLUDA end-to-end? bitsandbytes / xformers / custom optimizers (CAME, etc.) AMD compatibility? onnxruntime tagging path on AMD?
+- Not a beta blocker. Parked as a forward-looking platform expansion.
+
+---
+
+## Section 21 — Dataset-Tools Integration & Theme Picker *(captured 2026-07-03)*
+
+### 21.1 Overview
+Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\Development\Dataset-Tools`) into Ktiseos-Nyx-Trainer. Dataset-Tools is a Next.js 16 app with OKLCH theming, AI image metadata parsing, and SafeTensors inspection — same tech stack as KNX (Next.js 16 + React 19 + shadcn/ui + Tailwind v4).
+
+**Cherry-pick, don't port the whole thing.** Dataset-Tools has its own API routes that conflict with KNX's FastAPI backend. Only port components and client-side logic.
+
+### 21.2 Theme Picker with OKLCH Accent Colors
+
+**Priority:** Medium (Beta polish)
+**Status:** ⏳ Not started
+
+**What Dataset-Tools has that KNX lacks:**
+- 7 accent colors: zinc (default), red, orange, green, blue, violet, pink
+- Each accent defines 8 CSS variables for light mode + 8 for dark mode (primary, accent, ring, sidebar variants) using OKLCH format
+- Applied via `[data-accent="red"]` attribute selectors on `<html>`
+- 6 customizer UI variants: Pill (floating), Bar, Sidebar, Dock, Corner, Toolbar
+- Settings persistence in localStorage with cross-tab sync via StorageEvent
+
+**What KNX currently has:**
+- Dark/light/system toggle only (no accent colors)
+- Purple-tinted default palette (primary = `oklch(0.468 0.272 279.601)`)
+- Duplicate `:root`/`.dark` blocks in `globals.css` that need consolidation
+
+**Integration plan:**
+1. Consolidate duplicate CSS variable blocks in `globals.css`
+2. Add `[data-accent]` override blocks for all 7 accent colors (from Dataset-Tools `globals.css` lines 118-281)
+3. Create `AccentColor` type + localStorage persistence + `useSettings` hook
+4. Add inline `<script>` in `layout.tsx` to read accent from localStorage before React hydration (prevents flash)
+5. Add Appearance section to settings page with color picker
+6. Adapt one customizer variant (Pill or Toolbar most practical)
+7. Fix Dataset-Tools bug: customizer sets `data-theme-color` but CSS uses `data-accent`
+
+**Files to port/adapt from Dataset-Tools:**
+- `components/ui/theme-customizer.tsx` (477 lines — 6 variants)
+- `components/ui/color-swatch.tsx` (120 lines)
+- `components/ui/color-swatch-selector.tsx` (81 lines)
+- `hooks/use-outside-click.tsx` (24 lines)
+- `types/settings.ts` (31 lines — AccentColor type)
+- `lib/settings.ts` (29 lines — localStorage persistence)
+- `hooks/use-settings.ts` (47 lines — cross-tab sync)
+
+**Dependencies:** Zero new npm packages needed. Everything (`next-themes`, `motion`, `lucide-react`, Radix, CVA) already installed.
+
+### 21.3 AI Image Metadata Parser
+
+**Priority:** High (needed for dataset inspection)
+**Status:** ⏳ Not started
+
+**What Dataset-Tools has:**
+- 1,832-line metadata parsing engine (`api/metadata/route.ts`)
+- PNG tEXt chunk reader/writer (`lib/png-metadata.ts`, 147 lines)
+- EXIF extraction (`exif-parser`)
+- ComfyUI workflow graph traversal (deterministic, 90% success rate)
+- A1111/Forge/NovelAI/Civitai format support
+- SafeTensors metadata viewer (`components/safetensors-panel.tsx`)
+- ComfyUI node registry lookup (`lib/comfyui-node-registry.ts`)
+
+**Integration approach:**
+- Metadata parser can run as Next.js API routes (already Node.js, no FastAPI conversion needed)
+- SafeTensors viewer + ComfyUI node registry are client-side components
+- Would add new `/api/metadata` route alongside existing KNX API routes
+
+### 21.4 Components NOT to Port
+
+- File tree, theme system base, settings management — already in KNX
+- Background/particle effects — KNX already has many
+- Glass notification — deferred (lower priority)
+- All Dataset-Tools API routes that do file system access — conflicts with FastAPI backend
+- `three.js` particles — heavy dep (~600KB) unless specifically wanted
 
 ---
 

@@ -130,6 +130,14 @@ class KohyaTrainer(BaseTrainer):
         env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else new_paths
         if self.config.wandb_key:
             env["WANDB_API_KEY"] = self.config.wandb_key
+        # Silence Python 3.12 compile-time SyntaxWarnings (invalid escape sequences)
+        # from the vendored sd_scripts library — cosmetic log noise we don't patch
+        # (vendored files). Scoped to the training subprocess so our own code's
+        # SyntaxWarnings still surface (SW-1b). Preserve any inherited filter.
+        existing_warnings = env.get("PYTHONWARNINGS", "")
+        env["PYTHONWARNINGS"] = (
+            f"ignore::SyntaxWarning,{existing_warnings}" if existing_warnings else "ignore::SyntaxWarning"
+        )
         return env
 
     async def validate_config(self) -> tuple[bool, list[str]]:

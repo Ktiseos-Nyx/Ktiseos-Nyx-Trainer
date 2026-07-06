@@ -1,0 +1,77 @@
+{
+  "name": "CHECKPOINT - Template",
+  "description": "Basic checkpoint finetuning template. Replace these values with known-good settings.",
+  "model_type": "SDXL",
+  "training_type": "checkpoint",
+  "is_builtin": true,
+  "source": "KNX",
+
+  "project_name": "my_checkpoint",
+  "pretrained_model_name_or_path": "",
+  "vae_path": "",
+  "train_data_dir": "",
+  "output_dir": "output",
+  "output_name": "my_checkpoint",
+
+  "resolution": 1024,
+  "num_repeats": 1,
+  "max_train_epochs": 10,
+  "max_train_steps": 0,
+  "train_batch_size": 1,
+  "seed": 42,
+
+  "flip_aug": false,
+  "random_crop": false,
+  "color_aug": false,
+  "shuffle_caption": true,
+
+  "unet_lr": 5e-6,
+  "text_encoder_lr": 1e-6,
+  "lr_scheduler": "cosine",
+  "lr_scheduler_number": 1,
+  "lr_warmup_ratio": 0.05,
+  "lr_warmup_steps": 0,
+  "lr_power": 1,
+
+  "lora_type": "LoRA",
+  "network_dim": 128,
+  "network_alpha": 128,
+
+  "optimizer_type": "AdamW8bit",
+  "optimizer_args": "weight_decay=0.1",
+  "gradient_accumulation_steps": 4,
+  "max_grad_norm": 1,
+
+  "keep_tokens": 0,
+  "clip_skip": 1,
+  "max_token_length": 225,
+  "caption_dropout_rate": 0,
+  "caption_tag_dropout_rate": 0,
+  "caption_dropout_every_n_epochs": 0,
+
+  "mixed_precision": "fp16",
+  "save_precision": "fp16",
+  "save_every_n_epochs": 1,
+  "save_every_n_steps": 0,
+  "save_n_epoch_ratio": 0,
+  "save_last_n_epochs": 10,
+  "save_last_n_epochs_state": 0,
+  "save_state": false,
+  "save_state_on_train_end": false,
+
+  "cache_latents": true,
+  "cache_latents_to_disk": true,
+  "cache_text_encoder_outputs": true,
+
+  "prior_loss_weight": 1,
+  "noise_offset": "0",
+  "adaptive_noise_scale": "0",
+  "multires_noise_iterations": 0,
+  "multires_noise_discount": 0,
+
+  "no_half_vae": false,
+  "enable_bucket": true,
+  "min_bucket_reso": 512,
+  "max_bucket_reso": 1536,
+  "bucket_reso_steps": 64
+}

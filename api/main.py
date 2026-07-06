@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import civitai, config, dataset, debug, files, models, settings, training, utilities
+from api.routes import civitai, config, dataset, debug, files, models, settings, sources, training, utilities
 from services import websocket
 
 # Windows: ensure ProactorEventLoop so asyncio.create_subprocess_exec works
@@ -108,6 +108,7 @@ app.include_router(config.router, prefix="/api/config", tags=["Config"])
 app.include_router(utilities.router, prefix="/api/utilities", tags=["Utilities"])
 app.include_router(models.router, prefix="/api/models", tags=["Models"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(sources.router, prefix="/api/sources", tags=["Sources"])
 app.include_router(civitai.router, prefix="/api/civitai", tags=["Civitai"])
 app.include_router(debug.router, prefix="/api/debug", tags=["Debug"])
 

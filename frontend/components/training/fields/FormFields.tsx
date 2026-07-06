@@ -136,10 +136,23 @@ export function NumberFormField<T extends FieldValues>({
   step,
 }: BaseFieldProps<T> & {
   min?: number;
+  /**
+   * BLEEDING-EDGE RULE (CLAUDE.md): no upper-bound ceilings on training params, and
+   * never force a fixed decimal place. `max` is accepted for call-site compatibility
+   * but intentionally ignored — Kohya validates at runtime ("if it fails, it fails").
+   *
+   * `step` handling: a whole-number step ≥ 1 is a genuine structural helper (e.g.
+   * resolution's `step={64}`, which must stay a multiple of 64) and is honored. Any
+   * decimal step (0.01 / 0.1 / 0.00001) only forced 1–2 decimal places and is
+   * upgraded to "any" so values keep full precision (e.g. a 0.357 noise offset).
+   * Unset also means "any". Pass `min` only for genuine crash-floors (≥1 epoch, etc.).
+   */
   max?: number;
-  /** Use "any" to allow arbitrary precision (e.g. learning rates). */
   step?: number | 'any';
 }) {
+  // Honor whole-number structural steps (e.g. resolution's 64); upgrade decimal/unset
+  // steps to "any" so expert values aren't snapped to a fixed decimal place.
+  const resolvedStep = typeof step === 'number' && step >= 1 ? step : 'any';
   return (
     <FormField
       control={form.control}
@@ -153,8 +166,7 @@ export function NumberFormField<T extends FieldValues>({
               placeholder={placeholder}
               disabled={disabled}
               min={min}
-              max={max}
-              step={step}
+              step={resolvedStep}
               {...field}
               value={field.value ?? ''}
               onChange={(e) => {

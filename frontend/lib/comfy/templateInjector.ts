@@ -466,8 +466,23 @@ export function injectTemplate(
   },
 ): InjectedTemplate {
   let patched = applyPatch(templateJson, patch);
-  if (options?.bypassNodeIds?.length) {
-    patched = applyBypass(patched, options.bypassNodeIds);
+
+  // Resolve which nodes to drop before API conversion. ComfyUI's own frontend
+  // strips muted / reroutes bypassed nodes before submitting; over the API we
+  // must do it ourselves, or a bypassed node reaches the backend ACTIVE and
+  // fails prompt validation (e.g. Anima's Adetailer group, baked as mode:4).
+  //
+  //   - Caller supplies an explicit list (the SDXL KNX toggle path) → use it
+  //     as-is; that path drives bypass at runtime and its nodes are mode:0.
+  //   - No explicit list (e.g. the Anima path) → honor the template's own
+  //     baked-in mode:4 (bypassed) nodes so optional groups aren't submitted
+  //     active.
+  const bypassNodeIds =
+    options?.bypassNodeIds ??
+    patched.nodes.filter((n) => n.mode === 4).map((n) => n.id);
+
+  if (bypassNodeIds.length) {
+    patched = applyBypass(patched, bypassNodeIds);
   }
   const apiPrompt = graphToApiPrompt(patched);
   return { apiPrompt, workflow: patched };

@@ -252,6 +252,11 @@ class DownloadModelRequest(BaseModel):
     download_url: str
     filename: str
     model_type: ModelType = ModelType.MODEL
+    # Destination routing: "training" (default, trainer dirs) or "comfyui" (ComfyUI ecosystem)
+    destination: Optional[str] = "training"
+    # ComfyUI subfolder when destination="comfyui"
+    # e.g. "checkpoints", "diffusion_models", "vae", "loras", "text_encoders"
+    comfyui_folder: Optional[str] = None
 
 
 @router.post("/download")
@@ -270,8 +275,20 @@ async def download_civitai_model(request: DownloadModelRequest):
         api_keys = get_api_keys()
         civitai_key = api_keys.get("civitai_api_key", "")
 
-        # Determine target directory based on model type
-        if request.model_type == ModelType.VAE:
+        # Determine target directory
+        if request.destination == "comfyui":
+            from api.routes.settings import get_comfyui_models_path
+            import os as _os
+            comfyui_models = get_comfyui_models_path()
+            if not comfyui_models:
+                raise HTTPException(
+                    status_code=400,
+                    detail="ComfyUI models path is not configured. Set it in Settings or via COMFYUI_MODELS_PATH."
+                )
+            folder = request.comfyui_folder or "checkpoints"
+            target_dir = _os.path.join(comfyui_models, folder)
+            _os.makedirs(target_dir, exist_ok=True)
+        elif request.model_type == ModelType.VAE:
             target_dir = str(model_service.vae_dir)
         elif request.model_type == ModelType.LORA:
             target_dir = str(model_service.lora_dir)

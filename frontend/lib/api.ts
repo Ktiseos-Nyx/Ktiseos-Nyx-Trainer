@@ -322,6 +322,88 @@ export interface PaginatedDatasetsResponse {
   page: number;
 }
 
+export interface ConvertFormatRequest {
+  dataset_dir: string;
+  target_format: 'webp' | 'jpg' | 'png' | 'bmp';
+  quality: number;
+  output_mode: 'new_dataset' | 'in-place';
+}
+
+export interface ConvertFormatResponse {
+  success: boolean;
+  job_id?: string;
+  message: string;
+  total_files: number;
+  converted_files?: number;
+  errors?: string[];
+}
+
+export interface ConvertJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  total_files: number;
+  converted_files: number;
+  current_file?: string;
+  logs: string[];
+  errors: string[];
+  result?: {
+    success: boolean;
+    converted: number;
+    total: number;
+    errors: string[];
+    output_dir: string;
+    target_format: string;
+    warning?: string;
+  };
+}
+
+// ========== Crop Types ==========
+
+export interface CropRegion {
+  filename: string;
+  source_x: number;
+  source_y: number;
+  source_width: number;
+  source_height: number;
+}
+
+export interface CropRequest {
+  dataset_dir: string;
+  target_width: number;
+  target_height: number;
+  output_mode: 'new_dataset' | 'in-place';
+  output_format: 'webp' | 'jpg' | 'png';
+  quality: number;
+  crops: CropRegion[];
+}
+
+export interface CropResponse {
+  success: boolean;
+  job_id?: string;
+  message: string;
+  total_files: number;
+}
+
+export interface CropJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  total_files: number;
+  cropped_files: number;
+  current_file?: string;
+  errors: string[];
+  result?: {
+    success: boolean;
+    cropped: number;
+    total: number;
+    errors: string[];
+    output_dir: string;
+    target_size: string;
+    warning?: string;
+  };
+}
+
 export const datasetAPI = {
   // ✅ Now uses Python backend
   list: async (): Promise<{ datasets: DatasetInfo[]; total: number }> => {
@@ -424,6 +506,15 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  deleteImage: async (datasetPath: string, imageName: string): Promise<{ success: boolean }> => {
+    const response = await fetch(`${API_BASE}/dataset/delete-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataset_path: datasetPath, image_name: imageName }),
+    });
+    return handleResponse(response);
+  },
+
   updateTags: async (imagePath: string, tags: string[]) => {
     const response = await fetch(`${API_BASE}/dataset/update-tags`, {
       method: 'POST',
@@ -483,6 +574,109 @@ export const datasetAPI = {
       onError,
     );
   },
+
+  // ========== Format Conversion ==========
+
+  /** Start a format conversion job. */
+  convertFormat: async (params: {
+    dataset_dir: string;
+    target_format: 'webp' | 'jpg' | 'png' | 'bmp';
+    quality: number;
+    output_mode: 'new_dataset' | 'in-place';
+  }) => {
+    const response = await fetch(`${API_BASE}/dataset/convert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get conversion job status and progress. */
+  getConvertStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/convert/status/${jobId}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running conversion job. */
+  stopConvert: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/convert/stop/${jobId}`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+
+  /** Poll conversion logs via HTTP. */
+  pollConvertLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log });
+        }
+      },
+      (status, progress) => {
+        if (progress != null) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
+  },
+
+  // ========== Batch Crop ==========
+
+  /** Start a batch crop job. */
+  cropImages: async (params: CropRequest) => {
+    const response = await fetch(`${API_BASE}/dataset/crop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get crop job status and progress. */
+  getCropStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/crop/status/${jobId}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running crop job. */
+  stopCrop: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset/crop/stop/${jobId}`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+
+  /** Poll crop logs via HTTP. */
+  pollCropLogs: (
+    jobId: string,
+    onMessage: (data: WebSocketLogMessage) => void,
+    onError?: (error: Error) => void,
+  ): LogPoller => {
+    return pollJobLogs(
+      jobId,
+      (logs) => {
+        for (const log of logs) {
+          onMessage({ type: 'log', log });
+        }
+      },
+      (status, progress) => {
+        if (progress != null) {
+          onMessage({ type: 'progress', progress });
+        }
+        onMessage({ type: 'status', status });
+      },
+      onError,
+    );
+  },
 };
 
 // ========== Captioning Operations (BLIP/GIT) ==========
@@ -512,6 +706,61 @@ export interface GITConfig {
   remove_words?: boolean;
   recursive?: boolean;
   debug?: boolean;
+}
+
+/**
+ * Unified auto-tagging / captioning form state — single source of truth for the
+ * auto-tag page (React Hook Form). It is a superset of the three submit shapes:
+ * WD14 maps to `datasetAPI.tag()`, BLIP to {@link BLIPConfig}, GIT to
+ * {@link GITConfig}. The selected model's type decides which fields are sent.
+ */
+export interface TaggingConfig {
+  // Shared
+  datasetDir: string;
+  model: string;
+  captionExtension: string;
+  captionSeparator: string;
+
+  // WD14 thresholds
+  threshold: number;
+  useGeneralThreshold: boolean;
+  generalThreshold: number;
+  useCharacterThreshold: boolean;
+  characterThreshold: number;
+
+  // WD14 tag filtering / ordering / processing
+  undesiredTags: string;
+  tagReplacement: string;
+  alwaysFirstTags: string;
+  characterTagsFirst: boolean;
+  ratingTags: 'none' | 'first' | 'last';
+  removeUnderscore: boolean;
+  characterTagExpand: boolean;
+
+  // BLIP
+  blipBeamSearch: boolean;
+  blipNumBeams: number;
+  blipTopP: number;
+  blipMaxLength: number;
+  blipMinLength: number;
+
+  // GIT
+  gitMaxLength: number;
+  gitRemoveWords: boolean;
+
+  // File handling
+  overwriteMode: 'overwrite' | 'append' | 'ignore';
+  recursive: boolean;
+
+  // Performance
+  batchSize: number;
+  maxWorkers: number;
+  useOnnx: boolean;
+  forceDownload: boolean;
+
+  // Debug
+  frequencyTags: boolean;
+  debug: boolean;
 }
 
 // ✅ MIGRATED: All captioning endpoints use Node.js /api/jobs/* routes
@@ -1132,13 +1381,18 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  getBlockWeightPresets: async (): Promise<{ sd: Record<string, number[]>; sdxl: Record<string, number[]>; anima: Record<string, number[]> }> => {
+    const response = await fetch(`${API_BASE}/utilities/block-weight-presets`);
+    return handleResponse(response);
+  },
+
   mergeLora: async (
     loraInputs: Array<{ path: string; ratio: number }>,
     outputPath: string,
     modelType: string = 'sd',
     device: string = 'cpu',
     savePrecision: string = 'fp16',
-    precision: string = 'float'
+    precision: string = 'float',
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge`, {
       method: 'POST',
@@ -1175,6 +1429,73 @@ export const utilitiesAPI = {
         save_precision: savePrecision,
         precision,
         show_skipped: showSkipped,
+      }),
+    });
+    return handleResponse(response);
+  },
+
+  detectCheckpointArch: async (checkpointPath: string) => {
+    const response = await fetch(`${API_BASE}/utilities/checkpoint/detect-arch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ checkpoint_path: checkpointPath }),
+    });
+    return handleResponse(response) as Promise<{ arch: string; block_count: number; block_names: string[] }>;
+  },
+
+  mergeCheckpointWeighted: async (
+    modelAPath: string,
+    modelBPath: string,
+    outputPath: string,
+    mode: string = 'weight',
+    blockWeights: number[],
+    baseAlpha: number = 0.5,
+    modelCPath?: string,
+    blockWeightsC?: number[],
+    baseAlphaC?: number,
+    device: string = 'cpu',
+  ) => {
+    const response = await fetch(`${API_BASE}/utilities/checkpoint/merge-weighted`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model_a_path: modelAPath,
+        model_b_path: modelBPath,
+        model_c_path: modelCPath,
+        output_path: outputPath,
+        mode,
+        block_weights: blockWeights,
+        block_weights_c: blockWeightsC,
+        base_alpha: baseAlpha,
+        base_alpha_c: baseAlphaC,
+        device,
+      }),
+    });
+    return handleResponse(response);
+  },
+
+  mergeLoraToCheckpoint: async (
+    baseModelPath: string,
+    loraInputs: Array<{ path: string; ratio: number }>,
+    outputPath: string,
+    modelType: string = 'sdxl',
+    device: string = 'cpu',
+    savePrecision: string = 'fp16',
+    precision: string = 'float',
+    textEncoderPath?: string,
+  ) => {
+    const response = await fetch(`${API_BASE}/utilities/lora/merge-to-checkpoint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_model_path: baseModelPath,
+        text_encoder_path: textEncoderPath,
+        lora_inputs: loraInputs,
+        output_path: outputPath,
+        model_type: modelType,
+        device,
+        save_precision: savePrecision,
+        precision,
       }),
     });
     return handleResponse(response);
@@ -1303,6 +1624,137 @@ export const modelsAPI = {
   },
 };
 
+// ========== Source Adapter Framework (Arc En Ciel etc.) ==========
+
+export interface SourceInfo {
+  name: string;
+  credential_kind: string;
+  base_model_classes: string[];
+}
+
+export interface SourceModelSummary {
+  source: string;
+  model_id: string;
+  title: string;
+  type?: string | null;
+  base_model?: string | null;
+  cover_url?: string | null;
+  nsfw: boolean;
+  uploader?: string | null;
+}
+
+export interface SourceModelVersion {
+  source: string;
+  model_id: string;
+  version_id: string;
+  name?: string | null;
+  base_model?: string | null;
+  model_type?: string | null;
+  status?: string | null;
+  file_name?: string | null;
+  original_name?: string | null;
+  file_size_kb?: number | null;
+  sha256?: string | null;
+  cover_url?: string | null;
+  dest_type: string;
+}
+
+export interface SourceModelDetail {
+  source: string;
+  model_id: string;
+  title: string;
+  type?: string | null;
+  base_model?: string | null;
+  cover_url?: string | null;
+  nsfw: boolean;
+  uploader?: string | null;
+  description?: string | null;
+  versions: SourceModelVersion[];
+}
+
+export interface SourceSearchResult {
+  source: string;
+  items: SourceModelSummary[];
+  page: number;
+  has_more: boolean;
+}
+
+export const sourcesAPI = {
+  list: async (): Promise<SourceInfo[]> => {
+    const response = await fetch(`${API_BASE}/sources`);
+    return handleResponse(response);
+  },
+
+  search: async (
+    name: string,
+    params: {
+      term?: string;
+      sort?: string;
+      page?: number;
+      limit?: number;
+      base_model?: string;
+      model_type?: string;
+      nsfw?: boolean;
+    } = {},
+  ) => {
+    const queryParams = new URLSearchParams();
+    if (params.term) queryParams.append('term', params.term);
+    if (params.sort) queryParams.append('sort', params.sort);
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.base_model) queryParams.append('base_model', params.base_model);
+    if (params.model_type) queryParams.append('model_type', params.model_type);
+    if (params.nsfw !== undefined) queryParams.append('nsfw', params.nsfw.toString());
+
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/search?${queryParams}`);
+    return handleResponse(response);
+  },
+
+  getModel: async (name: string, modelId: string): Promise<SourceModelDetail> => {
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/models/${encodeURIComponent(modelId)}`);
+    return handleResponse(response);
+  },
+
+  getVersions: async (name: string, modelId: string): Promise<SourceModelVersion[]> => {
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/models/${encodeURIComponent(modelId)}/versions`);
+    return handleResponse(response);
+  },
+
+  download: async (
+    name: string,
+    modelId: string,
+    versionId: string,
+    destination: 'training' | 'comfyui' = 'training',
+    comfyuiFolder?: string,
+  ) => {
+    const response = await fetch(`${API_BASE}/sources/${encodeURIComponent(name)}/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model_id: modelId,
+        version_id: versionId,
+        destination,
+        comfyui_folder: comfyuiFolder,
+      }),
+    });
+    const { job_id: jobId } = await handleResponse(response);
+
+    const POLL_INTERVAL_MS = 1500;
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      const statusResp = await fetch(`${API_BASE}/models/download/status/${jobId}`);
+      const status = await handleResponse(statusResp);
+
+      if (status.status === 'completed') {
+        return status.result ?? { success: true, message: 'Download complete' };
+      }
+      if (status.status === 'failed' || status.status === 'cancelled') {
+        throw new Error(status.error || status.result?.error || 'Download failed');
+      }
+    }
+  },
+};
+
 // ========== Civitai Browse ==========
 // ✅ MIGRATED: Browse/tags/model details use Node.js
 // Download stays on Python backend (uses model_service for file storage)
@@ -1423,7 +1875,9 @@ export const civitaiAPI = {
     versionId: number,
     downloadUrl: string,
     filename: string,
-    modelType: 'model' | 'vae' | 'lora' = 'model'
+    modelType: 'model' | 'vae' | 'lora' = 'model',
+    destination?: 'training' | 'comfyui',
+    comfyuiFolder?: string,
   ) => {
     const response = await fetch(`${API_BASE}/civitai/download`, {
       method: 'POST',
@@ -1434,6 +1888,8 @@ export const civitaiAPI = {
         download_url: downloadUrl,
         filename,
         model_type: modelType,
+        destination: destination ?? 'training',
+        comfyui_folder: comfyuiFolder,
       }),
     });
     return handleResponse(response);
@@ -1508,6 +1964,7 @@ export interface PresetMetadata {
   name: string;
   description: string;
   model_type?: string;
+  training_type?: string;
   created_at?: number;
   is_builtin?: boolean;
 }
@@ -1531,6 +1988,7 @@ export const presetsAPI = {
     name: string;
     description?: string;
     model_type?: string;
+    training_type?: string;
     config: Partial<TrainingConfig>;
   }): Promise<{ success: boolean; id: string; message: string }> => {
     const response = await fetch(`${API_BASE}/config/presets`, {
@@ -1544,6 +2002,37 @@ export const presetsAPI = {
   delete: async (presetId: string): Promise<{ success: boolean; message: string }> => {
     const response = await fetch(`${API_BASE}/config/presets/${presetId}`, {
       method: 'DELETE',
+    });
+    return handleResponse(response);
+  },
+};
+
+export const datasetToolsAPI = {
+  fetchFs: async (path: string, showHidden: boolean, baseFolder: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/fs?path=${encodeURIComponent(path)}&showHidden=${showHidden}&baseFolder=${encodeURIComponent(baseFolder)}`);
+    return handleResponse(response);
+  },
+
+  fetchSafetensors: async (path: string, baseFolder: string, signal?: AbortSignal) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/safetensors?path=${encodeURIComponent(path)}&baseFolder=${encodeURIComponent(baseFolder)}`, { signal });
+    return handleResponse(response);
+  },
+
+  fetchMetadata: async (path: string, baseFolder: string, signal?: AbortSignal) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/metadata?path=${encodeURIComponent(path)}&baseFolder=${encodeURIComponent(baseFolder)}`, { signal });
+    return handleResponse(response);
+  },
+
+  readMetadata: async (path: string, baseFolder: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/metadata-write?path=${encodeURIComponent(path)}&baseFolder=${encodeURIComponent(baseFolder)}`);
+    return handleResponse(response);
+  },
+
+  writeMetadata: async (path: string, baseFolder: string, text: string, saveAsCopy: boolean) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/metadata-write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, baseFolder, text, saveAsCopy }),
     });
     return handleResponse(response);
   },

@@ -11,6 +11,7 @@ temp/
 tmp/
 .temp/
 .tmp/
+.thumbcache/                # Dataset-Tools ported thumbnail cache (frontend/app/api/dataset-tools/thumbnail)
 *.tmp
 *.temp
 *.bak
@@ -224,9 +225,13 @@ docs/development/
 docs/research/
 docs/planning/
 docs/reference/_hold/
+docs/superpowers/
 wip_documentation/
 docs/archive/
 WIP_FEATURES.md
+.superpowers/
+.notes/
+frontend/.claude/skills/
 
 # Reference materials
 kohya-colab-main/
@@ -282,6 +287,7 @@ cache/
 .vscode
 /.vscode
 .agents/
+.cortexkit/
 skills-lock.json
 FEATURE_CREEP.md
 entities.json

@@ -6,7 +6,6 @@ Generates FLAT toml files compatible with sd-scripts train_network.py variants.
 
 import logging
 import os
-import shlex
 from pathlib import Path
 from typing import Any, Dict
 
@@ -16,6 +15,73 @@ import tomlkit  # Ensure tomlkit is installed (pip install tomlkit)
 from services.models.training import ModelType, TrainingConfig, TrainingMode
 
 logger = logging.getLogger(__name__)
+
+
+def _tokenize_optimizer_args(raw: str) -> list[str]:
+    """Split an ``optimizer_args`` string into clean ``key=value`` tokens.
+
+    Kohya's parser (``train_util.prepare_optimizer``) does a strict
+    ``key, value = arg.split("=")`` on every token, so each token must contain
+    exactly one ``=`` and no stray separators. This must accept every format that
+    shows up in real presets and user pastes:
+
+    * space-separated (Kohya CLI):          ``weight_decay=0.1 betas=(0.9,0.999)``
+    * quoted args (older presets):          ``"weight_decay=0.1" "betas=0.9,0.99"``
+    * bare comma-tuple value (presets):     ``weight_decay=0.5 betas=0.9,0.99``
+    * comma-separated (LoRA-metadata paste): ``weight_decay=0.08,betas=(0.99, 0.999, 0.99995)``
+
+    Strategy (single pass + a merge):
+      1. Walk char by char. Inside quotes (``"``/``'``) nothing splits and the quote
+         marks are stripped. Inside ``()``/``[]``/``{}`` nothing splits (tuple values).
+      2. At the top level, split on commas *or* whitespace.
+      3. Collapse any whitespace left inside a token (bracketed tuples).
+      4. Merge any token without an ``=`` back into the previous one, rejoined with a
+         comma — that fragment is the tail of a *paren-less* comma tuple
+         (``betas=0.9,0.99`` -> ``['betas=0.9', '0.99']`` -> ``'betas=0.9,0.99'``).
+
+    The result is always a list of ``key=value`` tokens that Kohya's ``split("=")``
+    and ``ast.literal_eval`` accept.
+    """
+    tokens: list[str] = []
+    current: list[str] = []
+    depth = 0
+    quote: str | None = None
+    for ch in raw:
+        if quote is not None:
+            if ch == quote:
+                quote = None          # closing quote — strip it
+            else:
+                current.append(ch)
+        elif ch in ("'", '"'):
+            quote = ch                # opening quote — strip it
+        elif ch in "([{":
+            depth += 1
+            current.append(ch)
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+            current.append(ch)
+        elif depth == 0 and (ch == "," or ch.isspace()):
+            if current:
+                tokens.append("".join(current))
+                current = []
+        else:
+            current.append(ch)
+    if current:
+        tokens.append("".join(current))
+
+    # Optimizer-arg values never contain meaningful whitespace, so collapse any
+    # left inside a token (from bracketed tuple values) into a clean key=value.
+    tokens = ["".join(tok.split()) for tok in tokens if tok.strip()]
+
+    # Re-attach paren-less comma-tuple tails: a token with no '=' is the
+    # continuation of the previous value (e.g. `betas=0.9,0.99` split on the comma).
+    merged: list[str] = []
+    for tok in tokens:
+        if "=" in tok or not merged:
+            merged.append(tok)
+        else:
+            merged[-1] = f"{merged[-1]},{tok}"
+    return merged
 
 
 class KohyaTOMLGenerator:
@@ -232,24 +298,85 @@ class KohyaTOMLGenerator:
         "Compass": "LoraEasyCustomOptimizer.compass.Compass",
         "LPFAdamW": "LoraEasyCustomOptimizer.lpfadamw.LPFAdamW",
         "RMSProp": "LoraEasyCustomOptimizer.rmsprop.RMSProp",
+        # New custom optimizers (vendored, synced from 67372a 2026-06-22)
+        "AMUSE": "LoraEasyCustomOptimizer.amuse.AMUSE",
+        "MODA": "LoraEasyCustomOptimizer.moda.MODA",
+        "SODA": "LoraEasyCustomOptimizer.soda.SODA",
         # Schedule-free optimizers (schedulefree package)
         "AdamWScheduleFree": "schedulefree.AdamWScheduleFree",
         "SGDScheduleFree": "schedulefree.SGDScheduleFree",
         "RAdamScheduleFree": "schedulefree.RAdamScheduleFree",
     }
 
+    # Image extensions counted when estimating total steps for warm-restart schedulers.
+    _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
+
+    def _count_dataset_images(self) -> int:
+        """Count image files under the configured training data dir (recursive)."""
+        dataset_abs_path = Path(self.config.train_data_dir)
+        if not dataset_abs_path.is_absolute():
+            dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
+        if not dataset_abs_path.exists():
+            return 0
+        return sum(
+            1 for p in dataset_abs_path.rglob("*")
+            if p.suffix.lower() in self._IMAGE_EXTS
+        )
+
+    def _total_training_steps(self) -> int:
+        """Best-effort total optimizer steps, used to size warm-restart cycles.
+
+        Mirrors the step calculator: images x repeats x epochs / (batch x grad_accum).
+        Returns 0 when it can't be determined so the caller can fall back.
+        """
+        if self.config.max_train_steps and self.config.max_train_steps > 0:
+            return self.config.max_train_steps
+        images = self._count_dataset_images()
+        if not images:
+            return 0
+        batch = max(1, self.config.train_batch_size)
+        grad_accum = max(1, self.config.gradient_accumulation_steps)
+        return (images * self.config.num_repeats * self.config.max_train_epochs) // (batch * grad_accum)
+
     def _resolve_scheduler(self) -> dict:
         """
-        Return the correct scheduler TOML key/value.
+        Return the scheduler TOML key(s).
 
         Standard schedulers use lr_scheduler = "cosine" etc.
-        Custom vendored schedulers use lr_scheduler_type = "dotted.Module.Class"
-        which Kohya resolves via importlib (same mechanism as custom optimizers).
+        Custom vendored schedulers (cosine_annealing, rex) use a dotted
+        lr_scheduler_type = "Module.Class" (Kohya resolves it via importlib, same
+        mechanism as custom optimizers) PLUS the lr_scheduler_args the class needs.
+
+        The vendored CosineAnnealingWarmRestarts / RexAnnealingWarmRestarts take
+        `gamma` as a REQUIRED positional arg and expect `first_cycle_max_steps`
+        (per-cycle length in steps), NOT a cycle count. derrian's colab backend
+        injects these via utils/validation.validate_restarts; KNX writes the TOML
+        directly and bypasses that path, so we replicate the derivation here
+        (first_cycle_max_steps = total_steps // num_cycles). Without it the class
+        raises "missing 1 required positional argument: 'gamma'".
         """
         path = self.CUSTOM_SCHEDULER_PATHS.get(self.config.lr_scheduler)
-        if path:
-            return {"lr_scheduler_type": path}
-        return {"lr_scheduler": self.config.lr_scheduler}
+        if not path:
+            return {"lr_scheduler": self.config.lr_scheduler}
+
+        num_cycles = max(1, self.config.lr_scheduler_number)
+        total_steps = self._total_training_steps()
+        first_cycle_max_steps = max(1, total_steps // num_cycles) if total_steps else 1
+        if not total_steps:
+            logger.warning(
+                "Could not determine total steps for the '%s' scheduler; "
+                "first_cycle_max_steps falls back to 1 (LR would restart every step). "
+                "Set Max Train Steps or ensure the dataset directory is populated.",
+                self.config.lr_scheduler,
+            )
+
+        return {
+            "lr_scheduler_type": path,
+            "lr_scheduler_args": [
+                f"gamma={self.config.lr_scheduler_gamma}",
+                f"first_cycle_max_steps={first_cycle_max_steps}",
+            ],
+        }
 
     def _resolve_optimizer_type(self, optimizer_type: str) -> str:
         """
@@ -328,7 +455,6 @@ class KohyaTOMLGenerator:
         # Use .as_posix() for all paths to avoid Windows backslash escape issues in TOML
         args = {
             "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve().as_posix()),
-            "max_train_epochs": self.config.max_train_epochs,
             # "train_batch_size": self.config.train_batch_size, # Often handled in dataset.toml, but safe to keep here too
             "output_dir": str(Path(self.config.output_dir).resolve().as_posix()),
             "output_name": self.config.output_name,
@@ -449,7 +575,7 @@ class KohyaTOMLGenerator:
         # Note: do NOT auto-inject state_storage_dtype/device for CAME — forcing
         # bf16 state storage causes NaN; CAME's default (fp32 states) is correct.
         is_custom_optimizer = self.config.optimizer_type in self.CUSTOM_OPTIMIZER_PATHS
-        opt_args = shlex.split(self.config.optimizer_args) if self.config.optimizer_args else []
+        opt_args = _tokenize_optimizer_args(self.config.optimizer_args) if self.config.optimizer_args else []
         if is_custom_optimizer and self.config.weight_decay and not any(
             a.startswith('weight_decay=') for a in opt_args
         ):
@@ -475,8 +601,12 @@ class KohyaTOMLGenerator:
             args["sample_every_n_steps"] = self.config.sample_every_n_steps
 
         # Steps vs Epochs handling
+        # Kohya prefers epochs: if max_train_epochs is present it overrides steps.
+        # So only write one at a time — steps when > 0, otherwise epochs.
         if self.config.max_train_steps > 0:
             args["max_train_steps"] = self.config.max_train_steps
+        else:
+            args["max_train_epochs"] = self.config.max_train_epochs
 
         # Noise Settings
         # Gate on _enabled flag (consistent with ip_noise_gamma_enabled below).

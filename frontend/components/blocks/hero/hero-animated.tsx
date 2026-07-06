@@ -47,8 +47,10 @@ export function HeroAnimated({
   // Theme-based gradient classes with light/dark support
   const gradients = {
     'purple-blue': {
+      // Dark hero = pure black; the colored beams + purple glass card carry the
+      // color (option A: full-bleed beams over black). Light mode keeps its tint.
       bg: isDark
-        ? 'from-slate-950 via-purple-950 to-slate-950'
+        ? 'from-black via-black to-black'
         : 'from-purple-50 via-blue-50 to-indigo-50',
       text: isDark
         ? 'from-purple-400 via-blue-400 to-purple-400'
@@ -96,13 +98,13 @@ export function HeroAnimated({
   const colors = gradients[theme];
 
   return (
-    <BackgroundBeamsWithCollision className={`min-h-[500px] flex items-center justify-center bg-gradient-to-b ${colors.bg}`}>
+    <BackgroundBeamsWithCollision className={`flex-1 h-auto min-h-[500px] flex items-center justify-center bg-gradient-to-b ${colors.bg}`}>
       <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 py-16">
         {/* Glassmorphic Container */}
         <div className={`backdrop-blur-xl rounded-3xl border-2 p-8 md:p-12 max-w-5xl ${
           isDark
-            ? 'bg-slate-900/20 border-purple-500/30'
-            : 'bg-white/20 border-purple-300/50 shadow-2xl'
+            ? 'border-purple-500/30'
+            : 'border-purple-300/50 shadow-2xl'
         }`}>
           {/* Main Heading */}
           <h1 className="text-6xl md:text-8xl font-bold mb-4" suppressHydrationWarning>

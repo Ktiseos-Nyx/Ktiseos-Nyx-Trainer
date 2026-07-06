@@ -24,9 +24,12 @@ export const LoRATypeSchema = z.enum([
 });
 
 /**
- * Optimizer values — single source of truth.
- * Both the Zod schema and the UI dropdown derive from this tuple.
- * Adding an optimizer here is the only change needed.
+ * Optimizer values — the Zod schema's allowed set + the type for dropdown values.
+ * NOTE: the dropdown in OptimizerCard.tsx is a hardcoded option list (with labels +
+ * descriptions), constrained to these values via `satisfies` but NOT auto-generated
+ * from them. Adding an optimizer means editing BOTH: add the value here, then add the
+ * { value, label, description } entry in OptimizerCard.tsx. Backend also needs the
+ * OptimizerType enum + CUSTOM_OPTIMIZER_PATHS entries.
  */
 export const OPTIMIZER_VALUES = [
   'AdamW',
@@ -46,6 +49,9 @@ export const OPTIMIZER_VALUES = [
   'Compass',
   'LPFAdamW',
   'RMSProp',
+  'AMUSE',
+  'MODA',
+  'SODA',
   'AdamWScheduleFree',
   'SGDScheduleFree',
   'RAdamScheduleFree',
@@ -136,6 +142,13 @@ export const ModelPredictionTypeSchema = z.enum(['raw', 'additive', 'sigma_scale
 /**
  * Training configuration validation schema
  * Matches the TrainingConfig interface with runtime validation
+ *
+ * BLEEDING-EDGE RULE (CLAUDE.md): training hyperparameters carry NO upper-bound
+ * value ceilings and no "conventional range" guards. Experienced trainers operate
+ * outside standard ranges by design — if a value is wrong, Kohya rejects it at
+ * runtime ("if it fails, it fails"). Only structural/required checks live here:
+ * non-empty paths, integer-ness on genuine counts, divisible-by-64 resolution,
+ * sign floors where a negative is structurally meaningless, and enum membership.
  */
 export const TrainingConfigSchema = z.object({
   // ========== PROJECT & MODEL SETUP ==========
@@ -164,18 +177,17 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
     .number()
     .int('Resolution must be an integer')
     .min(64, 'Resolution must be at least 64')
-    .max(4096, 'Resolution must not exceed 4096')
     .refine((val) => val % 64 === 0, {
       message: 'Resolution must be divisible by 64',
     }),
 
-  num_repeats: z.number().int().min(1, 'Number of repeats must be at least 1').max(1000),
+  num_repeats: z.number().int().min(1, 'Number of repeats must be at least 1'),
 
-  max_train_epochs: z.number().int().min(1, 'Epochs must be at least 1').max(10000),
+  max_train_epochs: z.number().int().min(1, 'Epochs must be at least 1'),
 
   max_train_steps: z.number().int().min(0, 'Steps must be non-negative'),
 
-  train_batch_size: z.number().int().min(1, 'Batch size must be at least 1').max(128),
+  train_batch_size: z.number().int().min(1, 'Batch size must be at least 1'),
 
   seed: z.number().int().min(0, 'Seed must be non-negative'),
 
@@ -186,40 +198,34 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
   shuffle_caption: z.boolean(),
 
   // ========== LEARNING RATES ==========
-  unet_lr: z
-    .number()
-    .positive('UNet learning rate must be positive')
-    .max(1, 'UNet learning rate seems too high (max 1.0)'),
+  unet_lr: z.number().positive('UNet learning rate must be positive'),
 
-  text_encoder_lr: z
-    .number()
-    .nonnegative('Text encoder learning rate must be non-negative')
-    .max(1, 'Text encoder learning rate seems too high (max 1.0)'),
+  text_encoder_lr: z.number().nonnegative('Text encoder learning rate must be non-negative'),
 
   lr_scheduler: LRSchedulerSchema,
 
-  lr_scheduler_number: z.number().int().min(0).max(100),
+  lr_scheduler_number: z.number().int().min(0),
 
-  lr_warmup_ratio: z.number().min(0, 'Warmup ratio must be non-negative').max(1, 'Warmup ratio must not exceed 1.0'),
+  lr_warmup_ratio: z.number().min(0, 'Warmup ratio must be non-negative'),
 
   lr_warmup_steps: z.number().int().min(0, 'Warmup steps must be non-negative'),
 
-  lr_power: z.number().min(0).max(10),
+  lr_power: z.number().min(0),
 
   // ========== LORA STRUCTURE ==========
   lora_type: LoRATypeSchema,
 
   network_module: z.string().min(1, 'Network module is required'),
 
-  network_dim: z.number().int().min(1, 'Network dimension must be at least 1').max(1024),
+  network_dim: z.number().int().min(1, 'Network dimension must be at least 1'),
 
-  network_alpha: z.number().int().min(1, 'Network alpha must be at least 1').max(1024),
+  network_alpha: z.number().positive('Network alpha must be positive'),
 
-  conv_dim: z.number().int().min(0).max(1024),
+  conv_dim: z.number().int().min(0),
 
-  conv_alpha: z.number().int().min(0).max(1024),
+  conv_alpha: z.number().min(0),
 
-  network_dropout: z.number().min(0, 'Dropout must be non-negative').max(1, 'Dropout must not exceed 1.0'),
+  network_dropout: z.number().min(0, 'Dropout must be non-negative'),
 
   dim_from_weights: z.boolean(),
 
@@ -227,9 +233,9 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
 
   train_norm: z.boolean(),
 
-  rank_dropout: z.number().min(0).max(1),
+  rank_dropout: z.number().min(0),
 
-  module_dropout: z.number().min(0).max(1),
+  module_dropout: z.number().min(0),
 
   // Block-wise parameters (optional strings)
   down_lr_weight: z.string().optional(),
@@ -244,24 +250,24 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
   // ========== OPTIMIZER ==========
   optimizer_type: OptimizerSchema,
 
-  weight_decay: z.number().min(0, 'Weight decay must be non-negative').max(1),
+  weight_decay: z.number().min(0, 'Weight decay must be non-negative'),
 
-  gradient_accumulation_steps: z.number().int().min(1, 'Gradient accumulation must be at least 1').max(128),
+  gradient_accumulation_steps: z.number().int().min(1, 'Gradient accumulation must be at least 1'),
 
-  max_grad_norm: z.number().positive('Max gradient norm must be positive').max(10),
+  max_grad_norm: z.number().min(0, 'Max gradient norm must be non-negative'),
 
   optimizer_args: z.string().optional(),
 
   // ========== CAPTION & TOKEN CONTROL ==========
   keep_tokens: z.number().int().min(0),
 
-  clip_skip: z.number().int().min(1).max(12),
+  clip_skip: z.number().int().min(1),
 
-  max_token_length: z.number().int().min(75).max(512),
+  max_token_length: z.number().int().min(75),
 
-  caption_dropout_rate: z.number().min(0).max(1),
+  caption_dropout_rate: z.number().min(0),
 
-  caption_tag_dropout_rate: z.number().min(0).max(1),
+  caption_tag_dropout_rate: z.number().min(0),
 
   caption_dropout_every_n_epochs: z.number().int().min(0),
 
@@ -278,30 +284,30 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
   // ========== BUCKETING ==========
   enable_bucket: z.boolean(),
 
-  min_bucket_reso: z.number().int().min(64).max(2048),
+  min_bucket_reso: z.number().int().min(64),
 
-  max_bucket_reso: z.number().int().min(256).max(4096),
+  max_bucket_reso: z.number().int().min(256),
 
-  bucket_reso_steps: z.number().int().min(8).max(128).optional(),
+  bucket_reso_steps: z.number().int().min(8).optional(),
 
   bucket_no_upscale: z.boolean(),
 
   // ========== ADVANCED TRAINING ==========
   min_snr_gamma_enabled: z.boolean().optional(),
 
-  min_snr_gamma: z.number().min(0).max(20),
+  min_snr_gamma: z.number().min(0),
 
   ip_noise_gamma_enabled: z.boolean().optional(),
 
-  ip_noise_gamma: z.number().min(0).max(1),
+  ip_noise_gamma: z.number().min(0),
 
   multinoise: z.boolean().optional(),
 
-  multires_noise_discount: z.number().min(0).max(1),
+  multires_noise_discount: z.number().min(0),
 
-  noise_offset: z.number().min(0).max(1),
+  noise_offset: z.number(),
 
-  adaptive_noise_scale: z.number().min(0).max(1),
+  adaptive_noise_scale: z.number(),
 
   zero_terminal_snr: z.boolean().optional(),
 
@@ -398,7 +404,7 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
 
   network_train_unet_only: z.boolean().optional(),
 
-  prior_loss_weight: z.number().min(0).max(1).optional(),
+  prior_loss_weight: z.number().min(0).optional(),
 
   // Additional advanced parameters
   scale_v_pred_loss_like_noise_pred: z.boolean().optional(),
@@ -414,11 +420,11 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
   // ========== FLUX-SPECIFIC PARAMETERS ==========
   ae_path: z.string().optional(),
 
-  t5xxl_max_token_length: z.number().int().min(75).max(1024).optional(),
+  t5xxl_max_token_length: z.number().int().min(75).optional(),
 
   apply_t5_attn_mask: z.boolean().optional(),
 
-  guidance_scale: z.number().min(0).max(30).optional(),
+  guidance_scale: z.number().min(0).optional(),
 
   timestep_sampling: TimestepSamplingSchema.optional(),
 
@@ -431,7 +437,7 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
   // ========== LUMINA-SPECIFIC PARAMETERS ==========
   gemma2: z.string().optional(),
 
-  gemma2_max_token_length: z.number().int().min(75).max(1024).optional(),
+  gemma2_max_token_length: z.number().int().min(75).optional(),
 
   // ========== ANIMA-SPECIFIC PARAMETERS ==========
   qwen3: z.string().optional(),
@@ -498,3 +504,64 @@ export function formatValidationErrors(errors: z.ZodError) {
     code: error.code,
   }));
 }
+
+// ========== AUTO-TAGGING / CAPTIONING ==========
+
+/**
+ * Validation for the unified auto-tag / caption form (`TaggingConfig`).
+ *
+ * Structural/required checks only: a real dataset + model must be chosen, counts
+ * are positive integers, and confidence thresholds use the mathematical 0–1 range.
+ * Per the bleeding-edge rule there are NO conventional upper-bound ceilings — batch
+ * size, beam count, etc. have a crash-floor of 1 but no imposed maximum.
+ */
+export const TaggingConfigSchema = z.object({
+  // Shared — the dataset gate is what fixes "it tagged the wrong folder"
+  datasetDir: z.string().min(1, 'Select a dataset to tag'),
+  model: z.string().min(1, 'Select a tagging or captioning model'),
+  captionExtension: z.string().min(1),
+  captionSeparator: z.string(),
+
+  // WD14 thresholds (confidence is mathematically 0–1)
+  threshold: z.number().min(0).max(1),
+  useGeneralThreshold: z.boolean(),
+  generalThreshold: z.number().min(0).max(1),
+  useCharacterThreshold: z.boolean(),
+  characterThreshold: z.number().min(0).max(1),
+
+  // WD14 tag filtering / ordering / processing
+  undesiredTags: z.string(),
+  tagReplacement: z.string(),
+  alwaysFirstTags: z.string(),
+  characterTagsFirst: z.boolean(),
+  ratingTags: z.enum(['none', 'first', 'last']),
+  removeUnderscore: z.boolean(),
+  characterTagExpand: z.boolean(),
+
+  // BLIP
+  blipBeamSearch: z.boolean(),
+  blipNumBeams: z.number().int().min(1),
+  blipTopP: z.number().min(0).max(1),
+  blipMaxLength: z.number().int().min(1),
+  blipMinLength: z.number().int().min(1),
+
+  // GIT
+  gitMaxLength: z.number().int().min(1),
+  gitRemoveWords: z.boolean(),
+
+  // File handling
+  overwriteMode: z.enum(['overwrite', 'append', 'ignore']),
+  recursive: z.boolean(),
+
+  // Performance (crash-floor 1, no ceiling per bleeding-edge rule)
+  batchSize: z.number().int().min(1),
+  maxWorkers: z.number().int().min(1),
+  useOnnx: z.boolean(),
+  forceDownload: z.boolean(),
+
+  // Debug
+  frequencyTags: z.boolean(),
+  debug: z.boolean(),
+});
+
+export type ValidatedTaggingConfig = z.infer<typeof TaggingConfigSchema>;

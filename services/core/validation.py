@@ -18,7 +18,7 @@ OUTPUT_DIR = (PROJECT_ROOT / "output").resolve()
 VAE_DIR = (PROJECT_ROOT / "vae").resolve()
 
 # Allowed image extensions
-ALLOWED_IMAGE_EXTENSIONS: Set[str] = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+ALLOWED_IMAGE_EXTENSIONS: Set[str] = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".jfif"}
 
 
 def validate_dataset_path(dataset_name: str) -> Path:

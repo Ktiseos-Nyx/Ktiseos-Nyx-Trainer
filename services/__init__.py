@@ -31,6 +31,8 @@ from .caption_service import caption_service
 from .captioning_service import captioning_service
 from .lora_service import lora_service
 from .model_service import model_service
+from .convert_service import convert_service
+from .crop_service import crop_service
 from .jobs import job_manager
 
 # Service classes (if you need to instantiate manually)
@@ -41,6 +43,8 @@ from .caption_service import CaptionService
 from .captioning_service import CaptioningService
 from .lora_service import LoRAService
 from .model_service import ModelService
+from .convert_service import ConvertService
+from .crop_service import CropService
 from .jobs import JobManager
 
 __all__ = [
@@ -52,6 +56,8 @@ __all__ = [
     "captioning_service",
     "lora_service",
     "model_service",
+    "convert_service",
+    "crop_service",
     "job_manager",
     # Classes (if you need custom instances)
     "TrainingService",
@@ -61,5 +67,7 @@ __all__ = [
     "CaptioningService",
     "LoRAService",
     "ModelService",
+    "ConvertService",
+    "CropService",
     "JobManager",
 ]

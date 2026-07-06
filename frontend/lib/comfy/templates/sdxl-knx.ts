@@ -1,7 +1,7 @@
 /**
  * Node map and patch builder for the KNX SDXL template.
  *
- * Template: sdxl-knx-v1.json
+ * Template: sdxl-knx-v13pt5.json (4 Adetailer chains: face 77, eye 130, hand 146, mouth 152)
  * Author:   KNX (forked from Guy90s's ANIMA workflow)
  * Model:    SDXL / NoobAI-XL (Checkpoint Loader LoraManager)
  *
@@ -108,8 +108,14 @@ export interface SdxlKnxTemplateParams {
   upscaleModel?: string;
   /** Upscale factor (e.g. 1.5). Default 1.5. */
   upscaleBy?: number;
-  /** Adetailer detection model (e.g. "bbox/face_yolov8m.pt"). */
+  /** Face Adetailer detection model — node 77 (e.g. "bbox/face_yolov8m.pt"). */
   adetailerModel?: string;
+  /** Eye Adetailer detection model — node 130 (e.g. "segm/Anzhc Eyes -seg-hd.pt"). */
+  eyeDetailerModel?: string;
+  /** Hand Adetailer detection model — node 146 (e.g. "segm/PitHandDetailer-v1b-seg.pt"). */
+  handDetailerModel?: string;
+  /** Mouth Adetailer detection model — node 152 (e.g. "bbox/adetailer2dMouth_v10.pt"). */
+  mouthDetailerModel?: string;
   /** SAM model for Adetailer segmentation (e.g. "sam_vit_b_01ec64.pth"). */
   samModel?: string;
   /** Output filename prefix. Default "ComfyUI". */
@@ -203,9 +209,19 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildRe
     patch['53'] = { ...patch['53'], 6: params.scheduler };
   }
 
-  // Node 77: UltralyticsDetectorProvider (Adetailer model)
+  // Nodes 77/130/146/152: UltralyticsDetectorProvider — face/eye/hand/mouth detectors.
+  // Each is its own model_name[0] widget; leaving a param undefined keeps the template default.
   if (params.adetailerModel !== undefined) {
     patch['77'] = { ...patch['77'], 0: params.adetailerModel };
+  }
+  if (params.eyeDetailerModel !== undefined) {
+    patch['130'] = { ...patch['130'], 0: params.eyeDetailerModel };
+  }
+  if (params.handDetailerModel !== undefined) {
+    patch['146'] = { ...patch['146'], 0: params.handDetailerModel };
+  }
+  if (params.mouthDetailerModel !== undefined) {
+    patch['152'] = { ...patch['152'], 0: params.mouthDetailerModel };
   }
 
   // Node 78: SAMLoader — [0]=model_name, [1]=device_mode (leave device_mode at default AUTO)
@@ -269,7 +285,11 @@ export function buildSdxlKnxPatch(params: SdxlKnxTemplateParams): SdxlKnxBuildRe
     bypassNodeIds.push(53, 37);
   }
   if (params.adetailerEnabled === false) {
-    bypassNodeIds.push(74, 76, 77, 78);
+    // v13pt5 has 4 detailer chains (face/eye/hand/mouth). DetailerForEach nodes in
+    // topological IMAGE order (74→132→149→151) so each bypass rewires onto the
+    // already-rewired upstream; then their SEGS detectors, detector providers, and
+    // the shared SAMLoader (no IMAGE input — simply removed).
+    bypassNodeIds.push(74, 132, 149, 151, 76, 131, 143, 153, 77, 130, 146, 152, 78);
   }
 
   return { patch, bypassNodeIds };

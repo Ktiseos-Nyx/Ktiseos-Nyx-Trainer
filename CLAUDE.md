@@ -27,6 +27,21 @@ If a PR review agent flags a training parameter as "non-standard" or "too high/l
 
 ---
 
+## Empirical Lore — Interrogate It, Don't Reflexively Keep or Strip
+
+"Bias is bad" does **not** mean "delete anything that smells like community lore." That's just bias pointing the other way — throwing the baby out with the bathwater. When you hit empirical/community lore (LR ranges, "algorithm X needs Y", "best practice" tips, hardcoded UI hints), the job is to **question it against the actual evidence, then discuss — not to reflexively accept it OR reflexively remove it.**
+
+Interrogate before acting:
+- Is it **enforced in the code** (a real requirement/default), or just a string someone typed?
+- Does it **match our own presets** and shipped configs?
+- Is it **conditional** (optimizer-, model-, or context-dependent) rather than universal?
+
+Then surface what you found and let the user decide. The questioning is how we learn *what a piece of lore actually is* — fact, half-truth, or noise. Don't skip it in either direction.
+
+**Worked example (2026-06-06):** the UI hint *"IA3 requires a high learning rate (5e-3 to 1e-2)"* — verified: **not** in the algorithm code (`lycoris/modules/ia3.py` has zero LR logic), **contradicted** by our own `lora_ia3-sd15.json` preset (LR `1.0` with Prodigy), and optimizer-dependent. Half-true lore. Removed from the form *after* checking — and because in-form value hints are bias-by-suggestion (see BETA_PLANNING LT-5) — not on reflex. Educational lore like this belongs in the docs/wiki, where it's reference, not a nudge.
+
+---
+
 ## Ask, Don't Assume — Especially for ComfyUI / Workflow Questions
 
 When something about a ComfyUI workflow is unclear (node names, which package a node comes from, how nodes are wired), **ask before making changes**.

@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       extra_vae_dirs: body.extra_vae_dirs,
       comfyui_url: typeof body.comfyui_url === 'string' ? body.comfyui_url : undefined,
       comfyui_models_path: typeof body.comfyui_models_path === 'string' ? body.comfyui_models_path : undefined,
+      civitai_base_url: typeof body.civitai_base_url === 'string' ? body.civitai_base_url : undefined,
     });
 
     if (!result.success) {

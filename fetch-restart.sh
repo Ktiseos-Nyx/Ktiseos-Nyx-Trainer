@@ -52,6 +52,31 @@ else
 fi
 
 # ----------------------------------------------------------------
+# Step 2.5: Backend Python deps + torchaudio (cloud only)
+# A plain restart skips what installer.py / vastai_setup.sh do at first provision. This picks up
+# new/changed pins from the pulled requirements (requirements_cloud.txt -> -r requirements_base.txt,
+# e.g. a torchao bump) and re-matches torchaudio to the box's CUDA so ComfyUI can import it.
+# ----------------------------------------------------------------
+if [ -d "/workspace" ]; then
+    if [ -f /venv/main/bin/activate ]; then
+        # shellcheck disable=SC1091
+        source /venv/main/bin/activate
+    fi
+    _req="requirements_cloud.txt"; [ -f "$_req" ] || _req="requirements.txt"
+    echo ""
+    echo "📦 Updating backend Python deps from $_req ..."
+    python -m pip install -r "$_req" || echo "⚠️  backend dep update had issues (non-fatal)"
+
+    # Re-match torchaudio to the box's CUDA so ComfyUI can import it. The host's newer CUDA leaves
+    # torchaudio as a cu13 build (wants libcudart.so.13) that won't load against our cu126 torch.
+    # Pin to the cu126 wheel (works on any 12.x box). --no-deps because torchaudio hard-pins `torch==`
+    # and would otherwise downgrade torch. Mirrors the inline copy in vastai_setup.sh (pre-clone).
+    echo "🔊 Re-matching torchaudio to cu126..."
+    pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
+        || echo "⚠️  cu126 torchaudio reinstall failed (non-fatal)"
+fi
+
+# ----------------------------------------------------------------
 # Step 3: Restart services
 # ----------------------------------------------------------------
 echo ""
@@ -61,6 +86,7 @@ echo "=========================================="
 
 if [ -d "/workspace" ] && command -v supervisorctl &>/dev/null; then
     supervisorctl restart ktiseos-nyx
+    supervisorctl restart comfyui || echo "⚠️  comfyui not under supervisor — skipped"
 
     echo "⏳ Waiting for services to come up..."
     sleep 10

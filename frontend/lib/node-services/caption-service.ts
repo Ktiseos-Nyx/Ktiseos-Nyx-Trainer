@@ -65,7 +65,7 @@ export interface CaptionReadResponse {
 
 // ========== Configuration ==========
 
-const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.jfif'];
 const DEFAULT_CAPTION_EXTENSION = '.txt';
 
 // ========== Helper Functions ==========

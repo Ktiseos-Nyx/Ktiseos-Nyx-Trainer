@@ -75,7 +75,7 @@ export function AugmentationCard({ form, onSave }: AugmentationCardProps) {
         </div>
 
         {/* Bucketing */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Resolution Bucketing</p>
 
           <CheckboxFormField

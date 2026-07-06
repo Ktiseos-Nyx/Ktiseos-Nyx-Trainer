@@ -8,6 +8,7 @@ Orchestrates BLIP/GIT captioning workflow:
 - Progress monitoring
 """
 
+import os
 import sys
 import asyncio
 import logging
@@ -25,7 +26,7 @@ from services.models.job import JobType, JobStatus
 from services.jobs import job_manager
 from services.core.exceptions import ValidationError
 from services.core.subprocess_env import python_subprocess_env
-from services.core.validation import validate_dataset_path
+from services.core.validation import PROJECT_ROOT, validate_dataset_path
 
 logger = logging.getLogger(__name__)
 
@@ -42,15 +43,34 @@ class CaptioningService:
     """
 
     def __init__(self):
-        self.project_root = Path.cwd()
-        self.blip_script = (
-            self.project_root / "trainer" / "derrian_backend" / "sd_scripts" /
-            "finetune" / "make_captions.py"
-        )
-        self.git_script = (
-            self.project_root / "trainer" / "derrian_backend" / "sd_scripts" /
-            "finetune" / "make_captions_by_git.py"
-        )
+        # Anchor to the source file (via PROJECT_ROOT), NOT the process CWD — the backend
+        # starts from /root or similar on VastAI/RunPod, which broke script resolution.
+        self.project_root = PROJECT_ROOT
+        self.sd_scripts_dir = self.project_root / "trainer" / "derrian_backend" / "sd_scripts"
+        self.blip_script = self.sd_scripts_dir / "finetune" / "make_captions.py"
+        self.git_script = self.sd_scripts_dir / "finetune" / "make_captions_by_git.py"
+
+    def _caption_subprocess_env(self) -> dict:
+        """Environment for BLIP/GIT caption subprocesses.
+
+        Kohya's caption scripts (``finetune/make_captions*.py``) do ``import library.*``,
+        where ``library`` lives in ``sd_scripts/``. Because the scripts sit in the
+        ``finetune/`` subdir, Python seeds sys.path with *that* directory, NOT
+        ``sd_scripts`` — so the import only resolves when ``sd_scripts`` is on PYTHONPATH
+        (or the sd_scripts editable install happened to take, which is ``allow_failure``
+        in installer.py). Without it every caption run died at
+        ``ModuleNotFoundError: No module named 'library'``.
+
+        Training never hit this because KohyaTrainer._build_env sets the same PYTHONPATH;
+        this mirrors it so captioning is as robust as training.
+        """
+        env = python_subprocess_env()
+        derrian_dir = str(self.sd_scripts_dir.parent)
+        custom_sched_dir = str(self.sd_scripts_dir.parent / "custom_scheduler")
+        new_paths = os.pathsep.join([str(self.sd_scripts_dir), derrian_dir, custom_sched_dir])
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = f"{new_paths}{os.pathsep}{existing}" if existing else new_paths
+        return env
 
     async def start_blip_captioning(self, config: BLIPConfig) -> CaptioningStartResponse:
         """
@@ -80,8 +100,8 @@ class CaptioningService:
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                cwd=self.project_root,
-                env=python_subprocess_env(),
+                cwd=self.sd_scripts_dir,
+                env=self._caption_subprocess_env(),
             )
 
             # Step 5: Register with job manager
@@ -142,8 +162,8 @@ class CaptioningService:
                 *command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                cwd=self.project_root,
-                env=python_subprocess_env(),
+                cwd=self.sd_scripts_dir,
+                env=self._caption_subprocess_env(),
             )
 
             # Step 5: Register with job manager

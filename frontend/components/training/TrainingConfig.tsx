@@ -44,7 +44,7 @@ type ModelItem = { path: string; name: string };
  *
  * `@returns` The rendered training configuration UI.
  */
-export default function TrainingConfigNew() {
+export default function TrainingConfigNew({ trainingType }: { trainingType?: string }) {
   const [isTraining, setIsTraining] = useState(false);
   const [trainingJobId, setTrainingJobId] = useState<string | null>(null);
   const [models, setModels] = useState<{ value: string; label: string }[]>([]);
@@ -72,6 +72,13 @@ export default function TrainingConfigNew() {
     autoSaveDelay: 500,
     validateOnChange: false,  // 👈 Ensure this is false (or just remove the line)
   });
+
+  // Set training mode from prop (checkpoint page overrides default 'lora')
+  useEffect(() => {
+    if (trainingType) {
+      form.setValue('training_mode', trainingType, { shouldDirty: false });
+    }
+  }, [trainingType, form]);
 
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
 
@@ -303,7 +310,7 @@ export default function TrainingConfigNew() {
 
 
               <div className="space-y-6">
-                <PresetManager currentConfig={config} onLoadPreset={loadPreset} />
+                <PresetManager currentConfig={config} onLoadPreset={loadPreset} trainingType={trainingType} />
               </div>
             </div>
           </div>

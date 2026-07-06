@@ -16,7 +16,7 @@ import subprocess
 import logging
 from pathlib import Path
 from typing import Optional, Callable
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 import datetime
 import glob
 
@@ -31,8 +31,17 @@ from services.models.model_download import (
     ModelType,
 )
 from services.core.exceptions import ValidationError
+from services.core.validation import PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
+
+
+# Browser-like User-Agent to avoid geo-blocking from CDNs
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/125.0.0.0 Safari/537.36"
+)
 
 
 class ModelService:
@@ -48,7 +57,10 @@ class ModelService:
     """
 
     def __init__(self):
-        self.project_root = Path.cwd()
+        # Anchor to the source file (via PROJECT_ROOT), NOT the process CWD — the backend
+        # starts from /root or similar on VastAI/RunPod, so downloads landed in the wrong
+        # place relative to where the trainer/merge tools look for them.
+        self.project_root = PROJECT_ROOT
         self.pretrained_model_dir = self.project_root / "pretrained_model"
         self.vae_dir = self.project_root / "vae"
         self.lora_dir = self.project_root / "output"  # LoRAs stored in output
@@ -77,6 +89,7 @@ class ModelService:
         Returns:
             DownloadResponse with download result
         """
+        staging_path: Optional[Path] = None
         try:
             # Validate and normalize URL
             validated_url = self._validate_url(config.url)
@@ -112,22 +125,49 @@ class ModelService:
                     download_method=None
                 )
 
-            logger.info(f"Starting download: {validated_url}")
+            # When a caller supplies a redirect allowlist (Arc En Ciel), resolve
+            # the redirect chain up front — rejecting any non-HTTPS hop or a host
+            # outside the allowlist — and download the validated final URL.
+            # Civitai/HuggingFace (no allowlist set) keep their prior behaviour.
+            download_url = validated_url
+            if config.allowed_redirect_hosts:
+                resolved = await asyncio.to_thread(
+                    self._resolve_download_url,
+                    validated_url,
+                    config.allowed_redirect_hosts,
+                )
+                if not resolved:
+                    return DownloadResponse(
+                        success=False,
+                        message="Download blocked: redirect to a disallowed host or scheme",
+                        error="redirect allowlist violation",
+                    )
+                download_url = resolved
 
-            # Best-effort progress: fetch total size, then poll the growing file on
-            # disk while the download runs. Decoupled from the download method so it
-            # works for aria2c, hf_hub_download, and requests alike.
+            logger.info(f"Starting download: {download_url}")
+
+            # Stage to a ".part" file in the same directory so a partial, corrupt,
+            # or hash-mismatched download never appears under its real name. On
+            # success it is SHA-verified (when a hash is supplied) then atomically
+            # renamed into place; on any failure it is removed.
+            staging_path = destination_path.with_name(destination_path.name + ".part")
+            if staging_path.exists():
+                staging_path.unlink()  # clear a stale partial from a prior run
+
+            # Best-effort progress: fetch total size, then poll the growing staging
+            # file on disk while the download runs. Decoupled from the download
+            # method so it works for aria2c, hf_hub_download, and requests alike.
             stop_event: Optional[asyncio.Event] = None
             watcher_task: Optional[asyncio.Task] = None
             if progress_callback is not None:
                 total_size = await asyncio.to_thread(
-                    self._get_total_size, validated_url, config.api_token
+                    self._get_total_size, download_url, config.api_token, config.headers
                 )
                 if total_size:
                     stop_event = asyncio.Event()
                     watcher_task = asyncio.create_task(
                         self._watch_progress(
-                            destination_path, total_size, progress_callback, stop_event
+                            staging_path, total_size, progress_callback, stop_event
                         )
                     )
 
@@ -139,9 +179,10 @@ class ModelService:
             try:
                 result_path, method = await asyncio.to_thread(
                     self._download_with_fallback,
-                    validated_url,
-                    destination_path,
+                    download_url,
+                    staging_path,
                     config.api_token,
+                    config.headers,
                 )
             finally:
                 if stop_event is not None:
@@ -149,26 +190,56 @@ class ModelService:
                 if watcher_task is not None:
                     await watcher_task
 
-            if result_path and result_path.exists():
-                file_size_mb = result_path.stat().st_size / (1024 * 1024)
-                logger.info(f"Download complete: {result_path} ({file_size_mb:.1f} MB) via {method}")
-                return DownloadResponse(
-                    success=True,
-                    message=f"Download complete via {method}",
-                    file_path=str(result_path),
-                    file_name=filename,
-                    size_mb=round(file_size_mb, 2),
-                    download_method=method
-                )
-            else:
+            if not (result_path and result_path.exists()):
+                if staging_path.exists():
+                    staging_path.unlink()
                 return DownloadResponse(
                     success=False,
                     message="All download methods failed",
                     error="Download failed after trying all methods"
                 )
 
+            # Verify the content hash before the file may take its final name. Arc
+            # En Ciel supplies sha256; skipped when no hash is given, so Civitai/HF
+            # downloads are unaffected.
+            if config.expected_sha256:
+                actual_sha = await asyncio.to_thread(self._compute_sha256, staging_path)
+                if actual_sha.lower() != config.expected_sha256.lower():
+                    staging_path.unlink()
+                    logger.error(
+                        "SHA-256 mismatch for %s (expected %s, got %s) - file rejected",
+                        filename, config.expected_sha256, actual_sha,
+                    )
+                    return DownloadResponse(
+                        success=False,
+                        message="Downloaded file failed SHA-256 verification",
+                        error="sha256 mismatch",
+                    )
+                logger.info("SHA-256 verified for %s", filename)
+
+            # Atomic move into place: staging is in the same directory as the
+            # destination (same filesystem), so os.replace can't leave a half file.
+            os.replace(str(staging_path), str(destination_path))
+
+            file_size_mb = destination_path.stat().st_size / (1024 * 1024)
+            logger.info(f"Download complete: {destination_path} ({file_size_mb:.1f} MB) via {method}")
+            return DownloadResponse(
+                success=True,
+                message=f"Download complete via {method}",
+                file_path=str(destination_path),
+                file_name=filename,
+                size_mb=round(file_size_mb, 2),
+                download_method=method
+            )
+
         except Exception as e:
             logger.exception(f"Download error: {e}")
+            if staging_path is not None:
+                try:
+                    if staging_path.exists():
+                        staging_path.unlink()
+                except OSError:
+                    pass
             return DownloadResponse(
                 success=False,
                 message="Download failed",
@@ -260,7 +331,12 @@ class ModelService:
 
         return url
 
-    def _get_total_size(self, url: str, api_token: Optional[str] = None) -> Optional[int]:
+    def _get_total_size(
+        self,
+        url: str,
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
+    ) -> Optional[int]:
         """
         Resolve the total download size via a HEAD request (following redirects).
 
@@ -275,12 +351,14 @@ class ModelService:
             download_url = url
             hostname = (urlparse(url).hostname or "")
             is_hf_host = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
-            if "civitai.com" in hostname and api_token and "hf" not in api_token:
+            if "civitai" in hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 headers["Authorization"] = f"Bearer {api_token}"
             if is_hf_host and "/blob/" in download_url:
                 download_url = download_url.replace("/blob/", "/resolve/", 1)
+            if extra_headers:
+                headers.update(extra_headers)
 
             response = requests.head(
                 download_url, headers=headers, allow_redirects=True, timeout=15
@@ -340,14 +418,79 @@ class ModelService:
             except asyncio.TimeoutError:
                 pass
 
+    def _resolve_download_url(
+        self,
+        url: str,
+        allowed_hosts: list[str],
+        max_hops: int = 5,
+    ) -> Optional[str]:
+        """Follow a download's redirect chain, enforcing HTTPS + a host allowlist.
+
+        Every hop — the initial URL and each redirect target — must use https and
+        a hostname that is (or is a subdomain of) an entry in ``allowed_hosts``;
+        otherwise the download is refused. Returns the final resolved URL, or None
+        on any violation or resolution failure.
+
+        Only used when a caller supplies ``allowed_redirect_hosts`` (Arc En Ciel).
+        Civitai/HuggingFace downloads keep their previous redirect behaviour.
+        """
+        import requests
+        allowed = {h.lower() for h in allowed_hosts}
+        current = url
+        headers = {"User-Agent": BROWSER_UA}
+        for _ in range(max_hops):
+            parsed = urlparse(current)
+            if parsed.scheme != "https":
+                logger.error("Redirect allowlist: refusing non-HTTPS URL: %s", current)
+                return None
+            host = (parsed.hostname or "").lower()
+            if not any(host == a or host.endswith("." + a) for a in allowed):
+                logger.error("Redirect allowlist: host '%s' not permitted (%s)", host, current)
+                return None
+            try:
+                resp = requests.head(
+                    current, headers=headers, allow_redirects=False, timeout=15
+                )
+            except requests.RequestException as exc:
+                logger.warning("Redirect allowlist: HEAD failed for %s: %s", current, exc)
+                return None
+            if resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get("Location")
+                if not location:
+                    logger.error("Redirect allowlist: %s redirected with no Location", current)
+                    return None
+                current = urljoin(current, location)
+                continue
+            # Non-redirect response reached; its host was validated at loop top.
+            return current
+        logger.error("Redirect allowlist: too many redirects from %s", url)
+        return None
+
+    def _compute_sha256(self, path: Path) -> str:
+        """Return the lowercase hex SHA-256 of a file.
+
+        Read in 1 MB chunks so multi-GB model files are never loaded into memory
+        all at once.
+        """
+        import hashlib
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+        return digest.hexdigest()
+
     def _download_with_fallback(
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> tuple[Optional[Path], Optional[DownloadMethod]]:
         """
         Try download methods in order until one succeeds.
+
+        ``extra_headers`` are caller-supplied request headers (e.g. from a source
+        adapter) forwarded to the direct-download methods.
 
         Returns:
             (destination_path, method_used) or (None, None) on failure
@@ -358,8 +501,13 @@ class ModelService:
         hostname = parsed_url.hostname or ""
         is_huggingface = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
 
+        # Log only header *keys* — values may contain secrets (redaction rule).
+        if extra_headers:
+            logger.debug("Applying %d custom header(s): %s", len(extra_headers), list(extra_headers))
+
         if is_huggingface:
             logger.info("HuggingFace URL detected - using hf_hub_download (hf_xet)")
+            # hf_hub_download authenticates via token, not arbitrary headers.
             if self._try_hf_hub_download(url, destination, api_token):
                 return destination, DownloadMethod.HF_XET
             # Normalize /blob/ page URLs to /resolve/ artifact URLs before falling
@@ -371,16 +519,16 @@ class ModelService:
 
         # aria2c for Civitai and other direct URLs
         if shutil.which("aria2c"):
-            if self._try_aria2c(url, destination, api_token):
+            if self._try_aria2c(url, destination, api_token, extra_headers):
                 return destination, DownloadMethod.ARIA2C
 
         # wget fallback
         if shutil.which("wget"):
-            if self._try_wget(url, destination, api_token):
+            if self._try_wget(url, destination, api_token, extra_headers):
                 return destination, DownloadMethod.WGET
 
         # Python requests (final fallback)
-        if self._try_requests(url, destination, api_token):
+        if self._try_requests(url, destination, api_token, extra_headers):
             return destination, DownloadMethod.REQUESTS
 
         return None, None
@@ -389,7 +537,8 @@ class ModelService:
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> bool:
         """Try downloading with aria2c."""
         logger.info("Attempting download with aria2c...")
@@ -401,7 +550,7 @@ class ModelService:
 
             # Handle API tokens
             is_hf_host = hostname == "huggingface.co" or hostname.endswith(".huggingface.co")
-            if "civitai.com" in hostname and api_token and "hf" not in api_token:
+            if "civitai" in hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 header = f"Authorization: Bearer {api_token}"
@@ -414,11 +563,16 @@ class ModelService:
                 "-x", "8",  # Max connections per server
                 "-k", "1M",  # Min split size (smaller = more effective splitting)
                 "-d", str(destination.parent),  # Directory
-                "-o", destination.name  # Output filename
+                "-o", destination.name,  # Output filename
+                "--user-agent", BROWSER_UA,
             ]
 
             if header:
                 command.extend(["--header", header])
+
+            # Caller-supplied headers (e.g. from a source adapter).
+            for key, value in (extra_headers or {}).items():
+                command.extend(["--header", f"{key}: {value}"])
 
             result = subprocess.run(
                 command,
@@ -547,7 +701,8 @@ class ModelService:
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> bool:
         """Try downloading with wget."""
         logger.info("Attempting download with wget...")
@@ -558,11 +713,16 @@ class ModelService:
             # Handle API tokens
             wget_hostname = (urlparse(url).hostname or "")
             is_hf_host = wget_hostname == "huggingface.co" or wget_hostname.endswith(".huggingface.co")
-            if "civitai.com" in wget_hostname and api_token and "hf" not in api_token:
+            if "civitai" in wget_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 wget_args.extend(["--header", f"Authorization: Bearer {api_token}"])
 
+            # Caller-supplied headers (e.g. from a source adapter).
+            for key, value in (extra_headers or {}).items():
+                wget_args.extend(["--header", f"{key}: {value}"])
+
+            wget_args.extend(["-U", BROWSER_UA])
             wget_args.append(download_url)
 
             result = subprocess.run(
@@ -587,23 +747,28 @@ class ModelService:
         self,
         url: str,
         destination: Path,
-        api_token: Optional[str] = None
+        api_token: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> bool:
         """Try downloading with Python requests (final fallback)."""
         logger.info("Attempting download with Python requests (final fallback)...")
         try:
             import requests
 
-            headers = {}
+            headers = {"User-Agent": BROWSER_UA}
             download_url = url
 
             # Handle API tokens
             req_hostname = (urlparse(url).hostname or "")
             is_hf_host = req_hostname == "huggingface.co" or req_hostname.endswith(".huggingface.co")
-            if "civitai.com" in req_hostname and api_token and "hf" not in api_token:
+            if "civitai" in req_hostname and api_token and "hf" not in api_token:
                 download_url = f"{url}?token={api_token}"
             elif is_hf_host and api_token:
                 headers["Authorization"] = f"Bearer {api_token}"
+
+            # Caller-supplied headers (e.g. from a source adapter) win over defaults.
+            if extra_headers:
+                headers.update(extra_headers)
 
             response = requests.get(download_url, headers=headers, stream=True)
             response.raise_for_status()

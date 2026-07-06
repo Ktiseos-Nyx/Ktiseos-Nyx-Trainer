@@ -78,7 +78,7 @@ export function CaptionCard({ form, onSave }: CaptionCardProps) {
         />
 
         {/* Caption Dropout */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Caption Dropout (Regularization)</p>
 
           <NumberFormField
@@ -114,7 +114,7 @@ export function CaptionCard({ form, onSave }: CaptionCardProps) {
         </div>
 
         {/* Advanced Caption Settings */}
-        <div className="space-y-3 pt-4 border-t border-slate-700">
+        <div className="space-y-3 pt-4 border-t border-border">
           <p className="text-sm font-semibold text-gray-300">Advanced</p>
 
           <TextFormField
