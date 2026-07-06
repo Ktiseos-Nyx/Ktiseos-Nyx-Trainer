@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { datasetToolsAPI } from "@/lib/api"
 import {
   ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
 } from "@/components/ui/context-menu"
@@ -59,11 +60,7 @@ function Directory({
     if (!isExpanded) {
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/dataset-tools/fs?path=${encodeURIComponent(item.path)}&showHidden=${showHidden}&baseFolder=${encodeURIComponent(baseFolder)}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch directory contents');
-        }
-        const data = await response.json();
+        const data = await datasetToolsAPI.fetchFs(item.path, showHidden, baseFolder);
         const items = data.map((child: FsItem) => ({
           ...child,
           path: `${item.path}/${child.name}`,

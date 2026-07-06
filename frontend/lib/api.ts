@@ -2007,6 +2007,37 @@ export const presetsAPI = {
   },
 };
 
+export const datasetToolsAPI = {
+  fetchFs: async (path: string, showHidden: boolean, baseFolder: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/fs?path=${encodeURIComponent(path)}&showHidden=${showHidden}&baseFolder=${encodeURIComponent(baseFolder)}`);
+    return handleResponse(response);
+  },
+
+  fetchSafetensors: async (path: string, baseFolder: string, signal?: AbortSignal) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/safetensors?path=${encodeURIComponent(path)}&baseFolder=${encodeURIComponent(baseFolder)}`, { signal });
+    return handleResponse(response);
+  },
+
+  fetchMetadata: async (path: string, baseFolder: string, signal?: AbortSignal) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/metadata?path=${encodeURIComponent(path)}&baseFolder=${encodeURIComponent(baseFolder)}`, { signal });
+    return handleResponse(response);
+  },
+
+  readMetadata: async (path: string, baseFolder: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/metadata-write?path=${encodeURIComponent(path)}&baseFolder=${encodeURIComponent(baseFolder)}`);
+    return handleResponse(response);
+  },
+
+  writeMetadata: async (path: string, baseFolder: string, text: string, saveAsCopy: boolean) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/metadata-write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, baseFolder, text, saveAsCopy }),
+    });
+    return handleResponse(response);
+  },
+};
+
 export const debugAPI = {
   reportClientError: async (payload: {
     message: string;

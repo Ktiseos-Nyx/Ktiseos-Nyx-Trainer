@@ -15,6 +15,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog"
+import { datasetToolsAPI } from "@/lib/api"
 
 interface MetadataEditDialogProps {
   /** Server path of the selected file (relative or absolute, as the fs tree provides it). */
@@ -51,9 +52,7 @@ export function MetadataEditDialog({ filePath, baseFolder, fileName, onSaved }: 
   const loadParameters = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/dataset-tools/metadata-write?${query}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to read metadata")
+      const data = await datasetToolsAPI.readMetadata(filePath, baseFolder)
       setOriginal(data.text ?? null)
       setText(data.text ?? "")
     } catch (e) {
@@ -77,13 +76,7 @@ export function MetadataEditDialog({ filePath, baseFolder, fileName, onSaved }: 
   const doSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch("/api/dataset-tools/metadata-write", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: filePath, baseFolder, text, saveAsCopy }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Save failed")
+      const data = await datasetToolsAPI.writeMetadata(filePath, baseFolder, text, saveAsCopy)
       toast.success(saveAsCopy ? `Saved copy: ${data.path}` : `Saved ${data.path}`)
       // Re-baseline so reopening reflects the saved state (and Save disables).
       setOriginal(text)

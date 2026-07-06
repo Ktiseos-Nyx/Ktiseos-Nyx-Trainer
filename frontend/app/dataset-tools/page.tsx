@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import type { FsItem } from "@/types/dataset-tools/fs"
 import type { ImageMetadata, ViewMode } from "@/types/dataset-tools/metadata"
+import { datasetToolsAPI } from "@/lib/api"
 import type { SafetensorsMetadata } from "@/types/dataset-tools/safetensors"
 import { useDtSettings } from "@/hooks/use-dt-settings"
 
@@ -38,12 +39,7 @@ export default function DatasetToolsPage() {
 
     setSafetensors({ data: null, loading: true })
     try {
-      const response = await fetch(
-        `/api/dataset-tools/safetensors?path=${encodeURIComponent(file.path)}&baseFolder=${encodeURIComponent(settings.currentFolder)}`,
-        { signal: controller.signal }
-      )
-      if (!response.ok) throw new Error('Failed to fetch safetensors metadata')
-      const data = await response.json()
+      const data = await datasetToolsAPI.fetchSafetensors(file.path, settings.currentFolder, controller.signal)
       setSafetensors({ data, loading: false })
     } catch (error) {
       if ((error as Error).name === 'AbortError') return
@@ -60,15 +56,8 @@ export default function DatasetToolsPage() {
 
     setMetadata({ data: null, loading: true });
     try {
-      const response = await fetch(
-        `/api/dataset-tools/metadata?path=${encodeURIComponent(file.path)}&baseFolder=${encodeURIComponent(settings.currentFolder)}`,
-        { signal: controller.signal }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to fetch metadata');
-      }
-      const data = await response.json();
-      setMetadata({ data, loading: false });
+      const data = await datasetToolsAPI.fetchMetadata(file.path, settings.currentFolder, controller.signal)
+      setMetadata({ data, loading: false })
     } catch (error) {
       if ((error as Error).name === 'AbortError') return;
       console.error(error);
