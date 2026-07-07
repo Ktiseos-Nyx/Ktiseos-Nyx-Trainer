@@ -2036,6 +2036,59 @@ export const datasetToolsAPI = {
     });
     return handleResponse(response);
   },
+
+  /** Start a format conversion job via Sharp (Next.js API route, not Python backend). */
+  convertFormat: async (params: {
+    dataset_dir: string;
+    target_format: 'webp' | 'jpg' | 'png';
+    quality: number;
+    output_mode: 'new_dataset' | 'in-place';
+  }): Promise<ConvertFormatResponse> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/convert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get conversion job status. */
+  getConvertStatus: async (jobId: string): Promise<ConvertJobStatus> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/convert?jobId=${encodeURIComponent(jobId)}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running conversion job. */
+  stopConvert: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/convert?jobId=${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    });
+    return handleResponse(response);
+  },
+
+  /** Start a batch crop job via Sharp (Next.js API route, not Python backend). */
+  cropImages: async (params: CropRequest): Promise<CropResponse> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/crop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get crop job status. */
+  getCropStatus: async (jobId: string): Promise<CropJobStatus> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/crop?jobId=${encodeURIComponent(jobId)}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running crop job. */
+  stopCrop: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/crop?jobId=${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    });
+    return handleResponse(response);
+  },
 };
 
 export const debugAPI = {

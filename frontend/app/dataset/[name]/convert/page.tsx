@@ -6,7 +6,7 @@ import { Home, Database, ArrowRightLeft, Terminal, X, ChevronDown, ChevronUp } f
 import { toast } from 'sonner';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
-import { datasetAPI } from '@/lib/api';
+import { datasetToolsAPI } from '@/lib/api';
 import type { ConvertJobStatus } from '@/lib/api';
 import { ConvertSettingsCard } from '@/components/convert/cards/ConvertSettingsCard';
 import { ConvertProgressCard } from '@/components/convert/cards/ConvertProgressCard';
@@ -63,7 +63,7 @@ export default function ConvertPage() {
 
     statusIntervalRef.current = setInterval(async () => {
       try {
-        const status: ConvertJobStatus = await datasetAPI.getConvertStatus(id);
+        const status: ConvertJobStatus = await datasetToolsAPI.getConvertStatus(id);
         setProgress(status.progress);
         setConvertedFiles(status.converted_files);
         setCurrentFile(status.current_file || null);
@@ -109,9 +109,9 @@ export default function ConvertPage() {
     setLogs([]);
 
     try {
-      const response = await datasetAPI.convertFormat({
+      const response = await datasetToolsAPI.convertFormat({
         dataset_dir: datasetName,
-        target_format: targetFormat as 'webp' | 'jpg' | 'png' | 'bmp',
+        target_format: targetFormat as 'webp' | 'jpg' | 'png',
         quality,
         output_mode: outputMode as 'new_dataset' | 'in-place',
       });
@@ -136,7 +136,7 @@ export default function ConvertPage() {
     if (!jobId) return;
     try {
       addLog('🛑 Stopping...');
-      await datasetAPI.stopConvert(jobId);
+      await datasetToolsAPI.stopConvert(jobId);
       addLog('✅ Stopped');
     } catch (err) {
       addLog(`⚠️ Stop request: ${err}`);

@@ -8,6 +8,7 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import {
   datasetAPI,
+  datasetToolsAPI,
   type ImageWithTags,
   type CropJobStatus,
   type CropRegion,
@@ -109,7 +110,7 @@ export default function CropPage() {
 
       statusIntervalRef.current = setInterval(async () => {
         try {
-          const status: CropJobStatus = await datasetAPI.getCropStatus(id);
+          const status: CropJobStatus = await datasetToolsAPI.getCropStatus(id);
           setJobStatus(status);
 
           // Crop's FastAPI status carries no logs array, so synthesise a live
@@ -209,7 +210,7 @@ export default function CropPage() {
     addLog(`Prepared ${crops.length} crop regions`);
 
     try {
-      const response = await datasetAPI.cropImages({
+      const response = await datasetToolsAPI.cropImages({
         dataset_dir: datasetName,
         target_width: targetResolution,
         target_height: targetResolution,
@@ -238,7 +239,7 @@ export default function CropPage() {
     if (!jobId) return;
     try {
       addLog('🛑 Stopping...');
-      await datasetAPI.stopCrop(jobId);
+      await datasetToolsAPI.stopCrop(jobId);
       addLog('✅ Stopped');
     } catch (err) {
       addLog(`⚠️ Stop request: ${err}`);
