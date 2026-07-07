@@ -4,7 +4,9 @@ const path = require('path');
 const nextConfig = {
   // Empty turbopack config confirms we know Turbopack is the default in Next 16.
   // Webpack config below is kept for `npm run dev:webpack` fallback only.
-  turbopack: {},
+  turbopack: {
+    root: path.resolve(__dirname, '..'),
+  },
 
   // Webpack-only: pin React to a single copy to prevent duplicate-runtime crashes
   // on Windows where NTFS path-casing can trick webpack into bundling react twice.
@@ -38,9 +40,6 @@ const nextConfig = {
   // 🚀 PERFORMANCE
   compress: true,
   productionBrowserSourceMaps: false,
-
-  // Fix workspace root warning (monorepo detection)
-  outputFileTracingRoot: path.join(__dirname, '../'),
 
   // API backend proxy - FALLBACK only (custom server.js handles routing first)
   async rewrites() {

@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   let resolvedPath: string
   try {
-    const target = path.isAbsolute(filePath) ? filePath : path.join(baseFolder, filePath)
+    const target = path.isAbsolute(filePath) ? filePath : path.join(/*turbopackIgnore: true*/ baseFolder, filePath)
     resolvedPath = assertWithinBase(target)
   } catch {
     return NextResponse.json({ error: 'Access denied - path outside project root' }, { status: 403 })

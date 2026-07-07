@@ -13,7 +13,7 @@ function isInternalRequest(request: Request): boolean {
 async function resolveTarget(filePath: string, baseFolder: string): Promise<Resolved> {
   let resolvedPath: string;
   try {
-    const target = path.isAbsolute(filePath) ? filePath : path.join(baseFolder || '.', filePath);
+    const target = path.isAbsolute(filePath) ? filePath : path.join(/*turbopackIgnore: true*/ baseFolder || '.', filePath);
     resolvedPath = assertWithinBase(target);
   } catch {
     return { error: 'Access denied - path outside project root', status: 403 };
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const buf = await fs.readFile(resolved.path);
+    const buf = await fs.readFile(/*turbopackIgnore: true*/ resolved.path);
     if (!isPng(buf)) {
       return NextResponse.json({ error: 'Not a valid PNG file' }, { status: 415 });
     }
@@ -87,12 +87,12 @@ export async function POST(request: Request) {
   const sourcePath = resolved.path;
 
   try {
-    const stat = await fs.stat(sourcePath);
+    const stat = await fs.stat(/*turbopackIgnore: true*/ sourcePath);
     if (!stat.isFile()) {
       return NextResponse.json({ error: 'Target is not a file' }, { status: 400 });
     }
 
-    const buf = await fs.readFile(sourcePath);
+    const buf = await fs.readFile(/*turbopackIgnore: true*/ sourcePath);
     // Throws on a non-PNG, so the only bytes this route ever writes are a valid
     // PNG derived from an existing PNG at this location.
     const out = writePngParameters(buf, text);
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
       // Underscore, not a second dot: `foo_edited.png` keeps a single-extension
       // stem so dataset/training tools that pair by stem (foo.png ↔ foo.txt) or
       // split on the first dot don't orphan the file.
-      targetPath = path.join(path.dirname(sourcePath), `${stem}_edited${ext}`);
+      targetPath = path.join(/*turbopackIgnore: true*/ path.dirname(sourcePath), `${stem}_edited${ext}`);
     }
 
     // Re-validate the final write target against the project root, so a
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: writeResolved.error }, { status: writeResolved.status });
     }
 
-    await fs.writeFile(writeResolved.path, out);
+    await fs.writeFile(/*turbopackIgnore: true*/ writeResolved.path, out);
     return NextResponse.json({ ok: true, path: path.basename(writeResolved.path) });
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
