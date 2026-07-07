@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   // honored as a location *within* that root (see lib/dataset-tools/base-path.ts).
   let resolvedPath: string;
   try {
-    const target = path.isAbsolute(dirPath) ? dirPath : path.join(baseFolder, dirPath);
+    const target = path.isAbsolute(dirPath) ? dirPath : path.join(/*turbopackIgnore: true*/ baseFolder, dirPath);
     resolvedPath = assertWithinBase(target);
   } catch {
     return NextResponse.json({ error: 'Access denied - path outside project root' }, { status: 403 });
