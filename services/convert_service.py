@@ -171,7 +171,10 @@ class ConvertService:
                     continue
 
                 # Open and convert
-                with Image.open(src_file) as img:
+                # JFIF is just JPEG with a different extension — PIL doesn't
+                # always register .jfif for the JPEG decoder, so force format.
+                open_kwargs = {"formats": ["JPEG"]} if src_file.suffix.lower() == ".jfif" else {}
+                with Image.open(src_file, **open_kwargs) as img:
 
                     # Handle mode conversion (RGBA -> RGB for JPEG)
                     if img.mode == "RGBA" and target_format in ("jpg", "jpeg"):
