@@ -201,10 +201,10 @@ class ConvertService:
                 job.add_log(f"Converted {src_file.name} -> {dst_file.name}")
 
             except Exception as e:
-                error_msg = f"{src_file.name}: {str(e)}"
+                error_msg = f"{src_file.name}: {type(e).__name__}: {e}"
                 errors.append(error_msg)
                 job.add_log(f"ERROR: {error_msg}")
-                logger.warning(f"Failed to convert {src_file}: {e}")
+                logger.warning("Failed to convert %s: %s: %s", src_file, type(e).__name__, e)
 
         # Copy caption files to output directory (if new_dataset mode)
         if output_mode == "new_dataset" and output_dir != dataset_path:
