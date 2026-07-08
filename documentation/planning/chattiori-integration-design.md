@@ -9,7 +9,18 @@
 
 ## 1. Goal
 
-Replace our current flaky checkpoint merger with Chattiori-Model-Merger as the primary engine, while keeping our LoRA merge + bake paths unchanged. This gives us 24+ merge modes (vs. our current 4), cosine structure blending, elemental weights, DARE, and proper metadata — all for the cost of wiring a subprocess call.
+Replace ALL of our current checkpoint merge implementations with Chattiori-Model-Merger as **the** merge engine. This includes:
+
+| Currently | Replaced by Chattiori |
+|-----------|----------------------|
+| `tools/merge_models.py` (basic weighted average, flaky) | Chattiori WS mode |
+| `services/block_weight_merge.py` (our 4-mode clean-room, 339 lines to maintain) | Chattiori's 24+ modes with block weights |
+| `custom/anima_merge_lora.py` (Anima LoRA bake) | **No** — Chattiori is checkpoint-only, LoRA bake stays ours |
+| No Anima checkpoint-to-checkpoint merge (didn't exist) | Chattiori covers Anima via `detect_arch` + `BLOCKIDAM` |
+
+LoRA merge + LoRA-to-checkpoint bake paths stay unchanged — Chattiori doesn't handle LoRA files.
+
+**What we gain:** 24+ merge modes (vs. 4), cosine structure blending, elemental weights, DARE, Ortho, Sparse, ReBasin, proper metadata, VAE bake-in, Anima support, Flux support, and cross-arch FWM — all for the cost of wiring a subprocess call under Apache 2.0.
 
 ---
 
@@ -58,8 +69,9 @@ Replace our current flaky checkpoint merger with Chattiori-Model-Merger as the p
 ### 3.3 What stays ours
 
 - **LoRA merge** (`POST /lora/merge`) — still uses Kohya's `networks/{type}_merge_lora.py`. Chattiori is checkpoint-only.
-- **LoRA-to-checkpoint bake** (`POST /lora/merge-to-checkpoint`) — still uses Kohya's `merge_to_sd_model` path + our `custom/anima_merge_lora.py`.
+- **LoRA-to-checkpoint bake** (`POST /lora/merge-to-checkpoint`) — still uses Kohya's `merge_to_sd_model` path + our `custom/anima_merge_lora.py` for the Anima lane. Chattiori doesn't handle LoRA files.
 - **Block-weight presets** — our `block_weights.json` + preset picker in the UI. Chattiori's `mbwpresets_master.txt` supplements, doesn't replace.
+- **Anima LoRA bake** — `custom/anima_merge_lora.py` stays for the bake-into-checkpoint flow. But **Anima checkpoint-to-checkpoint** merge (which doesn't exist today) goes to Chattiori.
 
 ---
 
@@ -150,11 +162,12 @@ POST /utilities/checkpoint/merge-advanced
 
 | Endpoint | Stays? | Notes |
 |----------|--------|-------|
-| `POST /checkpoint/merge` | **Keep** | Simple weighted merge, uses existing `tools/merge_models.py`. Chattiori replaces this as the *recommended* path but the old one stays for backwards compat. |
-| `POST /checkpoint/merge-weighted` | **Deprecate** | Block-weighted merge. Chattiori's block-weight support supersedes our 4-mode `block_weight_merge.py`. Remove after migration. |
+| `POST /checkpoint/merge` | **Deprecate** | Simple weighted merge via `tools/merge_models.py`. Chattiori's WS mode replaces this. Remove after migration. |
+| `POST /checkpoint/merge-weighted` | **Remove** | Our 4-mode `block_weight_merge.py`. Chattiori's block-weight support fully supersedes this. |
+| `POST /checkpoint/merge-advanced` | **New** | Chattiori-powered. Covers all checkpoint-to-checkpoint merging going forward. |
 | `POST /checkpoint/detect-arch` | **Keep** | Still useful for UI. |
 | `POST /lora/merge` | **Keep** | LoRA-only, not in Chattiori scope. |
-| `POST /lora/merge-to-checkpoint` | **Keep** | LoRA bake, not in Chattiori scope. |
+| `POST /lora/merge-to-checkpoint` | **Keep** | LoRA bake (SD/SDXL via Kohya, Anima via our script). Not in Chattiori scope. |
 
 ### 5.3 Progress reporting (fixes MG-7)
 
