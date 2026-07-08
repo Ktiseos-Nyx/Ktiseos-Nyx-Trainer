@@ -31,8 +31,51 @@ from LoraEasyCustomOptimizer.clybius_experiments import (MomentusCaution, REMAST
 from LoraEasyCustomOptimizer.scion import SCION
 from LoraEasyCustomOptimizer.sgd import SGDSaI
 from LoraEasyCustomOptimizer.shampoo import ScalableShampoo
-from LoraEasyCustomOptimizer.adam import AdamW8bitAO, AdamW4bitAO, AdamWfp8AO
 from prodigyplus.prodigy_plus_schedulefree import ProdigyPlusScheduleFree
+
+
+class _LazyAO:
+    """Lazy-loads an AO optimizer class on first instantiation.
+
+    This keeps torchao out of memory unless AdamW8bitAO/4bitAO/fp8AO
+    is actually selected — the torchao import chain (adam.py →
+    low_bit_optim → torchao.utils) fires only when the optimizer's
+    __call__ is invoked, not at LoraEasyCustomOptimizer import time.
+    """
+    _resolved: dict | None = None
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def __name__(self) -> str:
+        return self._name
+
+    @property
+    def __module__(self) -> str:
+        return "LoraEasyCustomOptimizer.adam"
+
+    @property
+    def __qualname__(self) -> str:
+        return self._name
+
+    def __call__(self, *args, **kwargs):
+        return self._resolve()(*args, **kwargs)
+
+    def _resolve(self):
+        if _LazyAO._resolved is None:
+            from LoraEasyCustomOptimizer.adam import AdamW8bitAO, AdamW4bitAO, AdamWfp8AO
+            _LazyAO._resolved = {
+                "AdamW8bitAO": AdamW8bitAO,
+                "AdamW4bitAO": AdamW4bitAO,
+                "AdamWfp8AO": AdamWfp8AO,
+            }
+        return _LazyAO._resolved[self._name]
+
+
+AdamW8bitAO = _LazyAO("AdamW8bitAO")
+AdamW4bitAO = _LazyAO("AdamW4bitAO")
+AdamWfp8AO = _LazyAO("AdamWfp8AO")
 from LoraEasyCustomOptimizer.scorn import SCORN
 from LoraEasyCustomOptimizer.scornmachina import SCORNMachina
 from LoraEasyCustomOptimizer.mythical import Mythical
@@ -55,7 +98,7 @@ from LoraEasyCustomOptimizer.abmog import ABMOG
 from LoraEasyCustomOptimizer.bcos import BCOS
 from LoraEasyCustomOptimizer.projective_adam import ProjectiveAdam
 from LoraEasyCustomOptimizer.wiwiopt import WiwiOpt
-from LoraEasyCustomOptimizer.adam import AdamW8bitKahan
+from LoraEasyCustomOptimizer.adam_kahan import AdamW8bitKahan
 from LoraEasyCustomOptimizer.cascade import CASCADE
 from LoraEasyCustomOptimizer.radam_schedulefree import RAdamScheduleFree
 from LoraEasyCustomOptimizer.ocgoptv2 import OCGOptV2
