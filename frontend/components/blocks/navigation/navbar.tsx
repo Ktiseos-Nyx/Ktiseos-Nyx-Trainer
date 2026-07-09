@@ -15,7 +15,7 @@ import {
   FolderOpen,
   Tags,
   Calculator as CalculatorIcon,
-  Package,
+  ArrowRightLeft,
   HardDrive,
   Download,
   Files,
@@ -24,7 +24,6 @@ import {
   Wand2,
   ExternalLink,
   Crop,
-  ArrowRightLeft,
   Globe,
 } from "lucide-react"
 import {
@@ -133,11 +132,8 @@ export function Navbar() {
                   <ListItem href="/calculator" title="Step Calculator" icon={<CalculatorIcon className="w-4 h-4" />}>
                     Calculate optimal training steps
                   </ListItem>
-                  <ListItem href="/utilities#resize" title="Resize LoRA" icon={<Package className="w-4 h-4" />}>
-                    Resize trained LoRA to lower rank
-                  </ListItem>
-                  <ListItem href="/utilities#merge" title="Merge LoRAs" icon={<Package className="w-4 h-4" />}>
-                    Combine multiple LoRAs into one
+                  <ListItem href="/merge" title="Merge Hub" icon={<ArrowRightLeft className="w-4 h-4" />}>
+                    All merge & bake tools in one place
                   </ListItem>
                 </ul>
               </NavigationMenuContent>

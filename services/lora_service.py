@@ -410,7 +410,7 @@ class LoRAService:
 
         Supports:
         - SD1.5 / SDXL via vendored Kohya merge scripts (--sd_model)
-        - Anima (DiT) via custom/anima_merge_lora.py
+        - Anima (DiT) via custom/deprecated/anima_merge_lora.py
 
         Args:
             request: LoRA-to-checkpoint merge request
@@ -448,10 +448,10 @@ class LoRAService:
                 if not te_path.exists():
                     raise NotFoundError(f"Text encoder not found: {request.text_encoder_path}")
 
-                anima_script = self.project_root / "custom" / "anima_merge_lora.py"
+                anima_script = self.project_root / "custom" / "deprecated" / "anima_merge_lora.py"
                 if not anima_script.exists():
                     raise NotFoundError(
-                        "Anima merge script not found at custom/anima_merge_lora.py. "
+                        "Anima merge script not found at custom/deprecated/anima_merge_lora.py. "
                         "Please ensure the training backend is installed."
                     )
 

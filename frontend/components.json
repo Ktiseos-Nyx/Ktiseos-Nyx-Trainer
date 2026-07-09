@@ -50,6 +50,9 @@
     "@jalco": "https://ui.justinlevine.me/r/{name}.json",
     "@einui": "https://ui.eindev.ir/r/{name}.json",
     "@grootstudio": "https://grootstudio.vercel.app/r/{name}.json",
-    "@smoothui": "https://smoothui.dev/r/{name}.json"
+    "@smoothui": "https://smoothui.dev/r/{name}.json",
+    "@joyco": "https://registry.joyco.studio/r/{name}.json",
+    "@rescript-shadcn": "https://rescript-shadcn.miriad.studio/r/{name}.json",
+    "@shark": "https://shark.vini.one/r/{name}.json"
   }
 }

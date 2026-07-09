@@ -68,6 +68,49 @@ export interface WebSocketLogMessage {
   [key: string]: unknown; // Allow additional properties
 }
 
+export interface CheckpointAdvancedMergeRequest {
+  mode: string;
+  model_path: string;
+  model_0: string;
+  model_1: string;
+  model_2?: string;
+  output: string;
+  alpha?: string;
+  beta?: string;
+  device: string;
+  save_safetensors: boolean;
+  save_half: boolean;
+  cosine0: boolean;
+  cosine1: boolean;
+  cosine2: boolean;
+  vae?: string;
+  prune: boolean;
+  keep_ema: boolean;
+  rebasin?: number;
+  fine?: string;
+  seed?: number;
+  memo?: string;
+}
+
+export interface BakeRequest {
+  base_model_path: string;
+  lora_paths: string[];
+  output_path: string;
+  device: string;
+  save_half: boolean;
+  save_safetensors: boolean;
+  prune: boolean;
+  keep_ema: boolean;
+  memo?: string;
+  bake_scale?: number;
+  bake_unet_only: boolean;
+  bake_clip_scale?: number;
+}
+
+export interface JobAcceptedResponse {
+  job_id: string;
+}
+
 // ========== HTTP Log Polling ==========
 // Replaces WebSocket log streaming which breaks through VastAI's Caddy proxy.
 // Polls /api/jobs/[id]/logs?since=<timestamp> at a configurable interval.
@@ -1516,6 +1559,28 @@ export const utilitiesAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hf_token: token }),
+    });
+    return handleResponse(response);
+  },
+
+  mergeCheckpointAdvanced: async (
+    request: CheckpointAdvancedMergeRequest
+  ): Promise<JobAcceptedResponse> => {
+    const response = await fetch(`${API_BASE}/utilities/checkpoint/merge-advanced`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return handleResponse(response);
+  },
+
+  bakeLoraChattiori: async (
+    request: BakeRequest
+  ): Promise<JobAcceptedResponse> => {
+    const response = await fetch(`${API_BASE}/utilities/lora/bake-chattiori`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
     });
     return handleResponse(response);
   },

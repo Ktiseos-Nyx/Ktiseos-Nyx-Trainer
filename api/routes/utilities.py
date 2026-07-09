@@ -10,15 +10,21 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from services.core.validation import (
     validate_path_within, validate_dataset_path, validate_output_path,
     PROJECT_ROOT, DATASETS_DIR, OUTPUT_DIR, MODELS_DIR, VAE_DIR,
 )
-from services.core.exceptions import ValidationError
+from services.core.exceptions import ValidationError, NotFoundError
 
 # Import new service
 from services import lora_service
+from services.chattiori_service import chattiori_service
+from services.models.chattiori import (
+    CheckpointAdvancedMergeRequest,
+    BakeRequest,
+)
 from services.models.lora import (
     LoRAResizeRequest as ServiceResizeRequest,
     HuggingFaceUploadRequest as ServiceHFRequest,
@@ -556,7 +562,7 @@ class DetectArchRequest(BaseModel):
 async def detect_checkpoint_arch(request: DetectArchRequest):
     """Detect architecture of a safetensors checkpoint and return block info."""
     try:
-        from services.block_weight_merge import load_checkpoint, detect_architecture, arch_block_count, arch_block_names
+        from services.deprecated.block_weight_merge import load_checkpoint, detect_architecture, arch_block_count, arch_block_names
 
         _validate_model_input(request.checkpoint_path)
         sd = load_checkpoint(request.checkpoint_path, device="cpu")
@@ -585,7 +591,7 @@ async def merge_checkpoint_weighted(request: BlockWeightedMergeRequest):
     base_alpha controls non-UNet keys (TE, VAE).
     """
     try:
-        from services.block_weight_merge import (
+        from services.deprecated.block_weight_merge import (
             load_checkpoint, save_checkpoint,
             detect_architecture, arch_block_count,
             merge_weight, merge_add, merge_triple, merge_twice,
@@ -797,6 +803,95 @@ async def validate_hf_token(request: ValidateTokenRequest):
 
     except Exception as e:
         logger.error(f"Token validation error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== Chattiori Advanced Checkpoint Merge ==========
+
+
+@router.post("/checkpoint/merge-advanced")
+async def merge_checkpoint_advanced(request: CheckpointAdvancedMergeRequest):
+    """
+    Advanced checkpoint merge using Chattiori's merge.py.
+
+    Supports a wide range of merge modes (WS, SIG, GEO, MAX, DARE, etc.)
+    and optional ReBasin permutation alignment, cosine structure preference,
+    VAE injection, and three-model blends.
+
+    Returns a job_id immediately. Poll job status via GET /jobs/{job_id}
+    and stream logs over WebSocket.
+    """
+    try:
+        # ── Guard Clause: validate input paths are within allowed dirs ──
+        try:
+            _validate_model_input(os.path.join(request.model_path, request.model_0))
+            _validate_model_input(os.path.join(request.model_path, request.model_1))
+            if request.model_2 is not None:
+                _validate_model_input(os.path.join(request.model_path, request.model_2))
+            resolved_output = validate_output_path(request.output + ".safetensors")
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
+        # ── Parse: use the validated output path ──
+        request.output = resolved_output.stem
+
+        # ── Execute: launch the merge subprocess ──
+        job_id = await chattiori_service.merge_checkpoints(request)
+
+        logger.info("Chattiori merge accepted: job_id=%s, mode=%s", job_id, request.mode)
+
+        return JSONResponse(status_code=202, content={"job_id": job_id})
+
+    except HTTPException:
+        raise
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Chattiori merge error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lora/bake-chattiori")
+async def bake_lora_chattiori(request: BakeRequest):
+    """
+    Bake one or more LoRA files into a base checkpoint using Chattiori's lora_bake.py.
+
+    Supports scale multipliers (global and CLIP-specific), pruning, EMA
+    preservation, and UNet-only baking.
+
+    Returns a job_id immediately — poll job status via GET /jobs/{job_id}
+    and stream logs over WebSocket.
+    """
+    try:
+        # ── Guard Clause: validate all input paths ──
+        try:
+            _validate_model_input(request.base_model_path)
+            for lora_path in request.lora_paths:
+                _validate_model_input(lora_path)
+            resolved_output = validate_output_path(request.output_path)
+        except ValidationError:
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+
+        # ── Parse: use the validated output path ──
+        request.output_path = str(resolved_output)
+
+        # ── Execute: launch the bake subprocess ──
+        job_id = await chattiori_service.bake_lora(request)
+
+        logger.info("Chattiori bake accepted: job_id=%s, loras=%d", job_id, len(request.lora_paths))
+
+        return JSONResponse(status_code=202, content={"job_id": job_id})
+
+    except HTTPException:
+        raise
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Chattiori bake error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
