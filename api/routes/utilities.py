@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from services.core.validation import (
     validate_path_within, validate_dataset_path, validate_output_path,
+    validate_bake_output_path,
     PROJECT_ROOT, DATASETS_DIR, OUTPUT_DIR, MODELS_DIR, VAE_DIR,
 )
 from services.core.exceptions import ValidationError, NotFoundError
@@ -476,9 +477,10 @@ async def merge_lora(request: LoRAMergeRequest):
 class LoRAToCheckpointRequest(BaseModel):
     """Request model for baking LoRA(s) into a base checkpoint."""
     base_model_path: str
-    text_encoder_path: Optional[str] = None  # Required for Anima
+    text_encoder_path: Optional[str] = None  # Required for Anima (legacy script)
     lora_inputs: list[dict]  # [{path: str, ratio: float}, ...]
     output_path: str
+    output_dir: Optional[str] = None  # Target directory key: output, pretrained_model, comfyui_checkpoints, etc.
     model_type: Literal["sd", "sdxl", "anima"] = "sdxl"
     device: Literal["cpu", "cuda"] = "cpu"
     save_precision: Literal["float", "fp16", "bf16"] = "fp16"
@@ -493,12 +495,12 @@ async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
     SD1.5/SDXL use Kohya's merge scripts; Anima uses Chattiori's lora_bake.py.
     """
     try:
-        # Security: base + LoRA inputs from any model dir; output always to output/
+        # Security: base + LoRA inputs from any model dir; output to chosen (or default output/) dir
         try:
             _validate_model_input(request.base_model_path)
             for lora in request.lora_inputs:
                 _validate_model_input(lora["path"])
-            resolved_output = validate_output_path(request.output_path)
+            resolved_output = validate_bake_output_path(request.output_path, request.output_dir)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 

@@ -1526,6 +1526,7 @@ export const utilitiesAPI = {
     savePrecision: string = 'fp16',
     precision: string = 'float',
     textEncoderPath?: string,
+    outputDir?: string,
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge-to-checkpoint`, {
       method: 'POST',
@@ -1535,6 +1536,7 @@ export const utilitiesAPI = {
         text_encoder_path: textEncoderPath,
         lora_inputs: loraInputs,
         output_path: outputPath,
+        output_dir: outputDir,
         model_type: modelType,
         device,
         save_precision: savePrecision,

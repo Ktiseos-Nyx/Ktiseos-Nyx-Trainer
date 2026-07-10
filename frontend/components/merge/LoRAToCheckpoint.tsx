@@ -28,6 +28,8 @@ export function LoRAToCheckpointTab() {
   const [selectedLoras, setSelectedLoras] = useState<Array<{ path: string; name: string; ratio: number }>>([]);
   const [modelType, setModelType] = useState<'sd' | 'sdxl' | 'anima'>('sdxl');
   const [outputPath, setOutputPath] = useState('');
+  const [outputDir, setOutputDir] = useState('output');
+  const [dirs, setDirs] = useState<Record<string, string>>({});
   const [merging, setMerging] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,7 @@ export function LoRAToCheckpointTab() {
     const load = async () => {
       try {
         const dirs = await utilitiesAPI.getDirectories();
+        setDirs(dirs);
         const [ckpts, loras] = await Promise.all([
           loadModelFiles(
             [{ label: 'pretrained_model/', dir: dirs.pretrained_model }, { label: 'ComfyUI checkpoints', dir: dirs.comfyui_checkpoints }, { label: 'ComfyUI diffusion_models', dir: dirs.comfyui_diffusion_models }, { label: 'ComfyUI unet', dir: dirs.comfyui_unet }],
@@ -65,8 +68,15 @@ export function LoRAToCheckpointTab() {
     }
   }, [baseModel, selectedLoras.length, modelType]);
 
+  const OUT_DIR_OPTIONS: Array<{ key: string; label: string }> = [
+    { key: 'output', label: 'output/ (trainer)' },
+    { key: 'pretrained_model', label: 'pretrained_model/' },
+    { key: 'comfyui_checkpoints', label: 'ComfyUI / checkpoints' },
+    { key: 'comfyui_diffusion_models', label: 'ComfyUI / diffusion_models' },
+    { key: 'comfyui_unet', label: 'ComfyUI / unet' },
+  ].filter(o => dirs[o.key]);
+
   const add = (file: ListedFile) => {
-    if (!selectedLoras.find(l => l.path === file.path))
       setSelectedLoras(prev => [...prev, { path: file.path, name: file.name, ratio: 1.0 }]);
   };
   const remove = (path: string) => setSelectedLoras(prev => prev.filter(l => l.path !== path));
@@ -83,6 +93,7 @@ export function LoRAToCheckpointTab() {
         baseModel,
         selectedLoras.map(l => ({ path: l.path, ratio: l.ratio })),
         outputPath, modelType, 'cpu', 'fp16', 'float',
+        undefined, outputDir,
       );
       if (res.success) { setResult(res); setSelectedLoras([]); }
       else setError(res.message ?? 'Merge failed');
@@ -185,7 +196,19 @@ export function LoRAToCheckpointTab() {
               placeholder="baked_model.safetensors"
               className="text-xs font-mono"
             />
-            <p className="text-xs text-muted-foreground">Saved into your output/ directory</p>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground shrink-0">Save to:</Label>
+              <Select value={outputDir} onValueChange={setOutputDir}>
+                <SelectTrigger className="text-xs h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {OUT_DIR_OPTIONS.map(o => (
+                    <SelectItem key={o.key} value={o.key} className="text-xs">{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </SectionCard>
       )}

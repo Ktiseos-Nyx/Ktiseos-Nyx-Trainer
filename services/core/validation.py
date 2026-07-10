@@ -252,6 +252,63 @@ def validate_output_path(filename: str) -> Path:
     return resolved
 
 
+def validate_bake_output_path(filename: str, target_dir: str | None = None) -> Path:
+    """
+    Validate output path for bake operations — allows writing to output/,
+    pretrained_model/, and any present ComfyUI model directories.
+
+    Args:
+        filename: Output filename (e.g., "baked_anima.safetensors" or absolute path)
+        target_dir: Optional target directory key. If provided, output goes there
+                    instead of OUTPUT_DIR. Accepted values: output keys from
+                    get_directories() (output, pretrained_model, comfyui_checkpoints,
+                    comfyui_diffusion_models, comfyui_unet).
+
+    Returns:
+        Path: Validated absolute path
+
+    Raises:
+        ValidationError: If path traversal detected or dir not allowed
+    """
+    from api.routes.utilities import _comfyui_model_dirs as _get_comfyui_dirs
+
+    allowed = [OUTPUT_DIR, MODELS_DIR]
+    for d in _get_comfyui_dirs().values():
+        allowed.append(d)
+
+    path_obj = Path(filename)
+    if path_obj.is_absolute():
+        try:
+            resolved = path_obj.resolve()
+            for d in allowed:
+                if resolved == d.resolve() or resolved.is_relative_to(d.resolve()):
+                    return resolved
+        except (ValueError, OSError):
+            pass
+
+    clean_name = filename.strip()
+    if not clean_name:
+        raise ValidationError("Output filename cannot be empty")
+
+    # If a target_dir key was provided, use that dir; otherwise default to output/
+    target = OUTPUT_DIR
+    if target_dir:
+        from api.routes.utilities import _comfyui_model_dirs as _dirs
+        dirs_map = {
+            "output": OUTPUT_DIR,
+            "pretrained_model": MODELS_DIR,
+            **_dirs(),
+        }
+        target = dirs_map.get(target_dir, OUTPUT_DIR)
+
+    resolved = (target / clean_name).resolve()
+    for d in allowed:
+        if resolved == d.resolve() or resolved.is_relative_to(d.resolve()):
+            return resolved
+
+    raise ValidationError(f"Invalid output path: {filename}")
+
+
 def validate_path_within(user_path: str, allowed_dirs: list) -> Path:
     """
     Generic path validation: ensure path is within one of the allowed directories.
