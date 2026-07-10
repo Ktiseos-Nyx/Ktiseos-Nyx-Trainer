@@ -13,7 +13,7 @@ import { getComfyuiModelDirs } from '@/lib/node-services/comfyui-paths';
 const PROJECT_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), '..');
 
 function abs(sub: string): string {
-  return path.resolve(PROJECT_ROOT, sub);
+  return path.resolve(/*turbopackIgnore: true*/ PROJECT_ROOT, sub);
 }
 
 export async function GET() {
