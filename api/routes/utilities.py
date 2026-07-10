@@ -488,18 +488,16 @@ class LoRAToCheckpointRequest(BaseModel):
 @router.post("/lora/merge-to-checkpoint")
 async def merge_lora_to_checkpoint(request: LoRAToCheckpointRequest):
     """
-    Bake one or more LoRAs into a base SD/SDXL checkpoint, producing a full
+    Bake one or more LoRAs into a base SD/SDXL/Anima checkpoint, producing a full
     standalone checkpoint (the "LoRA -> checkpoint" merge).
-    Uses Kohya's merge scripts (--sd_model) from the vendored backend.
+    SD1.5/SDXL use Kohya's merge scripts; Anima uses Chattiori's lora_bake.py.
     """
     try:
-        # Security: base + LoRA inputs + text encoder from any model dir; output always to output/
+        # Security: base + LoRA inputs from any model dir; output always to output/
         try:
             _validate_model_input(request.base_model_path)
             for lora in request.lora_inputs:
                 _validate_model_input(lora["path"])
-            if request.model_type == "anima" and request.text_encoder_path:
-                _validate_model_input(request.text_encoder_path)
             resolved_output = validate_output_path(request.output_path)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")

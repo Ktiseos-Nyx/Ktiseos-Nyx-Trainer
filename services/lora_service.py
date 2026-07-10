@@ -410,7 +410,7 @@ class LoRAService:
 
         Supports:
         - SD1.5 / SDXL via vendored Kohya merge scripts (--sd_model)
-        - Anima (DiT) via custom/deprecated/anima_merge_lora.py
+        - Anima (DiT) via Chattiori lora_bake.py
 
         Args:
             request: LoRA-to-checkpoint merge request
@@ -440,33 +440,29 @@ class LoRAService:
             self._validate_device(request.device)
 
             if model_type == "anima":
-                # ── Anima (DiT) lane via custom script ──────────────────────
-                if not request.text_encoder_path:
-                    raise ValidationError("text_encoder_path is required for Anima model type")
-
-                te_path = Path(request.text_encoder_path)
-                if not te_path.exists():
-                    raise NotFoundError(f"Text encoder not found: {request.text_encoder_path}")
-
-                anima_script = self.project_root / "custom" / "deprecated" / "anima_merge_lora.py"
-                if not anima_script.exists():
+                # ── Anima (DiT) lane via Chattiori lora_bake.py ──────────────
+                chattiori_script = self.project_root / "trainer" / "chattiori" / "lora_bake.py"
+                if not chattiori_script.exists():
                     raise NotFoundError(
-                        "Anima merge script not found at custom/deprecated/anima_merge_lora.py. "
+                        "Chattiori lora_bake.py not found at trainer/chattiori/lora_bake.py. "
                         "Please ensure the training backend is installed."
                     )
 
-                model_paths = [lora_input.path for lora_input in request.lora_inputs]
-                model_ratios = [str(lora_input.ratio) for lora_input in request.lora_inputs]
+                base_dir = str(base_path.parent)
+                checkpoint_name = base_path.name
+                loras_str = ",".join(
+                    f"{lora.path}:{lora.ratio}" for lora in request.lora_inputs
+                )
 
                 command = [
                     sys.executable,
-                    str(anima_script),
-                    "--base_model", str(base_path),
-                    "--text_encoder", str(te_path),
-                    "--models", *model_paths,
-                    "--ratios", *model_ratios,
-                    "--save_to", str(output_path),
+                    str(chattiori_script),
+                    base_dir,
+                    checkpoint_name,
+                    loras_str,
+                    "--save_safetensors",
                     "--device", request.device,
+                    "--output", output_path.stem,
                 ]
             else:
                 # ── SD1.5 / SDXL lane via vendored Kohya scripts ───────────

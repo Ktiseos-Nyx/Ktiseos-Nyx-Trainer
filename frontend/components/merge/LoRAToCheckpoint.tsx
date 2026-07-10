@@ -25,7 +25,6 @@ export function LoRAToCheckpointTab() {
   const [baseModels, setBaseModels] = useState<ListedFile[]>([]);
   const [availableLoras, setAvailableLoras] = useState<ListedFile[]>([]);
   const [baseModel, setBaseModel] = useState('');
-  const [textEncoderPath, setTextEncoderPath] = useState('');
   const [selectedLoras, setSelectedLoras] = useState<Array<{ path: string; name: string; ratio: number }>>([]);
   const [modelType, setModelType] = useState<'sd' | 'sdxl' | 'anima'>('sdxl');
   const [outputPath, setOutputPath] = useState('');
@@ -77,7 +76,6 @@ export function LoRAToCheckpointTab() {
   const handleMerge = async () => {
     if (!baseModel) { setError('Select a base checkpoint'); return; }
     if (selectedLoras.length < 1) { setError('Select at least 1 LoRA to bake in'); return; }
-    if (modelType === 'anima' && !textEncoderPath) { setError('Provide a text encoder path for Anima'); return; }
     if (!outputPath) { setError('Provide an output filename'); return; }
     try {
       setMerging(true); setError(null); setResult(null);
@@ -85,7 +83,6 @@ export function LoRAToCheckpointTab() {
         baseModel,
         selectedLoras.map(l => ({ path: l.path, ratio: l.ratio })),
         outputPath, modelType, 'cpu', 'fp16', 'float',
-        modelType === 'anima' ? textEncoderPath : undefined,
       );
       if (res.success) { setResult(res); setSelectedLoras([]); }
       else setError(res.message ?? 'Merge failed');
@@ -132,34 +129,6 @@ export function LoRAToCheckpointTab() {
           <p className="text-sm text-muted-foreground text-center py-6">No checkpoints found in pretrained_model/ or ComfyUI.</p>
         )}
       </SectionCard>
-
-      {modelType === 'anima' && (
-        <SectionCard title="Text Encoder">
-          <p className="text-xs text-muted-foreground">Qwen3 text encoder model (pick from pretrained_model/ or ComfyUI checkpoints).</p>
-          {baseModels.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
-              {baseModels.map(f => (
-                <Button
-                  key={f.path}
-                  variant={textEncoderPath === f.path ? 'default' : 'outline'}
-                  onClick={() => setTextEncoderPath(f.path)}
-                  className="justify-start h-auto py-2 px-3"
-                >
-                  <div className="text-left min-w-0">
-                    <div className="truncate text-xs font-medium">{f.name}</div>
-                    <div className="text-xs text-muted-foreground">{f.source} · {f.size_formatted}</div>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No models available. Download a Qwen3 text encoder first.</p>
-          )}
-          {textEncoderPath && (
-            <p className="text-xs text-muted-foreground mt-1">Selected: {textEncoderPath}</p>
-          )}
-        </SectionCard>
-      )}
 
       <SectionCard title="LoRAs to Bake In">
         <p className="text-xs text-muted-foreground">From your trainer output/ and ComfyUI loras folder.</p>
@@ -223,7 +192,7 @@ export function LoRAToCheckpointTab() {
 
       <Button
         onClick={handleMerge}
-        disabled={merging || !baseModel || selectedLoras.length < 1 || !outputPath || (modelType === 'anima' && !textEncoderPath)}
+        disabled={merging || !baseModel || selectedLoras.length < 1 || !outputPath}
         className="w-full"
       >
         {merging ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Baking…</> : `Bake ${selectedLoras.length} LoRA(s) into checkpoint`}

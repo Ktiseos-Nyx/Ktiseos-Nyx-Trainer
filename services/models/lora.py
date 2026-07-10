@@ -77,7 +77,7 @@ class LoRAMergeResponse(BaseModel):
 class LoRAToCheckpointRequest(BaseModel):
     """Request to bake one or more LoRAs into a base checkpoint (LoRA -> full model)."""
     base_model_path: str = Field(..., description="Path to base SD/SDXL/Anima checkpoint")
-    text_encoder_path: Optional[str] = Field(None, description="Path to text encoder (required for Anima)")
+    text_encoder_path: Optional[str] = Field(None, description="Path to text encoder (not used with Chattiori Anima bake)")
     lora_inputs: list[LoRAInput] = Field(..., min_length=1, description="LoRAs to bake into the base")
     output_path: str = Field(..., description="Path to output merged checkpoint")
     model_type: str = Field("sdxl", description="Model type: sd (SD1.5), sdxl, or anima")
