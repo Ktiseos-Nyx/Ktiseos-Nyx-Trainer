@@ -166,9 +166,10 @@ class ChattioriService:
         base_dir = Path(request.base_model_path).resolve().parent
         checkpoint_name = Path(request.base_model_path).name
 
-        # Format LoRA paths as the script expects: "path1:1.0,path2:1.0,..."
+        # Format LoRA paths with ratios: "path1:ratio1,path2:ratio2,..."
+        ratios = request.lora_ratios if request.lora_ratios else [1.0] * len(request.lora_paths)
         loras_str = ",".join(
-            f"{p}:1.0" for p in request.lora_paths
+            f"{p}:{r}" for p, r in zip(request.lora_paths, ratios)
         )
 
         command: list[str] = [

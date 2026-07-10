@@ -858,8 +858,8 @@ async def bake_lora_chattiori(request: BakeRequest):
     """
     Bake one or more LoRA files into a base checkpoint using Chattiori's lora_bake.py.
 
-    Supports scale multipliers (global and CLIP-specific), pruning, EMA
-    preservation, and UNet-only baking.
+    Supports per-LoRA ratios, output directory selection, scale multipliers
+    (global and CLIP-specific), pruning, EMA preservation, and UNet-only baking.
 
     Returns a job_id immediately — poll job status via GET /jobs/{job_id}
     and stream logs over WebSocket.
@@ -870,7 +870,7 @@ async def bake_lora_chattiori(request: BakeRequest):
             _validate_model_input(request.base_model_path)
             for lora_path in request.lora_paths:
                 _validate_model_input(lora_path)
-            resolved_output = validate_output_path(request.output_path)
+            resolved_output = validate_bake_output_path(request.output_path, request.output_dir)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 

@@ -1546,6 +1546,69 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
+  /**
+   * Job-based LoRA bake via Chattiori.
+   * Returns job_id immediately — poll /api/jobs/{id} for completion.
+   * Avoids Cloudflare tunnel 524 timeouts on large merges.
+   */
+  bakeLoraChattiori: async (request: {
+    base_model_path: string;
+    lora_paths: string[];
+    lora_ratios?: number[];
+    output_path: string;
+    output_dir?: string;
+    text_encoder_path?: string;
+    device?: string;
+    bake_scale?: number;
+    bake_clip_scale?: number;
+    bake_unet_only?: boolean;
+  }): Promise<JobAcceptedResponse> => {
+    const response = await fetch(`${API_BASE}/utilities/lora/bake-chattiori`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return handleResponse(response);
+  },
+
+  /** Poll GET /api/jobs/[id] until the job reaches a terminal state. */
+  getJobStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
+    return handleResponse(response);
+  },
+
+  /** Poll a job every `interval` ms until it completes or fails. */
+  pollUntilDone: async (
+    jobId: string,
+    onProgress?: (status: string, logs: string[]) => void,
+    interval = 3000,
+  ): Promise<{ success: boolean; output_path?: string; file_size_mb?: number }> => {
+    return new Promise((resolve, reject) => {
+      const timer = setInterval(async () => {
+        try {
+          const res = await utilitiesAPI.getJobStatus(jobId);
+          const job = res.job;
+          if (!job) return;
+          onProgress?.(job.status, job.logs ?? []);
+          if (job.status === 'completed') {
+            clearInterval(timer);
+            resolve({
+              success: true,
+              output_path: job.result?.output_path,
+              file_size_mb: job.result?.file_size_mb,
+            });
+          } else if (job.status === 'failed') {
+            clearInterval(timer);
+            resolve({ success: false });
+          }
+        } catch {
+          // keep polling
+        }
+      }, interval);
+      setTimeout(() => { clearInterval(timer); reject(new Error('Job timed out')); }, 7200_000);
+    });
+  },
+
   // HuggingFace
   uploadToHuggingFace: async (request: HuggingFaceUploadRequest) => {
     const response = await fetch(`${API_BASE}/utilities/hf/upload`, {

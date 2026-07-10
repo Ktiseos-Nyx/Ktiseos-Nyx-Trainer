@@ -31,6 +31,7 @@ export function LoRAToCheckpointTab() {
   const [outputDir, setOutputDir] = useState('output');
   const [dirs, setDirs] = useState<Record<string, string>>({});
   const [merging, setMerging] = useState(false);
+  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -89,18 +90,48 @@ export function LoRAToCheckpointTab() {
     if (!outputPath) { setError('Provide an output filename'); return; }
     try {
       setMerging(true); setError(null); setResult(null);
-      const res = await utilitiesAPI.mergeLoraToCheckpoint(
-        baseModel,
-        selectedLoras.map(l => ({ path: l.path, ratio: l.ratio })),
-        outputPath, modelType, 'cpu', 'fp16', 'float',
-        undefined, outputDir,
-      );
-      if (res.success) { setResult(res); setSelectedLoras([]); }
-      else setError(res.message ?? 'Merge failed');
+      const loraPaths = selectedLoras.map(l => l.path);
+      const loraRatios = selectedLoras.map(l => l.ratio);
+      const { job_id } = await utilitiesAPI.bakeLoraChattiori({
+        base_model_path: baseModel,
+        lora_paths: loraPaths,
+        lora_ratios: loraRatios,
+        output_path: outputPath,
+        output_dir: outputDir,
+        device: 'cpu',
+      });
+      setPollingJobId(job_id);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Merge failed');
-    } finally { setMerging(false); }
+      setError(e instanceof Error ? e.message : 'Bake failed');
+      setMerging(false);
+    }
   };
+
+  useEffect(() => {
+    if (!pollingJobId) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const result = await utilitiesAPI.pollUntilDone(pollingJobId, (status) => {
+          if (cancelled) return;
+          if (status === 'running') setError(null);
+        });
+        if (cancelled) return;
+        setMerging(false);
+        setPollingJobId(null);
+        if (result.success) {
+          setResult(result);
+          setSelectedLoras([]);
+        } else {
+          setError('Bake job failed — check the job monitor for details.');
+        }
+      } catch {
+        if (!cancelled) { setMerging(false); setPollingJobId(null); setError('Bake job timed out after 2 hours.'); }
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+  }, [pollingJobId]);
 
   return (
     <div className="space-y-6">
@@ -218,15 +249,19 @@ export function LoRAToCheckpointTab() {
         disabled={merging || !baseModel || selectedLoras.length < 1 || !outputPath}
         className="w-full"
       >
-        {merging ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Baking…</> : `Bake ${selectedLoras.length} LoRA(s) into checkpoint`}
+        {merging ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {pollingJobId ? 'Baking…' : 'Submitting…'}</> : `Bake ${selectedLoras.length} LoRA(s) into checkpoint`}
       </Button>
 
       {error && <ErrorBanner message={error} />}
       {result && (result as { success: boolean }).success && (
         <SuccessBanner>
-          <div className="flex items-center gap-2 font-semibold"><CheckCircle className="h-4 w-4" /> Bake successful</div>
-          <div>Output: {String((result as Record<string, unknown>).output_path)}</div>
-          <div>Baked {String((result as Record<string, unknown>).merged_count)} LoRA(s) · {String((result as Record<string, unknown>).file_size_mb)} MB</div>
+          <div className="flex items-center gap-2 font-semibold"><CheckCircle className="h-4 w-4" /> Bake complete</div>
+          {((result as Record<string, unknown>).output_path) && (
+            <div>Output: {String((result as Record<string, unknown>).output_path)}</div>
+          )}
+          {((result as Record<string, unknown>).file_size_mb) && (
+            <div>Size: {String((result as Record<string, unknown>).file_size_mb)} MB</div>
+          )}
         </SuccessBanner>
       )}
     </div>

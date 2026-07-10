@@ -54,7 +54,10 @@ class BakeRequest(BaseModel):
 
     base_model_path: str = Field(..., description="Path to the base checkpoint file")
     lora_paths: list[str] = Field(..., min_length=1, description="Paths to one or more LoRA files")
+    lora_ratios: Optional[list[float]] = Field(None, description="Per-LoRA bake ratios (default 1.0 for each)")
     output_path: str = Field(..., description="Output file path (with extension)")
+    output_dir: Optional[str] = Field(None, description="Target directory key (output, pretrained_model, comfyui_checkpoints, etc.)")
+    text_encoder_path: Optional[str] = Field(None, description="Path to text encoder (legacy Anima mode)")
     device: str = Field("cpu", description="Device to use (cpu/cuda)")
     save_half: bool = Field(False, description="Save as float16")
     save_safetensors: bool = Field(True, description="Save as .safetensors")
