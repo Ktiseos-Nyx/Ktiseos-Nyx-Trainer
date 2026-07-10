@@ -785,7 +785,7 @@ export class ConfigService {
     outputDir: string
   ): Promise<{ dataset: string; config: string }> {
     // Project root is one level up from frontend directory
-    const projectRoot = path.join(process.cwd(), '..');
+    const projectRoot = path.join(/*turbopackIgnore: true*/ process.cwd(), '..');
     const sdScriptsDir = path.join(projectRoot, 'trainer', 'derrian_backend', 'sd_scripts');
     const runtimeStoreDir = path.join(projectRoot, 'trainer', 'runtime_store');
 

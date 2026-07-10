@@ -57,7 +57,7 @@ const comfyuiPort = process.env.COMFYUI_PORT || '8188';
 const comfyuiUrlDefault = `http://127.0.0.1:${comfyuiPort}`;
 
 // Settings file path — same location as settings-service.ts uses
-const SETTINGS_FILE = path.join(__dirname, '..', 'user_config', 'user_settings.json');
+const SETTINGS_FILE = path.join(/*turbopackIgnore: true*/ __dirname, '..', 'user_config', 'user_settings.json');
 
 /**
  * Read the ComfyUI URL from user settings, falling back to the env-var default.

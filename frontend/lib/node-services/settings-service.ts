@@ -68,7 +68,7 @@ export interface StorageInfo {
 // ========== Configuration ==========
 
 // Settings directory (in project root)
-const PROJECT_ROOT = path.join(process.cwd(), '..');
+const PROJECT_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), '..');
 const SETTINGS_DIR = path.join(PROJECT_ROOT, 'user_config');
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'user_settings.json');
 

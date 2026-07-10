@@ -45,7 +45,7 @@ export interface FileOperationResult {
 // Project root detection
 // process.cwd() returns the frontend directory in Next.js
 // Go up one level to get to project root
-const PROJECT_ROOT = path.join(process.cwd(), '..').replace(/\\/g, '/');
+const PROJECT_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), '..').replace(/\\/g, '/');
 const DEFAULT_WORKSPACE = PROJECT_ROOT;
 
 // Allowed directories for security

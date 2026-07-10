@@ -13,14 +13,14 @@ export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp
  * Returns the first candidate path that actually exists on disk, or null if none do.
  */
 export function getDatasetsDir(): string | null {
-  const projectRoot = path.resolve(process.cwd(), '..');
+  const projectRoot = path.resolve(/*turbopackIgnore: true*/ process.cwd(), '..');
   const candidates = [
     process.env.DATASETS_DIR,
     '/workspace/Ktiseos-Nyx-Trainer/datasets',
-    path.join(process.cwd(), 'datasets'),
+    path.join(/*turbopackIgnore: true*/ process.cwd(), 'datasets'),
     path.join(projectRoot, 'datasets'),
     // Also check singular 'dataset/' for backwards compatibility
-    path.join(process.cwd(), 'dataset'),
+    path.join(/*turbopackIgnore: true*/ process.cwd(), 'dataset'),
     path.join(projectRoot, 'dataset'),
   ].filter(Boolean) as string[];
 
@@ -39,5 +39,5 @@ export function getOrCreateDatasetsDir(): string {
   if (existing) return existing;
 
   // Fall back to project-root/datasets (not frontend/datasets)
-  return path.join(path.resolve(process.cwd(), '..'), 'datasets');
+  return path.join(path.resolve(/*turbopackIgnore: true*/ process.cwd(), '..'), 'datasets');
 }
