@@ -135,13 +135,29 @@ export function LoRAToCheckpointTab() {
 
       {modelType === 'anima' && (
         <SectionCard title="Text Encoder">
-          <p className="text-xs text-muted-foreground">Path to Qwen3 text encoder (directory or .safetensors).</p>
-          <Input
-            value={textEncoderPath}
-            onChange={e => setTextEncoderPath(e.target.value)}
-            placeholder="pretrained_model/qwen3_06b/"
-            className="text-xs font-mono"
-          />
+          <p className="text-xs text-muted-foreground">Qwen3 text encoder model (pick from pretrained_model/ or ComfyUI checkpoints).</p>
+          {baseModels.length > 0 ? (
+            <div className="grid md:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+              {baseModels.map(f => (
+                <Button
+                  key={f.path}
+                  variant={textEncoderPath === f.path ? 'default' : 'outline'}
+                  onClick={() => setTextEncoderPath(f.path)}
+                  className="justify-start h-auto py-2 px-3"
+                >
+                  <div className="text-left min-w-0">
+                    <div className="truncate text-xs font-medium">{f.name}</div>
+                    <div className="text-xs text-muted-foreground">{f.source} · {f.size_formatted}</div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No models available. Download a Qwen3 text encoder first.</p>
+          )}
+          {textEncoderPath && (
+            <p className="text-xs text-muted-foreground mt-1">Selected: {textEncoderPath}</p>
+          )}
         </SectionCard>
       )}
 
