@@ -72,20 +72,46 @@ export default function HuggingFaceUploadPage() {
   useEffect(() => {
     const loadFiles = async () => {
       try {
-        // Get directories from backend
         const dirsResponse = await utilitiesAPI.getDirectories();
-        const loraDir = dirsResponse.output || 'output';
         const datasetsDir = dirsResponse.datasets || 'datasets';
         setDatasetDirectory(datasetsDir);
 
         if (uploadType === 'lora') {
-          const response = await utilitiesAPI.listLoraFiles(loraDir, 'safetensors', 'date');
-          if (response.success) {
-            setAvailableFiles(response.files);
-          }
+          const sources = [
+            { dir: dirsResponse.output || 'output', ext: 'safetensors' },
+            { dir: dirsResponse.comfyui_loras, ext: 'safetensors' },
+          ].filter(s => s.dir);
+
+          const results = await Promise.all(
+            sources.map(s =>
+              utilitiesAPI.listLoraFiles(s.dir, s.ext, 'date')
+                .then(r => (r.success ? r.files : []))
+                .catch(() => [])
+            )
+          );
+          const merged = results.flat();
+          // Deduplicate by path
+          const seen = new Set<string>();
+          setAvailableFiles(merged.filter(f => !seen.has(f.path) && seen.add(f.path)));
+        } else if (uploadType === 'checkpoint') {
+          const sources = [
+            { dir: dirsResponse.pretrained_model, ext: 'safetensors,ckpt' },
+            { dir: dirsResponse.comfyui_checkpoints, ext: 'safetensors,ckpt' },
+            { dir: dirsResponse.comfyui_diffusion_models, ext: 'safetensors' },
+            { dir: dirsResponse.comfyui_unet, ext: 'safetensors' },
+          ].filter(s => s.dir);
+
+          const results = await Promise.all(
+            sources.map(s =>
+              utilitiesAPI.listLoraFiles(s.dir, s.ext, 'date')
+                .then(r => (r.success ? r.files : []))
+                .catch(() => [])
+            )
+          );
+          const merged = results.flat();
+          const seen = new Set<string>();
+          setAvailableFiles(merged.filter(f => !seen.has(f.path) && seen.add(f.path)));
         } else {
-          // For datasets, we'll browse the dataset directory
-          // This will need a different API endpoint or file listing
           setAvailableFiles([]);
         }
       } catch (err) {
@@ -93,7 +119,7 @@ export default function HuggingFaceUploadPage() {
       }
     };
     loadFiles();
-    setSelectedFiles([]); // Clear selections when switching type
+    setSelectedFiles([]);
   }, [uploadType, setDatasetDirectory, setAvailableFiles, setSelectedFiles]);
 
   // Persist owner and repoType across navigations
@@ -200,7 +226,7 @@ export default function HuggingFaceUploadPage() {
           {/* Upload Type Selector */}
           <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold text-foreground mb-4">What would you like to upload?</h2>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <button
                 type="button"
                 onClick={() => setUploadType('lora')}
@@ -214,6 +240,21 @@ export default function HuggingFaceUploadPage() {
                   <Minimize2 className="w-8 h-8 mx-auto mb-2" />
                   <h3 className="font-semibold">LoRA Models</h3>
                   <p className="text-sm mt-1 opacity-80">Upload trained LoRA .safetensors files</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadType('checkpoint')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  uploadType === 'checkpoint'
+                    ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
+                    : 'border-input bg-card/50 text-muted-foreground hover:border-slate-500'
+                }`}
+              >
+                <div className="text-center">
+                  <Upload className="w-8 h-8 mx-auto mb-2" />
+                  <h3 className="font-semibold">Checkpoints</h3>
+                  <p className="text-sm mt-1 opacity-80">Upload baked/merged full checkpoints</p>
                 </div>
               </button>
               <button
@@ -375,7 +416,7 @@ export default function HuggingFaceUploadPage() {
           {/* File Selection */}
           <div className="bg-card backdrop-blur-sm border border-border rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-bold text-foreground mb-4">
-              Select {uploadType === 'lora' ? 'LoRA Files' : 'Dataset Files'} ({selectedFiles.length} selected)
+              Select {uploadType === 'lora' ? 'LoRA Files' : uploadType === 'checkpoint' ? 'Checkpoint Files' : 'Dataset Files'} ({selectedFiles.length} selected)
             </h2>
 
             {uploadType === 'dataset' && (
@@ -397,7 +438,12 @@ export default function HuggingFaceUploadPage() {
             {uploadType === 'lora' && availableFiles.length === 0 ? (
               <div className="text-center py-12">
                 <FolderOpen className="w-16 h-16 mx-auto text-foreground mb-4" />
-                <p className="text-muted-foreground">No LoRA files found</p>
+                <p className="text-muted-foreground">No LoRA files found in output/ or ComfyUI loras</p>
+              </div>
+            ) : uploadType === 'checkpoint' && availableFiles.length === 0 ? (
+              <div className="text-center py-12">
+                <FolderOpen className="w-16 h-16 mx-auto text-foreground mb-4" />
+                <p className="text-muted-foreground">No checkpoint files found in pretrained_model/ or ComfyUI</p>
               </div>
             ) : uploadType === 'dataset' ? (
               <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">

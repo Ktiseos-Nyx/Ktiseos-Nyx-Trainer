@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { LoRAFile } from '@/lib/api';
 
-type UploadType = 'lora' | 'dataset';
+type UploadType = 'lora' | 'dataset' | 'checkpoint';
 
 /** Result returned by the HuggingFace upload backend endpoint. */
 interface UploadResult {
