@@ -1577,32 +1577,38 @@ export const utilitiesAPI = {
     return handleResponse(response);
   },
 
-  /** Poll a job every `interval` ms until it completes or fails. */
-  pollUntilDone: async (
+  /** Poll a bake job via Python /api/utilities/bake-chattiori/status/{id}. */
+  pollBakeUntilDone: async (
     jobId: string,
-    onProgress?: (status: string, logs: string[]) => void,
+    onProgress?: (status: string) => void,
     interval = 3000,
   ): Promise<{ success: boolean; output_path?: string; file_size_mb?: number }> => {
     return new Promise((resolve, reject) => {
       const timer = setInterval(async () => {
         try {
-          const res = await utilitiesAPI.getJobStatus(jobId);
-          const job = res.job;
-          if (!job) return;
-          onProgress?.(job.status, job.logs ?? []);
-          if (job.status === 'completed') {
+          const res = await handleResponse(
+            await fetch(`${API_BASE}/utilities/bake-chattiori/status/${encodeURIComponent(jobId)}`)
+          );
+          const status = res.status;
+          const progress = res.progress;
+          onProgress?.(
+            status === 'running' && progress != null
+              ? `Baking… ${progress}%`
+              : status ?? 'running'
+          );
+          if (status === 'completed') {
             clearInterval(timer);
             resolve({
               success: true,
-              output_path: job.result?.output_path,
-              file_size_mb: job.result?.file_size_mb,
+              output_path: res.result?.output_path ?? res.output_path,
+              file_size_mb: res.result?.file_size_mb ?? res.file_size_mb,
             });
-          } else if (job.status === 'failed') {
+          } else if (status === 'failed') {
             clearInterval(timer);
             resolve({ success: false });
           }
         } catch {
-          // keep polling
+          // keep polling (404 before job is created, etc.)
         }
       }, interval);
       setTimeout(() => { clearInterval(timer); reject(new Error('Job timed out')); }, 7200_000);

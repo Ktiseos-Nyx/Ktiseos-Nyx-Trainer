@@ -895,6 +895,21 @@ async def bake_lora_chattiori(request: BakeRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/bake-chattiori/status/{job_id}")
+async def bake_chattiori_status(job_id: str):
+    """
+    Poll the status of a Chattiori bake job.
+    Returns status, progress, and on completion the output path + file size.
+    """
+    from services.jobs.job_manager import job_manager
+
+    status = await job_manager.get_job_status(job_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    return status.dict()
+
+
 # ========== Helper Functions ==========
 
 def extract_kohya_params(folder_name: str):

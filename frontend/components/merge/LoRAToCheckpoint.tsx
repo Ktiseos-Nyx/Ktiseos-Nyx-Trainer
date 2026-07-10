@@ -112,9 +112,9 @@ export function LoRAToCheckpointTab() {
     let cancelled = false;
     const poll = async () => {
       try {
-        const result = await utilitiesAPI.pollUntilDone(pollingJobId, (status) => {
+        const result = await utilitiesAPI.pollBakeUntilDone(pollingJobId, (statusMsg) => {
           if (cancelled) return;
-          if (status === 'running') setError(null);
+          setResult({ status: statusMsg } as unknown as Record<string, unknown>);
         });
         if (cancelled) return;
         setMerging(false);
@@ -249,7 +249,7 @@ export function LoRAToCheckpointTab() {
         disabled={merging || !baseModel || selectedLoras.length < 1 || !outputPath}
         className="w-full"
       >
-        {merging ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {pollingJobId ? 'Baking…' : 'Submitting…'}</> : `Bake ${selectedLoras.length} LoRA(s) into checkpoint`}
+        {merging ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {pollingJobId && result && (result as Record<string, unknown>).status ? String((result as Record<string, unknown>).status) : 'Submitting…'}</> : `Bake ${selectedLoras.length} LoRA(s) into checkpoint`}
       </Button>
 
       {error && <ErrorBanner message={error} />}
