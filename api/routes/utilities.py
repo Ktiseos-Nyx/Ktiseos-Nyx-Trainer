@@ -742,10 +742,11 @@ async def upload_to_huggingface(request: HuggingFaceUploadRequest):
     Supports multiple files, remote folders, and pull request creation.
     """
     try:
-        # Security: confine uploaded files to output directory
+        # Security: allow files from all model directories (output, pretrained_model, ComfyUI)
+        allowed = _model_input_dirs()
         try:
             for file_path in request.selected_files:
-                validate_path_within(file_path, [OUTPUT_DIR])
+                validate_path_within(file_path, allowed)
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: file path outside allowed directories")
 
