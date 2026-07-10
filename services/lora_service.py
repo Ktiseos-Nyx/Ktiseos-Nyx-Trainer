@@ -450,6 +450,7 @@ class LoRAService:
 
                 base_dir = str(base_path.parent)
                 checkpoint_name = base_path.name
+                out_stem = output_path.stem
                 loras_str = ",".join(
                     f"{lora.path}:{lora.ratio}" for lora in request.lora_inputs
                 )
@@ -462,8 +463,55 @@ class LoRAService:
                     loras_str,
                     "--save_safetensors",
                     "--device", request.device,
-                    "--output", output_path.stem,
+                    "--output", out_stem,
                 ]
+
+                logger.info(
+                    f"Baking %d Anima LoRA(s) via Chattiori into %s",
+                    len(request.lora_inputs), output_path.name,
+                )
+
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=self.project_root,
+                )
+
+                try:
+                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+                    logger.debug("Chattiori bake stdout: %s", stdout.decode('utf-8', errors='replace').strip() if stdout else "")
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
+                    raise ProcessError("Anima LoRA bake timed out after 1 hour")
+
+                if process.returncode != 0:
+                    error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
+                    raise ProcessError(f"LoRA-to-checkpoint merge failed: {error_msg}")
+
+                # lora_bake.py saves to model_path/out_stem.safetensors — move to intended output/
+                baked_temp = Path(base_dir) / f"{out_stem}.safetensors"
+                if baked_temp.is_file():
+                    import shutil
+                    shutil.move(str(baked_temp), str(output_path))
+                    logger.info("Moved bake result %s → %s", baked_temp, output_path)
+                if not output_path.is_file():
+                    raise ProcessError(f"Merge succeeded but output file not found: {baked_temp}")
+
+                file_size_mb = output_path.stat().st_size / (1024 * 1024)
+                logger.info(
+                    f"Anima LoRA(s) baked into checkpoint: {output_path.name} "
+                    f"({file_size_mb:.2f} MB)"
+                )
+
+                return LoRAToCheckpointResponse(
+                    success=True,
+                    message=f"Successfully baked {len(request.lora_inputs)} LoRA(s) into checkpoint",
+                    output_path=str(output_path),
+                    merged_count=len(request.lora_inputs),
+                    file_size_mb=round(file_size_mb, 2),
+                )
             else:
                 # ── SD1.5 / SDXL lane via vendored Kohya scripts ───────────
                 if model_type not in ("sd", "sdxl"):
