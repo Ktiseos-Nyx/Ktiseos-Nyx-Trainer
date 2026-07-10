@@ -440,36 +440,73 @@ class LoRAService:
             self._validate_device(request.device)
 
             if model_type == "anima":
-                # ── Anima (DiT) lane via Chattiori lora_bake.py ──────────────
-                chattiori_script = self.project_root / "trainer" / "chattiori" / "lora_bake.py"
-                if not chattiori_script.exists():
-                    raise NotFoundError(
-                        "Chattiori lora_bake.py not found at trainer/chattiori/lora_bake.py. "
-                        "Please ensure the training backend is installed."
+                # ── Anima (DiT) lane ──────────────────────────────────────────
+                # If user provides a separate text_encoder path, use the legacy
+                # anima_merge_lora.py which supports --text_encoder (needed for
+                # checkpoints that don't bundle their text encoder). Otherwise
+                # use Chattiori lora_bake.py which auto-detects from the
+                # checkpoint's internal keys.
+                if request.text_encoder_path:
+                    te_path = Path(request.text_encoder_path)
+                    if not te_path.exists():
+                        raise NotFoundError(f"Text encoder not found: {request.text_encoder_path}")
+
+                    anima_script = self.project_root / "custom" / "deprecated" / "anima_merge_lora.py"
+                    if not anima_script.exists():
+                        raise NotFoundError(
+                            "Anima merge script not found at custom/deprecated/anima_merge_lora.py. "
+                            "Please ensure the training backend is installed."
+                        )
+
+                    model_paths = [lora.path for lora in request.lora_inputs]
+                    model_ratios = [str(lora.ratio) for lora in request.lora_inputs]
+
+                    command = [
+                        sys.executable,
+                        str(anima_script),
+                        "--base_model", str(base_path),
+                        "--text_encoder", str(te_path),
+                        "--models", *model_paths,
+                        "--ratios", *model_ratios,
+                        "--save_to", str(output_path),
+                        "--device", request.device,
+                    ]
+
+                    logger.info(
+                        "Baking %d Anima LoRA(s) via legacy script with text_encoder %s",
+                        len(request.lora_inputs), te_path.name,
+                    )
+                else:
+                    # ── Chattiori lane (no --text_encoder needed) ─────────
+                    chattiori_script = self.project_root / "trainer" / "chattiori" / "lora_bake.py"
+                    if not chattiori_script.exists():
+                        raise NotFoundError(
+                            "Chattiori lora_bake.py not found at trainer/chattiori/lora_bake.py. "
+                            "Please ensure the training backend is installed."
+                        )
+
+                    base_dir = str(base_path.parent)
+                    checkpoint_name = base_path.name
+                    out_stem = output_path.stem
+                    loras_str = ",".join(
+                        f"{lora.path}:{lora.ratio}" for lora in request.lora_inputs
                     )
 
-                base_dir = str(base_path.parent)
-                checkpoint_name = base_path.name
-                out_stem = output_path.stem
-                loras_str = ",".join(
-                    f"{lora.path}:{lora.ratio}" for lora in request.lora_inputs
-                )
+                    command = [
+                        sys.executable,
+                        str(chattiori_script),
+                        base_dir,
+                        checkpoint_name,
+                        loras_str,
+                        "--save_safetensors",
+                        "--device", request.device,
+                        "--output", out_stem,
+                    ]
 
-                command = [
-                    sys.executable,
-                    str(chattiori_script),
-                    base_dir,
-                    checkpoint_name,
-                    loras_str,
-                    "--save_safetensors",
-                    "--device", request.device,
-                    "--output", out_stem,
-                ]
-
-                logger.info(
-                    f"Baking %d Anima LoRA(s) via Chattiori into %s",
-                    len(request.lora_inputs), output_path.name,
-                )
+                    logger.info(
+                        "Baking %d Anima LoRA(s) via Chattiori into %s",
+                        len(request.lora_inputs), output_path.name,
+                    )
 
                 process = await asyncio.create_subprocess_exec(
                     *command,
@@ -490,12 +527,15 @@ class LoRAService:
                     error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
                     raise ProcessError(f"LoRA-to-checkpoint merge failed: {error_msg}")
 
-                # lora_bake.py saves to model_path/out_stem.safetensors — move to intended output/
-                baked_temp = Path(base_dir) / f"{out_stem}.safetensors"
-                if baked_temp.is_file():
-                    import shutil
-                    shutil.move(str(baked_temp), str(output_path))
-                    logger.info("Moved bake result %s → %s", baked_temp, output_path)
+                # Chattiori lora_bake.py saves to model_path/out_stem.safetensors;
+                # the legacy script uses --save_to which goes directly to output_path.
+                if not request.text_encoder_path:
+                    baked_temp = Path(base_dir) / f"{out_stem}.safetensors"
+                    if baked_temp.is_file():
+                        import shutil
+                        shutil.move(str(baked_temp), str(output_path))
+                        logger.info("Moved bake result %s → %s", baked_temp, output_path)
+
                 if not output_path.is_file():
                     raise ProcessError(f"Merge succeeded but output file not found: {baked_temp}")
 
