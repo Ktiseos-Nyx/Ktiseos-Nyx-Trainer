@@ -88,7 +88,11 @@ def validate_dataset_path(dataset_name: str) -> Path:
 
 def validate_model_path(model_name: str) -> Path:
     """
-    Validate model path is within models directory.
+    Validate model path is within an allowed model directory.
+
+    Checks pretrained_model/, vae/, and any present ComfyUI model subdirectories
+    (checkpoints, diffusion_models, unet) so Anima/DiT workflows can see models
+    that landed in ComfyUI's folder structure.
 
     Args:
         model_name: Name of the model file (e.g., "sdxl-base.safetensors")
@@ -99,12 +103,22 @@ def validate_model_path(model_name: str) -> Path:
     Raises:
         ValidationError: If path traversal detected or invalid name
     """
+    from api.routes.utilities import _comfyui_model_dirs as _get_comfyui_dirs
+
+    comfyui_dirs = list(_get_comfyui_dirs().values())
     models_resolved = MODELS_DIR.resolve()
     vae_resolved = VAE_DIR.resolve()
 
     def _in_model_dirs(p: Path) -> bool:
-        return p == models_resolved or p.is_relative_to(models_resolved) or \
-               p == vae_resolved or p.is_relative_to(vae_resolved)
+        if p == models_resolved or p.is_relative_to(models_resolved):
+            return True
+        if p == vae_resolved or p.is_relative_to(vae_resolved):
+            return True
+        for d in comfyui_dirs:
+            resolved_d = d.resolve()
+            if p == resolved_d or p.is_relative_to(resolved_d):
+                return True
+        return False
 
     # Check if absolute path provided
     path_obj = Path(model_name)
@@ -122,26 +136,17 @@ def validate_model_path(model_name: str) -> Path:
     if not clean_name:
         raise ValidationError("Model name cannot be empty")
 
-    # Construct path
-    model_path = MODELS_DIR / clean_name
+    # Construct path — try MODELS_DIR first, then ComfyUI dirs, then VAE
+    candidates = [MODELS_DIR] + comfyui_dirs + [VAE_DIR]
+    for base in candidates:
+        candidate = (base / clean_name).resolve()
+        try:
+            if candidate.exists() and _in_model_dirs(candidate):
+                return candidate
+        except (ValueError, OSError):
+            pass
 
-    try:
-        resolved = model_path.resolve()
-        if _in_model_dirs(resolved):
-            if resolved.exists():
-                return resolved
-            # Path is within model dirs but file not found there — try VAE dir
-            vae_check = (VAE_DIR / clean_name).resolve()
-            if vae_check.exists() and _in_model_dirs(vae_check):
-                return vae_check
-            raise ValidationError(f"Invalid model path: {model_name}")
-        # Path is outside all model dirs — try VAE dir before rejecting
-        vae_check = (VAE_DIR / clean_name).resolve()
-        if vae_check.exists() and _in_model_dirs(vae_check):
-            return vae_check
-        raise ValidationError(f"Invalid model path: {model_name}")
-    except (ValueError, OSError) as e:
-        raise ValidationError(f"Invalid model path: {e}")
+    raise ValidationError(f"Invalid model path: {model_name}")
 
 
 def validate_image_filename(filename: str) -> str:
