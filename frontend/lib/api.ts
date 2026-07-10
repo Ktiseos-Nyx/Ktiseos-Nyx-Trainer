@@ -1693,6 +1693,28 @@ export const modelsAPI = {
 
 // ========== Source Adapter Framework (Arc En Ciel etc.) ==========
 
+/**
+ * Map a base model / architecture string to the correct ComfyUI subfolder.
+ *
+ * DiT / UNET architectures (Flux, Anima, Chroma, HunyuanImage) belong in
+ * diffusion_models/; legacy SD architectures and unknowns go to checkpoints/.
+ */
+export function getComfyFolderForArchitecture(
+  baseModel: string | null | undefined,
+  destType: string,
+): string {
+  if (destType === 'vae') return 'vae';
+  if (destType === 'lora') return 'loras';
+  if (destType === 'embedding') return 'embeddings';
+
+  const unetArchs = ['anima', 'flux', 'chroma', 'hunyuan', 'dit', 'hunyuanimage'];
+  const needle = (baseModel ?? '').toLowerCase();
+  if (unetArchs.some(a => needle.includes(a))) {
+    return 'diffusion_models';
+  }
+  return 'checkpoints';
+}
+
 export interface SourceInfo {
   name: string;
   credential_kind: string;
@@ -1845,6 +1867,7 @@ export interface CivitaiModelVersion {
   downloadUrl: string;
   trainedWords: string[];
   images: CivitaiImage[];
+  baseModel?: string;
   files: Array<{
     name: string;
     id: number;

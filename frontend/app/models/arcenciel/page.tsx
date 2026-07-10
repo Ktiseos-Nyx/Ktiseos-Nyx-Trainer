@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { sourcesAPI, SourceModelSummary, SourceModelVersion, SourceModelDetail } from '@/lib/api';
+import { sourcesAPI, SourceModelSummary, SourceModelVersion, SourceModelDetail, getComfyFolderForArchitecture } from '@/lib/api';
 import {
   Download,
   Search,
@@ -192,11 +192,9 @@ export default function SourcesBrowsePage() {
   const handleDownload = async (version: SourceModelVersion) => {
     try {
       setDownloading((prev) => new Set(prev).add(`${selectedModel?.model_id}-${version.version_id}`));
-      const comfyuiFolder =
-        version.dest_type === 'vae' ? 'vae'
-        : version.dest_type === 'lora' ? 'loras'
-        : version.dest_type === 'embedding' ? 'embeddings'
-        : downloadDestination === 'comfyui' ? 'checkpoints'
+      const destType = version.dest_type;
+      const comfyuiFolder = downloadDestination === 'comfyui'
+        ? getComfyFolderForArchitecture(version.base_model, destType)
         : undefined;
 
       await sourcesAPI.download(
