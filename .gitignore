@@ -5,13 +5,14 @@
 # ----------------------------------------------------------------------------
 # Archive & Temporary Storage
 # ----------------------------------------------------------------------------
-archive/                    # Deprecated/archived code and docs
+archive/
 Letters_From_Qwen_Gitignormepls/
 temp/
 tmp/
 .temp/
 .tmp/
-.thumbcache/                # Dataset-Tools ported thumbnail cache (frontend/app/api/dataset-tools/thumbnail)
+# Ignore Windows thumbnail cache
+.thumbcache/
 *.tmp
 *.temp
 *.bak
@@ -21,8 +22,8 @@ install_complete.marker
 .write_test_diagnostic
 diagnostics_*.json
 diagnostics_*.txt
-.development/   # AI vibe coded markdown files that waste tokens
-.plans/  # Stuff that the outside world doenst need to see 
+.development/
+.plans/
 .plans
 .development
 
@@ -40,7 +41,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-# lib/ CAUSED SHIT WITH FRONTEND
+# lib/
 lib64/
 parts/
 sdist/
