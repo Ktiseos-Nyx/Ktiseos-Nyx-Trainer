@@ -19,6 +19,9 @@ interface CaptionCardProps {
 }
 
 export function CaptionCard({ form, onSave }: CaptionCardProps) {
+  const modelType = form.watch('model_type');
+  const isSDModel = modelType === 'SD15' || modelType === 'SDXL';
+
   return (
     <Card className="border-pink-500/30">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -50,6 +53,7 @@ export function CaptionCard({ form, onSave }: CaptionCardProps) {
           max={512}
         />
 
+        {isSDModel && (
         <NumberFormField
           form={form}
           name="clip_skip"
@@ -59,6 +63,7 @@ export function CaptionCard({ form, onSave }: CaptionCardProps) {
           min={0}
           max={12}
         />
+        )}
 
         <NumberFormField
           form={form}

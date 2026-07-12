@@ -462,6 +462,13 @@ export const datasetAPI = {
     return handleResponse(response);
   },
 
+  listSubfolders: async (datasetPath: string): Promise<{
+    subfolders: { name: string; path: string; image_count: number }[];
+  }> => {
+    const response = await fetch(`${API_BASE}/dataset/subfolders?path=${encodeURIComponent(datasetPath)}`);
+    return handleResponse(response);
+  },
+
   // ✅ MIGRATED: Uses Node.js /api/jobs/tagging endpoint
   tag: async (params: {
     datasetDir: string;
@@ -864,6 +871,12 @@ export const captioningAPI = {
 
 // ========== Training Operations ==========
 
+export interface DatasetSubsetConfig {
+  image_dir: string;
+  num_repeats: number;
+  class_tokens?: string;
+}
+
 export interface TrainingConfig {
   // ========== PROJECT & MODEL SETUP ==========
   project_name: string;
@@ -888,6 +901,7 @@ export interface TrainingConfig {
   output_dir: string;
   resolution: number;
   num_repeats: number;
+  subsets?: DatasetSubsetConfig[];
   max_train_epochs: number;
   max_train_steps: number;
   train_batch_size: number;
@@ -929,7 +943,7 @@ export interface TrainingConfig {
 
   // ========== CAPTION & TOKEN CONTROL ==========
   keep_tokens: number;
-  clip_skip: number;
+  clip_skip?: number;
   max_token_length: number;
   caption_dropout_rate: number;
   caption_tag_dropout_rate: number;

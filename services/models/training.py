@@ -5,7 +5,7 @@ Matches frontend TrainingConfig interface from api.ts.
 """
 
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -159,6 +159,21 @@ class TrainingMode(str, Enum):
     CHECKPOINT = "checkpoint"
 
 
+class DatasetSubsetConfig(BaseModel):
+    """
+    Per-subfolder configuration for varied dataset repeats.
+
+    When provided, each subset maps to a subdirectory of train_data_dir,
+    allowing different repeat counts per folder (e.g. 10 for outfits,
+    5 for accessories). If subsets is empty/None, the flat dataset layout
+    with a single global num_repeats is used (backward-compatible).
+    """
+
+    image_dir: str = Field(..., description="Subfolder name relative to train_data_dir")
+    num_repeats: int = Field(10, ge=1, description="Repeat count for this subset")
+    class_tokens: Optional[str] = Field(None, description="Optional class token for this subset")
+
+
 class TrainingConfig(BaseModel):
     """
     Complete training configuration.
@@ -189,6 +204,9 @@ class TrainingConfig(BaseModel):
     output_dir: str = Field(..., description="Directory to save outputs")
     resolution: int = Field(..., ge=64, le=4096, description="Training resolution")
     num_repeats: int = Field(10, ge=1, description="Dataset repeat count")
+    subsets: Optional[List[DatasetSubsetConfig]] = Field(
+        None, description="Per-subfolder subset configs for varied repeats; overrides flat layout when provided"
+    )
     max_train_epochs: int = Field(10, ge=1, description="Maximum training epochs")
     max_train_steps: int = Field(0, ge=0, description="Max steps (0 = use epochs)")
     train_batch_size: int = Field(1, ge=1, description="Training batch size")
@@ -246,7 +264,7 @@ class TrainingConfig(BaseModel):
 
     # ========== CAPTION & TOKEN CONTROL ==========
     keep_tokens: int = Field(0, ge=0, description="Tokens to keep (no dropout)")
-    clip_skip: int = Field(2, ge=1, le=12, description="CLIP layers to skip")
+    clip_skip: Optional[int] = Field(None, ge=1, le=12, description="CLIP layers to skip (SD1.5/SDXL only)")
     max_token_length: int = Field(225, ge=75, description="Max token length")
     caption_dropout_rate: float = Field(0.0, ge=0.0, le=1.0, description="Caption dropout")
     caption_tag_dropout_rate: float = Field(0.0, ge=0.0, le=1.0, description="Tag dropout")
