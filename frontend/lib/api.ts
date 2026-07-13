@@ -95,7 +95,10 @@ export interface CheckpointAdvancedMergeRequest {
 export interface BakeRequest {
   base_model_path: string;
   lora_paths: string[];
+  lora_ratios?: number[];
   output_path: string;
+  output_dir?: string;
+  text_encoder_path?: string;
   device: string;
   save_half: boolean;
   save_safetensors: boolean;
@@ -1556,31 +1559,6 @@ export const utilitiesAPI = {
         save_precision: savePrecision,
         precision,
       }),
-    });
-    return handleResponse(response);
-  },
-
-  /**
-   * Job-based LoRA bake via Chattiori.
-   * Returns job_id immediately — poll /api/jobs/{id} for completion.
-   * Avoids Cloudflare tunnel 524 timeouts on large merges.
-   */
-  bakeLoraChattiori: async (request: {
-    base_model_path: string;
-    lora_paths: string[];
-    lora_ratios?: number[];
-    output_path: string;
-    output_dir?: string;
-    text_encoder_path?: string;
-    device?: string;
-    bake_scale?: number;
-    bake_clip_scale?: number;
-    bake_unet_only?: boolean;
-  }): Promise<JobAcceptedResponse> => {
-    const response = await fetch(`${API_BASE}/utilities/lora/bake-chattiori`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
     });
     return handleResponse(response);
   },
