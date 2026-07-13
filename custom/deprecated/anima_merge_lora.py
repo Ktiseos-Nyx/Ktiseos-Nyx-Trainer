@@ -19,7 +19,7 @@ import os
 import sys
 
 SD_SCRIPTS = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "trainer", "derrian_backend", "sd_scripts",
 )
 sys.path.insert(0, SD_SCRIPTS)

@@ -8,21 +8,41 @@ import Breadcrumbs from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import {
   datasetAPI,
+  datasetToolsAPI,
   type ImageWithTags,
   type CropJobStatus,
   type CropRegion,
 } from '@/lib/api';
-import { CropSettingsCard, ASPECT_OPTIONS } from '@/components/crop/cards/CropSettingsCard';
+import { CropSettingsCard } from '@/components/crop/cards/CropSettingsCard';
 import {
   CropGridCard,
   type ImageCropState,
-  computeSourceRegion,
 } from '@/components/crop/cards/CropGridCard';
 import { CropProgressCard } from '@/components/crop/cards/CropProgressCard';
 import { Splitter, SplitterPanel } from '@/components/ui/splitter';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const MAX_LOGS = 500;
+
+/** Scale pixelCrop coordinates from 768px thumbnail space → original-image space.
+ *  The thumbnail uses sharp's fit:'cover' centre-crop, so coordinates must be
+ *  inverted from the scale+center-crop transform. */
+function thumbToOriginal(
+  pixelCrop: { x: number; y: number; width: number; height: number },
+  origWidth: number,
+  origHeight: number,
+  thumbSize = 768,
+): { x: number; y: number; width: number; height: number } {
+  const scale = Math.max(thumbSize / origWidth, thumbSize / origHeight);
+  const cropX = (origWidth * scale - thumbSize) / 2;
+  const cropY = (origHeight * scale - thumbSize) / 2;
+  return {
+    x: Math.round((pixelCrop.x + cropX) / scale),
+    y: Math.round((pixelCrop.y + cropY) / scale),
+    width: Math.round(pixelCrop.width / scale),
+    height: Math.round(pixelCrop.height / scale),
+  };
+}
 
 export default function CropPage() {
   const params = useParams();
@@ -31,6 +51,7 @@ export default function CropPage() {
   // Images
   const [images, setImages] = useState<ImageWithTags[]>([]);
   const [imagesLoading, setImagesLoading] = useState(true);
+  const [imageDims, setImageDims] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   // Settings
   const [targetResolution, setTargetResolution] = useState(512);
@@ -41,9 +62,6 @@ export default function CropPage() {
 
   // Per-image crop states
   const [cropStates, setCropStates] = useState<Map<string, ImageCropState>>(new Map());
-
-  // Frame sizes (measured from DOM via ResizeObserver)
-  const [frameSizes, setFrameSizes] = useState<Map<string, { w: number; h: number }>>(new Map());
 
   // Job state
   const [isRunning, setIsRunning] = useState(false);
@@ -78,12 +96,34 @@ export default function CropPage() {
           )
           .map((img) => ({
             ...img,
-            // Serve images through the tag editor's proven route. CropGridCard's
-            // built-in fallback (/api/dataset/serve/...) points at a route that
-            // doesn't exist anywhere -> broken image icons.
-            url: img.url || `/api/files/image/${datasetName}/${img.image_name}`,
+            // Use thumbnail URL (192px for grid thumbnails; Dialog swaps to 768px)
+            url: `/api/dataset-tools/thumbnail?path=${encodeURIComponent(img.image_path)}&size=192`,
           }));
         setImages(unique);
+
+        // Batch-fetch original image dimensions from file headers (lightweight)
+        Promise.allSettled(
+          unique.map((img) =>
+            fetch(
+              `/api/dataset-tools/image-dims?path=${encodeURIComponent(img.image_path)}`,
+            )
+              .then((r) => (r.ok ? r.json() : null))
+              .then(
+                (d) =>
+                  d
+                    ? ([img.image_name, { width: d.width as number, height: d.height as number }] as const)
+                    : null,
+              ),
+          ),
+        ).then((results) => {
+          const dims = new Map<string, { width: number; height: number }>();
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value) {
+              dims.set(r.value[0], r.value[1]);
+            }
+          }
+          setImageDims(dims);
+        });
       })
       .catch((err) => {
         console.error('Failed to load images:', err);
@@ -109,7 +149,7 @@ export default function CropPage() {
 
       statusIntervalRef.current = setInterval(async () => {
         try {
-          const status: CropJobStatus = await datasetAPI.getCropStatus(id);
+          const status: CropJobStatus = await datasetToolsAPI.getCropStatus(id);
           setJobStatus(status);
 
           // Crop's FastAPI status carries no logs array, so synthesise a live
@@ -158,14 +198,6 @@ export default function CropPage() {
     [],
   );
 
-  const handleFrameSize = useCallback((filename: string, w: number, h: number) => {
-    setFrameSizes((prev) => {
-      const next = new Map(prev);
-      next.set(filename, { w, h });
-      return next;
-    });
-  }, []);
-
   const handleStart = async () => {
     if (!datasetName || images.length === 0) return;
 
@@ -179,37 +211,37 @@ export default function CropPage() {
     // Compute source regions for all images
     const crops: CropRegion[] = [];
 
-    for (const img of images.slice(0, 50)) {
+    for (const img of images) {
       const state = cropStates.get(img.image_name);
-      const frameSize = frameSizes.get(img.image_name);
+      const dims = imageDims.get(img.image_name);
 
-      const crop = state?.crop ?? { x: 0, y: 0 };
-      const zoom = state?.zoom ?? 1;
-      const naturalW = state?.naturalWidth ?? 512;
-      const naturalH = state?.naturalHeight ?? 512;
-
-      // Use measured frame size or estimate from grid layout
-      const frameW = frameSize?.w ?? 200;
-      const aspect = ASPECT_OPTIONS.find((o) => o.value === aspectRatio);
-      const aspectW = aspect?.w ?? 1;
-      const aspectH = aspect?.h ?? 1;
-      const frameH = frameSize?.h ?? frameW / (aspectW / aspectH);
-
-      const region = computeSourceRegion(crop, zoom, frameW, frameH, naturalW, naturalH);
-
-      crops.push({
-        filename: img.image_name,
-        source_x: Math.round(region.sx),
-        source_y: Math.round(region.sy),
-        source_width: Math.round(region.sw),
-        source_height: Math.round(region.sh),
-      });
+      if (state?.croppedAreaPixels) {
+        const scaled = dims
+          ? thumbToOriginal(state.croppedAreaPixels, dims.width, dims.height)
+          : state.croppedAreaPixels;
+        crops.push({
+          filename: img.image_name,
+          source_x: Math.round(scaled.x),
+          source_y: Math.round(scaled.y),
+          source_width: Math.round(scaled.width),
+          source_height: Math.round(scaled.height),
+        });
+      } else {
+        // No crop applied — use full image dimensions
+        crops.push({
+          filename: img.image_name,
+          source_x: 0,
+          source_y: 0,
+          source_width: dims?.width ?? 512,
+          source_height: dims?.height ?? 512,
+        });
+      }
     }
 
     addLog(`Prepared ${crops.length} crop regions`);
 
     try {
-      const response = await datasetAPI.cropImages({
+      const response = await datasetToolsAPI.cropImages({
         dataset_dir: datasetName,
         target_width: targetResolution,
         target_height: targetResolution,
@@ -238,7 +270,7 @@ export default function CropPage() {
     if (!jobId) return;
     try {
       addLog('🛑 Stopping...');
-      await datasetAPI.stopCrop(jobId);
+      await datasetToolsAPI.stopCrop(jobId);
       addLog('✅ Stopped');
     } catch (err) {
       addLog(`⚠️ Stop request: ${err}`);
@@ -366,7 +398,6 @@ export default function CropPage() {
                 targetResolution={targetResolution}
                 cropStates={cropStates}
                 onCropChange={handleCropChange}
-                onFrameSize={handleFrameSize}
               />
             </div>
           </SplitterPanel>

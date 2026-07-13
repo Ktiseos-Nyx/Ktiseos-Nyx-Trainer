@@ -68,6 +68,52 @@ export interface WebSocketLogMessage {
   [key: string]: unknown; // Allow additional properties
 }
 
+export interface CheckpointAdvancedMergeRequest {
+  mode: string;
+  model_path: string;
+  model_0: string;
+  model_1: string;
+  model_2?: string;
+  output: string;
+  alpha?: string;
+  beta?: string;
+  device: string;
+  save_safetensors: boolean;
+  save_half: boolean;
+  cosine0: boolean;
+  cosine1: boolean;
+  cosine2: boolean;
+  vae?: string;
+  prune: boolean;
+  keep_ema: boolean;
+  rebasin?: number;
+  fine?: string;
+  seed?: number;
+  memo?: string;
+}
+
+export interface BakeRequest {
+  base_model_path: string;
+  lora_paths: string[];
+  lora_ratios?: number[];
+  output_path: string;
+  output_dir?: string;
+  text_encoder_path?: string;
+  device: string;
+  save_half: boolean;
+  save_safetensors: boolean;
+  prune: boolean;
+  keep_ema: boolean;
+  memo?: string;
+  bake_scale?: number;
+  bake_unet_only: boolean;
+  bake_clip_scale?: number;
+}
+
+export interface JobAcceptedResponse {
+  job_id: string;
+}
+
 // ========== HTTP Log Polling ==========
 // Replaces WebSocket log streaming which breaks through VastAI's Caddy proxy.
 // Polls /api/jobs/[id]/logs?since=<timestamp> at a configurable interval.
@@ -416,6 +462,13 @@ export const datasetAPI = {
     const response = await fetch(`${API_BASE}/dataset/${encodeURIComponent(name)}`, {
       method: 'DELETE',
     });
+    return handleResponse(response);
+  },
+
+  listSubfolders: async (datasetPath: string): Promise<{
+    subfolders: { name: string; path: string; image_count: number }[];
+  }> => {
+    const response = await fetch(`${API_BASE}/dataset/subfolders?path=${encodeURIComponent(datasetPath)}`);
     return handleResponse(response);
   },
 
@@ -821,6 +874,12 @@ export const captioningAPI = {
 
 // ========== Training Operations ==========
 
+export interface DatasetSubsetConfig {
+  image_dir: string;
+  num_repeats: number;
+  class_tokens?: string;
+}
+
 export interface TrainingConfig {
   // ========== PROJECT & MODEL SETUP ==========
   project_name: string;
@@ -845,6 +904,7 @@ export interface TrainingConfig {
   output_dir: string;
   resolution: number;
   num_repeats: number;
+  subsets?: DatasetSubsetConfig[];
   max_train_epochs: number;
   max_train_steps: number;
   train_batch_size: number;
@@ -886,7 +946,7 @@ export interface TrainingConfig {
 
   // ========== CAPTION & TOKEN CONTROL ==========
   keep_tokens: number;
-  clip_skip: number;
+  clip_skip?: number;
   max_token_length: number;
   caption_dropout_rate: number;
   caption_tag_dropout_rate: number;
@@ -1483,6 +1543,7 @@ export const utilitiesAPI = {
     savePrecision: string = 'fp16',
     precision: string = 'float',
     textEncoderPath?: string,
+    outputDir?: string,
   ) => {
     const response = await fetch(`${API_BASE}/utilities/lora/merge-to-checkpoint`, {
       method: 'POST',
@@ -1492,6 +1553,7 @@ export const utilitiesAPI = {
         text_encoder_path: textEncoderPath,
         lora_inputs: loraInputs,
         output_path: outputPath,
+        output_dir: outputDir,
         model_type: modelType,
         device,
         save_precision: savePrecision,
@@ -1499,6 +1561,50 @@ export const utilitiesAPI = {
       }),
     });
     return handleResponse(response);
+  },
+
+  /** Poll GET /api/jobs/[id] until the job reaches a terminal state. */
+  getJobStatus: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`);
+    return handleResponse(response);
+  },
+
+  /** Poll a bake job via Python /api/utilities/bake-chattiori/status/{id}. */
+  pollBakeUntilDone: async (
+    jobId: string,
+    onProgress?: (status: string) => void,
+    interval = 3000,
+  ): Promise<{ success: boolean; output_path?: string; file_size_mb?: number }> => {
+    return new Promise((resolve, reject) => {
+      const timer = setInterval(async () => {
+        try {
+          const res = await handleResponse(
+            await fetch(`${API_BASE}/utilities/bake-chattiori/status/${encodeURIComponent(jobId)}`)
+          );
+          const status = res.status;
+          const progress = res.progress;
+          onProgress?.(
+            status === 'running' && progress != null
+              ? `Baking… ${progress}%`
+              : status ?? 'running'
+          );
+          if (status === 'completed') {
+            clearInterval(timer);
+            resolve({
+              success: true,
+              output_path: res.result?.output_path ?? res.output_path,
+              file_size_mb: res.result?.file_size_mb ?? res.file_size_mb,
+            });
+          } else if (status === 'failed') {
+            clearInterval(timer);
+            resolve({ success: false });
+          }
+        } catch {
+          // keep polling (404 before job is created, etc.)
+        }
+      }, interval);
+      setTimeout(() => { clearInterval(timer); reject(new Error('Job timed out')); }, 7200_000);
+    });
   },
 
   // HuggingFace
@@ -1516,6 +1622,28 @@ export const utilitiesAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hf_token: token }),
+    });
+    return handleResponse(response);
+  },
+
+  mergeCheckpointAdvanced: async (
+    request: CheckpointAdvancedMergeRequest
+  ): Promise<JobAcceptedResponse> => {
+    const response = await fetch(`${API_BASE}/utilities/checkpoint/merge-advanced`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return handleResponse(response);
+  },
+
+  bakeLoraChattiori: async (
+    request: BakeRequest
+  ): Promise<JobAcceptedResponse> => {
+    const response = await fetch(`${API_BASE}/utilities/lora/bake-chattiori`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
     });
     return handleResponse(response);
   },
@@ -1625,6 +1753,28 @@ export const modelsAPI = {
 };
 
 // ========== Source Adapter Framework (Arc En Ciel etc.) ==========
+
+/**
+ * Map a base model / architecture string to the correct ComfyUI subfolder.
+ *
+ * DiT / UNET architectures (Flux, Anima, Chroma, HunyuanImage) belong in
+ * diffusion_models/; legacy SD architectures and unknowns go to checkpoints/.
+ */
+export function getComfyFolderForArchitecture(
+  baseModel: string | null | undefined,
+  destType: string,
+): string {
+  if (destType === 'vae') return 'vae';
+  if (destType === 'lora') return 'loras';
+  if (destType === 'embedding') return 'embeddings';
+
+  const unetArchs = ['anima', 'flux', 'chroma', 'hunyuan', 'dit', 'hunyuanimage'];
+  const needle = (baseModel ?? '').toLowerCase();
+  if (unetArchs.some(a => needle.includes(a))) {
+    return 'diffusion_models';
+  }
+  return 'checkpoints';
+}
 
 export interface SourceInfo {
   name: string;
@@ -1778,6 +1928,7 @@ export interface CivitaiModelVersion {
   downloadUrl: string;
   trainedWords: string[];
   images: CivitaiImage[];
+  baseModel?: string;
   files: Array<{
     name: string;
     id: number;
@@ -2036,6 +2187,59 @@ export const datasetToolsAPI = {
     });
     return handleResponse(response);
   },
+
+  /** Start a format conversion job via Sharp (Next.js API route, not Python backend). */
+  convertFormat: async (params: {
+    dataset_dir: string;
+    target_format: 'webp' | 'jpg' | 'png';
+    quality: number;
+    output_mode: 'new_dataset' | 'in-place';
+  }): Promise<ConvertFormatResponse> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/convert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get conversion job status. */
+  getConvertStatus: async (jobId: string): Promise<ConvertJobStatus> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/convert?jobId=${encodeURIComponent(jobId)}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running conversion job. */
+  stopConvert: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/convert?jobId=${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    });
+    return handleResponse(response);
+  },
+
+  /** Start a batch crop job via Sharp (Next.js API route, not Python backend). */
+  cropImages: async (params: CropRequest): Promise<CropResponse> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/crop`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return handleResponse(response);
+  },
+
+  /** Get crop job status. */
+  getCropStatus: async (jobId: string): Promise<CropJobStatus> => {
+    const response = await fetch(`${API_BASE}/dataset-tools/crop?jobId=${encodeURIComponent(jobId)}`);
+    return handleResponse(response);
+  },
+
+  /** Cancel a running crop job. */
+  stopCrop: async (jobId: string) => {
+    const response = await fetch(`${API_BASE}/dataset-tools/crop?jobId=${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    });
+    return handleResponse(response);
+  },
 };
 
 export const debugAPI = {
@@ -2050,6 +2254,44 @@ export const debugAPI = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    });
+    return handleResponse(response);
+  },
+};
+
+// ========== Settings / Cache API ==========
+
+export interface CacheInfoResponse {
+  success: boolean;
+  python_gc: { enabled: boolean; tracked_objects: number };
+  caches: Record<string, { path: string; exists: boolean; size_bytes?: number; size_mb?: number; size_gb?: number }>;
+  gpu?: {
+    available: boolean;
+    cuda?: {
+      device_count: number;
+      devices: Array<{ index: number; name: string; total_mb: number; allocated_mb: number; reserved_mb: number }>;
+    };
+    xpu?: object;
+    mps?: object;
+  };
+}
+
+export interface ClearCacheResponse {
+  success: boolean;
+  message: string;
+  actions: Array<{ type: string; [key: string]: unknown }>;
+  note: string;
+}
+
+export const settingsAPI = {
+  getCacheInfo: async (): Promise<CacheInfoResponse> => {
+    const response = await fetch(`${API_BASE}/settings/cache/info`);
+    return handleResponse(response);
+  },
+
+  clearCache: async (): Promise<ClearCacheResponse> => {
+    const response = await fetch(`${API_BASE}/settings/cache/clear`, {
+      method: 'POST',
     });
     return handleResponse(response);
   },

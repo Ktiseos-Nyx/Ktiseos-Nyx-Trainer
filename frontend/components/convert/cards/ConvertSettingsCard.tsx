@@ -60,7 +60,6 @@ export function ConvertSettingsCard({
               <SelectItem value="webp">WebP — Smallest size, modern browsers</SelectItem>
               <SelectItem value="jpg">JPEG — Universal compatibility</SelectItem>
               <SelectItem value="png">PNG — Lossless, larger files</SelectItem>
-              <SelectItem value="bmp">BMP — Uncompressed, largest files</SelectItem>
             </SelectContent>
           </Select>
         </div>

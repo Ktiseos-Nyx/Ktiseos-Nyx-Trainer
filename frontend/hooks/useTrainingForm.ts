@@ -11,7 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TrainingConfigSchema } from '@/lib/validation';
 import { configAPI } from '@/lib/api';
-import type { ModelType, TrainingConfig } from '@/lib/api';
+import type { DatasetSubsetConfig, ModelType, TrainingConfig } from '@/lib/api';
 
 const STORAGE_KEY = 'training-config';
 
@@ -89,6 +89,7 @@ const defaultConfig: TrainingConfig = {
   output_dir: '',
   resolution: 1024,
   num_repeats: 10,
+  subsets: [] as DatasetSubsetConfig[],
   max_train_epochs: 10,
   max_train_steps: 0,
   train_batch_size: 1,

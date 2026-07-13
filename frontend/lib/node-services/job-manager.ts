@@ -392,7 +392,7 @@ if (!globalThis.__jobCleanupTimer) {
  */
 export function getProjectRoot(): string {
   // From frontend directory, go up one level
-  return path.resolve(process.cwd(), '..');
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), '..');
 }
 
 /** Cached Python path (detected once per process lifetime) */

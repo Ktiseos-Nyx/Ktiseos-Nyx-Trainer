@@ -171,7 +171,13 @@ class ConvertService:
                     continue
 
                 # Open and convert
-                with Image.open(src_file) as img:
+                # JFIF is just JPEG with a different extension — PIL doesn't
+                # always register .jfif for the JPEG decoder, so force format.
+                open_kwargs = {"formats": ["JPEG"]} if src_file.suffix.lower() == ".jfif" else {}
+                with Image.open(src_file, **open_kwargs) as img:
+                    # Load pixel data inside the with block so the file handle
+                    # can close — .save() runs after the context manager exits.
+                    img.load()
 
                     # Handle mode conversion (RGBA -> RGB for JPEG)
                     if img.mode == "RGBA" and target_format in ("jpg", "jpeg"):
@@ -198,10 +204,10 @@ class ConvertService:
                 job.add_log(f"Converted {src_file.name} -> {dst_file.name}")
 
             except Exception as e:
-                error_msg = f"{src_file.name}: {str(e)}"
+                error_msg = f"{src_file.name}: {type(e).__name__}: {e}"
                 errors.append(error_msg)
                 job.add_log(f"ERROR: {error_msg}")
-                logger.warning(f"Failed to convert {src_file}: {e}")
+                logger.warning("Failed to convert %s: %s: %s", src_file, type(e).__name__, e)
 
         # Copy caption files to output directory (if new_dataset mode)
         if output_mode == "new_dataset" and output_dir != dataset_path:

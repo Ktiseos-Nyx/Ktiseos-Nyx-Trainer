@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { civitaiAPI, CivitaiModel, API_BASE } from '@/lib/api';
+import { civitaiAPI, CivitaiModel, API_BASE, getComfyFolderForArchitecture } from '@/lib/api';
 import {
   Download,
   Search,
@@ -265,10 +265,12 @@ export default function CivitaiBrowsePage() {
         : (model.type === 'LORA' || model.type === 'LoCon') ? 'lora'
         : 'model';
 
-      const comfyuiFolder =
+      const comfyuiFolder = getComfyFolderForArchitecture(
+        latestVersion.baseModel,
         model.type === 'VAE' ? 'vae'
-        : (model.type === 'LORA' || model.type === 'LoCon') ? 'loras'
-        : 'checkpoints';
+        : (model.type === 'LORA' || model.type === 'LoCon') ? 'lora'
+        : 'checkpoint',
+      );
 
       await civitaiAPI.download(
         model.id,

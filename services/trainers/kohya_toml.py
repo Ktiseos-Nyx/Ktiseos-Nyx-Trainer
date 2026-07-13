@@ -131,6 +131,12 @@ class KohyaTOMLGenerator:
             if not lora_path.exists():
                 errors.append(f"LoRA to continue from not found: {lora_path}")
 
+        if self.config.subsets:
+            for sc in self.config.subsets:
+                subdir = (dataset_path / sc.image_dir).resolve()
+                if not subdir.exists():
+                    errors.append(f"Subset subdirectory not found: {subdir}")
+
         if errors:
             error_msg = "Path validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
             logger.error(error_msg)
@@ -206,26 +212,12 @@ class KohyaTOMLGenerator:
 
         # [[datasets.subsets]] list
         subsets_aot = tomlkit.aot()
-        subset = tomlkit.table()
 
-        dataset_abs_path = Path(self.config.train_data_dir).resolve()
-        if not dataset_abs_path.is_absolute():
-            dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
+        if self.config.subsets and len(self.config.subsets) > 0:
+            self._add_subsets_by_config(subsets_aot)
+        else:
+            self._add_subsets_by_flat(subsets_aot)
 
-        # 🎯 CRITICAL FIX: Use relative path from sd_scripts directory (where training runs)
-        # Training scripts run from trainer/derrian_backend/sd_scripts/, so they need
-        # relative paths like "../../../datasets/my_dataset" to find data
-        # This matches the old working Jupyter implementation
-        # Use .as_posix() to convert Windows backslashes to forward slashes for TOML compatibility
-        rel_path = os.path.relpath(dataset_abs_path, self.sd_scripts_dir)
-        subset["image_dir"] = Path(rel_path).as_posix()
-        subset["num_repeats"] = self.config.num_repeats
-        subset["caption_extension"] = self.config.caption_extension
-
-        # Add metadata path if you use it, otherwise SD-Scripts scans the folder
-        # subset["metadata_file"] = ...
-
-        subsets_aot.append(subset)
         dataset["subsets"] = subsets_aot
         datasets.append(dataset)
         doc["datasets"] = datasets
@@ -235,6 +227,39 @@ class KohyaTOMLGenerator:
             f.write(tomlkit.dumps(doc))
 
         logger.info("Generated dataset TOML: %s", output_path)
+
+    def _resolve_dataset_base(self) -> Path:
+        """Resolve train_data_dir to absolute path relative to project_root."""
+        dataset_abs_path = Path(self.config.train_data_dir).resolve()
+        if not dataset_abs_path.is_absolute():
+            dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
+        return dataset_abs_path
+
+    def _rel_path(self, abs_path: Path) -> str:
+        """Return a POSIX relative path from sd_scripts_dir suitable for TOML."""
+        return Path(os.path.relpath(abs_path, self.sd_scripts_dir)).as_posix()
+
+    def _add_subsets_by_flat(self, subsets_aot) -> None:
+        """Flat dataset: single subset for the entire train_data_dir (legacy)."""
+        dataset_abs_path = self._resolve_dataset_base()
+        subset = tomlkit.table()
+        subset["image_dir"] = self._rel_path(dataset_abs_path)
+        subset["num_repeats"] = self.config.num_repeats
+        subset["caption_extension"] = self.config.caption_extension
+        subsets_aot.append(subset)
+
+    def _add_subsets_by_config(self, subsets_aot) -> None:
+        """Per-subfolder subsets: one [[datasets.subsets]] entry per config item."""
+        dataset_abs_path = self._resolve_dataset_base()
+        for sc in self.config.subsets:
+            subdir_abs = (dataset_abs_path / sc.image_dir).resolve()
+            subset = tomlkit.table()
+            subset["image_dir"] = self._rel_path(subdir_abs)
+            subset["num_repeats"] = sc.num_repeats
+            subset["caption_extension"] = self.config.caption_extension
+            if sc.class_tokens:
+                subset["class_tokens"] = sc.class_tokens
+            subsets_aot.append(subset)
 
     def generate_config_toml(self, output_path: Path) -> None:
         """
@@ -312,14 +337,25 @@ class KohyaTOMLGenerator:
     _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
 
     def _count_dataset_images(self) -> int:
-        """Count image files under the configured training data dir (recursive)."""
-        dataset_abs_path = Path(self.config.train_data_dir)
-        if not dataset_abs_path.is_absolute():
-            dataset_abs_path = (self.project_root / dataset_abs_path).resolve()
+        """Count image files under the configured training data dir(s) (recursive)."""
+        if self.config.subsets and len(self.config.subsets) > 0:
+            base = self._resolve_dataset_base()
+            total = 0
+            for sc in self.config.subsets:
+                subdir = (base / sc.image_dir).resolve()
+                if subdir.exists():
+                    total += self._count_images_in_dir(subdir)
+            return total
+
+        dataset_abs_path = self._resolve_dataset_base()
         if not dataset_abs_path.exists():
             return 0
+        return self._count_images_in_dir(dataset_abs_path)
+
+    def _count_images_in_dir(self, directory: Path) -> int:
+        """Count image files recursively in a single directory."""
         return sum(
-            1 for p in dataset_abs_path.rglob("*")
+            1 for p in directory.rglob("*")
             if p.suffix.lower() in self._IMAGE_EXTS
         )
 
@@ -327,15 +363,28 @@ class KohyaTOMLGenerator:
         """Best-effort total optimizer steps, used to size warm-restart cycles.
 
         Mirrors the step calculator: images x repeats x epochs / (batch x grad_accum).
+        When subsets are configured, computes the weighted sum across all subset dirs.
         Returns 0 when it can't be determined so the caller can fall back.
         """
         if self.config.max_train_steps and self.config.max_train_steps > 0:
             return self.config.max_train_steps
+
         images = self._count_dataset_images()
         if not images:
             return 0
+
         batch = max(1, self.config.train_batch_size)
         grad_accum = max(1, self.config.gradient_accumulation_steps)
+
+        if self.config.subsets and len(self.config.subsets) > 0:
+            base = self._resolve_dataset_base()
+            total_views = 0
+            for sc in self.config.subsets:
+                subdir = (base / sc.image_dir).resolve()
+                subset_images = self._count_images_in_dir(subdir) if subdir.exists() else 0
+                total_views += subset_images * sc.num_repeats
+            return (total_views * self.config.max_train_epochs) // (batch * grad_accum)
+
         return (images * self.config.num_repeats * self.config.max_train_epochs) // (batch * grad_accum)
 
     def _resolve_scheduler(self) -> dict:
@@ -474,7 +523,6 @@ class KohyaTOMLGenerator:
             "max_grad_norm": self.config.max_grad_norm,
             "weight_decay": self.config.weight_decay,
             "max_token_length": self.config.max_token_length,
-            "clip_skip": self.config.clip_skip,
             "weighted_captions": self.config.weighted_captions,
             "no_token_padding": self.config.no_token_padding,
             "save_model_as": self.config.save_model_as,
@@ -512,6 +560,10 @@ class KohyaTOMLGenerator:
 
         if self.config.vae_reflection_padding:
             args["vae_reflection_padding"] = True
+
+        # clip_skip only applies to SD1.5/SDXL models
+        if self.config.clip_skip is not None and self.config.model_type in (ModelType.SD15, ModelType.SDXL):
+            args["clip_skip"] = self.config.clip_skip
 
         # ========== NEW FIELDS (Issue #97 Fix) ==========
         # Performance/Memory

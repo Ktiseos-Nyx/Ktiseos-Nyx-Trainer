@@ -17,6 +17,8 @@ class JobType(str, Enum):
     DOWNLOAD = "download"
     CONVERSION = "conversion"
     CROP = "crop"
+    MERGE = "merge"
+    BAKE = "bake"
 
 
 class JobStatusEnum(str, Enum):

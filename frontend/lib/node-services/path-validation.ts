@@ -9,7 +9,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Project root: process.cwd() is frontend/, go up one level
-const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+const PROJECT_ROOT = path.resolve(/*turbopackIgnore: true*/ process.cwd(), '..');
 
 // Specific allowed directories for different operation types
 // Support both 'datasets' (plural) and 'dataset' (singular) directories

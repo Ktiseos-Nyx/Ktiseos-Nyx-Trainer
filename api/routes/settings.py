@@ -2,6 +2,7 @@
 API routes for user settings management.
 """
 
+import gc
 import json
 import logging
 import os
@@ -344,3 +345,166 @@ async def get_storage_info():
             status_code=500,
             detail=f"Failed to get storage info: {str(e)}"
         ) from e
+
+
+def _dir_size(path: str) -> int:
+    """Recursively compute the total size of a directory in bytes."""
+    total = 0
+    try:
+        for entry in os.scandir(path):
+            try:
+                if entry.is_file(follow_symlinks=False):
+                    total += entry.stat().st_size
+                elif entry.is_dir(follow_symlinks=False):
+                    total += _dir_size(entry.path)
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return total
+
+
+@router.get("/cache/info")
+async def get_cache_info():
+    """Report approximate cache sizes and locations so the user can decide whether to clear."""
+    import gc as _gc
+
+    info = {
+        "success": True,
+        "caches": {},
+        "python_gc": {"enabled": _gc.isenabled(), "tracked_objects": len(_gc.get_objects())},
+    }
+
+    # HuggingFace hub cache
+    hf_home = os.environ.get("HF_HOME") or os.path.join(os.path.expanduser("~"), ".cache", "huggingface")
+    hf_hub = os.path.join(hf_home, "hub")
+    if os.path.isdir(hf_hub):
+        size_bytes = _dir_size(hf_hub)
+        info["caches"]["huggingface_hub"] = {
+            "path": hf_hub,
+            "size_bytes": size_bytes,
+            "size_mb": round(size_bytes / (1024 * 1024), 2),
+            "size_gb": round(size_bytes / (1024 ** 3), 2),
+        }
+    else:
+        info["caches"]["huggingface_hub"] = {"path": hf_hub, "exists": False}
+
+    # huggingface_hub download cache (hf_hub_download local cache)
+    hf_cache = os.path.join(hf_home, ".locks") if os.path.isdir(os.path.join(hf_home, ".locks")) else None
+
+    # Torch hub cache
+    torch_home = os.environ.get("TORCH_HOME") or os.path.join(os.path.expanduser("~"), ".cache", "torch")
+    if os.path.isdir(torch_home):
+        size_bytes = _dir_size(torch_home)
+        info["caches"]["torch_hub"] = {
+            "path": torch_home,
+            "size_bytes": size_bytes,
+            "size_mb": round(size_bytes / (1024 * 1024), 2),
+            "size_gb": round(size_bytes / (1024 ** 3), 2),
+        }
+    else:
+        info["caches"]["torch_hub"] = {"path": torch_home, "exists": False}
+
+    # GPU memory info (if available)
+    try:
+        import torch
+        gpu_info = {}
+        if torch.cuda.is_available():
+            gpu_info["cuda"] = {
+                "device_count": torch.cuda.device_count(),
+                "devices": [],
+            }
+            for i in range(torch.cuda.device_count()):
+                props = torch.cuda.get_device_properties(i)
+                mem_total = props.total_mem
+                mem_allocated = torch.cuda.memory_allocated(i)
+                mem_reserved = torch.cuda.memory_reserved(i)
+                gpu_info["cuda"]["devices"].append({
+                    "index": i,
+                    "name": props.name,
+                    "total_mb": round(mem_total / (1024 * 1024), 0),
+                    "allocated_mb": round(mem_allocated / (1024 * 1024), 2),
+                    "reserved_mb": round(mem_reserved / (1024 * 1024), 2),
+                })
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            gpu_info["xpu"] = {"device_count": torch.xpu.device_count()}
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            gpu_info["mps"] = {"available": True}
+        if gpu_info:
+            info["gpu"] = gpu_info
+    except (ImportError, Exception):
+        info["gpu"] = {"available": False}
+
+    return info
+
+
+@router.post("/cache/clear")
+async def clear_cache():
+    """
+    Clear in-process memory caches (Python GC, PyTorch CUDA/XPU/MPS cache).
+
+    This frees memory that Python and PyTorch are holding but not actively
+    using — "cached" memory that the allocator hasn't returned to the OS.
+    Does NOT delete any files from disk.
+    """
+    result = {
+        "success": True,
+        "actions": [],
+        "note": "On-disk caches (HuggingFace hub, torch hub) are NOT deleted. "
+                "Use external tools to clear those if needed.",
+    }
+
+    before_objects = len(gc.get_objects())
+    collected = gc.collect()
+    after_objects = len(gc.get_objects())
+    result["actions"].append({
+        "type": "python_gc",
+        "collected": collected,
+        "objects_before": before_objects,
+        "objects_after": after_objects,
+    })
+
+    cuda_freed = 0
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            for i in range(torch.cuda.device_count()):
+                reserved_before = torch.cuda.memory_reserved(i)
+                torch.cuda.empty_cache()
+                reserved_after = torch.cuda.memory_reserved(i)
+                freed = reserved_before - reserved_after
+                cuda_freed += freed
+            result["actions"].append({
+                "type": "cuda_empty_cache",
+                "freed_bytes": cuda_freed,
+                "freed_mb": round(cuda_freed / (1024 * 1024), 2),
+            })
+
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            try:
+                torch.xpu.empty_cache()
+                result["actions"].append({"type": "xpu_empty_cache"})
+            except Exception:
+                pass
+
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            try:
+                torch.mps.empty_cache()
+                result["actions"].append({"type": "mps_empty_cache"})
+            except Exception:
+                pass
+    except ImportError:
+        result["actions"].append({"type": "torch", "note": "PyTorch not available — skipped GPU cache clear"})
+    except Exception as e:
+        logger.warning("GPU cache clear error: %s", e)
+        result["actions"].append({"type": "torch_error", "error": str(e)})
+
+    if collected == 0 and cuda_freed == 0:
+        result["message"] = "No memory to free — caches were already clear."
+    else:
+        result["message"] = f"Cleared {collected} Python objects"
+        if cuda_freed > 0:
+            result["message"] += f" and {round(cuda_freed / (1024 * 1024), 2)} MB GPU memory."
+
+    return result

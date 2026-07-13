@@ -410,7 +410,7 @@ class LoRAService:
 
         Supports:
         - SD1.5 / SDXL via vendored Kohya merge scripts (--sd_model)
-        - Anima (DiT) via custom/anima_merge_lora.py
+        - Anima (DiT) via Chattiori lora_bake.py
 
         Args:
             request: LoRA-to-checkpoint merge request
@@ -440,34 +440,118 @@ class LoRAService:
             self._validate_device(request.device)
 
             if model_type == "anima":
-                # ── Anima (DiT) lane via custom script ──────────────────────
-                if not request.text_encoder_path:
-                    raise ValidationError("text_encoder_path is required for Anima model type")
+                # ── Anima (DiT) lane ──────────────────────────────────────────
+                # If user provides a separate text_encoder path, use the legacy
+                # anima_merge_lora.py which supports --text_encoder (needed for
+                # checkpoints that don't bundle their text encoder). Otherwise
+                # use Chattiori lora_bake.py which auto-detects from the
+                # checkpoint's internal keys.
+                if request.text_encoder_path:
+                    te_path = Path(request.text_encoder_path)
+                    if not te_path.exists():
+                        raise NotFoundError(f"Text encoder not found: {request.text_encoder_path}")
 
-                te_path = Path(request.text_encoder_path)
-                if not te_path.exists():
-                    raise NotFoundError(f"Text encoder not found: {request.text_encoder_path}")
+                    anima_script = self.project_root / "custom" / "deprecated" / "anima_merge_lora.py"
+                    if not anima_script.exists():
+                        raise NotFoundError(
+                            "Anima merge script not found at custom/deprecated/anima_merge_lora.py. "
+                            "Please ensure the training backend is installed."
+                        )
 
-                anima_script = self.project_root / "custom" / "anima_merge_lora.py"
-                if not anima_script.exists():
-                    raise NotFoundError(
-                        "Anima merge script not found at custom/anima_merge_lora.py. "
-                        "Please ensure the training backend is installed."
+                    model_paths = [lora.path for lora in request.lora_inputs]
+                    model_ratios = [str(lora.ratio) for lora in request.lora_inputs]
+
+                    command = [
+                        sys.executable,
+                        str(anima_script),
+                        "--base_model", str(base_path),
+                        "--text_encoder", str(te_path),
+                        "--models", *model_paths,
+                        "--ratios", *model_ratios,
+                        "--save_to", str(output_path),
+                        "--device", request.device,
+                    ]
+
+                    logger.info(
+                        "Baking %d Anima LoRA(s) via legacy script with text_encoder %s",
+                        len(request.lora_inputs), te_path.name,
+                    )
+                else:
+                    # ── Chattiori lane (no --text_encoder needed) ─────────
+                    chattiori_script = self.project_root / "trainer" / "chattiori" / "lora_bake.py"
+                    if not chattiori_script.exists():
+                        raise NotFoundError(
+                            "Chattiori lora_bake.py not found at trainer/chattiori/lora_bake.py. "
+                            "Please ensure the training backend is installed."
+                        )
+
+                    base_dir = str(base_path.parent)
+                    checkpoint_name = base_path.name
+                    out_stem = output_path.stem
+                    loras_str = ",".join(
+                        f"{lora.path}:{lora.ratio}" for lora in request.lora_inputs
                     )
 
-                model_paths = [lora_input.path for lora_input in request.lora_inputs]
-                model_ratios = [str(lora_input.ratio) for lora_input in request.lora_inputs]
+                    command = [
+                        sys.executable,
+                        str(chattiori_script),
+                        base_dir,
+                        checkpoint_name,
+                        loras_str,
+                        "--save_safetensors",
+                        "--device", request.device,
+                        "--output", out_stem,
+                    ]
 
-                command = [
-                    sys.executable,
-                    str(anima_script),
-                    "--base_model", str(base_path),
-                    "--text_encoder", str(te_path),
-                    "--models", *model_paths,
-                    "--ratios", *model_ratios,
-                    "--save_to", str(output_path),
-                    "--device", request.device,
-                ]
+                    logger.info(
+                        "Baking %d Anima LoRA(s) via Chattiori into %s",
+                        len(request.lora_inputs), output_path.name,
+                    )
+
+                process = await asyncio.create_subprocess_exec(
+                    *command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=self.project_root,
+                )
+
+                try:
+                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=3600)
+                    logger.debug("Chattiori bake stdout: %s", stdout.decode('utf-8', errors='replace').strip() if stdout else "")
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
+                    raise ProcessError("Anima LoRA bake timed out after 1 hour")
+
+                if process.returncode != 0:
+                    error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
+                    raise ProcessError(f"LoRA-to-checkpoint merge failed: {error_msg}")
+
+                # Chattiori lora_bake.py saves to model_path/out_stem.safetensors;
+                # the legacy script uses --save_to which goes directly to output_path.
+                if not request.text_encoder_path:
+                    baked_temp = Path(base_dir) / f"{out_stem}.safetensors"
+                    if baked_temp.is_file():
+                        import shutil
+                        shutil.move(str(baked_temp), str(output_path))
+                        logger.info("Moved bake result %s → %s", baked_temp, output_path)
+
+                if not output_path.is_file():
+                    raise ProcessError(f"Merge succeeded but output file not found: {baked_temp}")
+
+                file_size_mb = output_path.stat().st_size / (1024 * 1024)
+                logger.info(
+                    f"Anima LoRA(s) baked into checkpoint: {output_path.name} "
+                    f"({file_size_mb:.2f} MB)"
+                )
+
+                return LoRAToCheckpointResponse(
+                    success=True,
+                    message=f"Successfully baked {len(request.lora_inputs)} LoRA(s) into checkpoint",
+                    output_path=str(output_path),
+                    merged_count=len(request.lora_inputs),
+                    file_size_mb=round(file_size_mb, 2),
+                )
             else:
                 # ── SD1.5 / SDXL lane via vendored Kohya scripts ───────────
                 if model_type not in ("sd", "sdxl"):

@@ -57,7 +57,7 @@ const comfyuiPort = process.env.COMFYUI_PORT || '8188';
 const comfyuiUrlDefault = `http://127.0.0.1:${comfyuiPort}`;
 
 // Settings file path — same location as settings-service.ts uses
-const SETTINGS_FILE = path.join(__dirname, '..', 'user_config', 'user_settings.json');
+const SETTINGS_FILE = path.join(/*turbopackIgnore: true*/ __dirname, '..', 'user_config', 'user_settings.json');
 
 /**
  * Read the ComfyUI URL from user settings, falling back to the env-var default.
@@ -247,8 +247,8 @@ app.prepare().then(() => {
       }
 
       // Handle Node.js API routes (new migration)
-      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/dataset-tools', '/api/config', '/api/civitai', '/api/utilities', '/api/debug'];
-      const nodeApiExact = ['/api/models/popular', '/api/models/list'];
+      const nodeApiPrefixes = ['/api/jobs', '/api/files', '/api/captions', '/api/settings', '/api/dataset', '/api/dataset-tools', '/api/config', '/api/civitai', '/api/debug'];
+      const nodeApiExact = ['/api/models/popular', '/api/models/list', '/api/utilities/calculator', '/api/utilities/datasets/browse', '/api/utilities/directories', '/api/utilities/hf/upload'];
       const isNodeApi = nodeApiPrefixes.some(prefix => pathname.startsWith(prefix)) || nodeApiExact.includes(pathname);
 
       if (isNodeApi) {

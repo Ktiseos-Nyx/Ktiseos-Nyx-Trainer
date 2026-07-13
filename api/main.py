@@ -5,6 +5,7 @@ Provides REST API and WebSocket endpoints for the Next.js frontend.
 
 import asyncio
 import logging
+import os
 import sys
 import time
 from datetime import datetime
@@ -17,9 +18,60 @@ from fastapi.responses import JSONResponse
 from api.routes import civitai, config, dataset, debug, files, models, settings, sources, training, utilities
 from services import websocket
 
+# PyTorch CUDA allocator config — must be set BEFORE any torch import.
+# expandable_segments:True lets the allocator return freed memory to the OS
+# instead of caching it indefinitely, which caused "phantom RAM" growth in
+# VastAI's portal AIO after HuggingFace downloads and Chattiori merges/bakes.
+# Safe on all platforms — ignored if CUDA isn't available.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
+# torchao ships compiled C extensions (_C*.so / _C*.pyd) that are built
+# against a specific CPython ABI (often only 3.10). On 3.11+ those .so files
+# fail to load with opaque errors. We only use torchao's pure-Python paths
+# (TorchAOBaseTensor / get_available_devices from torchao.utils), never its
+# quantized kernels, so skipping the compiled extension is safe.
+os.environ.setdefault("TORCHAO_FORCE_SKIP_LOADING_SO_FILES", "1")
+
 # Windows: ensure ProactorEventLoop so asyncio.create_subprocess_exec works
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+# Background periodic GC to combat memory fragmentation from HuggingFace downloads
+# and Chattiori merge/bake operations. These libraries allocate large tensors and
+# sometimes hold cached allocator memory that never gets returned to the OS.
+_AUTO_GC_INTERVAL_SECONDS = 300  # run every 5 minutes
+_auto_gc_task: "asyncio.Task[None] | None" = None
+
+
+async def _auto_gc_loop():
+    """Periodically run gc.collect() + torch.cuda.empty_cache() in the background.
+
+    Skips the cycle when any job is running (training, tagging, merge, bake,
+    download, etc.) to avoid pausing or fragmenting the CUDA allocator mid-work.
+    """
+    import gc
+
+    while True:
+        try:
+            await asyncio.sleep(_AUTO_GC_INTERVAL_SECONDS)
+
+            from services.jobs import job_manager
+            if job_manager.store.get_running():
+                continue
+
+            collected = gc.collect()
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            if collected > 0:
+                logger.debug("Auto-GC: collected %d objects", collected)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.debug("Auto-GC: error in background loop", exc_info=True)
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -139,6 +191,27 @@ async def global_exception_handler(request, exc):
     """Global exception handler"""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(status_code=500, content={"error": "Internal server error"})
+
+
+@app.on_event("startup")
+async def start_auto_gc():
+    global _auto_gc_task
+    if _auto_gc_task is None:
+        _auto_gc_task = asyncio.create_task(_auto_gc_loop())
+        logger.info("Auto-GC background task started (interval: %ds)", _AUTO_GC_INTERVAL_SECONDS)
+
+
+@app.on_event("shutdown")
+async def stop_auto_gc():
+    global _auto_gc_task
+    if _auto_gc_task is not None:
+        _auto_gc_task.cancel()
+        try:
+            await _auto_gc_task
+        except asyncio.CancelledError:
+            pass
+        _auto_gc_task = None
+        logger.info("Auto-GC background task stopped")
 
 
 if __name__ == "__main__":

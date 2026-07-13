@@ -332,18 +332,28 @@ def validate_save_tags(dataset: dict) -> dict:
     return dict(sorted(tags.items(), key=lambda item: item[1], reverse=True))
 
 
+# Standard-optimizer names that never need custom resolution.
+# Keeps the LoraEasyCustomOptimizer import (and its torchao chain) off
+# the critical path for AdamW, SGD, Lion, etc.
+_STANDARD_OPTIMIZERS: frozenset[str] = frozenset({
+    "adamw", "adamw8bit",
+    "lion", "lion8bit",
+    "sgd", "sgdnesterov", "sgdnesterov8bit",
+    "adafactor",
+    "pagedadamw", "pagedadamw32bit", "pagedlion8bit",
+})
+
+
 def validate_optimizer(args: dict) -> None:
     opt_type_lower = args["optimizer_type"].lower()
 
-    # Lazy import: OPTIMIZERS pulls in all custom optimizer modules including
-    # low_bit_optim (which imports TorchAO). Only importing when a custom
-    # optimizer is actually selected avoids TorchAO flagging for standard
-    # optimizers (AdamW, SGD, etc.).
+    if opt_type_lower in _STANDARD_OPTIMIZERS or opt_type_lower.startswith("dadapt"):
+        return
+
     from LoraEasyCustomOptimizer import OPTIMIZERS
 
     if opt_type_lower in OPTIMIZERS:
         args["optimizer_type"] = f"{OPTIMIZERS[opt_type_lower].__module__}.{OPTIMIZERS[opt_type_lower].__qualname__}"
-        return
     
 
 

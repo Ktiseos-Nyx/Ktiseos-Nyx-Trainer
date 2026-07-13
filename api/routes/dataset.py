@@ -63,6 +63,47 @@ async def create_dataset(request: CreateDatasetRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/subfolders")
+async def list_dataset_subfolders(path: str):
+    """List subdirectories within a dataset with image counts.
+
+    Used by the training UI to discover per-folder repeat configurations.
+    Returns each subfolder name and image count.
+    """
+    import os
+    from services.core.validation import validate_dataset_path
+
+    _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp"}
+
+    try:
+        dataset_dir = validate_dataset_path(path)
+        if not dataset_dir.exists():
+            raise HTTPException(status_code=404, detail=f"Dataset not found: {path}")
+
+        subfolders = []
+        for entry in sorted(dataset_dir.iterdir()):
+            if not entry.is_dir():
+                continue
+            image_count = sum(
+                1 for f in entry.rglob("*") if f.suffix.lower() in _IMAGE_EXTS
+            )
+            if image_count == 0:
+                continue
+            subfolders.append({
+                "name": entry.name,
+                "path": str(entry),
+                "image_count": image_count,
+            })
+
+        return {"subfolders": subfolders}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to list dataset subfolders: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/images-with-tags")
 async def get_images_with_tags(dataset_path: str):
     """Get all images in a dataset with their associated tags"""

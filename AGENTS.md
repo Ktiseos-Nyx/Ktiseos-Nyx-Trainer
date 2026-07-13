@@ -87,12 +87,16 @@ FastAPI route handlers:
 | `api/routes/dataset.py` | Dataset upload and management |
 | `api/routes/training.py` | Training configuration and execution |
 | `api/routes/models.py` | Model downloads (HuggingFace / Civitai) |
-| `api/routes/utilities.py` | LoRA resizing and HuggingFace uploads |
+| `api/routes/utilities.py` | LoRA utilities, HuggingFace uploads, Chattiori merge/bake |
 | `api/routes/config.py` | Configuration management |
 | `api/routes/files.py` | File operations and browsing |
 | `api/routes/settings.py` | Application settings |
 | `api/routes/civitai.py` | Civitai integration |
 | `api/routes/debug.py` | Debug and diagnostics |
+
+**Deprecated routes** (code moved to `*deprecated/` but endpoints still work):
+| `POST /checkpoint/merge-weighted` | `services/deprecated/block_weight_merge.py` |
+| `POST /lora/merge-to-checkpoint` (Anima bake) | `custom/deprecated/anima_merge_lora.py` |
 
 ### Service Layer — `services/`
 
@@ -108,11 +112,13 @@ backend. Never call Kohya scripts directly from routes.
 | `caption_service.py` | Caption file management |
 | `model_service.py` | Model download and management |
 | `lora_service.py` | LoRA utilities |
+| `chattiori_service.py` | Chattiori merge/bake subprocess wrapper |
 | `websocket.py` | WebSocket handlers for real-time logs |
 | `jobs/` | Job management system |
 | `trainers/` | Training backend integration (Kohya SS) |
 | `models/` | Pydantic data models and schemas |
 | `core/` | Core utilities and path validation |
+| `deprecated/` | Deprecated modules (block_weight_merge, anima_merge) — kept for reference |
 
 ### Frontend — `frontend/`
 
@@ -137,6 +143,7 @@ Vendored Kohya SS distribution (committed directly, not a submodule):
 | `sd_scripts/` | Kohya SS training scripts |
 | `lycoris/` | LyCORIS library |
 | `custom_scheduler/` | Custom optimizers (CAME, Compass, LPFAdamW, etc.) |
+| `chattiori/` | Vendored Chattiori-Model-Merger (merge.py + lora_bake.py) |
 
 ### Startup Scripts
 
@@ -266,6 +273,8 @@ Never use raw HTML form elements. This project uses shadcn/ui for all UI:
 - Edit `trainer/derrian_backend/` without explicit instruction
 - Add platform-specific npm packages directly (causes `EBADPLATFORM` on other OSes)
 - Create markdown audit files unless explicitly asked
+- Create new code in `custom/` or `services/deprecated/` — these directories are for legacy reference only
+- Remove files from `custom/deprecated/` or `services/deprecated/` without explicit instruction
 
 ---
 
@@ -288,3 +297,4 @@ the training script.
 - Frontend ~99% migrated to Next.js 15 + React 19 routes
 - Core training functionality works; in beta / bug-squashing phase
 - Flux and SD3 should work based on Kohya backend; needs real-world testing
+- **Chattiori integration (Phase 1 complete):** Vendored `trainer/chattiori/`, service layer, API endpoints (`POST /checkpoint/merge-advanced`, `POST /lora/bake-chattiori`), and frontend API functions. Old block-weight merge code moved to `services/deprecated/`.

@@ -129,7 +129,7 @@ interface TrainingConfig {
   shuffle_caption: boolean;
   keep_tokens: number;
   max_token_length: number;
-  clip_skip: number;
+  clip_skip?: number;
   weighted_captions: boolean;
   no_token_padding: boolean;
   caption_dropout_rate?: number;
@@ -141,6 +141,8 @@ interface TrainingConfig {
 
   // Dataset settings
   num_repeats: number;
+  subsets?: { image_dir: string; num_repeats: number; class_tokens?: string }[];
+  caption_extension?: string;
   min_bucket_reso: number;
   max_bucket_reso: number;
   bucket_reso_steps?: number;
@@ -344,7 +346,6 @@ export async function generateDatasetTOML(
 
   // [[datasets.subsets]] list
   const subsets: any[] = [];
-  const subset: any = {};
 
   // Get absolute dataset path (always local — resolve directly, not via resolveConfigPath)
   let datasetAbsPath = path.isAbsolute(config.train_data_dir)
@@ -354,12 +355,31 @@ export async function generateDatasetTOML(
   // CRITICAL FIX: Use relative path from sd_scripts directory
   // Training scripts run from trainer/derrian_backend/sd_scripts/
   // Use POSIX paths for TOML compatibility (forward slashes)
-  const relPath = path.relative(sdScriptsDir, datasetAbsPath);
-  subset.image_dir = relPath.replace(/\\/g, '/'); // Convert Windows backslashes to forward slashes
+  function relPosix(absPath: string): string {
+    const rel = path.relative(sdScriptsDir, absPath);
+    return rel.replace(/\\/g, '/');
+  }
 
-  subset.num_repeats = config.num_repeats;
+  if (config.subsets && config.subsets.length > 0) {
+    for (const sc of config.subsets) {
+      const subdirAbs = path.resolve(datasetAbsPath, sc.image_dir);
+      const subset: any = {
+        image_dir: relPosix(subdirAbs),
+        num_repeats: sc.num_repeats,
+        caption_extension: config.caption_extension || '.txt',
+      };
+      if (sc.class_tokens) {
+        subset.class_tokens = sc.class_tokens;
+      }
+      subsets.push(subset);
+    }
+  } else {
+    const subset: any = {};
+    subset.image_dir = relPosix(datasetAbsPath);
+    subset.num_repeats = config.num_repeats;
+    subsets.push(subset);
+  }
 
-  subsets.push(subset);
   dataset.subsets = subsets;
   datasets.push(dataset);
   doc.datasets = datasets;
@@ -515,8 +535,8 @@ function getTrainingArguments(config: TrainingConfig, projectRoot: string): any 
     prior_loss_weight: config.prior_loss_weight,
   };
 
-  // clip_skip: SD15 only (SDXL=1 is default and can be omitted; FLUX/SD3/LUMINA don't support it)
-  if (config.model_type === 'SD15') {
+  // clip_skip: SD15/SDXL only (FLUX/SD3/LUMINA/ANIMA etc. don't support it)
+  if (config.clip_skip != null && (config.model_type === 'SD15' || config.model_type === 'SDXL')) {
     args.clip_skip = config.clip_skip;
   }
   // SDXL forces clip_skip=1; writing it is safe but redundant — omit to let Kohya use its default
@@ -785,7 +805,7 @@ export class ConfigService {
     outputDir: string
   ): Promise<{ dataset: string; config: string }> {
     // Project root is one level up from frontend directory
-    const projectRoot = path.join(process.cwd(), '..');
+    const projectRoot = path.join(/*turbopackIgnore: true*/ process.cwd(), '..');
     const sdScriptsDir = path.join(projectRoot, 'trainer', 'derrian_backend', 'sd_scripts');
     const runtimeStoreDir = path.join(projectRoot, 'trainer', 'runtime_store');
 

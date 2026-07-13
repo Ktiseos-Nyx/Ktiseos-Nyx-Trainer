@@ -183,6 +183,12 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
 
   num_repeats: z.number().int().min(1, 'Number of repeats must be at least 1'),
 
+  subsets: z.array(z.object({
+    image_dir: z.string().min(1, 'Subfolder name is required'),
+    num_repeats: z.number().int().min(1, 'Repeats must be at least 1'),
+    class_tokens: z.string().optional(),
+  })).optional(),
+
   max_train_epochs: z.number().int().min(1, 'Epochs must be at least 1'),
 
   max_train_steps: z.number().int().min(0, 'Steps must be non-negative'),
@@ -261,7 +267,7 @@ pretrained_model_name_or_path: z.string().min(1, 'Pretrained model path is requi
   // ========== CAPTION & TOKEN CONTROL ==========
   keep_tokens: z.number().int().min(0),
 
-  clip_skip: z.number().int().min(1),
+  clip_skip: z.number().int().min(1).optional(),
 
   max_token_length: z.number().int().min(75),
 
