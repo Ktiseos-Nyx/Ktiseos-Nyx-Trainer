@@ -44,11 +44,11 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 | NVIDIA via ZLUDA | Community supported — see [ZLUDA](https://github.com/vosen/ZLUDA) |
 | CPU-only | Not recommended for training; tagging/captioning will work |
 
-While baseline VRAM requirements can be high, the community has figured out plenty of workarounds to train on constrained hardware
+While baseline VRAM requirements can be high, the community has figured out plenty of workarounds to train on constrained hardware.
 
 ### Software
 
-- **Python:** 3.10 or 3.11
+- **Python:** 3.10, 3.11, or 3.12
 - **Node.js:** 20.19+ (22.x recommended)
 - **Git**
 
@@ -152,10 +152,10 @@ python clean_slate.py --nuclear
 - Preset system with form persistence
 
 **Models:**
-- Civitai browser: search, filter, and download directly into local model folders
-- Arc En Ciel browser: search, filter, and download directly into local model folders
-- HuggingFace model downloads for popular training inference. 
-- LoRA Manager for batch downloading from Civitai and Hugggingface securely via Python or Aria2.
+- Civitai browser: search, filter, and download models directly into your local folders
+- Arc En Ciel browser: browse and download from multiple model sources with unified search
+- HuggingFace downloads for training base models
+- LoRA Manager for batch downloading from Civitai and HuggingFace via Python or Aria2
 
 **Image generation (ComfyUI):**
 - Bundled ComfyUI workspace, installed by default (local and cloud) — generate images to test your trained models without leaving the app
@@ -163,7 +163,8 @@ python clean_slate.py --nuclear
 
 **Utilities:**
 - LoRA merge, resize, and metadata editing
-- Checkpoint merge
+- 24+ checkpoint merge modes via Chattiori (WS, DARE, cosine blending, ReBasin, and more)
+- LoRA-to-checkpoint baking (multi-LoRA bake across all architectures)
 - HuggingFace upload after training
 
 ---
