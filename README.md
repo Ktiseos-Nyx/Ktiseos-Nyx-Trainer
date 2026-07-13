@@ -48,7 +48,7 @@ While baseline VRAM requirements can be high, the community has figured out plen
 
 ### Software
 
-- **Python:** 3.10 or 3.11
+- **Python:** 3.10, 3.11, or 3.12
 - **Node.js:** 20.19+ (22.x recommended)
 - **Git**
 
@@ -163,7 +163,8 @@ python clean_slate.py --nuclear
 
 **Utilities:**
 - LoRA merge, resize, and metadata editing
-- Checkpoint merge
+- 24+ checkpoint merge modes via Chattiori (WS, DARE, cosine blending, ReBasin, and more)
+- LoRA-to-checkpoint baking (multi-LoRA bake across all architectures)
 - HuggingFace upload after training
 
 ---
