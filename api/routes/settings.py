@@ -464,10 +464,10 @@ async def clear_cache():
         "objects_after": after_objects,
     })
 
+    cuda_freed = 0
     try:
         import torch
 
-        cuda_freed = 0
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
                 reserved_before = torch.cuda.memory_reserved(i)

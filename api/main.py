@@ -5,6 +5,7 @@ Provides REST API and WebSocket endpoints for the Next.js frontend.
 
 import asyncio
 import logging
+import os
 import sys
 import time
 from datetime import datetime
