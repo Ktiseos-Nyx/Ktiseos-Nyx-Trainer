@@ -2280,3 +2280,41 @@ export const debugAPI = {
     return handleResponse(response);
   },
 };
+
+// ========== Settings / Cache API ==========
+
+export interface CacheInfoResponse {
+  success: boolean;
+  python_gc: { enabled: boolean; tracked_objects: number };
+  caches: Record<string, { path: string; exists: boolean; size_bytes?: number; size_mb?: number; size_gb?: number }>;
+  gpu?: {
+    available: boolean;
+    cuda?: {
+      device_count: number;
+      devices: Array<{ index: number; name: string; total_mb: number; allocated_mb: number; reserved_mb: number }>;
+    };
+    xpu?: object;
+    mps?: object;
+  };
+}
+
+export interface ClearCacheResponse {
+  success: boolean;
+  message: string;
+  actions: Array<{ type: string; [key: string]: unknown }>;
+  note: string;
+}
+
+export const settingsAPI = {
+  getCacheInfo: async (): Promise<CacheInfoResponse> => {
+    const response = await fetch(`${API_BASE}/settings/cache/info`);
+    return handleResponse(response);
+  },
+
+  clearCache: async (): Promise<ClearCacheResponse> => {
+    const response = await fetch(`${API_BASE}/settings/cache/clear`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+};

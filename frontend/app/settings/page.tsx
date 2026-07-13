@@ -3,11 +3,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff, Plus, Trash2, FolderOpen, Wand2 } from 'lucide-react'
+import { Home, Save, RotateCcw, Settings, Key, Eye, EyeOff, Plus, Trash2, FolderOpen, Wand2, Cpu } from 'lucide-react'
 import { toast } from 'sonner'
 import { GradientCard } from '@/components/effects'
 import Breadcrumbs from '@/components/Breadcrumbs'
-import { API_BASE } from '@/lib/api'
+import { API_BASE, settingsAPI, type CacheInfoResponse } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 
 export default function SettingsPage() {
@@ -63,6 +63,10 @@ export default function SettingsPage() {
     path: string
   } | null>(null)
 
+  // Cache management
+  const [cacheInfo, setCacheInfo] = useState<CacheInfoResponse | null>(null)
+  const [clearingCache, setClearingCache] = useState(false)
+
   // Load settings from localStorage and API keys from backend on mount
   useEffect(() => {
     // Load UI settings from localStorage
@@ -91,6 +95,7 @@ export default function SettingsPage() {
     // Load API keys and storage info from backend
     loadApiKeys()
     loadStorageInfo()
+    loadCacheInfo()
   }, [])
 
   const loadStorageInfo = async () => {
@@ -104,6 +109,36 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Failed to load storage info:', error)
+    }
+  }
+
+  const loadCacheInfo = async () => {
+    try {
+      const data = await settingsAPI.getCacheInfo()
+      if (data.success) {
+        setCacheInfo(data)
+      }
+    } catch (error) {
+      console.error('Failed to load cache info:', error)
+    }
+  }
+
+  const handleClearCache = async () => {
+    setClearingCache(true)
+    try {
+      const result = await settingsAPI.clearCache()
+      if (result.success) {
+        toast.success('Memory cache cleared', { description: result.message })
+        await loadCacheInfo()
+      } else {
+        toast.error('Failed to clear cache')
+      }
+    } catch (error) {
+      toast.error('Failed to clear cache', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } finally {
+      setClearingCache(false)
     }
   }
 
@@ -637,6 +672,91 @@ export default function SettingsPage() {
 
             </div>
           </div>
+          </div>
+        </GradientCard>
+
+        {/* Cache Management */}
+        <GradientCard variant="ocean" intensity="subtle" className="mb-6">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Cpu className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+              <h2 className="text-2xl font-bold text-foreground">Memory &amp; Cache</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Python and PyTorch can hold cached GPU memory after large operations
+              (model downloads, merges, bakes). Clearing these caches releases memory
+              back to the OS without deleting any files.
+            </p>
+
+            <div className="space-y-4">
+              {/* GPU Memory Info */}
+              {cacheInfo?.gpu?.cuda?.devices && cacheInfo.gpu.cuda.devices.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">GPU Memory</label>
+                  {cacheInfo.gpu.cuda.devices.map((dev) => (
+                    <div key={dev.index} className="p-3 bg-muted/50 rounded-lg space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-foreground">{dev.name}</span>
+                        <span className="text-muted-foreground font-mono">
+                          {dev.allocated_mb} / {dev.total_mb} MB
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            dev.total_mb > 0 && dev.allocated_mb / dev.total_mb > 0.9
+                              ? 'bg-red-500'
+                              : dev.total_mb > 0 && dev.allocated_mb / dev.total_mb > 0.5
+                              ? 'bg-orange-500'
+                              : 'bg-green-500'
+                          }`}
+                          style={{
+                            width: `${dev.total_mb > 0 ? Math.min(100, (dev.allocated_mb / dev.total_mb) * 100) : 0}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Reserved (cached): {dev.reserved_mb} MB — this is memory the allocator holds but may not be actively using.
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Python GC info */}
+              {cacheInfo && (
+                <div className="p-3 bg-muted/50 rounded-lg space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-foreground">Python GC Tracked Objects</span>
+                    <span className="text-muted-foreground font-mono">
+                      {cacheInfo.python_gc.tracked_objects.toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    GC is {cacheInfo.python_gc.enabled ? 'enabled' : 'disabled'}. A high count may indicate memory fragmentation.
+                  </p>
+                </div>
+              )}
+
+              {/* Clear Cache Button */}
+              <button
+                onClick={handleClearCache}
+                disabled={clearingCache}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-5 h-5" />
+                {clearingCache ? 'Clearing...' : 'Clear Memory Cache'}
+              </button>
+
+              {/* Info Box */}
+              <div className="p-3 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-500/30 rounded-lg">
+                <p className="text-xs text-foreground">
+                  <strong>Note:</strong> A background task runs every 5 minutes to release cached
+                  GPU memory automatically. Use this button if memory spikes between cycles
+                  or before starting a new training job.
+                </p>
+              </div>
+            </div>
           </div>
         </GradientCard>
 
