@@ -163,10 +163,9 @@ class ConvertService:
                 return {"success": False, "error": "Conversion cancelled", "converted": converted}
 
             try:
-                # Determine output filename, preserving subfolder structure
+                # Preserve subfolder structure: e.g. subdir/img.jpg -> output_dir/subdir/img.webp
                 rel_path = src_file.relative_to(dataset_path)
-                dst_stem = rel_path.parent / rel_path.stem if rel_path.parent != Path('.') else Path(rel_path.stem)
-                dst_file = output_dir / dst_stem.with_suffix(target_ext)
+                dst_file = output_dir / rel_path.with_suffix(target_ext)
                 dst_file.parent.mkdir(parents=True, exist_ok=True)
 
                 # Skip if already correct format and in-place mode

@@ -340,9 +340,14 @@ class DatasetService:
                         errs.append(f"{zip_file}: Not an image file, skipped")
                         continue
                     try:
+                        # Reject absolute paths and Windows drive-relative paths
+                        if file_path.is_absolute() or file_path.drive:
+                            raise ValueError("Unsafe path (absolute or drive-relative)")
+                        # Strip '.' and '..' components; skip entry if nothing remains
                         safe_parts = [p for p in file_path.parts if p not in ('.', '..')]
-                        rel_path = Path(*safe_parts) if safe_parts else file_path
-                        destination = dataset_path / rel_path
+                        if not safe_parts:
+                            raise ValueError("Empty path after sanitization")
+                        destination = dataset_path.joinpath(*safe_parts)
                         destination.parent.mkdir(parents=True, exist_ok=True)
                         if destination.exists():
                             base = destination.stem
