@@ -78,6 +78,14 @@ function getSharpOptions(format: string, quality: number): Record<string, unknow
   }
 }
 
+function safeRelative(from: string, to: string): string | null {
+  const rel = path.relative(from, to)
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    return null
+  }
+  return rel
+}
+
 function resolveDatasetPath(datasetName: string): string {
   const cleanName = datasetName.replace(/^datasets[/\\]/, '').trim()
   const relativePath = path.join('datasets', cleanName)
@@ -166,7 +174,11 @@ async function runConversion(
     }
 
     const srcFile = imageFiles[i]
-    const relPath = path.relative(datasetPath, srcFile)
+    const relPath = safeRelative(datasetPath, srcFile)
+    if (!relPath) {
+      job.errors.push(`${path.basename(srcFile)}: path traversal detected, skipped`)
+      continue
+    }
     const dstStem = path.parse(relPath).name
     const dstFile = path.join(outputDir, path.dirname(relPath), dstStem + targetExt)
     await fs.mkdir(path.dirname(dstFile), { recursive: true })
@@ -200,7 +212,11 @@ async function runConversion(
       const ext = path.extname(srcPath.fullPath).toLowerCase()
       if (!ALLOWED_INPUT_EXTENSIONS.has(ext)) {
         try {
-          const relPath = path.relative(datasetPath, srcPath.fullPath)
+          const relPath = safeRelative(datasetPath, srcPath.fullPath)
+          if (!relPath) {
+            addLog(`WARN: Skipped ${srcPath.name}: path traversal detected`)
+            continue
+          }
           const dest = path.join(outputDir, relPath)
           await fs.mkdir(path.dirname(dest), { recursive: true })
           await fs.copyFile(srcPath.fullPath, dest)
