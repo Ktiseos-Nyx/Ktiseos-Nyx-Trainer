@@ -78,10 +78,10 @@ class ConvertService:
             if not dataset_path.exists():
                 raise NotFoundError(f"Dataset not found: {request.dataset_dir}")
 
-            # Count image files
+            # Count image files (recursive — preserves subfolder structure)
             image_files = [
                 f
-                for f in dataset_path.iterdir()
+                for f in dataset_path.rglob("*")
                 if f.is_file() and f.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
             ]
 
@@ -163,8 +163,11 @@ class ConvertService:
                 return {"success": False, "error": "Conversion cancelled", "converted": converted}
 
             try:
-                # Determine output filename
-                dst_file = output_dir / (src_file.stem + target_ext)
+                # Determine output filename, preserving subfolder structure
+                rel_path = src_file.relative_to(dataset_path)
+                dst_stem = rel_path.parent / rel_path.stem if rel_path.parent != Path('.') else Path(rel_path.stem)
+                dst_file = output_dir / dst_stem.with_suffix(target_ext)
+                dst_file.parent.mkdir(parents=True, exist_ok=True)
 
                 # Skip if already correct format and in-place mode
                 if output_mode == "in-place" and src_file.suffix.lower() == target_ext:
@@ -211,10 +214,13 @@ class ConvertService:
 
         # Copy caption files to output directory (if new_dataset mode)
         if output_mode == "new_dataset" and output_dir != dataset_path:
-            for f in dataset_path.iterdir():
+            for f in dataset_path.rglob("*"):
                 if f.is_file() and f.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
                     try:
-                        shutil.copy2(f, output_dir / f.name)
+                        rel_path = f.relative_to(dataset_path)
+                        dest = output_dir / rel_path
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(f, dest)
                     except Exception as e:
                         logger.warning(f"Failed to copy {f.name}: {e}")
 

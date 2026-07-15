@@ -621,7 +621,7 @@ async def upload_zip(
 ):
     """
     Upload and extract a ZIP file to a dataset.
-    Automatically extracts images and flattens directory structure.
+    Automatically extracts images and preserves directory structure.
     """
     try:
         logger.info("ZIP upload started: %s → %s", file.filename, dataset_name)

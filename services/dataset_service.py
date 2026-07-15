@@ -340,13 +340,17 @@ class DatasetService:
                         errs.append(f"{zip_file}: Not an image file, skipped")
                         continue
                     try:
-                        destination = dataset_path / file_path.name
+                        safe_parts = [p for p in file_path.parts if p not in ('.', '..')]
+                        rel_path = Path(*safe_parts) if safe_parts else file_path
+                        destination = dataset_path / rel_path
+                        destination.parent.mkdir(parents=True, exist_ok=True)
                         if destination.exists():
                             base = destination.stem
                             ext = destination.suffix
+                            parent_dir = destination.parent
                             counter = 1
                             while destination.exists():
-                                destination = dataset_path / f"{base}_{counter}{ext}"
+                                destination = parent_dir / f"{base}_{counter}{ext}"
                                 counter += 1
                         # Stream directly from zip into destination — no full-file RAM buffer
                         with zip_ref.open(zip_file) as src, open(destination, 'wb') as dst:

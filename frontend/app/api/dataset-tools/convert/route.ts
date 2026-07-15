@@ -84,6 +84,17 @@ function resolveDatasetPath(datasetName: string): string {
   return assertWithinBase(relativePath)
 }
 
+async function* getFilesRecursive(dir: string): AsyncGenerator<fs.Dirent & { fullPath: string }> {
+  const entries = await fs.readdir(dir, { withFileTypes: true })
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      yield* getFilesRecursive(path.join(dir, entry.name))
+    } else if (entry.isFile()) {
+      yield { ...entry, fullPath: path.join(dir, entry.name) }
+    }
+  }
+}
+
 async function convertFile(
   srcFile: string,
   dstFile: string,
@@ -155,8 +166,10 @@ async function runConversion(
     }
 
     const srcFile = imageFiles[i]
-    const dstStem = path.parse(srcFile).name
-    const dstFile = path.join(outputDir, dstStem + targetExt)
+    const relPath = path.relative(datasetPath, srcFile)
+    const dstStem = path.parse(relPath).name
+    const dstFile = path.join(outputDir, path.dirname(relPath), dstStem + targetExt)
+    await fs.mkdir(path.dirname(dstFile), { recursive: true })
 
     try {
       if (outputMode === 'in-place') {
@@ -183,16 +196,16 @@ async function runConversion(
   }
 
   if (outputMode === 'new_dataset' && outputDir !== datasetPath) {
-    const entries = await fs.readdir(datasetPath, { withFileTypes: true })
-    for (const entry of entries) {
-      if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase()
-        if (!ALLOWED_INPUT_EXTENSIONS.has(ext)) {
-          try {
-            await fs.copyFile(path.join(datasetPath, entry.name), path.join(outputDir, entry.name))
-          } catch (err) {
-            addLog(`WARN: Failed to copy ${entry.name}: ${err instanceof Error ? err.message : err}`)
-          }
+    for await (const srcPath of getFilesRecursive(datasetPath)) {
+      const ext = path.extname(srcPath.fullPath).toLowerCase()
+      if (!ALLOWED_INPUT_EXTENSIONS.has(ext)) {
+        try {
+          const relPath = path.relative(datasetPath, srcPath.fullPath)
+          const dest = path.join(outputDir, relPath)
+          await fs.mkdir(path.dirname(dest), { recursive: true })
+          await fs.copyFile(srcPath.fullPath, dest)
+        } catch (err) {
+          addLog(`WARN: Failed to copy ${srcPath.name}: ${err instanceof Error ? err.message : err}`)
         }
       }
     }
@@ -251,7 +264,10 @@ export async function POST(request: NextRequest) {
 
     let entries: string[]
     try {
-      entries = await fs.readdir(datasetPath)
+      entries = []
+      for await (const entry of getFilesRecursive(datasetPath)) {
+        entries.push(entry.fullPath)
+      }
     } catch {
       return NextResponse.json(
         { success: false, message: `Dataset not found: ${dataset_dir}`, total_files: 0 },
@@ -261,7 +277,6 @@ export async function POST(request: NextRequest) {
 
     const imageFiles = entries
       .filter(f => ALLOWED_INPUT_EXTENSIONS.has(path.extname(f).toLowerCase()))
-      .map(f => path.join(datasetPath, f))
       .sort()
 
     if (imageFiles.length === 0) {
