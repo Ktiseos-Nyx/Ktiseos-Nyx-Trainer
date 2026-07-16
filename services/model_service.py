@@ -322,6 +322,12 @@ class ModelService:
     def _validate_url(self, url: str) -> Optional[str]:
         """Validate and normalize download URL."""
         import re
+        from urllib.parse import urlparse
+
+        # Reject non-HTTP schemes (file://, ftp://, etc.)
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.scheme not in ("http", "https"):
+            return None
 
         # Normalize Civitai URLs
         if "civitai.com" in url:

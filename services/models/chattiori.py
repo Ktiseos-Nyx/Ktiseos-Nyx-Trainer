@@ -5,7 +5,19 @@ Wraps Chattiori's merge.py and lora_bake.py CLI arguments.
 """
 
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+_VALID_MERGE_MODES = frozenset({
+    "WS", "SIG", "GEO", "MAX", "AD", "sAD", "MD", "SIM", "TD", "TRS",
+    "TS", "ST", "DARE", "ORTHO", "SPRSE", "NORM", "CHAN", "FREQ", "SWAP",
+    "CLIPXOR", "XDARE", "FWM",
+})
+
+
+def _reject_path_separators(v: str, field_name: str) -> str:
+    if '..' in v or '/' in v or '\\' in v:
+        raise ValueError(f"{field_name} must be a bare filename, not a path: {v!r}")
+    return v
 
 
 class CheckpointAdvancedMergeRequest(BaseModel):
@@ -36,6 +48,25 @@ class CheckpointAdvancedMergeRequest(BaseModel):
     fine: Optional[str] = Field(None, description="Finetune key pattern")
     seed: Optional[int] = Field(None, description="Random seed for stochastic modes (e.g. DARE)")
     memo: Optional[str] = Field(None, description="Custom metadata note baked into output")
+
+    @field_validator('mode')
+    @classmethod
+    def _check_mode(cls, v: str) -> str:
+        if v.upper() not in _VALID_MERGE_MODES:
+            raise ValueError(f"Invalid merge mode: {v!r}. Valid modes: {', '.join(sorted(_VALID_MERGE_MODES))}")
+        return v.upper()
+
+    @field_validator('model_0', 'model_1')
+    @classmethod
+    def _check_model_filenames(cls, v: str, info) -> str:
+        return _reject_path_separators(v, str(info.field_name))
+
+    @field_validator('model_2')
+    @classmethod
+    def _check_model_2(cls, v: Optional[str], info) -> Optional[str]:
+        if v is not None:
+            return _reject_path_separators(v, str(info.field_name))
+        return v
 
 
 class CheckpointAdvancedMergeResponse(BaseModel):

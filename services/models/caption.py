@@ -3,7 +3,17 @@ Pydantic models for caption editing operations.
 """
 
 from typing import Literal, Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _validate_caption_ext(v: str) -> str:
+    """Reject caption extensions with path separators or traversal sequences."""
+    if not (v.startswith('.') and len(v) > 1 and v[1:].replace('-', '').replace('_', '').isalnum()):
+        raise ValueError(
+            f"Invalid caption_extension '{v}': must start with '.' and contain "
+            "only letters, digits, hyphens, or underscores (e.g. '.txt', '.caption')"
+        )
+    return v
 
 
 class CaptionFile(BaseModel):
@@ -21,12 +31,22 @@ class AddTriggerWordRequest(BaseModel):
     position: Literal["start", "end"] = "start"
     caption_extension: str = Field(".txt", description="Caption file extension")
 
+    @field_validator('caption_extension')
+    @classmethod
+    def _check_ext(cls, v: str) -> str:
+        return _validate_caption_ext(v)
+
 
 class RemoveTagsRequest(BaseModel):
     """Request to remove tags from captions."""
     dataset_dir: str = Field(..., description="Dataset directory path")
     tags_to_remove: List[str] = Field(..., min_length=1, description="Tags to remove")
     caption_extension: str = Field(".txt", description="Caption file extension")
+
+    @field_validator('caption_extension')
+    @classmethod
+    def _check_ext(cls, v: str) -> str:
+        return _validate_caption_ext(v)
 
 
 class ReplaceTextRequest(BaseModel):
@@ -37,11 +57,21 @@ class ReplaceTextRequest(BaseModel):
     caption_extension: str = Field(".txt", description="Caption file extension")
     use_regex: bool = Field(False, description="Use regex pattern matching")
 
+    @field_validator('caption_extension')
+    @classmethod
+    def _check_ext(cls, v: str) -> str:
+        return _validate_caption_ext(v)
+
 
 class ReadCaptionRequest(BaseModel):
     """Request to read a single caption."""
     image_path: str = Field(..., description="Path to image file")
     caption_extension: str = Field(".txt", description="Caption file extension")
+
+    @field_validator('caption_extension')
+    @classmethod
+    def _check_ext(cls, v: str) -> str:
+        return _validate_caption_ext(v)
 
 
 class WriteCaptionRequest(BaseModel):
@@ -49,6 +79,11 @@ class WriteCaptionRequest(BaseModel):
     image_path: str = Field(..., description="Path to image file")
     caption_text: str = Field(..., description="Caption content")
     caption_extension: str = Field(".txt", description="Caption file extension")
+
+    @field_validator('caption_extension')
+    @classmethod
+    def _check_ext(cls, v: str) -> str:
+        return _validate_caption_ext(v)
 
 
 class CaptionOperationResponse(BaseModel):
