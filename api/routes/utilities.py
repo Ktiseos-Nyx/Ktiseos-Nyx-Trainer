@@ -144,7 +144,7 @@ async def calculate_steps(request: CalculatorRequest):
         try:
             dataset_path = validate_path_within(dataset_path, [DATASETS_DIR])
         except ValidationError:
-            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
+            raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories") from None
 
         if not dataset_path.exists():
             raise HTTPException(status_code=404, detail=f"Dataset path does not exist: {dataset_path}")

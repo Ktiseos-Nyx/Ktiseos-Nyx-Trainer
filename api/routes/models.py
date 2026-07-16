@@ -3,6 +3,7 @@ API routes for model and VAE downloads.
 """
 
 import logging
+from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
