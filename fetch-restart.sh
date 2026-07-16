@@ -53,9 +53,9 @@ fi
 
 # ----------------------------------------------------------------
 # Step 2.5: Backend Python deps + torchaudio (cloud only)
-# A plain restart skips what installer.py / vastai_setup.sh do at first provision. This picks up
-# new/changed pins from the pulled requirements (requirements_cloud.txt -> -r requirements_base.txt,
-# e.g. a torchao bump) and re-matches torchaudio to the box's CUDA so ComfyUI can import it.
+# Detects whether requirements changed (hash check) rather than
+# force-reinstalling every fetch.  Also skips torchaudio reinstall
+# when the already-installed wheel is the correct cu126 build.
 # ----------------------------------------------------------------
 if [ -d "/workspace" ]; then
     if [ -f /venv/main/bin/activate ]; then
@@ -63,17 +63,39 @@ if [ -d "/workspace" ]; then
         source /venv/main/bin/activate
     fi
     _req="requirements_cloud.txt"; [ -f "$_req" ] || _req="requirements.txt"
-    echo ""
-    echo "📦 Updating backend Python deps from $_req ..."
-    python -m pip install -r "$_req" || echo "⚠️  backend dep update had issues (non-fatal)"
+    _hash_file="/workspace/.fetch_restart_req_hash"
+    _req_hash=$(sha256sum "$_req" | cut -d' ' -f1)
+    _stored_hash=""
+    [ -f "$_hash_file" ] && _stored_hash=$(cat "$_hash_file")
 
-    # Re-match torchaudio to the box's CUDA so ComfyUI can import it. The host's newer CUDA leaves
-    # torchaudio as a cu13 build (wants libcudart.so.13) that won't load against our cu126 torch.
-    # Pin to the cu126 wheel (works on any 12.x box). --no-deps because torchaudio hard-pins `torch==`
-    # and would otherwise downgrade torch. Mirrors the inline copy in vastai_setup.sh (pre-clone).
-    echo "🔊 Re-matching torchaudio to cu126..."
-    pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
-        || echo "⚠️  cu126 torchaudio reinstall failed (non-fatal)"
+    echo ""
+    if [ "$_req_hash" != "$_stored_hash" ]; then
+        echo "📦 requirements changed — installing from $_req ..."
+        python -m pip install -r "$_req" && echo "$_req_hash" > "$_hash_file" \
+            || echo "⚠️  backend dep update had issues (non-fatal) — will retry on next fetch"
+    else
+        echo "✅ requirements unchanged — skipping pip install"
+    fi
+
+    # Re-match torchaudio to the box's CUDA so ComfyUI can import it. Only
+    # reinstalls if the installed wheel is missing or not the cu126 variant.
+    echo "🔊 Checking torchaudio CUDA variant..."
+    _ta_info=$(pip show torchaudio 2>/dev/null || true)
+    _needs_reinstall=false
+    if [ -z "$_ta_info" ]; then
+        echo "   torchaudio not installed — will install cu126 wheel"
+        _needs_reinstall=true
+    elif ! echo "$_ta_info" | grep -q 'Version:.*+cu126'; then
+        _ta_ver=$(echo "$_ta_info" | grep "^Version:" | awk '{print $2}')
+        echo "   torchaudio $_ta_ver is not cu126 — replacing"
+        _needs_reinstall=true
+    else
+        echo "   torchaudio already cu126 — skipping"
+    fi
+    if [ "$_needs_reinstall" = true ]; then
+        pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
+            || echo "⚠️  cu126 torchaudio reinstall failed (non-fatal)"
+    fi
 fi
 
 # ----------------------------------------------------------------

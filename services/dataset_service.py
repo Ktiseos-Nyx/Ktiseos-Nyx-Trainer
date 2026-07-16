@@ -171,37 +171,36 @@ class DatasetService:
             raise NotFoundError(f"Dataset not found: {dataset_name}")
 
         files = []
-        image_count = 0
-
         for entry in sorted(dataset_path.iterdir(), key=lambda p: p.name):
             file_info = self._get_file_info(entry)
             files.append(file_info)
 
-            if file_info.is_image:
-                image_count += 1
-
+        info = await self._get_dataset_info(dataset_path)
         return DatasetFilesResponse(
             dataset_name=dataset_name,
             files=files,
             total_files=len(files),
-            total_images=image_count
+            total_images=info.image_count
         )
 
     async def _get_dataset_info(self, dataset_path: Path) -> DatasetInfo:
         """Get metadata for a dataset directory."""
-        image_count = 0
-        caption_count = 0
-        total_size = 0
+        import asyncio
 
-        # Count files
-        for entry in dataset_path.iterdir():
-            if entry.is_file():
-                total_size += entry.stat().st_size
+        def _count_sync() -> tuple[int, int, int]:
+            image_count = 0
+            caption_count = 0
+            total_size = 0
+            for entry in dataset_path.rglob("*"):
+                if entry.is_file():
+                    total_size += entry.stat().st_size
+                    if entry.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS:
+                        image_count += 1
+                    elif entry.suffix.lower() == '.txt':
+                        caption_count += 1
+            return image_count, caption_count, total_size
 
-                if entry.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS:
-                    image_count += 1
-                elif entry.suffix.lower() == '.txt':
-                    caption_count += 1
+        image_count, caption_count, total_size = await asyncio.to_thread(_count_sync)
 
         # Get timestamps
         stat = dataset_path.stat()
