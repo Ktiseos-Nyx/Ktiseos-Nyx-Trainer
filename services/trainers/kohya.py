@@ -7,6 +7,7 @@ Implements BaseTrainer for Kohya's sd-scripts training framework.
 import asyncio
 import logging
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -56,6 +57,10 @@ class KohyaTrainer(BaseTrainer):
             p = self.project_root / p
         return p.resolve()
 
+    def _safe_project_name(self) -> str:
+        """Sanitize project_name for use in filenames and command-line arguments."""
+        return re.sub(r'[^a-zA-Z0-9_\-]', '_', self.config.project_name)
+
     async def start_training(self):
         """
         Launch Kohya training using AsyncIO (Required for JobManager compatibility).
@@ -72,8 +77,8 @@ class KohyaTrainer(BaseTrainer):
         config_dir = self.project_root / "config"
         config_dir.mkdir(exist_ok=True)
 
-        dataset_toml = config_dir / f"{self.config.project_name}_dataset.toml"
-        config_toml = config_dir / f"{self.config.project_name}_config.toml"
+        dataset_toml = config_dir / f"{self._safe_project_name()}_dataset.toml"
+        config_toml = config_dir / f"{self._safe_project_name()}_config.toml"
 
         self.toml_generator.generate_dataset_toml(dataset_toml)
         self.toml_generator.generate_config_toml(config_toml)
@@ -89,7 +94,7 @@ class KohyaTrainer(BaseTrainer):
             "--output_dir",
             str(self._resolved_output_dir()),
             "--output_name",
-            self.config.project_name,
+            self._safe_project_name(),
         ]
 
         # Chroma uses Flux scripts but needs --model_type chroma to switch behavior
@@ -237,8 +242,8 @@ class KohyaTrainer(BaseTrainer):
         config_dir = self.project_root / "config"
         config_dir.mkdir(exist_ok=True)
 
-        dataset_toml = config_dir / f"{self.config.project_name}_dataset.toml"
-        config_toml = config_dir / f"{self.config.project_name}_config.toml"
+        dataset_toml = config_dir / f"{self._safe_project_name()}_dataset.toml"
+        config_toml = config_dir / f"{self._safe_project_name()}_config.toml"
 
         self.toml_generator.generate_dataset_toml(dataset_toml)
         self.toml_generator.generate_config_toml(config_toml)
@@ -257,8 +262,8 @@ class KohyaTrainer(BaseTrainer):
         """
         # Get config file paths (they should exist from generate_config_files)
         user_config_dir = self.project_root / "config"
-        dataset_toml_user = user_config_dir / f"{self.config.project_name}_dataset.toml"
-        config_toml_user = user_config_dir / f"{self.config.project_name}_config.toml"
+        dataset_toml_user = user_config_dir / f"{self._safe_project_name()}_dataset.toml"
+        config_toml_user = user_config_dir / f"{self._safe_project_name()}_config.toml"
 
         cmd = [
             sys.executable,
@@ -270,7 +275,7 @@ class KohyaTrainer(BaseTrainer):
             "--output_dir",
             str(self._resolved_output_dir()),
             "--output_name",
-            self.config.project_name,
+            self._safe_project_name(),
         ]
 
         # Chroma uses Flux scripts but needs --model_type chroma to switch behavior

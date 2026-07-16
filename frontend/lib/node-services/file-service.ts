@@ -67,7 +67,7 @@ function isSafePath(userPath: string): boolean {
     const resolvedPath = path.resolve(userPath);
     return ALLOWED_DIRS.some(allowedDir => {
       const resolved = path.resolve(allowedDir);
-      return resolvedPath.startsWith(resolved);
+      return resolvedPath === resolved || resolvedPath.startsWith(resolved + path.sep);
     });
   } catch {
     return false;
@@ -306,7 +306,8 @@ export class FileService {
   async rename(oldPath: string, newName: string): Promise<FileOperationResult> {
     try {
       const validOldPath = validatePath(oldPath);
-      const newPath = path.join(path.dirname(validOldPath), newName);
+      const safeName = path.basename(newName);
+      const newPath = path.join(path.dirname(validOldPath), safeName);
       const validNewPath = validatePath(newPath);
 
       // Check if old path exists
@@ -349,7 +350,8 @@ export class FileService {
   async createDirectory(parentPath: string, dirName: string): Promise<FileOperationResult> {
     try {
       const validParentPath = validatePath(parentPath);
-      const newDirPath = path.join(validParentPath, dirName);
+      const safeName = path.basename(dirName);
+      const newDirPath = path.join(validParentPath, safeName);
       const validNewPath = validatePath(newDirPath);
 
       // Check if directory already exists

@@ -235,7 +235,8 @@ class CaptionService:
             CaptionReadResponse with caption content
         """
         try:
-            image_path = Path(request.image_path)
+            from services.core.validation import validate_image_path
+            image_path = validate_image_path(request.image_path)
             caption_path = image_path.with_suffix(request.caption_extension)
 
             if caption_path.exists():
@@ -277,7 +278,8 @@ class CaptionService:
             CaptionOperationResponse
         """
         try:
-            image_path = Path(request.image_path)
+            from services.core.validation import validate_image_path
+            image_path = validate_image_path(request.image_path)
             caption_path = image_path.with_suffix(request.caption_extension)
 
             # Ensure parent directory exists

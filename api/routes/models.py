@@ -198,7 +198,7 @@ async def delete_model_or_vae(file_type: str, file_name: str):
                 detail="Invalid file_type. Must be 'model', 'vae', or 'lora'"
             )
 
-        file_path = target_dir / file_name
+        file_path = target_dir / Path(file_name).name
 
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="File not found")
