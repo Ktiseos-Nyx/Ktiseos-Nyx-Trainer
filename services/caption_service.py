@@ -188,11 +188,15 @@ class CaptionService:
 
                     # Replace text
                     if request.use_regex:
-                        new_caption = re.sub(
-                            request.find_text,
-                            request.replace_text,
-                            caption_text
-                        )
+                        try:
+                            new_caption = re.sub(
+                                request.find_text,
+                                request.replace_text,
+                                caption_text
+                            )
+                        except re.error as e:
+                            errors.append(f"{caption_file.name}: invalid regex: {e}")
+                            continue
                     else:
                         new_caption = caption_text.replace(
                             request.find_text,
