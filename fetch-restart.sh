@@ -71,8 +71,8 @@ if [ -d "/workspace" ]; then
     echo ""
     if [ "$_req_hash" != "$_stored_hash" ]; then
         echo "📦 requirements changed — installing from $_req ..."
-        python -m pip install -r "$_req" || echo "⚠️  backend dep update had issues (non-fatal)"
-        echo "$_req_hash" > "$_hash_file"
+        python -m pip install -r "$_req" && echo "$_req_hash" > "$_hash_file" \
+            || echo "⚠️  backend dep update had issues (non-fatal) — will retry on next fetch"
     else
         echo "✅ requirements unchanged — skipping pip install"
     fi
