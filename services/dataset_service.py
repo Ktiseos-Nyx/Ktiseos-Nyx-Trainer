@@ -279,7 +279,7 @@ class DatasetService:
                     return None, f"{file.filename}: Invalid file type - only images allowed"
 
                 # Save file with streaming (1MB chunks)
-                destination = dataset_path / file.filename
+                destination = dataset_path / file_path.name
                 with open(destination, 'wb') as f:
                     while chunk := await file.read(1024 * 1024):  # 1MB chunks
                         f.write(chunk)
@@ -423,6 +423,8 @@ class DatasetService:
                     content_disp = response.headers.get("Content-Disposition", "")
                     if "filename=" in content_disp:
                         filename = content_disp.split("filename=")[-1].strip("\"'")
+                    # Strip directory components to prevent traversal
+                    filename = Path(filename).name
 
                     is_zip = filename.lower().endswith(".zip") or response.headers.get("Content-Type", "").endswith(
                         "zip"

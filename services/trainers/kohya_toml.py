@@ -6,6 +6,7 @@ Generates FLAT toml files compatible with sd-scripts train_network.py variants.
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict
 
@@ -506,7 +507,7 @@ class KohyaTOMLGenerator:
             "pretrained_model_name_or_path": str(Path(self.config.pretrained_model_name_or_path).resolve().as_posix()),
             # "train_batch_size": self.config.train_batch_size, # Often handled in dataset.toml, but safe to keep here too
             "output_dir": str(Path(self.config.output_dir).resolve().as_posix()),
-            "output_name": self.config.output_name,
+            "output_name": re.sub(r'[^a-zA-Z0-9_\-\.]', '_', self.config.output_name),
             "seed": self.config.seed,
             "unet_lr": self.config.unet_lr,
             "text_encoder_lr": self.config.text_encoder_lr,

@@ -142,15 +142,15 @@ async def calculate_steps(request: CalculatorRequest):
 
         # Security: confine to datasets directory
         try:
-            validate_path_within(dataset_path, [DATASETS_DIR])
+            dataset_path = validate_path_within(dataset_path, [DATASETS_DIR])
         except ValidationError:
             raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
 
-        if not os.path.exists(dataset_path):
+        if not dataset_path.exists():
             raise HTTPException(status_code=404, detail=f"Dataset path does not exist: {dataset_path}")
 
         # Extract Kohya parameters from folder name
-        folder_name = os.path.basename(dataset_path)
+        folder_name = dataset_path.name
         repeats, caption = extract_kohya_params(folder_name)
 
         # Count images in dataset
