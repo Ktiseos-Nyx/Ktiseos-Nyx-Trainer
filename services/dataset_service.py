@@ -171,14 +171,14 @@ class DatasetService:
             raise NotFoundError(f"Dataset not found: {dataset_name}")
 
         files = []
-        image_count = 0
+        image_count = sum(
+            1 for f in dataset_path.rglob("*")
+            if f.is_file() and f.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
+        )
 
         for entry in sorted(dataset_path.iterdir(), key=lambda p: p.name):
             file_info = self._get_file_info(entry)
             files.append(file_info)
-
-            if file_info.is_image:
-                image_count += 1
 
         return DatasetFilesResponse(
             dataset_name=dataset_name,
@@ -193,8 +193,7 @@ class DatasetService:
         caption_count = 0
         total_size = 0
 
-        # Count files
-        for entry in dataset_path.iterdir():
+        for entry in dataset_path.rglob("*"):
             if entry.is_file():
                 total_size += entry.stat().st_size
 
