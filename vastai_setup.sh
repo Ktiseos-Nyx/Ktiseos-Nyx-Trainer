@@ -8,7 +8,7 @@
 
 provisioning_start() {
     echo "=========================================="
-    echo "🚀 Ktiseos-Nyx-Trainer Setup Starting..."
+    echo "🚀 AI Ecosystem Setup Starting..."
     echo "=========================================="
 
     # Ensure proper environment setup for VastAI
