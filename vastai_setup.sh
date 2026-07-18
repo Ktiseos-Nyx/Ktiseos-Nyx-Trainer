@@ -8,7 +8,7 @@
 
 provisioning_start() {
     echo "=========================================="
-    echo "🚀 Ktiseos-Nyx-Trainer Setup Starting..."
+    echo "🚀 AI Ecosystem Setup Starting..."
     echo "=========================================="
 
     # Ensure proper environment setup for VastAI
@@ -32,6 +32,8 @@ provisioning_start() {
     # fetch-restart.sh (this copy runs pre-clone; the restart path re-runs the same line) -- keep in sync.
     pip install --force-reinstall --no-deps torchaudio --index-url https://download.pytorch.org/whl/cu126 \
         || echo "[setup] cu126 torchaudio reinstall failed (non-fatal)"
+
+    # ToDO: Re=fit this with a matching "Check if torch audio for ComfyUI is installed for the Cuda wheel" and then "IF NOT: reinstall" to avoid conflicting installs. 
 
     # Check for python and ensure it's available
     if ! command -v python &> /dev/null; then
@@ -274,7 +276,8 @@ EOL
         # Give services a moment to start
         sleep 5
 
-        # Check if services started
+        # Check if services started 
+        # ToDO: this doesn't actually work, it auto says 'NO IT DIDNT WORK" so we should fix this. Or someone cuz the OG dev dont care.
         if supervisorctl status ktiseos-nyx | grep -q RUNNING; then
             echo "   ✅ Services started successfully!"
         else

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ktiseos-Nyx-Trainer Diagnostic Tool
+Diagnostic Tool
 Collects comprehensive system information for troubleshooting installation issues.
 
 Usage: python diagnose.py

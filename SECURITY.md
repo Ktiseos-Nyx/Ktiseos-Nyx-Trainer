@@ -1,6 +1,6 @@
 # Security Policy
 
-This document outlines our security practices and procedures for the Ktiseos-Nyx-Trainer project.
+This document outlines our security practices and procedures for the WebUI Ecosystem Trainer project.
 
 ## Security Scope
 
@@ -72,11 +72,6 @@ The system downloads and executes content from external sources:
 - **Tagging/Captioning**: ONNX model inference for WD14 tagging and BLIP/GIT captioning
 - **System Commands**: File extraction, model downloads, and training subprocess management
 
-### VastAI Deployment Considerations
-- **Shared GPU Hosts**: Training runs on shared infrastructure; isolate sensitive data
-- **Exposed Ports**: Frontend and API ports are publicly accessible via VastAI proxy URLs
-- **Ephemeral Instances**: Training outputs should be downloaded before instance termination
-- **Auto-Provisioning**: `vastai_setup.sh` installs dependencies and starts services automatically
 
 ## User Security Responsibilities
 

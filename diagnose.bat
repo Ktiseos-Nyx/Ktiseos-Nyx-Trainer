@@ -1,9 +1,9 @@
 @echo off
-title Ktiseos-Nyx-Trainer Diagnostics
+title Diagnostics
 
 echo.
 echo ======================================================================
-echo Ktiseos-Nyx-Trainer Diagnostic Tool
+echo Diagnostic Tool
 echo ======================================================================
 echo.
 echo This tool will collect system information to help troubleshoot
