@@ -16,7 +16,7 @@ python install_frontend.py --force
 
 echo ""
 echo "🔁 Restarting services..."
-supervisorctl restart ktiseos-nyx
+supervisorctl restart ecosystem
 supervisorctl restart comfyui
 
 echo ""

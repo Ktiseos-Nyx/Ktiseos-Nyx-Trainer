@@ -28,8 +28,8 @@ chmod +x /opt/supervisor-scripts/comfyui.sh
 echo "✅ Created /opt/supervisor-scripts/comfyui.sh"
 
 # Only append if the [program:comfyui] block isn't already there
-if ! grep -q '\[program:comfyui\]' /etc/supervisor/conf.d/ktiseos-nyx.conf 2>/dev/null; then
-    cat >> /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOF'
+if ! grep -q '\[program:comfyui\]' /etc/supervisor/conf.d/ecosystem.conf 2>/dev/null; then
+    cat >> /etc/supervisor/conf.d/ecosystem.conf << 'EOF'
 
 [program:comfyui]
 command=/opt/supervisor-scripts/comfyui.sh

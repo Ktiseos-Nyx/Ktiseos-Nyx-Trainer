@@ -142,7 +142,7 @@ provisioning_start() {
 
     mkdir -p /opt/supervisor-scripts
 
-    cat > /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+    cat > /opt/supervisor-scripts/ecosystem.sh << 'EOL'
 #!/bin/bash
 source /venv/main/bin/activate 2>/dev/null || true
 
@@ -178,7 +178,7 @@ sleep 2
 EOL
 
     if [ "$FRONTEND_ENABLED" = "1" ]; then
-        cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+        cat >> /opt/supervisor-scripts/ecosystem.sh << 'EOL'
 
 echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/supervisor.log
 cd frontend || exit 1
@@ -187,12 +187,12 @@ FRONTEND_PID=$!
 EOL
     fi
 
-    cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+    cat >> /opt/supervisor-scripts/ecosystem.sh << 'EOL'
 
 wait $BACKEND_PID ${FRONTEND_PID:+$FRONTEND_PID}
 EOL
 
-    chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
+    chmod +x /opt/supervisor-scripts/ecosystem.sh
 
     # ComfyUI gets its own supervisor process so backend/frontend restarts
     # don't kill it (and force a full model-reload).
@@ -214,9 +214,9 @@ EOL
 
     chmod +x /opt/supervisor-scripts/comfyui.sh
 
-    cat > /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOL'
-[program:ktiseos-nyx]
-command=/opt/supervisor-scripts/ktiseos-nyx.sh
+    cat > /etc/supervisor/conf.d/ecosystem.conf << 'EOL'
+[program:ecosystem]
+command=/opt/supervisor-scripts/ecosystem.sh
 directory=/workspace/Ecosystem_WebUI
 autostart=true
 autorestart=true
@@ -256,10 +256,10 @@ EOL
         supervisorctl reread
         supervisorctl update
         sleep 5
-        if supervisorctl status ktiseos-nyx | grep -q RUNNING; then
-            echo "   ✅ ktiseos-nyx started successfully!"
+        if supervisorctl status ecosystem | grep -q RUNNING; then
+            echo "   ✅ ecosystem started successfully!"
         else
-            echo "   ⚠️  ktiseos-nyx may not have started - check logs"
+            echo "   ⚠️  ecosystem may not have started - check logs"
         fi
         if supervisorctl status comfyui | grep -q RUNNING; then
             echo "   ✅ comfyui started successfully!"
@@ -286,14 +286,14 @@ EOL
     echo ""
     echo "🔧 Manual service control:"
     echo "   - Restart all:    supervisorctl restart all"
-    echo "   - Restart app:    supervisorctl restart ktiseos-nyx"
+    echo "   - Restart app:    supervisorctl restart ecosystem"
     echo "   - Restart ComfyUI: supervisorctl restart comfyui"
     echo "   - Status:         supervisorctl status"
     echo ""
     echo "🔄 Pull latest dev changes:"
     echo "   cd /workspace/Ecosystem_WebUI && git pull origin dev"
     echo "   python install_frontend.py --force"
-    echo "   supervisorctl restart ktiseos-nyx"
+    echo "   supervisorctl restart ecosystem"
     echo ""
 }
 

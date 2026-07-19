@@ -29,8 +29,8 @@ if [ -d "/workspace" ] && command -v supervisorctl &>/dev/null; then
     # VastAI / RunPod: let supervisor own the full restart
     # Avoids broad pkill patterns that can kill VastAI's portal processes
     # ----------------------------------------------------------------
-    echo "🔄 Restarting via supervisorctl (ktiseos-nyx)..."
-    supervisorctl restart ktiseos-nyx
+    echo "🔄 Restarting via supervisorctl (ecosystem)..."
+    supervisorctl restart ecosystem
 
     echo "⏳ Waiting for services to come up..."
     sleep 10

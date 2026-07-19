@@ -145,7 +145,7 @@ provisioning_start() {
 
     mkdir -p /opt/supervisor-scripts
 
-    cat > /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+    cat > /opt/supervisor-scripts/ecosystem.sh << 'EOL'
 #!/bin/bash
 # Supervisor startup script for Ktiseos-Nyx services
 
@@ -193,7 +193,7 @@ sleep 2
 EOL
 
     if [ "$FRONTEND_ENABLED" = "1" ]; then
-        cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+        cat >> /opt/supervisor-scripts/ecosystem.sh << 'EOL'
 
 # Start frontend (using custom server with WebSocket proxy)
 echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/supervisor.log
@@ -203,13 +203,13 @@ FRONTEND_PID=$!
 EOL
     fi
 
-    cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
+    cat >> /opt/supervisor-scripts/ecosystem.sh << 'EOL'
 
 # Wait for backend; also wait for frontend if it was started
 wait $BACKEND_PID ${FRONTEND_PID:+$FRONTEND_PID}
 EOL
 
-    chmod +x /opt/supervisor-scripts/ktiseos-nyx.sh
+    chmod +x /opt/supervisor-scripts/ecosystem.sh
 
     # ComfyUI gets its own supervisor process so backend/frontend restarts
     # don't kill it (and force a full model-reload).
@@ -231,9 +231,9 @@ EOL
 
     chmod +x /opt/supervisor-scripts/comfyui.sh
 
-    cat > /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOL'
-[program:ktiseos-nyx]
-command=/opt/supervisor-scripts/ktiseos-nyx.sh
+    cat > /etc/supervisor/conf.d/ecosystem.conf << 'EOL'
+[program:ecosystem]
+command=/opt/supervisor-scripts/ecosystem.sh
 directory=/workspace/Ecosystem_WebUI
 autostart=true
 autorestart=true
@@ -278,7 +278,7 @@ EOL
 
         # Check if services started 
         # ToDO: this doesn't actually work, it auto says 'NO IT DIDNT WORK" so we should fix this. Or someone cuz the OG dev dont care.
-        if supervisorctl status ktiseos-nyx | grep -q RUNNING; then
+        if supervisorctl status ecosystem | grep -q RUNNING; then
             echo "   ✅ Services started successfully!"
         else
             echo "   ⚠️  Services may not have started - check logs"
@@ -308,10 +308,10 @@ EOL
     echo "   - Supervisor: /workspace/Ecosystem_WebUI/logs/supervisor.log"
     echo ""
     echo "🔧 Manual service control:"
-    echo "   - Restart:  supervisorctl restart ktiseos-nyx"
+    echo "   - Restart:  supervisorctl restart ecosystem"
     echo "   - Status:   supervisorctl status"
-    echo "   - Stop:     supervisorctl stop ktiseos-nyx"
-    echo "   - Start:    supervisorctl start ktiseos-nyx"
+    echo "   - Stop:     supervisorctl stop ecosystem"
+    echo "   - Start:    supervisorctl start ecosystem"
     echo ""
 }
 

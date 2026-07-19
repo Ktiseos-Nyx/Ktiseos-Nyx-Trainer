@@ -107,7 +107,7 @@ echo "🚀 Restarting Services..."
 echo "=========================================="
 
 if [ -d "/workspace" ] && command -v supervisorctl &>/dev/null; then
-    supervisorctl restart ktiseos-nyx
+    supervisorctl restart ecosystem
     supervisorctl restart comfyui || echo "⚠️  comfyui not under supervisor — skipped"
 
     echo "⏳ Waiting for services to come up..."

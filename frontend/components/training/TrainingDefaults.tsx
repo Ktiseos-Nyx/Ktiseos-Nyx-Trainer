@@ -16,7 +16,7 @@ export function TrainingDefaults() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem('ktiseos-nyx-settings')
+        const stored = localStorage.getItem('ecosystem-settings')
         if (stored) {
           const settings = JSON.parse(stored)
           // Only update if value exists in settings
@@ -32,7 +32,7 @@ export function TrainingDefaults() {
 
   const handleSave = () => {
     // Safe to use localStorage here because it only runs on click
-    const stored = localStorage.getItem('ktiseos-nyx-settings')
+    const stored = localStorage.getItem('ecosystem-settings')
     const existingSettings = stored ? JSON.parse(stored) : {}
     const newSettings = {
       ...existingSettings,
@@ -40,7 +40,7 @@ export function TrainingDefaults() {
       defaultBatchSize,
       defaultLearningRate,
     }
-    localStorage.setItem('ktiseos-nyx-settings', JSON.stringify(newSettings))
+    localStorage.setItem('ecosystem-settings', JSON.stringify(newSettings))
     toast.success('Default training settings saved')
   }
 
@@ -50,7 +50,7 @@ export function TrainingDefaults() {
       setDefaultBatchSize(1)
       setDefaultLearningRate(0.0001)
 
-      const stored = localStorage.getItem('ktiseos-nyx-settings')
+      const stored = localStorage.getItem('ecosystem-settings')
       const existingSettings = stored ? JSON.parse(stored) : {}
 
       // Remove specific keys but keep other settings
@@ -58,7 +58,7 @@ export function TrainingDefaults() {
       delete existingSettings.defaultBatchSize
       delete existingSettings.defaultLearningRate
 
-      localStorage.setItem('ktiseos-nyx-settings', JSON.stringify(existingSettings))
+      localStorage.setItem('ecosystem-settings', JSON.stringify(existingSettings))
     }
   }
 
