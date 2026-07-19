@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ktiseos-Nyx-Trainer - Backend Dependency Installer
+Ecosystem - Backend Dependency Installer
 Installs training dependencies (Kohya SS, LyCORIS, ONNX, etc.)
 Enhanced with comprehensive logging and platform-specific fixes
 """
@@ -686,7 +686,7 @@ class RemoteInstaller:
         self._sync_knx_trainer_models(models_dir)
 
     def _sync_knx_trainer_models(self, models_dir: str) -> None:
-        """Sync the curated KNX-Trainer-Models repo into ComfyUI/models.
+        """Sync the curated Ecosystem-Models repo into ComfyUI/models.
 
         The repo's top-level folders (vae, upscale_models, ultralytics/bbox,
         ultralytics/segm) mirror ComfyUI's model dirs, so the allow_patterns map
@@ -702,10 +702,10 @@ class RemoteInstaller:
             self.logger.warning("huggingface_hub unavailable for KNX-Trainer-Models sync: %s", exc)
             return
 
-        print("   ⬇️  Syncing KNX-Trainer-Models (VAEs, upscalers, detailers)...")
+        print("   ⬇️  Syncing Ecosystem-Models (VAEs, upscalers, detailers)...")
         try:
             snapshot_download(
-                repo_id="KtiseosNyx/KNX-Trainer-Models",
+                repo_id="xFutureTechx/Ecosystem-Vae-Yolo-Models",
                 local_dir=models_dir,
                 allow_patterns=[
                     "vae/*", "upscale_models/*",
@@ -713,10 +713,10 @@ class RemoteInstaller:
                 ],
                 ignore_patterns=["*.rar", "README.md", ".gitattributes"],
             )
-            print("   ✅ KNX-Trainer-Models synced into ComfyUI/models")
+            print("   ✅ Ecosystem-Models synced into ComfyUI/models")
             self.logger.info("Synced KNX-Trainer-Models into %s", models_dir)
         except Exception as exc:
-            print(f"   ⚠️  KNX-Trainer-Models sync failed (non-fatal): {exc}")
+            print(f"   ⚠️  Ecosystem-Models sync failed (non-fatal): {exc}")
             self.logger.warning("Failed to sync KNX-Trainer-Models: %s", exc)
 
     def apply_special_fixes_and_installs(self):
@@ -873,7 +873,7 @@ class RemoteInstaller:
 def main():
     """Main entry point with argument parsing"""
     parser = argparse.ArgumentParser(
-        description="Ktiseos-Nyx-Trainer - Backend Dependency Installer",
+        description="Ecosystem Backend Dependency Installer",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
