@@ -238,6 +238,6 @@ When contributing to this project, please ensure:
 ---
 
 **Last Updated:** 2026-07-07
-**Maintained By:** Ktiseos-Nyx / Under Rug Swept Misfits
+**Maintained By:** Ecosystem / Under Rug Swept Misfits
 
 If you believe any attribution is missing or incorrect, please open an issue or pull request.

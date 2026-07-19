@@ -159,7 +159,6 @@ Security updates are provided for:
 
 - **Security Issues**: [GitHub Security Advisories](https://github.com/UselessToys/Ecosystem_WebUI/security/advisories/new) (preferred)
 - **General Questions**: [GitHub Issues](https://github.com/UselessToys/Ecosystem_WebUI/issues)
-- **Community Support**: Discord server (see README for current invite)
 
 ---
 
