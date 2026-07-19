@@ -104,7 +104,7 @@ function parseUrl(reqUrl) {
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-console.log('🚀 Starting Ktiseos-Nyx-Trainer Custom Server...');
+console.log('🚀 Starting Ecosystem Custom Server...');
 console.log(`   Environment: ${dev ? 'development' : 'production'}`);
 console.log(`   Frontend: ${hostname}:${port}`);
 console.log(`   Backend: ${backendUrl}`);
@@ -425,7 +425,7 @@ app.prepare().then(() => {
     if (err) throw err;
     console.log('');
     console.log('========================================');
-    console.log('✅ Ktiseos-Nyx-Trainer Ready!');
+    console.log('✅ Ecosystem Ready!');
     console.log('========================================');
     console.log(`🌐 Frontend:  http://${hostname === '0.0.0.0' ? 'localhost' : hostname}:${port}`);
     console.log(`🐍 Backend:   ${backendUrl}`);

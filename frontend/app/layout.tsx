@@ -7,7 +7,7 @@ import { Footer } from "@/components/blocks/navigation/footer";
 import { MeshGradientBackground } from "@/components/ui/mesh-gradient";
 
 export const metadata: Metadata = {
-  title: "Ktiseos-Nyx LoRA Trainer",
+  title: "Ecosystem LoRA Trainer",
   description: "Professional LoRA training with modern web UI",
 };
 

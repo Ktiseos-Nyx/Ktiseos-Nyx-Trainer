@@ -16,10 +16,10 @@ export function Footer() {
                 <Zap className="h-5 w-5 text-white" />
               </div>
               <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent whitespace-nowrap">
-                KNX TRAINER
+                ECOSYSTEM
               </span>
             </div>
-            <p className="whitespace-nowrap">© {currentYear} Ktiseos-Nyx Trainer</p>
+            <p className="whitespace-nowrap">© {currentYear} Ecosystem</p>
             <p className="text-xs mt-1 whitespace-nowrap">
               Licensed under{' '}
               <a
