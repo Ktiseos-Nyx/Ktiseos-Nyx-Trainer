@@ -20,7 +20,7 @@ import torch.nn.functional as F
 
 import os
 from urllib.parse import urlparse
-# KNX compat shim (keep on upstream sync): timm 0.9/1.0 moved hub helpers to the
+# Ecosystem compat shim (keep on upstream sync): timm 0.9/1.0 moved hub helpers to the
 # private _hub module; try modern first, fall back to the 0.6.x path.
 try:  # timm >= 0.9
     from timm.models._hub import download_cached_file

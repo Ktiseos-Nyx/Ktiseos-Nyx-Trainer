@@ -1,8 +1,8 @@
 /**
- * Node map and patch builder for the KNX SDXL template.
+ * Node map and patch builder for the Ecosystem SDXL template.
  *
  * Template: sdxl-knx-v13pt5.json (4 Adetailer chains: face 77, eye 130, hand 146, mouth 152)
- * Author:   KNX (forked from Guy90s's ANIMA workflow)
+ * Author:   Ecosystem (forked from Guy90s's ANIMA workflow)
  * Model:    SDXL / NoobAI-XL (Checkpoint Loader LoraManager)
  *
  * Key difference from the ANIMA template:
@@ -127,7 +127,7 @@ export interface SdxlKnxTemplateParams {
 }
 
 /**
- * Build a patch map for the KNX SDXL template from user parameters.
+ * Build a patch map for the Ecosystem SDXL template from user parameters.
  *
  * Only supplied parameters are patched. Because Upscale and Adetailer are
  * always active in this template, sampler/cfg/steps patches are applied to

@@ -4,7 +4,7 @@
   "model_type": "SDXL",
   "training_type": "checkpoint",
   "is_builtin": true,
-  "source": "KNX",
+  "source": "Ecosystem",
 
   "project_name": "my_checkpoint",
   "pretrained_model_name_or_path": "",

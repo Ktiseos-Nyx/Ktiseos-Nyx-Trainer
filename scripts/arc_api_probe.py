@@ -44,12 +44,12 @@ BASE = "https://arcenciel.io/api"
 UPLOADS_HOST = "uploads.arcenciel.io"
 TIMEOUT = 20
 HEADERS = {
-    # Spec §6.11: identify KNX clearly in the User-Agent.
+    # Spec §6.11: identify the project clearly in the User-Agent.
     "User-Agent": "Ecosystem/arc-probe (+https://github.com/UselessToys/Ecosystem_WebUI)",
     "Accept": "application/json",
 }
 
-# Version fields KNX's adapter will read (spec §6.6). We report which are present
+# Version fields the adapter will read (spec §6.6). We report which are present
 # so a silent Arc rename is caught here rather than at download time.
 EXPECTED_VERSION_FIELDS = [
     "originalName", "fileName", "filePath", "externalDownloadUrl",

@@ -619,7 +619,7 @@ class LocalWindowsInstaller:
             os.makedirs(os.path.join(models_dir, subdir), exist_ok=True)
         self.logger.info("Model subdirectories created under %s", models_dir)
 
-        # Download detection/segmentation models + sync the curated KNX repo.
+        # Download detection/segmentation models + sync the curated models repo.
         self._download_comfyui_models(models_dir)
 
         # Clone required custom nodes (allow_failure=True so one bad node doesn't stop the rest)
@@ -687,10 +687,10 @@ class LocalWindowsInstaller:
         return True
 
     def _download_comfyui_models(self, models_dir: str) -> None:
-        """Download Impact Pack detection/segmentation models + the KNX repo.
+        """Download Impact Pack detection/segmentation models + the models repo.
 
         SAM and the base face detector come from their upstreams (stdlib urllib,
-        no third-party dep); the curated KNX-Trainer-Models repo is synced via
+        no third-party dep); the curated Ecosystem-Models repo is synced via
         _sync_knx_trainer_models. Downloads skip files already present and all
         failures are non-fatal.
         """
@@ -728,7 +728,7 @@ class LocalWindowsInstaller:
         self._sync_knx_trainer_models(models_dir)
 
     def _sync_knx_trainer_models(self, models_dir: str) -> None:
-        """Sync the curated KNX-Trainer-Models repo into ComfyUI/models.
+        """Sync the curated Ecosystem-Models repo into ComfyUI/models.
 
         The repo's top-level folders (vae, upscale_models, ultralytics/bbox,
         ultralytics/segm) mirror ComfyUI's model dirs, so the allow_patterns map
@@ -740,14 +740,14 @@ class LocalWindowsInstaller:
         try:
             from huggingface_hub import snapshot_download
         except ImportError as exc:
-            print(f"   ⚠️  huggingface_hub unavailable — skipping KNX-Trainer-Models sync: {exc}")
-            self.logger.warning("huggingface_hub unavailable for KNX-Trainer-Models sync: %s", exc)
+            print(f"   ⚠️  huggingface_hub unavailable — skipping Ecosystem-Models sync: {exc}")
+            self.logger.warning("huggingface_hub unavailable for Ecosystem-Models sync: %s", exc)
             return
 
-        print("   ⬇️  Syncing KNX-Trainer-Models (VAEs, upscalers, detailers)...")
+        print("   ⬇️  Syncing Ecosystem-Models (VAEs, upscalers, detailers)...")
         try:
             snapshot_download(
-                repo_id="KtiseosNyx/KNX-Trainer-Models",
+                repo_id="KtiseosNyx/Ecosystem-Models",
                 local_dir=models_dir,
                 allow_patterns=[
                     "vae/*", "upscale_models/*",
@@ -755,11 +755,11 @@ class LocalWindowsInstaller:
                 ],
                 ignore_patterns=["*.rar", "README.md", ".gitattributes"],
             )
-            print("   ✅ KNX-Trainer-Models synced into ComfyUI/models")
-            self.logger.info("Synced KNX-Trainer-Models into %s", models_dir)
+            print("   ✅ Ecosystem-Models synced into ComfyUI/models")
+            self.logger.info("Synced Ecosystem-Models into %s", models_dir)
         except Exception as exc:
-            print(f"   ⚠️  KNX-Trainer-Models sync failed (non-fatal): {exc}")
-            self.logger.warning("Failed to sync KNX-Trainer-Models: %s", exc)
+            print(f"   ⚠️  Ecosystem-Models sync failed (non-fatal): {exc}")
+            self.logger.warning("Failed to sync Ecosystem-Models: %s", exc)
 
     # ====================================================
 

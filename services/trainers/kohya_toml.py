@@ -400,7 +400,7 @@ class KohyaTOMLGenerator:
         The vendored CosineAnnealingWarmRestarts / RexAnnealingWarmRestarts take
         `gamma` as a REQUIRED positional arg and expect `first_cycle_max_steps`
         (per-cycle length in steps), NOT a cycle count. derrian's colab backend
-        injects these via utils/validation.validate_restarts; KNX writes the TOML
+        injects these via utils/validation.validate_restarts; the trainer writes the TOML
         directly and bypasses that path, so we replicate the derivation here
         (first_cycle_max_steps = total_steps // num_cycles). Without it the class
         raises "missing 1 required positional argument: 'gamma'".

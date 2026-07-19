@@ -2,9 +2,9 @@
 
 ---
 
-| Python | License | Deploy | Discord | Quality |
+| Python | License | Deploy | Quality |
 |---|---|---|---|---|
-| ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Docker Image](https://img.shields.io/badge/Docker-VastAI%20PyTorch-FF6B6B?style=for-the-badge&logo=docker)](https://hub.docker.com/r/vastai/pytorch/) [![Deploy on RunPod](https://img.shields.io/badge/Deploy-RunPod-673AB7?style=for-the-badge&logo=runpod)](https://console.runpod.io/deploy?template=2kkfdbmlcc&ref=yx1lcptf) | [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/HhBSM9gBY) | [![DeepScan grade](https://deepscan.io/api/teams/29397/projects/31347/branches/1015145/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=29397&pid=31347&bid=1015145) |
+| ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Docker Image](https://img.shields.io/badge/Docker-VastAI%20PyTorch-FF6B6B?style=for-the-badge&logo=docker)](https://hub.docker.com/r/vastai/pytorch/) [![Deploy on RunPod](https://img.shields.io/badge/Deploy-RunPod-673AB7?style=for-the-badge&logo=runpod)](https://console.runpod.io/deploy?template=2kkfdbmlcc&ref=yx1lcptf) | [![DeepScan grade](https://deepscan.io/api/teams/29397/projects/31347/branches/1015145/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=29397&pid=31347&bid=1015145) |
 
 ---
 
@@ -217,7 +217,6 @@ New tests go in `tests/`. Tests requiring a real GPU: mark with `@pytest.mark.sl
 ## Support
 
 - [GitHub Issues](https://github.com/UselessToys/Ecosystem_WebUI/issues) — bug reports and feature requests
-- [Discord](https://discord.gg/HhBSM9gBY) — community support
 
 When reporting a bug, include error messages, logs (`logs/app_YYYYMMDD.log`), and the output of:
 ```bat

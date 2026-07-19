@@ -70,7 +70,7 @@ Accretes over time. Verdict = `Fork` / `Workflow` / `Native` / `TBD`.
 
 | Capability | Verdict | Rationale | Cost / Risk | Status |
 |---|---|---|---|---|
-| **LoRA Manager** (`willmiao/ComfyUI-Lora-Manager`, GPL-3.0) | **Fork** | Not a node — a standalone React app at `/loras` with its own Civitai pipeline, downloads, metadata DB, recipes. Fork to (a) fix the metadata cache bug, (b) merge Civitai downloading into the KNX UI. | Active upstream (moves fast — updated hours apart). Backend-only patch merges clean ~forever; **UI reflow = perpetual merge war**. Clone-at-install ⇒ fork-by-URL, not in-tree patch. | **Deferred / scoping.** Not today. |
+| **LoRA Manager** (`willmiao/ComfyUI-Lora-Manager`, GPL-3.0) | **Fork** | Not a node — a standalone React app at `/loras` with its own Civitai pipeline, downloads, metadata DB, recipes. Fork to (a) fix the metadata cache bug, (b) merge Civitai downloading into the Ecosystem UI. | Active upstream (moves fast — updated hours apart). Backend-only patch merges clean ~forever; **UI reflow = perpetual merge war**. Clone-at-install ⇒ fork-by-URL, not in-tree patch. | **Deferred / scoping.** Not today. |
 | **Background removal (rembg etc.)** | **Workflow** | Pipeline-transform shape — mature nodes already exist (BRIA RMBG / InspyreNet / rembg families). No fork; template around an existing node. | Low. Verify the current best node when picked up. | Idea / exploring |
 | **Image editing** | **TBD → likely native** | Interactive-canvas axis → leans React/Next. ComfyUI has inpaint + edit-models, but fluid click-drag editing fights the graph paradigm. | Native canvas is real frontend work. | Idea / exploring |
 
@@ -90,7 +90,7 @@ Accretes over time. Verdict = `Fork` / `Workflow` / `Native` / `TBD`.
   library).
 - **Two separable decisions — don't let the cheap one smuggle the expensive one:**
   1. *Cache fix* — small backend change, clean merges. Cheap.
-  2. *Civitai-download UX into KNX* — heavier. **Prefer a thin KNX-side UI that
+  2. *Civitai-download UX into Ecosystem* — heavier. **Prefer a thin Ecosystem-side UI that
      drives LoRA Manager's download API over reflowing its `/loras` app** (avoids
      the merge war; fits "orchestration not ownership"). Reflowing the live React
      app is the costliest form of ownership.
@@ -117,7 +117,7 @@ Accretes over time. Verdict = `Fork` / `Workflow` / `Native` / `TBD`.
   breaks the fast-forward pull). This is the opposite of vendored deps
   (sd-scripts/LyCORIS), which carry an in-tree patch-set.
 - **License:** ComfyUI and most nodes are GPL-3.0. A fork stays GPL-3.0 with
-  source public (it already is). The KNX trainer stays **MIT** — it's a separate
+  source public (it already is). The Ecosystem trainer stays **MIT** — it's a separate
   program talking to ComfyUI over HTTP (aggregation, not a derivative work).
   Attribute any node code we copy/vendor in `ATTRIBUTIONS.md`.
 - **Prefer "drive the API" over "reskin the app"** wherever a forked extension

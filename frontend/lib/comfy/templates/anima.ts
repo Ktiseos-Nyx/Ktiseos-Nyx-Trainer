@@ -2,7 +2,7 @@
  * Node map and patch builder for the ANIMA template.
  *
  * Template: anima-guy90s-v10.json
- * Author:   Guy90 (original), KNX (ported to app)
+ * Author:   Guy90 (original), Ecosystem (ported to app)
  * Model:    ANIMA v10 (AuraFlow + Qwen text encoder)
  *
  * Required custom nodes (COMFY-7):

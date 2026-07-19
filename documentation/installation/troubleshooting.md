@@ -91,4 +91,4 @@ bash fetch-restart.sh
 
 ---
 
-*For questions not covered here, open a [GitHub issue](https://github.com/UselessToys/Ecosystem_WebUI/issues) or ask in [Discord](https://discord.gg/HhBSM9gBY).*
+*For questions not covered here, open a [GitHub issue](https://github.com/UselessToys/Ecosystem_WebUI/issues).*
