@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div className="flex-1 flex flex-col">
     <HeroAnimated
-      title="Ktiseos Nyx TRAINER"
+      title="Ecosystem"
       subtitle="Model Training Made Beautiful"
       description="A powerful, web-based training ecosystem for creating AI models. Upload datasets, configure training parameters, and monitor progress—all in one beautiful interface."
       features={[

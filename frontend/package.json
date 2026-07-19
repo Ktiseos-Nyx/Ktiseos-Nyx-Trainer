@@ -1,6 +1,6 @@
 {
-  "name": "ktiseos-nyx-trainer-frontend",
-  "version": "0.1.0",
+  "name": "ecosystem-frontend",
+  "version": "0.3.5.0",
   "private": true,
   "engines": {
     "node": ">=20.19.0"
