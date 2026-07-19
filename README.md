@@ -3,7 +3,7 @@
 ---
 
 | Python | License | Deploy | Quality |
-|---|---|---|---|---|
+|---|---|---|---|
 | ![Python](https://img.shields.io/badge/python-3.10+-blue.svg) | ![License](https://img.shields.io/badge/license-MIT-green.svg) | [![Docker Image](https://img.shields.io/badge/Docker-VastAI%20PyTorch-FF6B6B?style=for-the-badge&logo=docker)](https://hub.docker.com/r/vastai/pytorch/) [![Deploy on RunPod](https://img.shields.io/badge/Deploy-RunPod-673AB7?style=for-the-badge&logo=runpod)](https://console.runpod.io/deploy?template=2kkfdbmlcc&ref=yx1lcptf) | [![DeepScan grade](https://deepscan.io/api/teams/29397/projects/31347/branches/1015145/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=29397&pid=31347&bid=1015145) |
 
 ---
@@ -16,7 +16,6 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 
 ## Table of Contents
 
-- [Status](#status)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Starting the App](#starting-the-app)
