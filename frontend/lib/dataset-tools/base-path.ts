@@ -30,7 +30,7 @@ function findProjectRoot(startDir: string): string {
     const parent = path.dirname(dir);
     if (parent === dir) {
       throw new Error(
-        `Could not locate the Ktiseos-Nyx-Trainer project root (no AGENTS.md + frontend/ found walking up from ${startDir})`,
+        `Could not locate the Ecosystem project root (no AGENTS.md + frontend/ found walking up from ${startDir})`,
       );
     }
     dir = parent;

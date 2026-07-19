@@ -1,19 +1,19 @@
 # pyproject.toml
-# Python project configuration for Ktiseos-Nyx Trainer
+# Python project configuration for Ecosystem
 
 [project]
-name = "ktiseos-nyx-trainer"
-version = "0.1.0"
+name = "ecosystem"
+version = "0.3.5.0"
 description = "Modern web-based AI training interface for cross platform models."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 
 [project.urls]
-Homepage = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer"
-Documentation = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/blob/main/docs"
-Repository = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer"
-Issues = "https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues"
+Homepage = "https://github.com/UselessToys/Ecosystem_WebUI"
+Documentation = "https://github.com/UselessToys/Ecosystem_WebUI/blob/main/docs"
+Repository = "https://github.com/UselessToys/Ecosystem_WebUI"
+Issues = "https://github.com/UselessToys/Ecosystem_WebUI/issues"
 
 # ========== RUFF CONFIGURATION ==========
 [tool.ruff]

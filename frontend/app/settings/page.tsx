@@ -71,7 +71,7 @@ export default function SettingsPage() {
   useEffect(() => {
     // Load UI settings from localStorage
     try {
-      const stored = localStorage.getItem('ktiseos-nyx-settings')
+      const stored = localStorage.getItem('ecosystem-settings')
       if (stored) {
         const settings = JSON.parse(stored)
         // apiUrl is read-only from API_BASE (no setter needed)
@@ -239,7 +239,7 @@ export default function SettingsPage() {
       autoCleanup,
       maxStorageGB,
     }
-    localStorage.setItem('ktiseos-nyx-settings', JSON.stringify(settings))
+    localStorage.setItem('ecosystem-settings', JSON.stringify(settings))
     console.log('Settings saved:', settings)
 
     if (apiKeysSaved) {
@@ -264,7 +264,7 @@ export default function SettingsPage() {
       setRemoteGPU(false)
       setAutoCleanup(false)
       setMaxStorageGB(50)
-      localStorage.removeItem('ktiseos-nyx-settings')
+      localStorage.removeItem('ecosystem-settings')
     }
   }
 

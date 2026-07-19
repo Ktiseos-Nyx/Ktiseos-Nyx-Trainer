@@ -1,11 +1,11 @@
 #!/bin/bash
-# Service Startup Script for Ktiseos-Nyx-Trainer (RunPod)
+# Service Startup Script for Ecosystem (RunPod)
 # Use this to (re)start services WITHOUT re-provisioning.
 #
 # First time? Run provision_runpod.sh instead — it installs everything then starts services.
 #
 # Usage (from Jupyter terminal):
-#   cd /workspace/Ktiseos-Nyx-Trainer && bash start_services_runpod.sh
+#   cd /workspace/Ecosystem_WebUI && bash start_services_runpod.sh
 #
 # Access URLs (once running):
 #   Frontend: https://{POD_ID}-3000.proxy.runpod.net
@@ -15,7 +15,7 @@
 set -e
 
 echo "=========================================="
-echo "  Starting Ktiseos-Nyx-Trainer (RunPod)"
+echo "  Starting Ecosystem (RunPod)"
 echo "=========================================="
 
 # Activate virtual environment

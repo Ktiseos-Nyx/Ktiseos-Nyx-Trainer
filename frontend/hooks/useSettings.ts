@@ -53,7 +53,7 @@ export function useSettings(): AppSettings {
     // Load settings from localStorage on mount
     const loadSettings = () => {
       try {
-        const stored = localStorage.getItem('ktiseos-nyx-settings');
+        const stored = localStorage.getItem('ecosystem-settings');
         if (stored) {
           const parsed = JSON.parse(stored);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });
@@ -67,7 +67,7 @@ export function useSettings(): AppSettings {
 
     // Listen for storage changes (settings updated in another tab)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'ktiseos-nyx-settings' && e.newValue) {
+      if (e.key === 'ecosystem-settings' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           setSettings({ ...DEFAULT_SETTINGS, ...parsed });

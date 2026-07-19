@@ -114,7 +114,7 @@ def check_install_location():
                 issues.append(
                     f"CRITICAL: Installed at OS drive root ({project_str}). "
                     "This can cause UAC permission errors. Move to a user folder like "
-                    f"{os_drive}\\Users\\{os.environ.get('USERNAME', 'YourName')}\\Projects\\Ktiseos-Nyx-Trainer"
+                    f"{os_drive}\\Users\\{os.environ.get('USERNAME', 'YourName')}\\Projects\\Ecosystem"
                 )
             else:
                 drive_letter = parts[0].rstrip("\\")
@@ -122,7 +122,7 @@ def check_install_location():
                     f"INFO: Installed at drive root ({project_str}). "
                     "This is usually fine for non-OS drives. If you hit permission errors, "
                     "try a subfolder like "
-                    f"{drive_letter}\\Projects\\Ktiseos-Nyx-Trainer"
+                    f"{drive_letter}\\Projects\\Ecosystem"
                 )
 
         # Check for Program Files
@@ -510,7 +510,7 @@ def analyze_issues(diagnostics):
 def main():
     """Main diagnostic routine."""
     print("=" * 70)
-    print("Ktiseos-Nyx-Trainer Diagnostic Tool")
+    print("Ecosystem Diagnostic Tool")
     print("=" * 70)
     print()
     print("Collecting system information...")
@@ -559,7 +559,7 @@ def main():
     txt_filename = logs_dir / f"diagnostics_{timestamp}.txt"
     with open(txt_filename, "w", encoding="utf-8") as f:
         f.write("=" * 70 + "\n")
-        f.write("Ktiseos-Nyx-Trainer Diagnostic Report\n")
+        f.write("Ecosystem Diagnostic Report\n")
         f.write("=" * 70 + "\n\n")
         f.write(f"Generated: {diagnostics['timestamp']}\n")
         f.write(f"Platform: {diagnostics['platform']['system']} {diagnostics['platform']['release']}\n")

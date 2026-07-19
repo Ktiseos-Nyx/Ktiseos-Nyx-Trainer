@@ -76,7 +76,7 @@ start_services_local.bat --port 4000 --backend-port 9000
 2. Check VRAM: `nvidia-smi --query-gpu=memory.free,memory.total --format=csv`
 3. Check logs in `logs/app_YYYYMMDD.log`
 4. Run the diagnostic: `diagnose.bat` / `./diagnose.sh`
-5. Open a [GitHub issue](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) with the `diagnostics_*.txt` output
+5. Open a [GitHub issue](https://github.com/UselessToys/Ecosystem_WebUI/issues) with the `diagnostics_*.txt` output
 
 ### VastAI: services not starting after reboot
 
@@ -91,4 +91,4 @@ bash fetch-restart.sh
 
 ---
 
-*For questions not covered here, open a [GitHub issue](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) or ask in [Discord](https://discord.gg/HhBSM9gBY).*
+*For questions not covered here, open a [GitHub issue](https://github.com/UselessToys/Ecosystem_WebUI/issues) or ask in [Discord](https://discord.gg/HhBSM9gBY).*

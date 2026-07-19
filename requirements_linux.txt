@@ -1,4 +1,4 @@
-# Ktiseos-Nyx-Trainer - LINUX REQUIREMENTS
+# Ecosystem - LINUX REQUIREMENTS
 # For local Linux installations with NVIDIA GPU + CUDA 12.1
 # Includes PyTorch with CUDA 12.1 support
 

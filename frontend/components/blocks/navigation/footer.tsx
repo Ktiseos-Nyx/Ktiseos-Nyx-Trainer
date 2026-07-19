@@ -43,7 +43,7 @@ export function Footer() {
           {/* Right: Social Icons */}
           <div className="flex items-center justify-center md:justify-end gap-4">
             <a
-              href="https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/"
+              href="https://github.com/UselessToys/Ecosystem_WebUI/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-purple-600 dark:hover:text-purple-400 transition-colors"

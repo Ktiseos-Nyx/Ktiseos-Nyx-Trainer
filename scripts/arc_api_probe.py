@@ -45,7 +45,7 @@ UPLOADS_HOST = "uploads.arcenciel.io"
 TIMEOUT = 20
 HEADERS = {
     # Spec §6.11: identify KNX clearly in the User-Agent.
-    "User-Agent": "Ktiseos-Nyx-Trainer/arc-probe (+https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer)",
+    "User-Agent": "Ecosystem/arc-probe (+https://github.com/UselessToys/Ecosystem_WebUI)",
     "Accept": "application/json",
 }
 

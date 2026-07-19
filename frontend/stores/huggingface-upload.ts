@@ -67,7 +67,7 @@ const initial: HuggingFaceUploadState = {
   repoName: '',
   repoType: 'model',
   remoteFolder: '',
-  commitMessage: 'Upload via Ktiseos-Nyx-Trainer 🤗',
+  commitMessage: 'Upload via Ecosystem 🤗',
   createPR: false,
   selectedFiles: [],
   availableFiles: [],

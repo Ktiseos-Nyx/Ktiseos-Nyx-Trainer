@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ktiseos-Nyx-Trainer Installation Script for Linux & macOS
+# Ecosystem Installation Script for Linux & macOS
 # Supports interactive venv creation and flag-based automation
 
 set -e
@@ -40,7 +40,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "=========================================="
-echo "Ktiseos-Nyx-Trainer Installation"
+echo "Ecosystem Installation"
 echo "=========================================="
 echo ""
 

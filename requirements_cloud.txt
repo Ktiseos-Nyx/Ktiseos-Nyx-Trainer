@@ -1,4 +1,4 @@
-# Ktiseos-Nyx-Trainer - CLOUD REQUIREMENTS
+# Ecosystem - CLOUD REQUIREMENTS
 # For cloud GPU deployments (VastAI, RunPod).
 #
 # PyTorch is intentionally excluded — provided by the cloud base image.

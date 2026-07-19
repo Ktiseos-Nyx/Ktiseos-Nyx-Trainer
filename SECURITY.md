@@ -22,7 +22,7 @@ This document outlines our security practices and procedures for the WebUI Ecosy
 ## Reporting Security Vulnerabilities
 
 ### Responsible Disclosure Process
-1. **Private Reporting**: Use [GitHub Security Advisories](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/security/advisories/new) for confidential reporting
+1. **Private Reporting**: Use [GitHub Security Advisories](https://github.com/UselessToys/Ecosystem_WebUI/security/advisories/new) for confidential reporting
 2. **Report Details**: Include vulnerability description, reproduction steps, and potential impact assessment
 3. **Response Timeline**: Initial response within 48 hours, resolution target within 7 days
 4. **Public Disclosure**: Coordinated disclosure after fix implementation and testing
@@ -157,8 +157,8 @@ Security updates are provided for:
 
 ## Contact Information
 
-- **Security Issues**: [GitHub Security Advisories](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/security/advisories/new) (preferred)
-- **General Questions**: [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues)
+- **Security Issues**: [GitHub Security Advisories](https://github.com/UselessToys/Ecosystem_WebUI/security/advisories/new) (preferred)
+- **General Questions**: [GitHub Issues](https://github.com/UselessToys/Ecosystem_WebUI/issues)
 - **Community Support**: Discord server (see README for current invite)
 
 ---

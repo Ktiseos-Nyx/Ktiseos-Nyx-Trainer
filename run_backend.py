@@ -24,7 +24,7 @@ import argparse
 import uvicorn
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Ktiseos-Nyx-Trainer Backend")
+    parser = argparse.ArgumentParser(description="Ecosystem Backend")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
     args = parser.parse_args()

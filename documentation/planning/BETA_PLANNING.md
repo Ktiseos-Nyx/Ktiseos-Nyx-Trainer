@@ -1846,7 +1846,7 @@ Kill the "updating the ML backend is a rare edge case" bias. 67372a ships ~weekl
 **(C) Status-quo vendoring — *fallback*.** Just clones, freely patchable, but the staleness/drift is exactly the pain. Keep only if (A) proves too fragile in the de-risk test.
 
 ### 20.4 Wiring smoke-check before flipping main (NOT a referendum on the decision)
-The decision is made — submodule beats vendoring, full stop (it ends the hand-chasing; pinning + shallow make it *less* fragile, not more). This is **not a test of whether the approach works** — it's a one-box confirmation that the **provisioning scripts wire `--recurse-submodules` + `shallow = true` correctly** for both targets (backend fork + ComfyUI) on a real cloud host. We're catching a wiring typo, not re-litigating the approach. The old submodule burn was cloud-execution competence, not the mechanism. Verify GUI-first: read the install log via file-browser/Jupyter (`/workspace/Ktiseos-Nyx-Trainer/logs/`), open the app, run a tiny job — no SSH needed for the happy path.
+The decision is made — submodule beats vendoring, full stop (it ends the hand-chasing; pinning + shallow make it *less* fragile, not more). This is **not a test of whether the approach works** — it's a one-box confirmation that the **provisioning scripts wire `--recurse-submodules` + `shallow = true` correctly** for both targets (backend fork + ComfyUI) on a real cloud host. We're catching a wiring typo, not re-litigating the approach. The old submodule burn was cloud-execution competence, not the mechanism. Verify GUI-first: read the install log via file-browser/Jupyter (`/workspace/Ecosystem/logs/`), open the app, run a tiny job — no SSH needed for the happy path.
 
 ### 20.5 Why staying current matters — what 67372a shipped since our ~2026-05-05 snapshot
 New optimizers (SODA/MODA/AMUSE, AdamWScheduleFreePlus, nor_muon_schedulefree, OCGOptV2, fftdescent); adaptive non-uniform timestep sampling (arXiv:2411.09998); Weight Noising; Latent Wavelet Diffusion masking; `min_snr_gamma_soft` + Min-SNR-gamma for flow-matching models; ICC-aware color (`to_srgb()` replacing `.convert('RGB')`); LyCORIS T-LoRA via LoCon/ortholora; Anima leco + addift; flash-attn guard for < CUDA sm_80; REX scheduler fixes. We're missing all of it.
@@ -1884,7 +1884,7 @@ App currently assumes NVIDIA/CUDA everywhere (local + VastAI + RunPod). Dusk wan
 ## Section 21 — Dataset-Tools Integration & Theme Picker *(captured 2026-07-03)*
 
 ### 21.1 Overview
-Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\Development\Dataset-Tools`) into Ktiseos-Nyx-Trainer. Dataset-Tools is a Next.js 16 app with OKLCH theming, AI image metadata parsing, and SafeTensors inspection — same tech stack as KNX (Next.js 16 + React 19 + shadcn/ui + Tailwind v4).
+Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\Development\Dataset-Tools`) into Ecosystem. Dataset-Tools is a Next.js 16 app with OKLCH theming, AI image metadata parsing, and SafeTensors inspection — same tech stack as KNX (Next.js 16 + React 19 + shadcn/ui + Tailwind v4).
 
 **Cherry-pick, don't port the whole thing.** Dataset-Tools has its own API routes that conflict with KNX's FastAPI backend. Only port components and client-side logic.
 
@@ -1954,4 +1954,4 @@ Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\D
 
 ---
 
-**Document maintained by:** Ktiseos-Nyx-Trainer Project
+**Document maintained by:** Ecosystem Project

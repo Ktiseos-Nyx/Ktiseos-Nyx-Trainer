@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ktiseos-Nyx-Trainer - Local Linux Installer
+Ecosystem - Local Linux Installer
 For local development on Ubuntu/Debian/Fedora with NVIDIA GPU.
 Installs CUDA 12.1 dependencies. Does NOT assume root or cloud environment.
 
@@ -60,7 +60,7 @@ class LocalLinuxInstaller:
 
     def print_banner(self):
         print("=" * 70)
-        print("Ktiseos-Nyx-Trainer - Local Linux Installer")
+        print("Ecosystem - Local Linux Installer")
         print("  For NVIDIA GPU development (CUDA 12.1)")
         print("=" * 70)
 

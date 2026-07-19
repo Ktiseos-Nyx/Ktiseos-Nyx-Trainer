@@ -1,5 +1,5 @@
 #!/bin/bash
-# Service Startup Script for Ktiseos-Nyx-Trainer (Production-Style Local)
+# Service Startup Script for Ecosystem (Production-Style Local)
 # --------------------------------------------------------------------
 # "Homing Pigeon" Logic + UTF-8 Safety for Git Bash / WSL
 # --------------------------------------------------------------------
@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "=========================================="
-echo "🚀 Starting Ktiseos-Nyx-Trainer (Production Mode)..."
+echo "🚀 Starting Ecosystem (Production Mode)..."
 echo "📂 Working Directory: $(pwd)"
 echo "=========================================="
 

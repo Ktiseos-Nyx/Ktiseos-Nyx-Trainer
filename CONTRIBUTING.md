@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Thank you for your interest in contributing to Ktiseos-Nyx-Trainer. This guide outlines our development process and contribution standards.
+Thank you for your interest in contributing to Ecosystem. This guide outlines our development process and contribution standards.
 
 ## Project Architecture
 

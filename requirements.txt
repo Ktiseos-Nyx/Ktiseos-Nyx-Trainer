@@ -1,4 +1,4 @@
-# Ktiseos-Nyx-Trainer - FINAL Cleaned & Consolidated Requirements (CUDA 12.1+ ready)
+# Ecosystem - FINAL Cleaned & Consolidated Requirements (CUDA 12.1+ ready)
 # For cloud GPU hosts (VastAI, RunPod, etc.) where the PyTorch base image already
 # provides torch/torchvision with CUDA 12.1 or newer (cloud templates use 12.4).
 # NOTE: torch and torchvision have been REMOVED as they are provided by the base image.
