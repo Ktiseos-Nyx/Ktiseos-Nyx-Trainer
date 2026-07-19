@@ -65,8 +65,8 @@ MacOS is untested, and likely only works for SILICON not INTEL macs.
 **Install location:** Use a path under your user directory (e.g. `C:\Users\YourName\Projects\`). Paths under `C:\`, `Program Files`, `Program Files (x86)`, `Windows`, network drives, OneDrive, Dropbox, and Google Drive will cause permission errors.
 
 ```bat
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
+git clone https://github.com/UselessToys/Ecosystem_WebUI.git
+cd Ecosystem_WebUI
 install.bat
 ```
 
@@ -94,8 +94,8 @@ The installer:
 **Supported:** Ubuntu 20.04+, Debian 11+, and most systemd distros with NVIDIA GPU. ZLUDA/ROCm untested but community supported. 
 
 ```bash
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
+git clone https://github.com/UselessToys/Ecosystem_WebUI.git
+cd Ecosystem_WebUI
 ./install.sh
 ```
 
@@ -110,8 +110,8 @@ The installer uses `requirements_linux.txt` instead of `requirements_windows.txt
 Training is not supported on macOS — as well as highly untested. 
 
 ```bash
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
+git clone https://github.com/UselessToys/Ecosystem_WebUI.git
+cd Ecosystem_WebUI
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -138,8 +138,8 @@ Start:
 
 
 ```bash
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
+git clone https://github.com/UselessToys/Ecosystem_WebUI.git
+cd Ecosystem_WebUI
 chmod +x vastai_setup.sh
 ./vastai_setup.sh
 ```
@@ -163,8 +163,8 @@ Services are managed by Supervisor and restart automatically after instance rebo
 
 **Manual setup:**
 ```bash
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
+git clone https://github.com/UselessToys/Ecosystem_WebUI.git
+cd Ecosystem_WebUI
 chmod +x provision_runpod.sh
 ./provision_runpod.sh
 ```

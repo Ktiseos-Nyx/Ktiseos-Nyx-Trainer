@@ -2,7 +2,7 @@
 title Ktiseos Nyx Trainer Installer
 
 REM ======================================================================
-REM Windows Installer for Ktiseos-Nyx-Trainer
+REM Windows Installer for Ecosystem
 REM Supports interactive venv creation and flag-based automation
 REM ======================================================================
 

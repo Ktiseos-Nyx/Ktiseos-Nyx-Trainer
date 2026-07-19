@@ -1,4 +1,4 @@
-# Ktiseos-Nyx-Trainer - BASE REQUIREMENTS (Platform-agnostic)
+# Ecosystem - BASE REQUIREMENTS (Platform-agnostic)
 # Shared dependencies for all platforms (Windows, Linux, VastAI)
 # PyTorch is NOT included - see platform-specific requirements files
 

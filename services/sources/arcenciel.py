@@ -29,7 +29,7 @@ ARC_UPLOADS = "https://arcenciel.io/uploads"
 # Hosts a download may be redirected to (passed to the engine's allowlist).
 ARC_REDIRECT_HOSTS = ["arcenciel.io", "uploads.arcenciel.io"]
 HF_REDIRECT_HOSTS = ["huggingface.co", "hf.co"]
-USER_AGENT = "Ktiseos-Nyx-Trainer/arc-adapter (+https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer)"
+USER_AGENT = "Ecosystem/arc-adapter (+https://github.com/UselessToys/Ecosystem_WebUI)"
 TIMEOUT = 20
 
 # Arc model type (on the model) -> our normalized destination category.

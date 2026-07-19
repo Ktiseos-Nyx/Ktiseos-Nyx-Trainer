@@ -1,5 +1,5 @@
 #!/bin/bash
-# Service Startup Script for Ktiseos-Nyx-Trainer (Local Unix)
+# Service Startup Script for Ecosystem (Local Unix)
 # This script activates the virtual environment and starts the backend/frontend.
 #
 # Usage: ./start_services_local.sh [--port 3000] [--backend-port 8000]
@@ -60,7 +60,7 @@ fi
 
 # --- Main Script ---
 echo "=========================================="
-echo "Starting Ktiseos-Nyx-Trainer Services (Local)..."
+echo "Starting Ecosystem Services (Local)..."
 echo "=========================================="
 echo ""
 

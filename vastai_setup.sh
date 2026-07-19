@@ -1,7 +1,7 @@
 #!/bin/bash
-# VastAI Provisioning Script for Ktiseos-Nyx-Trainer
+# VastAI Provisioning Script for Ecosystem
 # This script runs automatically when a VastAI instance starts
-# Set via: PROVISIONING_SCRIPT=https://raw.githubusercontent.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/main/vastai_setup.sh
+# Set via: PROVISIONING_SCRIPT=https://raw.githubusercontent.com/UselessToys/Ecosystem_WebUI/main/vastai_setup.sh
 
 # Note: Removed 'set -e' for more resilient provisioning
 # Critical errors are handled explicitly below
@@ -52,16 +52,16 @@ provisioning_start() {
     git config --file $GIT_CONFIG_GLOBAL --add safe.directory '*'
 
     # Navigate to workspace
-    # Note: When using Docker image, code is already copied into /opt/workspace-internal/Ktiseos-Nyx-Trainer
+    # Note: When using Docker image, code is already copied into /opt/workspace-internal/Ecosystem_WebUI
     # If not using Docker (bare provisioning), clone from GitHub
-    if [ -d "/opt/workspace-internal/Ktiseos-Nyx-Trainer" ]; then
+    if [ -d "/opt/workspace-internal/Ecosystem_WebUI" ]; then
         echo "📂 Using pre-installed code from Docker image..."
         # shellcheck disable=SC2164
-        cd /opt/workspace-internal/Ktiseos-Nyx-Trainer
-    elif [ -d "/workspace/Ktiseos-Nyx-Trainer" ]; then
+        cd /opt/workspace-internal/Ecosystem_WebUI
+    elif [ -d "/workspace/Ecosystem_WebUI" ]; then
         echo "📂 Repository exists in /workspace, pulling latest changes..."
         # shellcheck disable=SC2164
-        cd /workspace/Ktiseos-Nyx-Trainer
+        cd /workspace/Ecosystem_WebUI
         git config --file $GIT_CONFIG_GLOBAL --add safe.directory "$(pwd)"
         PULL_OUTPUT=$(git pull 2>&1)
         PULL_EXIT=$?
@@ -75,9 +75,9 @@ provisioning_start() {
         echo "📥 Cloning repository (fallback for bare provisioning)..."
         # shellcheck disable=SC2164
         cd /workspace
-        git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+        git clone https://github.com/UselessToys/Ecosystem_WebUI.git
         # shellcheck disable=SC2164
-        cd Ktiseos-Nyx-Trainer
+        cd Ecosystem_WebUI
     fi
 
     # Ensure we're using the right Python
@@ -137,7 +137,7 @@ provisioning_start() {
     git config --global --add safe.directory $(pwd)
 
     # Create log directory
-    mkdir -p /workspace/Ktiseos-Nyx-Trainer/logs
+    mkdir -p /workspace/Ecosystem_WebUI/logs
 
     # Create supervisor config for auto-restart
     echo ""
@@ -164,11 +164,11 @@ if ! command -v node &> /dev/null; then
 fi
 
 # Navigate to project directory
-if [ ! -d /workspace/Ktiseos-Nyx-Trainer ]; then
-    echo "[$(date)] ERROR: Project directory not found at /workspace/Ktiseos-Nyx-Trainer" | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
+if [ ! -d /workspace/Ecosystem_WebUI ]; then
+    echo "[$(date)] ERROR: Project directory not found at /workspace/Ecosystem_WebUI" | tee -a /workspace/Ecosystem_WebUI/logs/supervisor.log
     exit 1
 fi
-cd /workspace/Ktiseos-Nyx-Trainer
+cd /workspace/Ecosystem_WebUI
 
 # VastAI's Caddy binds ports 3000/8000 and reverse-proxies to 13000/18000.
 # Our services must listen on the proxy-target ports, not the Caddy-owned ports.
@@ -178,14 +178,14 @@ COMFYUI_PORT="${COMFYUI_PORT:-18188}"
 
 # Clean up any existing processes on our ports (only if they're python/node processes)
 # This prevents accidentally killing VastAI infrastructure (Caddy on 3000/8000)
-echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
+echo "[$(date)] Checking for existing services on ports $BACKEND_PORT and $FRONTEND_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/supervisor.log
 pkill -f "uvicorn api.main:app" 2>/dev/null || true
 pkill -f "next-server" 2>/dev/null || true
 sleep 1
 
 # Start backend
-echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
-python -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/backend.log &
+echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/supervisor.log
+python -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/Ecosystem_WebUI/logs/backend.log &
 BACKEND_PID=$!
 
 # Give backend a moment to start
@@ -196,9 +196,9 @@ EOL
         cat >> /opt/supervisor-scripts/ktiseos-nyx.sh << 'EOL'
 
 # Start frontend (using custom server with WebSocket proxy)
-echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
+echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/supervisor.log
 cd frontend || exit 1
-PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log &
+PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/Ecosystem_WebUI/logs/frontend.log &
 FRONTEND_PID=$!
 EOL
     fi
@@ -219,12 +219,12 @@ source /venv/main/bin/activate 2>/dev/null || true
 
 COMFYUI_PORT="${COMFYUI_PORT:-18188}"
 
-if [ ! -d /workspace/Ktiseos-Nyx-Trainer/ComfyUI ]; then
+if [ ! -d /workspace/Ecosystem_WebUI/ComfyUI ]; then
     echo "[$(date)] ComfyUI not installed — exiting."
     exit 0
 fi
 
-cd /workspace/Ktiseos-Nyx-Trainer
+cd /workspace/Ecosystem_WebUI
 echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..."
 exec python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header
 EOL
@@ -234,26 +234,26 @@ EOL
     cat > /etc/supervisor/conf.d/ktiseos-nyx.conf << 'EOL'
 [program:ktiseos-nyx]
 command=/opt/supervisor-scripts/ktiseos-nyx.sh
-directory=/workspace/Ktiseos-Nyx-Trainer
+directory=/workspace/Ecosystem_WebUI
 autostart=true
 autorestart=true
 startsecs=10
 stopasgroup=true
 killasgroup=true
-stdout_logfile=/workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log
+stdout_logfile=/workspace/Ecosystem_WebUI/logs/supervisor.log
 redirect_stderr=true
 stdout_logfile_maxbytes=50MB
 stdout_logfile_backups=3
 
 [program:comfyui]
 command=/opt/supervisor-scripts/comfyui.sh
-directory=/workspace/Ktiseos-Nyx-Trainer
+directory=/workspace/Ecosystem_WebUI
 autostart=true
 autorestart=true
 startsecs=30
 stopasgroup=true
 killasgroup=true
-stdout_logfile=/workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log
+stdout_logfile=/workspace/Ecosystem_WebUI/logs/comfyui.log
 redirect_stderr=true
 stdout_logfile_maxbytes=50MB
 stdout_logfile_backups=3
@@ -302,10 +302,10 @@ EOL
     echo "   - Supervisor will automatically restart services if they crash"
     echo ""
     echo "📋 Service logs:"
-    echo "   - Backend:    /workspace/Ktiseos-Nyx-Trainer/logs/backend.log"
-    echo "   - Frontend:   /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log"
-    echo "   - ComfyUI:    /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log"
-    echo "   - Supervisor: /workspace/Ktiseos-Nyx-Trainer/logs/supervisor.log"
+    echo "   - Backend:    /workspace/Ecosystem_WebUI/logs/backend.log"
+    echo "   - Frontend:   /workspace/Ecosystem_WebUI/logs/frontend.log"
+    echo "   - ComfyUI:    /workspace/Ecosystem_WebUI/logs/comfyui.log"
+    echo "   - Supervisor: /workspace/Ecosystem_WebUI/logs/supervisor.log"
     echo ""
     echo "🔧 Manual service control:"
     echo "   - Restart:  supervisorctl restart ktiseos-nyx"

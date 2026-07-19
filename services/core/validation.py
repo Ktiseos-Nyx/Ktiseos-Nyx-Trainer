@@ -53,7 +53,7 @@ def validate_dataset_path(dataset_name: str) -> Path:
             # str.startswith fails on Windows when drive letter casing differs
             # (e.g. "i:\" vs "I:\"), causing the check to fall through and strip
             # all backslashes from the Windows path — producing garbage like
-            # "IKtiseos-Nyx-TrainerdatasetsBlueBra" that obviously doesn't exist.
+            # "IEcosystemdatasetsBlueBra" that obviously doesn't exist.
             if resolved == datasets_resolved or resolved.is_relative_to(datasets_resolved):
                 return resolved
         except (ValueError, OSError):

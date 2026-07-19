@@ -1,11 +1,11 @@
 #!/bin/bash
 # Pull latest dev changes and restart all services.
 # Run on the VastAI instance:
-#   bash /workspace/Ktiseos-Nyx-Trainer/scripts/fetch_and_restart.sh
+#   bash /workspace/Ecosystem_WebUI/scripts/fetch_and_restart.sh
 
 set -e
 
-cd /workspace/Ktiseos-Nyx-Trainer
+cd /workspace/Ecosystem_WebUI
 
 echo "🔄 Pulling latest dev changes..."
 git pull origin dev

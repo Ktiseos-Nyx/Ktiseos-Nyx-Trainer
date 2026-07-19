@@ -1,5 +1,5 @@
 @echo off
-title Ktiseos-Nyx-Trainer Local Services
+title Ecosystem Local Services
 
 REM ======================================================================
 REM This script STARTS the services. It assumes the one-time installer
@@ -70,7 +70,7 @@ if "!FRONTEND_PORT!"=="!BACKEND_PORT!" (
 )
 
 echo ==========================================
-echo Starting Ktiseos-Nyx-Trainer Services...
+echo Starting Ecosystem Services...
 echo ==========================================
 echo.
 
@@ -120,7 +120,7 @@ if errorlevel 1 (
     echo           - The folder is on a read-only network drive
     echo.
     echo         Fix: Move the project to a folder you own, like:
-    echo              C:\Users\%USERNAME%\Projects\Ktiseos-Nyx-Trainer
+    echo              C:\Users\%USERNAME%\Projects\Ecosystem
     echo.
     echo         DO NOT install to C:\ root, Program Files, or Windows folders.
     echo.

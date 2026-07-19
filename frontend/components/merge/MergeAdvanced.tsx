@@ -184,7 +184,7 @@ export function MergeAdvancedTab() {
         rebasin: rebasin > 0 ? rebasin : undefined,
         fine: finetuneKeys || undefined,
         seed: seed ? parseInt(seed) : undefined,
-        memo: `Merged via Ktiseos-Nyx-Trainer | mode: ${mode} | ${new Date().toISOString()}`,
+        memo: `Merged via Ecosystem | mode: ${mode} | ${new Date().toISOString()}`,
       };
 
       const res = await utilitiesAPI.mergeCheckpointAdvanced(request);

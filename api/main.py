@@ -109,7 +109,7 @@ logger.info("🖥️  Platform: %s", sys.platform)
 
 # Create FastAPI app
 app = FastAPI(
-    title="Ktiseos-Nyx-Trainer API",
+    title="Ecosystem API",
     description="LoRA training API with real-time progress tracking",
     version="0.1.0",
     docs_url="/docs",
@@ -171,7 +171,7 @@ app.include_router(websocket.router, tags=["WebSocket"])
 @app.get("/")
 async def root():
     """Root endpoint - API status check"""
-    return {"name": "Ktiseos-Nyx-Trainer API", "version": "0.1.0", "status": "running", "docs": "/docs"}
+    return {"name": "Ecosystem API", "version": "0.1.0", "status": "running", "docs": "/docs"}
 
 
 @app.get("/api/health")

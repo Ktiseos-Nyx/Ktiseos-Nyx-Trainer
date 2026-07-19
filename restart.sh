@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quick Restart Script for Ktiseos-Nyx-Trainer
+# Quick Restart Script for Ecosystem
 # Skips dependency installation for fast restarts
 
 set -e

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ktiseos-Nyx-Trainer - Frontend (Next.js) Installer
+Ecosystem - Frontend (Next.js) Installer
 
 Handles Node.js version validation + auto-upgrade, npm install, and production
 build. Designed for cloud GPU environments (RunPod, VastAI) where the base
@@ -439,7 +439,7 @@ class FrontendInstaller:
 
     def run(self) -> bool:
         print("=" * 60)
-        print("  Ktiseos-Nyx-Trainer — Frontend Setup")
+        print("  Ecosystem — Frontend Setup")
         print("=" * 60)
 
         if not self.frontend_dir.exists():
@@ -475,7 +475,7 @@ class FrontendInstaller:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Ktiseos-Nyx-Trainer — Frontend installer for cloud GPU environments",
+        description="Ecosystem — Frontend installer for cloud GPU environments",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

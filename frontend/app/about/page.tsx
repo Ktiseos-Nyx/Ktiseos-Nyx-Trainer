@@ -192,7 +192,7 @@ export default function AboutPage() {
               </div>
               <div>
                 <a
-                  href="https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/"
+                  href="https://github.com/UselessToys/Ecosystem_WebUI/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"

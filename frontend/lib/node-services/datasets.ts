@@ -16,7 +16,7 @@ export function getDatasetsDir(): string | null {
   const projectRoot = path.resolve(/*turbopackIgnore: true*/ process.cwd(), '..');
   const candidates = [
     process.env.DATASETS_DIR,
-    '/workspace/Ktiseos-Nyx-Trainer/datasets',
+    '/workspace/Ecosystem_WebUI/datasets',
     path.join(/*turbopackIgnore: true*/ process.cwd(), 'datasets'),
     path.join(projectRoot, 'datasets'),
     // Also check singular 'dataset/' for backwards compatibility

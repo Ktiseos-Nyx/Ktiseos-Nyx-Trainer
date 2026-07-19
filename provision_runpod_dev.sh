@@ -1,5 +1,5 @@
 #!/bin/bash
-# RunPod Provisioning Script — Ktiseos-Nyx-Trainer DEV BRANCH
+# RunPod Provisioning Script — Ecosystem DEV BRANCH
 #
 # ⚠️  BETA TESTERS ONLY — pulls from the dev branch, not main.
 #     Expect rough edges, breaking changes, and more frequent updates.
@@ -9,14 +9,14 @@
 #   HTTP Ports: 8888, 6006, 3000, 8000
 #   TCP Ports: 22
 #   Docker Command:
-#     bash -c "/start.sh & sleep 5 && cd /workspace && git clone --branch dev https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git 2>/dev/null; cd /workspace/Ktiseos-Nyx-Trainer && git checkout dev && git pull origin dev && bash provision_runpod_dev.sh"
+#     bash -c "/start.sh & sleep 5 && cd /workspace && git clone --branch dev https://github.com/UselessToys/Ecosystem_WebUI.git 2>/dev/null; cd /workspace/Ecosystem_WebUI && git checkout dev && git pull origin dev && bash provision_runpod_dev.sh"
 #   Volume Mount Path: /workspace
 #
 # Manual usage:
-#   cd /workspace && git clone --branch dev https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git && cd Ktiseos-Nyx-Trainer && bash provision_runpod_dev.sh
+#   cd /workspace && git clone --branch dev https://github.com/UselessToys/Ecosystem_WebUI.git && cd Ecosystem_WebUI && bash provision_runpod_dev.sh
 #
 # On subsequent restarts:
-#   cd /workspace/Ktiseos-Nyx-Trainer && git checkout dev && git pull origin dev && bash provision_runpod_dev.sh
+#   cd /workspace/Ecosystem_WebUI && git checkout dev && git pull origin dev && bash provision_runpod_dev.sh
 #
 # Access URLs (once running):
 #   Frontend: https://{POD_ID}-3000.proxy.runpod.net
@@ -27,7 +27,7 @@
 
 provisioning_start() {
     echo "=========================================="
-    echo "  Ktiseos-Nyx-Trainer DEV Setup (RunPod)"
+    echo "  Ecosystem DEV Setup (RunPod)"
     echo "  ⚠️  BETA — pulling from 'dev' branch"
     echo "=========================================="
 
@@ -65,10 +65,10 @@ provisioning_start() {
     export GIT_CONFIG_GLOBAL=/tmp/temporary-git-config
     git config --file $GIT_CONFIG_GLOBAL --add safe.directory '*'
 
-    if [ -d "/workspace/Ktiseos-Nyx-Trainer" ]; then
+    if [ -d "/workspace/Ecosystem_WebUI" ]; then
         echo "  Repository exists in /workspace, pulling latest dev changes..."
         # shellcheck disable=SC2164
-        cd /workspace/Ktiseos-Nyx-Trainer
+        cd /workspace/Ecosystem_WebUI
         git config --file $GIT_CONFIG_GLOBAL --add safe.directory "$(pwd)"
         git fetch origin dev 2>&1
         PULL_OUTPUT=$(git checkout dev && git pull origin dev 2>&1)
@@ -83,9 +83,9 @@ provisioning_start() {
         echo "  Cloning repository (dev branch)..."
         # shellcheck disable=SC2164
         cd /workspace
-        git clone --branch dev https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
+        git clone --branch dev https://github.com/UselessToys/Ecosystem_WebUI.git
         # shellcheck disable=SC2164
-        cd Ktiseos-Nyx-Trainer
+        cd Ecosystem_WebUI
     fi
 
     echo "  Branch: $(git branch --show-current)"
@@ -135,7 +135,7 @@ provisioning_start() {
     # shellcheck disable=SC2046
     git config --global --add safe.directory $(pwd)
 
-    mkdir -p /workspace/Ktiseos-Nyx-Trainer/logs
+    mkdir -p /workspace/Ecosystem_WebUI/logs
 
     BACKEND_PORT="${BACKEND_PORT:-8000}"
     FRONTEND_PORT="${FRONTEND_PORT:-3000}"
@@ -152,16 +152,16 @@ provisioning_start() {
     echo "   Frontend: port $FRONTEND_PORT"
     echo ""
 
-    echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/backend.log
-    $PYTHON_CMD -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/backend.log &
+    echo "[$(date)] Starting FastAPI backend on port $BACKEND_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/backend.log
+    $PYTHON_CMD -m uvicorn api.main:app --host 0.0.0.0 --port "$BACKEND_PORT" 2>&1 | tee -a /workspace/Ecosystem_WebUI/logs/backend.log &
     BACKEND_PID=$!
 
     sleep 2
 
     if [ -d "frontend/.next" ] && [ "$SKIP_FRONTEND" != true ]; then
-        echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log
+        echo "[$(date)] Starting Next.js frontend on port $FRONTEND_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/frontend.log
         cd frontend || exit 1
-        PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log &
+        PORT=$FRONTEND_PORT BACKEND_PORT=$BACKEND_PORT COMFYUI_PORT=$COMFYUI_PORT NODE_ENV=production node server.js 2>&1 | tee -a /workspace/Ecosystem_WebUI/logs/frontend.log &
         FRONTEND_PID=$!
         cd ..
     else
@@ -171,8 +171,8 @@ provisioning_start() {
     # Start ComfyUI (installed by installer.py unless --no-comfyui).
     # Accessed through the frontend proxy via COMFYUI_PORT, not a separate RunPod port.
     if [ -d "ComfyUI" ]; then
-        echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..." | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log
-        $PYTHON_CMD ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header 2>&1 | tee -a /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log &
+        echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..." | tee -a /workspace/Ecosystem_WebUI/logs/comfyui.log
+        $PYTHON_CMD ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header 2>&1 | tee -a /workspace/Ecosystem_WebUI/logs/comfyui.log &
         COMFYUI_PID=$!
     else
         echo "  ComfyUI not installed - skipping"
@@ -194,21 +194,21 @@ provisioning_start() {
     fi
     echo ""
     echo "  Service logs:"
-    echo "   Backend:  /workspace/Ktiseos-Nyx-Trainer/logs/backend.log"
-    echo "   Frontend: /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log"
-    echo "   ComfyUI:  /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log"
+    echo "   Backend:  /workspace/Ecosystem_WebUI/logs/backend.log"
+    echo "   Frontend: /workspace/Ecosystem_WebUI/logs/frontend.log"
+    echo "   ComfyUI:  /workspace/Ecosystem_WebUI/logs/comfyui.log"
     echo ""
     echo "  NOTE: RunPod HTTP proxy has a 100-second timeout."
     echo "  Long-running requests (training) use async job polling, so this is fine."
     echo ""
     echo "  🔄 Pull latest dev changes:"
-    echo "   cd /workspace/Ktiseos-Nyx-Trainer && git pull origin dev"
+    echo "   cd /workspace/Ecosystem_WebUI && git pull origin dev"
     echo "   python install_frontend.py --force && bash provision_runpod_dev.sh"
     echo ""
 
     wait $BACKEND_PID $FRONTEND_PID ${COMFYUI_PID:+$COMFYUI_PID} 2>/dev/null
     echo "[$(date)] Services exited - tailing logs to keep container alive..."
-    tail -f /workspace/Ktiseos-Nyx-Trainer/logs/backend.log /workspace/Ktiseos-Nyx-Trainer/logs/frontend.log /workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log 2>/dev/null &
+    tail -f /workspace/Ecosystem_WebUI/logs/backend.log /workspace/Ecosystem_WebUI/logs/frontend.log /workspace/Ecosystem_WebUI/logs/comfyui.log 2>/dev/null &
     wait
 }
 

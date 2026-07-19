@@ -1,12 +1,12 @@
 #!/bin/bash
 # One-shot script to add ComfyUI as its own supervisor program.
 # Run on the VastAI instance:
-#   bash /workspace/Ktiseos-Nyx-Trainer/scripts/setup_comfyui_supervisor.sh
+#   bash /workspace/Ecosystem_WebUI/scripts/setup_comfyui_supervisor.sh
 
 set -e
 
 mkdir -p /opt/supervisor-scripts
-mkdir -p /workspace/Ktiseos-Nyx-Trainer/logs
+mkdir -p /workspace/Ecosystem_WebUI/logs
 
 cat > /opt/supervisor-scripts/comfyui.sh << 'EOF'
 #!/bin/bash
@@ -14,12 +14,12 @@ source /venv/main/bin/activate 2>/dev/null || true
 
 COMFYUI_PORT="${COMFYUI_PORT:-18188}"
 
-if [ ! -d /workspace/Ktiseos-Nyx-Trainer/ComfyUI ]; then
+if [ ! -d /workspace/Ecosystem_WebUI/ComfyUI ]; then
     echo "[$(date)] ComfyUI not installed — exiting."
     exit 0
 fi
 
-cd /workspace/Ktiseos-Nyx-Trainer
+cd /workspace/Ecosystem_WebUI
 echo "[$(date)] Starting ComfyUI on port $COMFYUI_PORT..."
 exec python ComfyUI/main.py --port "$COMFYUI_PORT" --listen 0.0.0.0 --enable-cors-header
 EOF
@@ -33,13 +33,13 @@ if ! grep -q '\[program:comfyui\]' /etc/supervisor/conf.d/ktiseos-nyx.conf 2>/de
 
 [program:comfyui]
 command=/opt/supervisor-scripts/comfyui.sh
-directory=/workspace/Ktiseos-Nyx-Trainer
+directory=/workspace/Ecosystem_WebUI
 autostart=true
 autorestart=true
 startsecs=30
 stopasgroup=true
 killasgroup=true
-stdout_logfile=/workspace/Ktiseos-Nyx-Trainer/logs/comfyui.log
+stdout_logfile=/workspace/Ecosystem_WebUI/logs/comfyui.log
 redirect_stderr=true
 stdout_logfile_maxbytes=50MB
 stdout_logfile_backups=3

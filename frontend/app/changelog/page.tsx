@@ -428,7 +428,7 @@ export default function ChangelogPage() {
                 Changelog
               </h1>
               <p className="text-xl text-muted-foreground mt-2">
-                Track changes and updates to Ktiseos-Nyx-Trainer
+                Track changes and updates to Ecosystem
               </p>
             </div>
           </div>
@@ -457,7 +457,7 @@ export default function ChangelogPage() {
 
                   {entry.commitHash && (
                     <a
-                      href={`https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/commit/${entry.commitHash}`}
+                      href={`https://github.com/UselessToys/Ecosystem_WebUI/commit/${entry.commitHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
@@ -510,7 +510,7 @@ export default function ChangelogPage() {
                 <strong className="text-foreground">Note:</strong> This changelog tracks major updates and features.
                 For complete commit history, see the{' '}
                 <a
-                  href="https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/commits/main"
+                  href="https://github.com/UselessToys/Ecosystem_WebUI/commits/main"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-cyan-400 hover:text-cyan-300 transition-colors"

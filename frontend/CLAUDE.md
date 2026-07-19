@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Context
 
-This is the **frontend** subdirectory of the Ktiseos-Nyx-Trainer project. The parent repository is a **web-based LoRA training environment** with a FastAPI backend. This frontend provides a modern Next.js web interface for training LoRA models.
+This is the **frontend** subdirectory of the Ecosystem project. The parent repository is a **web-based LoRA training environment** with a FastAPI backend. This frontend provides a modern Next.js web interface for training LoRA models.
 
 **Architecture**: Next.js 16 (frontend) → FastAPI (backend) → Services (business logic) → Kohya SS (training)
 
@@ -324,7 +324,7 @@ Uses new Tailwind v4 with PostCSS plugin:
 ## Project Structure
 
 ```
-Ktiseos-Nyx-Trainer/           # Parent (Full web application)
+Ecosystem/           # Parent (Full web application)
 ├── frontend/                   # THIS DIRECTORY (Next.js)
 │   ├── app/                   # Next.js routes
 │   ├── components/            # React components

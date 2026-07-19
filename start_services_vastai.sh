@@ -1,11 +1,11 @@
 #!/bin/bash
-# Service Startup Script for Ktiseos-Nyx-Trainer (Vast.ai / Cloud Deployment)
+# Service Startup Script for Ecosystem (Vast.ai / Cloud Deployment)
 # This script starts both the FastAPI backend and Next.js frontend, binding to 0.0.0.0
 
 # Note: no set -e — frontend build failures must not abort backend startup
 
 echo "=========================================="
-echo "🚀 Starting Ktiseos-Nyx-Trainer Services (Vast.ai/Cloud)..."
+echo "🚀 Starting Ecosystem Services (Vast.ai/Cloud)..."
 echo "=========================================="
 
 # --------------------------------------------------------------------

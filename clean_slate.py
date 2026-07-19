@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Clean Slate Reset Script for Ktiseos-Nyx-Trainer
+Clean Slate Reset Script for Ecosystem
 
 Deletes build artifacts, virtual environments, and dependencies
 to allow a fresh reinstall. SAFE: Preserves user data by default.
@@ -130,7 +130,7 @@ def collect_paths(project_root: Path, nuclear: bool) -> list[Path]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Clean Slate Reset for Ktiseos-Nyx-Trainer"
+        description="Clean Slate Reset for Ecosystem"
     )
     parser.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation prompts"

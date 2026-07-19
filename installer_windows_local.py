@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ktiseos-Nyx-Trainer - Local Windows Dependency Installer
+Ecosystem - Local Windows Dependency Installer
 Installs training dependencies for local Windows users.
 Automatically installs PyTorch with CUDA 12.1 support (detects and replaces CPU-only versions).
 
@@ -33,7 +33,7 @@ if sys.platform == "win32":
 
 
 class LocalWindowsInstaller:
-    """Local Windows Installer for Ktiseos-Nyx-Trainer Backend + Frontend Dependencies"""
+    """Local Windows Installer for Ecosystem Backend + Frontend Dependencies"""
 
     def __init__(self, verbose=False, skip_install=False, force=False, skip_comfyui=False):
         """Initialize the local Windows installer.
@@ -88,7 +88,7 @@ class LocalWindowsInstaller:
     def print_banner(self):
         banner_lines = [
             "=" * 70,
-            "Ktiseos-Nyx-Trainer - Local Windows Installer",
+            "Ecosystem - Local Windows Installer",
             "   Installing training backend (Kohya SS, LyCORIS, ONNX)",
             "=" * 70,
             f"Python: {self.python_cmd}",
@@ -971,7 +971,7 @@ class LocalWindowsInstaller:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Ktiseos-Nyx-Trainer - Local Windows Dependency Installer",
+        description="Ecosystem - Local Windows Dependency Installer",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

@@ -34,7 +34,7 @@ class HuggingFaceUploadRequest(BaseModel):
     file_paths: list[str] = Field(..., min_length=1, description="List of local file paths to upload")
     remote_folder: str = Field("", description="Remote folder path within the repo")
     commit_message: str = Field(
-        "Upload via Ktiseos-Nyx-Trainer",
+        "Upload via Ecosystem",
         description="Git commit message"
     )
     create_pr: bool = Field(False, description="Create a pull request instead of direct commit")

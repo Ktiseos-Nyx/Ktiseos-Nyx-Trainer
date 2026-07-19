@@ -62,15 +62,15 @@ While baseline VRAM requirements can be high, the community has figured out plen
 
 **Windows:**
 ```bat
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
+git clone https://github.com/UselessToys/Ecosystem_WebUI.git
+cd Ecosystem_WebUI
 install.bat
 ```
 
 **Linux:**
 ```bash
-git clone https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer.git
-cd Ktiseos-Nyx-Trainer
+git clone https://github.com/UselessToys/Ecosystem_WebUI.git
+cd Ecosystem_WebUI
 ./install.sh
 ```
 
@@ -216,7 +216,7 @@ New tests go in `tests/`. Tests requiring a real GPU: mark with `@pytest.mark.sl
 
 ## Support
 
-- [GitHub Issues](https://github.com/Ktiseos-Nyx/Ktiseos-Nyx-Trainer/issues) — bug reports and feature requests
+- [GitHub Issues](https://github.com/UselessToys/Ecosystem_WebUI/issues) — bug reports and feature requests
 - [Discord](https://discord.gg/HhBSM9gBY) — community support
 
 When reporting a bug, include error messages, logs (`logs/app_YYYYMMDD.log`), and the output of:

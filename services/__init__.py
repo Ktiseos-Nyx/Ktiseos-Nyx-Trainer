@@ -1,5 +1,5 @@
 """
-Services layer for Ktiseos-Nyx-Trainer backend.
+Services layer for Ecosystem backend.
 
 Clean, modular service layer replacing old Jupyter managers.
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Fetch-Restart Script for Ktiseos-Nyx-Trainer
+# Fetch-Restart Script for Ecosystem
 # Full update: git pull + npm install + frontend build + service restart
 # Use restart.sh instead for a quick restart without pulling/rebuilding.
 

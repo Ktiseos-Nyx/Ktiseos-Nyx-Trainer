@@ -731,7 +731,7 @@ class HuggingFaceUploadRequest(BaseModel):
     repo_type: Literal["model", "dataset", "space"] = "model"
     selected_files: list[str]
     remote_folder: str = ""
-    commit_message: str = "Upload via Ktiseos-Nyx-Trainer"
+    commit_message: str = "Upload via Ecosystem"
     create_pr: bool = False
 
 
