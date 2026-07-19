@@ -16,7 +16,6 @@ A web interface built on Kohya SS. Prepare datasets, auto-tag, train across many
 
 ## Table of Contents
 
-- [Status](#status)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Starting the App](#starting-the-app)
