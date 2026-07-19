@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from functools import partial
 
-# KNX compat shim (keep on upstream sync): timm relocated these symbols in 0.9/1.0
+# Ecosystem compat shim (keep on upstream sync): timm relocated these symbols in 0.9/1.0
 # (timm.models.layers -> timm.layers; registry/helpers/hub -> private _* modules).
 # BLIP was written against the 0.6.x layout; try the modern path first, fall back to
 # the legacy one so captioning runs on whichever timm the environment resolved.

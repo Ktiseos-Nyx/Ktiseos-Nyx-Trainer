@@ -260,7 +260,7 @@ Both LoRA and Checkpoint merging are implemented:
 
 **🔴🔴 BUG MG-12 — EXTREMELY IMPORTANT (flagged 2026-06-24): Merge Checkpoints tab doesn't list ComfyUI checkpoints**
 - **Symptom:** Merge Checkpoints shows only `pretrained_model/` models, NOT the ComfyUI checkpoints — even though they exist on disk and the page throws no error.
-- **Established — DO NOT re-derive (Claude burned a session on wrong theories):** the ComfyUI checkpoints folder is HEALTHY. `ls -la {ComfyUI}/models/checkpoints/` showed a normal dir with 4 real checkpoints (`T3RR4KNXN30NSKRUNKLE_v05`, `naiComicsNAIXL_v10`, `ultraComix_v20`, `virtualDiffusion_v20`) + the `put_checkpoints_here` placeholder. **NOT a symlink, not missing, not a perms issue.** `/api/utilities/directories` returns JSON with no error. The "Jupyter can't open the folder" symptom is a SEPARATE Jupyter-sandbox quirk — IRRELEVANT (the merge tab uses the FastAPI backend, not Jupyter). The symlink / `is_dir()` / broken-FS / cwd theories were all WRONG.
+- **Established — DO NOT re-derive (Claude burned a session on wrong theories):** the ComfyUI checkpoints folder is HEALTHY. `ls -la {ComfyUI}/models/checkpoints/` showed a normal dir with 4 real checkpoints (`T3RR4EcosystemN30NSKRUNKLE_v05`, `naiComicsNAIXL_v10`, `ultraComix_v20`, `virtualDiffusion_v20`) + the `put_checkpoints_here` placeholder. **NOT a symlink, not missing, not a perms issue.** `/api/utilities/directories` returns JSON with no error. The "Jupyter can't open the folder" symptom is a SEPARATE Jupyter-sandbox quirk — IRRELEVANT (the merge tab uses the FastAPI backend, not Jupyter). The symlink / `is_dir()` / broken-FS / cwd theories were all WRONG.
 - **TWO facts needed to localize — GET THESE FIRST, do not theorize without them:**
   1. Does the `/api/utilities/directories` JSON contain a `comfyui_checkpoints` key (and what path)?
   2. Do the 4 checkpoints actually render in the Merge Checkpoints UI list?
@@ -932,7 +932,7 @@ When implementing Civitai-inspired features, add to `ATTRIBUTIONS.md`:
 
 **Doc reconciliation:** §1 Tag/Caption 100% done; WandB/LoggingCard done; Merging tool half-done; BD-1 not started; Reflow violations likely low-RAM environmental.
 
-**New ideas:** Post-training "Test in ComfyUI" button (deep-link, no copy); KNX-inspired save node for `software` PNG tag (fork LoraManager save logic).
+**New ideas:** Post-training "Test in ComfyUI" button (deep-link, no copy); Ecosystem-inspired save node for `software` PNG tag (fork LoraManager save logic).
 
 ### 2026-05-20 — Reflow Fixes + Log Stream Cutout + ComfyUI Planning
 
@@ -983,7 +983,7 @@ The goal is a healthy, interconnected set of tools running on the same VastAI/Ru
 
 **Priority:** ~~Beta+ (after core beta bugs closed)~~ — **superseded: it's BUILT.** No longer a future/post-beta item.  
 **Status:** ✅ **IMPLEMENTED & shipping (as of 2026-06-22).** Generate UI is live, bundled all-in-one: ANIMA + SDXL templates, model/VAE/LoRA dropdowns, LoRA Manager loader integration, 4-detailer Adetailer chains with per-detailer model pickers, UltimateSDUpscale. COMFY-1..4 shipped 2026-05-23; architecture finalised 2026-05-20. Now in **active Forge-ergonomic improvement** per the north star above — NOT "post-beta, not built." Remaining work is incremental (batchlinks §6.5, the selection rework) and tracked individually, not a release blocker.
-**Source:** v0-generated template, repo at `duskfallcrew/KNX-ComfyUI`, used as reference — not dropped in wholesale. Code lives in the main trainer repo.
+**Source:** v0-generated template, repo at `Ecosystem/Ecosystem-ComfyUI`, used as reference — not dropped in wholesale. Code lives in the main trainer repo.
 
 #### Shipping decision (2026-05-09)
 
@@ -1137,7 +1137,7 @@ The earlier "we do NOT auto-install nodes" position was conservative scope-trimm
 - `ComfyUI-Impact-Pack` — https://github.com/ltdrdata/ComfyUI-Impact-Pack (DetailerForEach, SAMLoader, ImpactSimpleDetectorSEGS, SEGSPreview)
 - `ComfyUI-Impact-Subpack` — https://github.com/ltdrdata/ComfyUI-Impact-Subpack (UltralyticsDetectorProvider)
 - `ComfyUI_UltimateSDUpscale` — https://github.com/ssitu/ComfyUI_UltimateSDUpscale (UltimateSDUpscale)
-- `comfyui_fearnworksnodes` — **KNX SDXL fork only**: `Checkpoint Loader (LoraManager)` node that loads MODEL+CLIP+VAE from a single checkpoint. Required by `sdxl-knx-v1.json`. Not needed for ANIMA template.
+- `comfyui_fearnworksnodes` — **Ecosystem SDXL fork only**: `Checkpoint Loader (LoraManager)` node that loads MODEL+CLIP+VAE from a single checkpoint. Required by `sdxl-knx-v1.json`. Not needed for ANIMA template.
 - `ComfyUI-Manager` — https://github.com/ltdrdata/ComfyUI-Manager (optional but useful so users can add extras themselves)
 
 **Provisioning script approach (preferred):** `vastai_setup.sh` / `provision_runpod.sh` / `install.bat` clone each repo into `ComfyUI/custom_nodes/` and `pip install -r requirements.txt` for each. No ComfyUI Manager dependency, no chicken-and-egg problem, deterministic.
@@ -1157,22 +1157,22 @@ Rejected: git submodule (extra complexity for no real benefit in this use case; 
 
 **COMFY-9: `knx-nodes` ComfyUI custom node package**
 
-A small package owned by KNX that ships alongside the bundled workflow templates. Auto-installed by provisioning scripts the same way as third-party nodes. Initial scope is two nodes:
+A small package owned by Ecosystem that ships alongside the bundled workflow templates. Auto-installed by provisioning scripts the same way as third-party nodes. Initial scope is two nodes:
 
-- **`KNXSaveImage`** — saves images with `Software: KNX Ecosystem` PNG metadata so downstream tools (Dataset-Tools, Discord bots, Civitai) tag the source correctly. Written from scratch using ComfyUI core's `SaveImage` pattern (MIT) — no fork. Optionally embeds a structured `knx_metadata` JSON chunk (template name, workflow version, KNX trainer build).
-- **`KNXMetadataReader`** — loads an image and extracts PNG text chunks as ComfyUI `STRING` outputs (positive prompt, negative prompt, seed, model, etc.). Lets users feed an existing image's prompt directly into `CLIPTextEncode` without re-tagging via WD14. Intentionally narrow — read chunks, return strings, no format-scoring heuristics. (Lesson from the vendored sdpr in Dataset-Tools-main: numpy scoring stacks become unmaintainable fast.)
+- **`EcosystemSaveImage`** — saves images with `Software: Ecosystem Ecosystem` PNG metadata so downstream tools (Dataset-Tools, Discord bots, Civitai) tag the source correctly. Written from scratch using ComfyUI core's `SaveImage` pattern (MIT) — no fork. Optionally embeds a structured `knx_metadata` JSON chunk (template name, workflow version, Ecosystem trainer build).
+- **`EcosystemMetadataReader`** — loads an image and extracts PNG text chunks as ComfyUI `STRING` outputs (positive prompt, negative prompt, seed, model, etc.). Lets users feed an existing image's prompt directly into `CLIPTextEncode` without re-tagging via WD14. Intentionally narrow — read chunks, return strings, no format-scoring heuristics. (Lesson from the vendored sdpr in Dataset-Tools-main: numpy scoring stacks become unmaintainable fast.)
 
 Package layout:
 ```text
 knx-nodes/
 ├── __init__.py          # NODE_CLASS_MAPPINGS + NODE_DISPLAY_NAME_MAPPINGS
-├── knx_save_image.py    # KNXSaveImage
-├── knx_metadata_reader.py  # KNXMetadataReader
+├── knx_save_image.py    # EcosystemSaveImage
+├── knx_metadata_reader.py  # EcosystemMetadataReader
 ├── requirements.txt
 └── README.md
 ```
 
-Lives in its own GitHub repo (`Ktiseos-Nyx/knx-nodes` or similar) so the provisioning loop clones it the same way it clones rgthree/Impact Pack. Growth path: any custom node KNX needs that doesn't exist upstream goes here.
+Lives in its own GitHub repo (`Ktiseos-Nyx/knx-nodes` or similar) so the provisioning loop clones it the same way it clones rgthree/Impact Pack. Growth path: any custom node Ecosystem needs that doesn't exist upstream goes here.
 
 **Future ideas (not blocking):** dataset folder save node, training reference metadata embedder, ArcEnCiel-aware Civitai uploader node.
 
@@ -1244,12 +1244,12 @@ With the in-app merge these become **same-app navigation** (Next router/`<Link>`
 - Ideally the Trainer can deep-link with `?folder=/path/to/dataset` so Dataset Tools opens to the right place
 - Check if Dataset Tools' settings API accepts a folder override via query param, or whether we need to add it
 
-**DT-5: "KNX Ecosystem" source tag (pairs with COMFY-9)**
+**DT-5: "Ecosystem Ecosystem" source tag (pairs with COMFY-9)**
 
-Today, images generated by the bundled ComfyUI workflows show up as `Automatic1111` in Dataset-Tools' viewer because the LoRA Manager save node writes a `parameters` PNG chunk in A1111 format, and detection at `lib/parseImageMetadata.ts:181` keys off that chunk. Once `KNXSaveImage` (COMFY-9) writes `Software: KNX Ecosystem`, Dataset-Tools needs a matching detection block:
+Today, images generated by the bundled ComfyUI workflows show up as `Automatic1111` in Dataset-Tools' viewer because the LoRA Manager save node writes a `parameters` PNG chunk in A1111 format, and detection at `lib/parseImageMetadata.ts:181` keys off that chunk. Once `EcosystemSaveImage` (COMFY-9) writes `Software: Ecosystem Ecosystem`, Dataset-Tools needs a matching detection block:
 
-- **Next.js viewer** (`lib/parseImageMetadata.ts`): add `'KNX Ecosystem'` to the `format` union type; add detection block `if (textChunks['Software'] === 'KNX Ecosystem')` before the A1111 check (mirroring the NovelAI pattern at line 172).
-- **Python CLI** (vendored sdpr at `dataset_tools/vendored_sdpr/format/`): add a `KNXFormat` class with `tool = "KNX Ecosystem"` and register it in `image_data_reader.py:PARSER_CLASSES_PNG` ahead of A1111.
+- **Next.js viewer** (`lib/parseImageMetadata.ts`): add `'Ecosystem Ecosystem'` to the `format` union type; add detection block `if (textChunks['Software'] === 'Ecosystem Ecosystem')` before the A1111 check (mirroring the NovelAI pattern at line 172).
+- **Python CLI** (vendored sdpr at `dataset_tools/vendored_sdpr/format/`): add a `EcosystemFormat` class with `tool = "Ecosystem Ecosystem"` and register it in `image_data_reader.py:PARSER_CLASSES_PNG` ahead of A1111.
 
 Tags both ends of the same ecosystem with one consistent name.
 
@@ -1311,14 +1311,14 @@ UltralyticsDetectorProvider (Anzhc eye -seg-) ── SEGM_DETECTOR ──▶ SEG
 | COMFY-5: "Test in ComfyUI" post-training button | Feature | Medium | ⏳ Not started |
 | COMFY-7: Auto-install required custom nodes (provisioning) | Infrastructure | Small | ✅ Done 2026-05-24 (fearnworksnodes URL still TODO) |
 | COMFY-8: ComfyUI submodule vs direct clone (decision) | Decision | n/a | ✅ Decided: direct clone everywhere |
-| COMFY-9: knx-nodes package (KNXSaveImage + KNXMetadataReader) | New Repo | Small | ⏳ Not started |
+| COMFY-9: knx-nodes package (EcosystemSaveImage + EcosystemMetadataReader) | New Repo | Small | ⏳ Not started |
 | COMFY-10: Model picker (useComfyModels + /models API + combobox UI) | UX | Small | ✅ Done 2026-05-24 |
 | COMFY-11: Model download to ComfyUI folder (from HuggingFace/Civitai) | Feature | Medium | ✅ Done 2026-05-24 |
 | COMFY-12: Auto-download Ultralytics bbox/segm models for Impact-Pack | Infrastructure | Tiny | ⏳ Not started |
 | COMFY-13: Gallery image popup — show + copy generation metadata (prompt/seed/sampler/settings) from the lightbox in `GenerateUI.tsx` | Feature | Small | ⏳ Not started |
 | COMFY-14: Full Adetailer control surface — 4 passes (face/eyes/hands/mouth) built+tested in `sdxl-knx-v13pt5.json`; expose per-pass on/off + bbox/segm model picker + settings in Generate UI (see §11.5) | Feature | Medium | 🔧 Workflow done, UI pending |
 | DT-1: Merge DT routes/components into the app (namespace API routes, dedupe `components/ui`, merge `next.config`) | Infrastructure | Medium | ⏳ Not started |
-| DT-5: KNX Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
+| DT-5: Ecosystem Ecosystem source tag detection (pairs with COMFY-9) | Integration | Tiny | ⏳ Not started |
 | DT-2: Navbar link to Dataset Tools | Integration | Tiny | ⏳ Not started |
 | DT-3: Handoff buttons (inspect LoRA, view reference, files) | Feature | Small | ⏳ Not started |
 | DT-4: Deep-link folder awareness | Enhancement | Small | ⏳ Not started |
@@ -1373,7 +1373,7 @@ The goal is NOT a ground-up redesign. The component architecture is good, shadcn
 
 | Current state | Target state |
 |--------------|--------------|
-| Muted blue/gray palette with no identity | A visual identity that's distinctly KNX |
+| Muted blue/gray palette with no identity | A visual identity that's distinctly Ecosystem |
 | Cards look identical regardless of importance | Visual hierarchy — primary workflow stands out |
 | Rainbow icon colors (`text-cyan-400`, `text-pink-400`) with no semantic meaning | Semantic color use — colors mean something |
 | Dense form fields stacked with minimal breathing room | Better spacing, section grouping, visual separation |
@@ -1387,7 +1387,7 @@ The goal is NOT a ground-up redesign. The component architecture is good, shadcn
 **A. Visual identity / color**
 - **Don't build a theme system — port one.** Dataset-Tools (`Ktiseos-Nyx/Dataset-Tools`) already has a complete, polished theme system: `ThemeCustomizer` (floating toolbar), `color-swatch-selector`, `theme-toggle`, `useThemeColor()` hook. Port these directly. See Dataset-Tools issue #196 "UI/UX Theory!" for context.
 - The system uses `data-theme-color` attribute on `documentElement` + CSS variables, with localStorage persistence. 7 accent colors (zinc, red, orange, green, blue, violet, pink). Pairs with `next-themes` for dark/light.
-- After porting: pick which accent color(s) to default to for KNX's visual identity. The site's meteor hero has character — the inner pages should match it.
+- After porting: pick which accent color(s) to default to for Ecosystem's visual identity. The site's meteor hero has character — the inner pages should match it.
 - Semantic colors: green = active/running, amber = warning/needs attention, red = error/stopped, blue = info. Don't use them decoratively.
 
 **B. Dashboard (already tracked as UI-2)**
@@ -1884,23 +1884,23 @@ App currently assumes NVIDIA/CUDA everywhere (local + VastAI + RunPod). Dusk wan
 ## Section 21 — Dataset-Tools Integration & Theme Picker *(captured 2026-07-03)*
 
 ### 21.1 Overview
-Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\Development\Dataset-Tools`) into Ecosystem. Dataset-Tools is a Next.js 16 app with OKLCH theming, AI image metadata parsing, and SafeTensors inspection — same tech stack as KNX (Next.js 16 + React 19 + shadcn/ui + Tailwind v4).
+Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\Development\Dataset-Tools`) into Ecosystem. Dataset-Tools is a Next.js 16 app with OKLCH theming, AI image metadata parsing, and SafeTensors inspection — same tech stack as Ecosystem (Next.js 16 + React 19 + shadcn/ui + Tailwind v4).
 
-**Cherry-pick, don't port the whole thing.** Dataset-Tools has its own API routes that conflict with KNX's FastAPI backend. Only port components and client-side logic.
+**Cherry-pick, don't port the whole thing.** Dataset-Tools has its own API routes that conflict with Ecosystem's FastAPI backend. Only port components and client-side logic.
 
 ### 21.2 Theme Picker with OKLCH Accent Colors
 
 **Priority:** Medium (Beta polish)
 **Status:** ⏳ Not started
 
-**What Dataset-Tools has that KNX lacks:**
+**What Dataset-Tools has that Ecosystem lacks:**
 - 7 accent colors: zinc (default), red, orange, green, blue, violet, pink
 - Each accent defines 8 CSS variables for light mode + 8 for dark mode (primary, accent, ring, sidebar variants) using OKLCH format
 - Applied via `[data-accent="red"]` attribute selectors on `<html>`
 - 6 customizer UI variants: Pill (floating), Bar, Sidebar, Dock, Corner, Toolbar
 - Settings persistence in localStorage with cross-tab sync via StorageEvent
 
-**What KNX currently has:**
+**What Ecosystem currently has:**
 - Dark/light/system toggle only (no accent colors)
 - Purple-tinted default palette (primary = `oklch(0.468 0.272 279.601)`)
 - Duplicate `:root`/`.dark` blocks in `globals.css` that need consolidation
@@ -1942,12 +1942,12 @@ Port high-value features from the standalone Dataset-Tools app (`C:\Users\dusk\D
 **Integration approach:**
 - Metadata parser can run as Next.js API routes (already Node.js, no FastAPI conversion needed)
 - SafeTensors viewer + ComfyUI node registry are client-side components
-- Would add new `/api/metadata` route alongside existing KNX API routes
+- Would add new `/api/metadata` route alongside existing Ecosystem API routes
 
 ### 21.4 Components NOT to Port
 
-- File tree, theme system base, settings management — already in KNX
-- Background/particle effects — KNX already has many
+- File tree, theme system base, settings management — already in Ecosystem
+- Background/particle effects — Ecosystem already has many
 - Glass notification — deferred (lower priority)
 - All Dataset-Tools API routes that do file system access — conflicts with FastAPI backend
 - `three.js` particles — heavy dep (~600KB) unless specifically wanted

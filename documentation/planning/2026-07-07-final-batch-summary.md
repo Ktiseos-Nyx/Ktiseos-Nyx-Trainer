@@ -7,7 +7,7 @@
 
 ## Tier 1: Directly Training-Relevant
 
-### AI Toolkit (ostris/ai-toolkit, forked to duskfallcrew/ai-toolkit)
+### AI Toolkit (ostris/ai-toolkit, forked to Ecosystem/ai-toolkit)
 
 The most popular community training toolkit for diffusion models. By Ostris.
 Web UI + CLI, YAML-configured. Fairly massive project.
@@ -15,7 +15,7 @@ Web UI + CLI, YAML-configured. Fairly massive project.
 | Aspect | Detail |
 |--------|--------|
 | Upstream | github.com/ostris/ai-toolkit (1248 commits) |
-| Fork | github.com/duskfallcrew/ai-toolkit |
+| Fork | github.com/Ecosystem/ai-toolkit |
 | License | MIT |
 | Models | FLUX.1/2, Flex.1/2, Chroma, Lumina2, Qwen-Image, HiDream, OmniGen2, Z-Image, SDXL, SD1.5, ERNIE-Image, Wan 2.1/2.2, LTX 2/2.3, Krea 2, ACE Step audio |
 | Methods | LoRA, LoKr, layer-specific training (only_if_contains / ignore_if_contains) |

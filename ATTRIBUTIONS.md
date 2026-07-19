@@ -119,7 +119,7 @@ The training tool optionally integrates **ComfyUI** for image generation. ComfyU
 - [ComfyUI_UltimateSDUpscale](https://github.com/ssitu/ComfyUI_UltimateSDUpscale) (ssitu) — GPL-3.0
 - [comfyui_fearnworksnodes](https://github.com/fearnworks/ComfyUI_FearnworksNodes) (fearnworks) — Apache-2.0
 
-Detection/segmentation models for the Impact-Pack adetailer nodes are pulled from `KtiseosNyx/KNX-Trainer-Models` on Hugging Face; see that repo for model provenance and licenses.
+Detection/segmentation models for the Impact-Pack adetailer nodes are pulled from `UselessToys/Ecosystem-Vae-Yolo-Models` on Hugging Face; see that repo for model provenance and licenses.
 
 ---
 

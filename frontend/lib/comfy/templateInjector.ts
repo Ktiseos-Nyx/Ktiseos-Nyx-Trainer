@@ -11,7 +11,7 @@
  *
  * Two bundled templates:
  *   - anima-guy90s-v10   — Guy90s's ANIMA workflow (AuraFlow, Qwen encoder)
- *   - sdxl-knx-v1        — KNX SDXL fork of the above (CheckpointLoader, NoobAI)
+ *   - sdxl-knx-v1        — Ecosystem SDXL fork of the above (CheckpointLoader, NoobAI)
  *
  * Both templates require the custom node stack from COMFY-7. If nodes are missing,
  * callers should fall back to the programmatic builders (buildAnimaWorkflow /
@@ -472,7 +472,7 @@ export function injectTemplate(
   // must do it ourselves, or a bypassed node reaches the backend ACTIVE and
   // fails prompt validation (e.g. Anima's Adetailer group, baked as mode:4).
   //
-  //   - Caller supplies an explicit list (the SDXL KNX toggle path) → use it
+  //   - Caller supplies an explicit list (the SDXL toggle path) → use it
   //     as-is; that path drives bypass at runtime and its nodes are mode:0.
   //   - No explicit list (e.g. the Anima path) → honor the template's own
   //     baked-in mode:4 (bypassed) nodes so optional groups aren't submitted

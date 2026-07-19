@@ -1,4 +1,4 @@
-# KNX Blocks Library
+# Ecosystem Blocks Library
 
 Reusable, composable UI blocks built on top of shadcn/ui and other component libraries.
 
@@ -61,7 +61,7 @@ Blocks support multiple themes via props. Add new themes by:
 ## Cross-Project Usage
 
 These blocks are designed to work across multiple projects:
-- **KNX LoRA Trainer** (this project)
+- **Ecosystem LoRA Trainer** (this project)
 - **EcoHub Social Platform** (green-earth theme)
 - **Dataset Tools Electron App** (desktop variants)
 

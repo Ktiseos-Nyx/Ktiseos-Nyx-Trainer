@@ -10,7 +10,7 @@
  *
  * Architecture modes:
  *   anima    — Guy90s ANIMA template (AuraFlow, Qwen encoder, full custom node stack)
- *   sdxl-knx — KNX SDXL fork template (Checkpoint Loader LoraManager + illustrious VAE)
+ *   sdxl-knx — Ecosystem SDXL fork template (Checkpoint Loader LoraManager + illustrious VAE)
  *
  * Both modes use the real workflow JSONs via templateInjector.
  * If required custom nodes are missing, the programmatic builders serve as fallback.
@@ -397,7 +397,7 @@ export function GenerateUI({
   const [clipName, setClipName] = useState('');
   const [animaVae, setAnimaVae] = useState('');
 
-  // ── SDXL KNX model fields
+  // ── SDXL model fields
   const [checkpointName, setCheckpointName] = useState('');
   const [sdxlVae, setSdxlVae] = useState('');
 
@@ -412,7 +412,7 @@ export function GenerateUI({
   const [batchSize, setBatchSize] = useState(1);
   const [queueCount, setQueueCount] = useState(1);
 
-  // ── Post-processing toggles (SDXL KNX only)
+  // ── Post-processing toggles (SDXL only)
   const [upscaleEnabled, setUpscaleEnabled] = useState(true);
   const [adetailerEnabled, setAdetailerEnabled] = useState(true);
   const [adetailerModel, setAdetailerModel] = useState(''); // face detector (node 77)
@@ -675,7 +675,7 @@ export function GenerateUI({
                 </div>
               )}
 
-              {/* Model — SDXL KNX */}
+              {/* Model — SDXL */}
               {templateMode === 'sdxl-knx' && (
                 <div className="space-y-3 rounded-lg border border-border/40 bg-muted/30 p-3">
                   <div className="flex items-center justify-between">
@@ -829,7 +829,7 @@ export function GenerateUI({
                 </div>
                 <FieldHint>Seed -1 = random each run · Queue runs = submit N jobs back-to-back</FieldHint>
               </div>
-              {/* Post-processing toggles (SDXL KNX only) */}
+              {/* Post-processing toggles (SDXL only) */}
               {templateMode === 'sdxl-knx' && (
                 <div className="space-y-2 rounded-lg border border-border/40 bg-muted/30 p-3">
                   <SectionLabel>Post-processing</SectionLabel>
